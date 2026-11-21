@@ -1,0 +1,32 @@
+{
+  "status": "FAIL",
+  "scope": "real stand admin two-step create; newQAproduct only; no existingdict/product changes",
+  "writes": [
+    {
+      "method": "POST",
+      "path": "/api/showcase",
+      "phase": "product"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/showcase/6b01ace40e09653a2321eb00/passport-template",
+      "phase": "identify"
+    },
+    {
+      "method": "POST",
+      "path": "/api/dicts/passportPhrases",
+      "phase": "root"
+    }
+  ],
+  "preferenceWrites": [],
+  "blocked": [],
+  "pageErrors": [],
+  "checks": [],
+  "existingCategoryTuple": {
+    "typeId": "6adafee92a8dad6034b14512",
+    "groupId": "6addd76fc93bb8ea2a6e3939",
+    "type": "Спортивное оборудование",
+    "group": "Тренажеры"
+  },
+  "failure": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText(/Шаг 2 из 2/) to be visible\u001b[22m\n"
+}

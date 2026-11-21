@@ -1,0 +1,14 @@
+{
+  "bytes": 687724,
+  "revision": 1,
+  "number": 622,
+  "capturedAt": "2026-11-21T14:35:06.9270655Z",
+  "passportId": "6b019aa41d59b131ce5056dd",
+  "sha256": "3fbbc331fc4b43988523a8a908d41fb1cb3ffd28186dc60c614af74cceb8b457",
+  "status": "issued",
+  "printSnapshotPresent": false,
+  "readOnly": true,
+  "localBinaryPath": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c179-622-original\\passport-622-revision-1.pdf",
+  "primaryBinaryPath": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\tools\\logs\\c179-622-original\\passport-622-revision-1.pdf",
+  "binaryExcludedFromGit": true
+}

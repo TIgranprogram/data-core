@@ -10,8 +10,7 @@ import { canon } from './passport-snapshot-refresh';
 import { isIssued, type Doc } from './passport-consts';
 import { ProductPassportService } from './product-passport.service';
 import { IMPORT_KINDS, PassportImportDto, type PassportImportConfirmedDto } from './dto/passport-import.dto';
-import { installKindOf } from './passport-variants';
-import { DEFAULT_INSTALL } from './passport-gaps';
+import { installationProfile } from './passport-variants';
 
 export interface PassportImportResult {
   status: 'applied' | 'unchanged'; updatedKinds: string[]; confirmedFields: string[];
@@ -28,9 +27,10 @@ const LIMIT = 500;
 export function importInstallationKind(document: Doc, installs: Doc[]): 'foundation' | 'mounting' {
   const defaults = (document.passportDefaults ?? {}) as Doc;
   const id = document.installationTypeId ?? defaults.installationTypeId;
-  const category = String(document.passportCategory ?? defaults.passportCategory ?? '');
-  const install = id ? installs.find(i => String(i._id) === String(id)) : installs.find(i => i.code === DEFAULT_INSTALL[category]);
-  return installKindOf(install) === 'anchor' ? 'mounting' : 'foundation';
+  const install = id ? installs.find(i => String(i._id) === String(id)) : undefined;
+  const plan = installationProfile(install);
+  if (!plan.thirdImportKind) throw new ConflictException('Выберите способ установки в карточке изделия перед отправкой из Inventor');
+  return plan.thirdImportKind;
 }
 
 /** Только одобренные числа; миллиметры паспорта совпадают с единицей изделия. */
@@ -129,7 +129,11 @@ export class PassportImportService {
           selected.set(kind, { photoId: keep ? old.photoId as Types.ObjectId : this.oid(input.photoId), sha });
         }
         result = { status: 'unchanged', updatedKinds: [], confirmedFields: [], issued: [], drafts: [], skipped: [], warnings: [] };
+        const productInstallId = current.product.installationTypeId ?? (current.product.passportDefaults as Doc | undefined)?.installationTypeId;
+        const productPlan = installationProfile(current.installs.find(i => String(i._id) === String(productInstallId)) as Doc | undefined);
         const numbers = importNumbers(dto.confirmed);
+        if (!productPlan.depthApplicable) delete numbers.product['passportDefaults.foundationDepth'];
+        if (dto.confirmed.foundationDepth !== undefined && !productPlan.depthApplicable) result.warnings.push('Глубина Г не применяется к выбранному способу установки и не изменена');
         const productSet: Doc = {};
         for (const [key, value] of Object.entries(numbers.product)) {
           const prev = key === 'passportDefaults.foundationDepth' ? (current.product.passportDefaults as Doc | undefined)?.foundationDepth : current.product[key];
@@ -177,7 +181,7 @@ export class PassportImportService {
           if (imageChanged) for (const old of own) {
             if (passportKinds.includes(String(old.kind)) || passportInstallationKind === 'mounting' && old.kind === 'foundation') await hash(old.photoId);
           }
-          for (const [key, value] of Object.entries(numbers.passport)) if (!same(passport[key], value)) patch[key] = value;
+          for (const [key, value] of Object.entries(numbers.passport)) if ((key !== 'foundationDepth' || installationProfile(current.installs.find(i => String(i._id) === String(passport.installationTypeId)) as Doc | undefined).depthApplicable) && !same(passport[key], value)) patch[key] = value;
           if (Object.keys(patch).length) changes.push({ current: passport, patch, line: line as PassportLine | undefined, order });
         }
         if (!changedLinks.length && !Object.keys(productSet).length && !changes.length) return;

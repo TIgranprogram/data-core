@@ -1,0 +1,38 @@
+{
+  "status": "FAIL",
+  "scope": "QA source template+draft path, NOT business issued622; real method UI/upload/ready",
+  "writes": [
+    {
+      "method": "PATCH",
+      "path": "/api/showcase/6b01a6da9e6b715a3ba5d6d2/passport-template",
+      "phase": "method"
+    }
+  ],
+  "blocked": [
+    {
+      "method": "POST",
+      "path": "/api/photos/upload"
+    },
+    {
+      "method": "POST",
+      "path": "/api/photos/upload"
+    },
+    {
+      "method": "POST",
+      "path": "/api/photos/upload"
+    },
+    {
+      "method": "POST",
+      "path": "/api/photos/upload"
+    }
+  ],
+  "pageErrors": [],
+  "checks": [
+    {
+      "methodChangedInUi": true,
+      "missingMounting": true,
+      "excludedFoundationHoles": true
+    }
+  ],
+  "failure": "page.waitForResponse: Timeout 30000ms exceeded while waiting for event \"response\""
+}

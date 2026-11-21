@@ -25,7 +25,7 @@ describe('C170 выбор вложенного паспорта', () => {
   const view=()=>sources().view(String(order),String(income));
   const select=async(extra:Record<string,unknown>={})=>{const v=await view();return sources().select(String(order),String(income),{mode:'attachment',expectedRevision:v.selection.revision,contextToken:v.contextToken,attachmentId:String(file),expectedAttachmentGeneration:0,confirm:true,...extra},actor);};
   beforeAll(async()=>{
-    if(!['datacore-test-c170','datacore-test-c172-release'].includes(process.env.MONGO_DB_TEST??''))throw new Error('C170 требует отдельный namespace datacore-test-c170');
+    if(!['datacore-test-c170','datacore-test-c172-release','datacore-test-c176-identification'].includes(process.env.MONGO_DB_TEST??''))throw new Error('C170 требует отдельный разрешённый test namespace');
     ctx=await createTestApp({strictValidation:true}); token=(await loginAsAdmin(ctx.app)).access;
     await http().post('/api/admin/users').set(authHeader(token)).send({username:'c170-reader',password:'c170-reader-password',role:'user'}).expect(201);
     reader=(await http().post('/api/auth/login').send({username:'c170-reader',password:'c170-reader-password'}).expect(200)).body.access;

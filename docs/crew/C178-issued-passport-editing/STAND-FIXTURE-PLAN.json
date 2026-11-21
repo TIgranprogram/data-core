@@ -1,0 +1,27 @@
+{
+ "status":"REVIEW_REQUIRED_NO_WRITES",
+ "contour":"owned stand localhost3102 only",
+ "path":"Independent passport entry, NOT order-linked. Order entry acceptance remains separate.",
+ "uniqueSearch":"QA-C178179-<UTC unique>",
+ "writeBudget":{"preparation":13,"liveC178Rename":1,"liveC179Mounting":4,"total":18},
+ "existing":{"groupId":"6addd76fc93bb8ea2a6e393e","group":"Благоустройство (оборудование невошедшее в другие группы)","type":"Оборудование для благоустройства территории","kindId":"6af6ca4a22a0611d2b3a4735","category":"BLG","installationLAID":"6af1cc81bde492a73d513db8","installationANCHORS":"6ada090c7536f8509feb4244","supplierOrgId":"6ad52bec863df73f344ea489"},
+ "preconditions":["GEThealthready, fresh GET6existingrecords/ourcompany existence. Check immutable owned stand before api.sh.","Fresh unique search returns0. New product IDs only; no existing493product modification.","Every symbolic ID must come from real API receipt and GET. Stop partial; no blind retry.","Three PNG are openly marked QA synthetic test images, generated locally with PyMuPDF/Arial; not physical drawing evidence."],
+ "preparation":[
+  {"count":2,"symbol":"product.rename/product.mount","method":"POST","path":"/api/showcase","body":{"sku":"QA-C178179-<unique>-<rename|mount>","name":"QA-C178179-<unique> <rename|mount>","type":"Оборудование для благоустройства территории","group":"Благоустройство (оборудование невошедшее в другие группы)","dimensions":{"length":1000,"width":500,"height":800,"unit":"мм"},"weightKg":10,"status":"draft"}},
+  {"count":2,"method":"PATCH","path":"/api/showcase/<newProductId>/passport-template?variant=short","body":{"changes":{"passportCategory":"BLG","kindId":"6af6ca4a22a0611d2b3a4735","installationTypeId":"6af1cc81bde492a73d513db8","simpleDescription":{"mode":"manual","text":"Тестовое изделие QA для проверки редактора и способа установки, не для эксплуатации.","partIds":[]},"warrantyMonths":12,"serviceLifeYears":10},"expected":{"passportCategory":null,"kindId":null,"installationTypeId":null,"simpleDescription":null,"warrantyMonths":null,"serviceLifeYears":null}}},
+  {"count":2,"symbol":"photo.overview/photo.dimensions","method":"POST","path":"/api/photos/upload","multipart":{"file":"<local synthetic overview.png / dimensions.png>"}},
+  {"count":4,"method":"POST","path":"/api/products/<newProductId>/photos","body":{"photoId":"<photo.overview|photo.dimensions>","purpose":"passport","kind":"<overview|dimensions>","sortOrder":0}},
+  {"count":2,"symbol":"passport.rename/passport.mount","method":"POST","path":"/api/passports","body":{"productId":"<newProductId>","supplierOrgId":"6ad52bec863df73f344ea489","presentationVersion":1,"variant":"short","name":"<matching QA fixture name>"}},
+  {"count":1,"method":"POST","path":"/api/passports/<passport.rename>/issue","body":{"presentationVersion":1,"variant":"short"},"guard":"Only if fresh template+instance readiness.ready=true. No extra fields invented to bypass missing; stop for review otherwise."}
+ ],
+ "liveC178":{"method":"PATCH","path":"/api/passports/<passport.rename>","body":{"name":"QA-C178179-<unique> после переименования"},"steps":["Read issued ID/number/revision/name/images/print projection baseline.","Real browser: independent passport→visible Изменить название→save→close/reopen/reload.","Exactly same ID/number/status issued; revision+1; old name retained in history; unrelated bindings/images unchanged.","GETnew PDF with readOnly=1, local PyMuPDF extract verifies new name. History metadata oldname, oldrevision proof; no second issue, no reprint mark."]},
+ "liveC179":[
+  {"method":"PATCH","path":"/api/showcase/<product.mount>/passport-template?variant=short","body":{"changes":{"installationTypeId":"6ada090c7536f8509feb4244"},"expected":{"installationTypeId":"6af1cc81bde492a73d513db8"}},"expect":"Explicit ANCHORS plan required mounting only; missing mounting; foundation/holes excluded."},
+  {"method":"POST","path":"/api/photos/upload","multipart":{"file":"<local QA mounting.png>"}},
+  {"method":"POST","path":"/api/products/<product.mount>/photos","body":{"photoId":"<new mounting receipt ID>","purpose":"passport","kind":"mounting","sortOrder":2}},
+  {"method":"PATCH","path":"/api/passports/<passport.mount>","body":{"installationTypeId":"6ada090c7536f8509feb4244"},"note":"Only if draft still needs explicit sync; no issue. This fourth reserved write is omitted if ordinary GETdraft already synced fromproduct."}
+ ],
+ "liveC179Acceptance":["Real UI choose method→missing specific mounting→upload third image→ready, verify canonical installationPlan code ANCHORS/requiredKinds mounting/allowedKinds excludes foundation+holes.","Book+readiness+GETPDFreadOnly same montage; no бетон/ямы instructions. Files/projections are clearly QA fixtures.","No deletes or existing product/passport writes. Retain fixtures as evidence."],
+ "scripts":"BROWSER scripts must be reviewed separately before run; stdin session only; sameorigin3102, bounded exact newfixture IDs/write allowlist, external/prodblocked.",
+ "writesExecuted":false
+}

@@ -512,8 +512,8 @@ export class ProductPassportController {
   @Patch('passports/:id/snapshot-item')
   @Roles(...WORK)
   @AuditAction({ action: 'passport.updated', entityType: 'ProductPassport', idParam: 'id', details: () => ({ meta: { snapshotItem: true } }) })
-  editSnapshotItem(@Param('id') id: string, @Body() b: { sectionKey?: string; itemKey?: string; text?: string }) {
-    return this.service.editSnapshotItem(id, b ?? {});
+  editSnapshotItem(@Param('id') id: string, @Body() b: { sectionKey?: string; itemKey?: string; text?: string }, @CurrentUser() user?: AuthenticatedUser) {
+    return this.service.editSnapshotItem(id, b ?? {}, user?.id);
   }
 
   /** v2: перенести текст пункта из этого паспорта в версию шаблона его категории { sectionKey, itemKey }. */
@@ -529,8 +529,8 @@ export class ProductPassportController {
   @Patch('passports/:id/snapshot-field')
   @Roles(...WORK)
   @AuditAction({ action: 'passport.updated', entityType: 'ProductPassport', idParam: 'id', details: () => ({ meta: { snapshotField: true } }) })
-  editSnapshotField(@Param('id') id: string, @Body() b: { field?: string; index?: number; text?: string; part?: string; remove?: boolean }) {
-    return this.service.editSnapshotField(id, b ?? {});
+  editSnapshotField(@Param('id') id: string, @Body() b: { field?: string; index?: number; text?: string; part?: string; remove?: boolean }, @CurrentUser() user?: AuthenticatedUser) {
+    return this.service.editSnapshotField(id, b ?? {}, user?.id);
   }
 
   /** C132: «Сохранить в справочнике» — записать текст строки в её источник { field, index?, text? }; ответ { target, affected, shared }. Выданные паспорта не меняются. */

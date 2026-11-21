@@ -1,0 +1,86 @@
+{
+  "product": {
+    "id": "6adaff342a8dad6034b1458f",
+    "textOverrides": null,
+    "installationTypeId": "6ada090c7536f8509feb4245",
+    "manualText": null,
+    "textChoices": {
+      "6add909915d601111692a410": "6adb5ab2edd024ba63d7f1a9",
+      "6add909915d601111692a40f": "6adb5ab2edd024ba63d7f190"
+    },
+    "foundationDepth": 10
+  },
+  "passport": {
+    "revision": 1,
+    "images": [
+      {
+        "kind": "holes",
+        "photoId": "6af2b1a8f044286b3f45962e",
+        "order": 0
+      },
+      {
+        "kind": "overview",
+        "photoId": "6b019a461d59b131ce505571",
+        "order": 0
+      },
+      {
+        "kind": "dimensions",
+        "photoId": "6b019a4a1d59b131ce50557b",
+        "order": 0
+      },
+      {
+        "kind": "foundation",
+        "photoId": "6b019a4d1d59b131ce505585",
+        "order": 2
+      }
+    ],
+    "status": "issued",
+    "foundationDepth": 10,
+    "instanceManualText": [
+      "name"
+    ],
+    "textOverrides": null,
+    "textSnapshotSha256": "C597D32AE704B4ACFEAC38F084D6F89511B7FC56193824AD6BF4134CB8018C00",
+    "manualText": [
+      "name"
+    ],
+    "id": "6b019aa41d59b131ce5056dd",
+    "productId": "6adaff342a8dad6034b1458f",
+    "number": 622,
+    "variant": "short",
+    "updatedAt": "2026-11-21T13:20:46.985Z",
+    "presentationVersion": 1,
+    "installationTypeId": "6ada090c7536f8509feb4245",
+    "textChoices": {
+      "6add909915d601111692a410": "6adb5ab2edd024ba63d7f1a9",
+      "6add909915d601111692a40f": "6adb5ab2edd024ba63d7f190"
+    }
+  },
+  "links": [
+    {
+      "photoId": "6af2b1a8f044286b3f45962e",
+      "kind": "holes",
+      "id": "6af2b1a8f044286b3f45963b",
+      "url": "/uploads/passport/2026-11/317eff28-a1a0-4e9d-898f-30b303c62db2.png"
+    },
+    {
+      "photoId": "6b019a461d59b131ce505571",
+      "kind": "overview",
+      "id": "6b019a4e1d59b131ce50558f",
+      "url": "/uploads/passport/2026-11/7cc548e8-e6a8-4833-a03d-bb369d127e7e.png"
+    },
+    {
+      "photoId": "6b019a4a1d59b131ce50557b",
+      "kind": "dimensions",
+      "id": "6b019a4e1d59b131ce505590",
+      "url": "/uploads/passport/2026-11/fa11f0e8-e35e-4bbe-8c95-3c8ff0733e26.png"
+    },
+    {
+      "photoId": "6b019a4d1d59b131ce505585",
+      "kind": "foundation",
+      "id": "6b019a4f1d59b131ce505591",
+      "url": "/uploads/passport/2026-11/f0c39d93-649b-4a11-b5a7-82b9ea603aa1.png"
+    }
+  ],
+  "capturedAt": "2026-11-21T14:10:58.6909931Z"
+}

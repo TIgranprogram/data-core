@@ -1,0 +1,45 @@
+{
+  "status": "FAIL",
+  "scope": "independent QAissued, not order entry; real UI rename/reopen/PDF/history",
+  "writes": [
+    {
+      "method": "PATCH",
+      "path": "/api/passports/6b01a7ab9e6b715a3ba5d783",
+      "fields": [
+        "name",
+        "manualText"
+      ]
+    }
+  ],
+  "blocked": [
+    {
+      "method": "POST",
+      "path": "/api/client-errors"
+    },
+    {
+      "method": "POST",
+      "path": "/api/client-errors"
+    }
+  ],
+  "pageErrors": [],
+  "checks": [
+    {
+      "visibleRename": true,
+      "reopenedAfterReload": true,
+      "pdfOldName": true,
+      "pdfNewName": true,
+      "sameNumber": true,
+      "revisionIncreasedOnce": true,
+      "historyOldName": true,
+      "imagesUnchanged": true
+    }
+  ],
+  "proof": {
+    "passportId": "6b01a7ab9e6b715a3ba5d783",
+    "number": 611,
+    "passportNumber": "611",
+    "beforeRevision": 1,
+    "afterRevision": 2
+  },
+  "failure": "Unexpected requests/errors"
+}

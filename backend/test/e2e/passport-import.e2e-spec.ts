@@ -22,7 +22,7 @@ describe('C172: атомарный импорт рисунков Inventor', () =
   const http = () => request(app.getHttpServer());
   const auth = () => authHeader(token);
   beforeAll(async () => {
-    if (!['datacore-test-c172', 'datacore-test-c172-release'].includes(process.env.MONGO_DB_TEST ?? '') || !['localhost', '127.0.0.1'].includes(new URL(process.env.MONGO_URI!).hostname)) throw new Error('Только локальная datacore-test-c172');
+    if (!['datacore-test-c172', 'datacore-test-c172-release', 'datacore-test-c176-identification'].includes(process.env.MONGO_DB_TEST ?? '') || !['localhost', '127.0.0.1'].includes(new URL(process.env.MONGO_URI!).hostname)) throw new Error('Только локальная разрешённая test-БД');
     ctx = await createTestApp({ strictValidation: true });
     expect(ctx.connection.name).toBe(process.env.MONGO_DB_TEST);
     app = ctx.app;
@@ -45,15 +45,27 @@ describe('C172: атомарный импорт рисунков Inventor', () =
   }
   async function fixture() {
     const old = await images('#112233'), fresh = await images('#445566');
-    const productId = (await db().collection('products').insertOne({ name: 'C172 урна', dimensions: { length: 400, width: 500, height: 800, unit: 'мм' }, weightKg: 12, deletedAt: null })).insertedId;
+    const installId = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'CONCRETE_POSTS', name: 'C179 Бетонирование опор', deletedAt: null })).insertedId;
+    const productId = (await db().collection('products').insertOne({ name: 'C172 урна', passportDefaults: { installationTypeId: installId }, dimensions: { length: 400, width: 500, height: 800, unit: 'мм' }, weightKg: 12, deletedAt: null })).insertedId;
     await db().collection('productphotos').insertMany(old.map(i => ({ ...i, photoId: new Types.ObjectId(i.photoId), productId, purpose: 'passport', deletedAt: null })));
-    const passportId = (await db().collection('productpassports').insertOne({ productId, name: 'C172 урна', status: 'issued', passportNumber: `C172-${new Types.ObjectId()}`, revision: 1, length: 400, width: 500, height: 800, weight: 12, images: old.map(i => ({ ...i, photoId: new Types.ObjectId(i.photoId) })), manualText: 'Ручное неизменяемое пояснение', deletedAt: null })).insertedId;
+    const passportId = (await db().collection('productpassports').insertOne({ productId, installationTypeId: installId, name: 'C172 урна', status: 'issued', passportNumber: `C172-${new Types.ObjectId()}`, revision: 1, length: 400, width: 500, height: 800, weight: 12, images: old.map(i => ({ ...i, photoId: new Types.ObjectId(i.photoId) })), manualText: 'Ручное неизменяемое пояснение', deletedAt: null })).insertedId;
     const url = `/api/products/${productId}/passport-import`;
     const context = async () => (await http().get(`${url}-context`).set(auth()).expect(200)).body.contextToken as string;
     const body = { contextToken: await context(), images: fresh, confirmed: { weightKg: 14 } };
     const apply = (b: object = body) => http().post(url).set(auth()).send(b);
     return { productId, passportId, old, fresh, url, context, body, apply };
   }
+  it('C179 неизвестный способ даёт409 без изменения изделия/паспортов/защиты файлов', async () => {
+    const f = await fixture();
+    await db().collection('products').updateOne({ _id: f.productId }, { $unset: { passportDefaults: '' } });
+    const before = await db().collection('products').findOne({ _id: f.productId });
+    const passport = await db().collection('productpassports').findOne({ _id: f.passportId });
+    f.body.contextToken = await f.context();
+    await f.apply().expect(409);
+    expect(await db().collection('products').findOne({ _id: f.productId })).toEqual(before);
+    expect(await db().collection('productpassports').findOne({ _id: f.passportId })).toEqual(passport);
+    expect(await db().collection('photos').countDocuments({ _id: { $in: f.fresh.map(i => new Types.ObjectId(i.photoId)) }, sourceProtected: true })).toBe(0);
+  });
   it('один commit сохраняет номер, ручное поле, старые источники и историю; устаревший replay unchanged', async () => {
     const f = await fixture();
     const r = (await f.apply().expect(200)).body;
@@ -280,7 +292,7 @@ describe('C172: атомарный импорт рисунков Inventor', () =
       const kind = code === 'anchor' ? 'mounting' : 'foundation';
       expect(input.images[kind]?.[0]?.buf).toEqual(expected);
       if (code === 'anchor') expect(input.images.foundation).toBeUndefined();
-      else expect(input.images.mounting).toHaveLength(1);
+      else expect(input.images.mounting).toBeUndefined();
     }
   });
   it('черновик с прежним concrete читает новый anchor изделия без дубля схемы в PDF', async () => {

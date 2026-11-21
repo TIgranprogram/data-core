@@ -13,6 +13,15 @@ import { toast } from '../ui/kit/toast.js';
 let job = null;
 export function openBulk(cfg) { job = cfg; patch({ of: 'bulkedit', new: '1', open: undefined }); }
 
+/** Новая CAS-отмена может вернуть отдельные конфликты; старый void-ответ совместим. */
+export function bulkRestoreNotice(result, labels = {}) {
+  if (!result?.failed?.length) return { text: 'Отменено — вернули как было', options: {} };
+  return { text: `Отменено: ${result.restored ?? 0} · не удалось отменить: ${result.failed.length}`, options: {
+    tone: 'warn', ms: 12000,
+    sub: result.failed.map((row) => `${labels[row.id] || row.id}: ${row.message}`).join('; '),
+  } };
+}
+
 async function build() {
   if (!job?.ids?.length) throw new Error('Отметьте записи галочками в списке');
   const cur = job;
@@ -73,7 +82,11 @@ async function build() {
       if (!(await confirmDlg(`Изменить у ${cur.ids.length} ${noun}?`, `Поля: ${what.replace(/\.$/, '')}. Остальное у записей не меняется. Сразу после — можно «Отменить».`, { okText: 'Изменить' }))) throw new Error('Отменено — ничего не изменено');
       const res = await cur.apply(set, arrays);
       const fail = res.failed?.length ? ` · не изменено: ${res.failed.length} (${res.failed[0].message})` : '';
-      toast(`Изменено: ${res.updated}${fail}`, res.before?.length ? { undo: async () => { await cur.restore(res.before); toast('Отменено — вернули как было'); cur.done?.(); } } : {});
+      toast(`Изменено: ${res.updated}${fail}`, res.before?.length ? { undo: async () => {
+        const result = await cur.restore(res.before);
+        const notice = bulkRestoreNotice(result, cur.labels);
+        toast(notice.text, notice.options); cur.done?.();
+      } } : {});
       cur.done?.();
       return res;
     } } }),

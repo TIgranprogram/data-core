@@ -1,0 +1,24 @@
+{
+  "source": "backend/src/modules/product-passport/product-passport.schema.ts PASSPORT_IMAGE_KINDS (compiled from final build)",
+  "values": [
+    "overview",
+    "dimensions",
+    "safety",
+    "mounting",
+    "overview_callouts",
+    "nameplate",
+    "safety_zone",
+    "foundation",
+    "embedded_layout",
+    "holes",
+    "assembly",
+    "bom_item",
+    "view_front",
+    "view_side",
+    "view_top",
+    "view_3d",
+    "module"
+  ],
+  "embeddedLayout": true,
+  "swaggerDebt": "images enum has no existing Swagger metadata; exporter does not invent it"
+}

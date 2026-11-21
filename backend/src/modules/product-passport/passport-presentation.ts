@@ -2,7 +2,7 @@ import type { Doc } from './passport-consts';
 import type { PhraseTreeNode, ProductCtx } from '../../common/passport/phrase-tree';
 import type { PdfOrg } from './passport-pdf';
 import type { PdfV2Style } from './passport-pdf-v2-types';
-import type { InstallKind } from './passport-variants';
+import type { InstallKind, InstallationPlan } from './passport-variants';
 import type { LookDoc } from './passport-look.service';
 import { joinRu, type PartRec } from '../../common/catalog/materials-text';
 import { findIn, forProduct, leavesOf } from '../../common/passport/phrase-tree';
@@ -76,6 +76,7 @@ export function renderSimplePhrase(text: string, ids: string[], parts: Map<strin
 
 export interface ReadinessItem { key: string; label: string; hint: string }
 export interface PassportReadiness {
+  installationPlan?: InstallationPlan;
   ready: boolean;
   missing: ReadinessItem[];
   recommendations: ReadinessItem[];
@@ -85,6 +86,7 @@ export interface PassportReadiness {
 }
 
 export interface PassportPrintSources {
+  installationPlan?: InstallationPlan;
   readiness: PassportReadiness;
   install: InstallKind;
   effectiveImages: Doc[];

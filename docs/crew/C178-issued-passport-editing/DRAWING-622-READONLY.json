@@ -1,0 +1,100 @@
+{
+  "passport": {
+    "status": "issued",
+    "printSnapshotPresent": false,
+    "foundationDepth": 10,
+    "productId": "6adaff342a8dad6034b1458f",
+    "revision": 1,
+    "category": "TRN",
+    "variant": "short",
+    "installationMethod": "Изделие устанавливается на открытых спортивных площадках и дворовых территориях и крепится к закладным деталям, забетонированным в основание.",
+    "drawingLayout": 2,
+    "number": 622,
+    "printSource": "app",
+    "installationTypeId": "6ada090c7536f8509feb4245",
+    "presentationVersion": 1,
+    "images": [
+      {
+        "kind": "holes",
+        "photoId": "6af2b1a8f044286b3f45962e",
+        "order": 0
+      },
+      {
+        "kind": "overview",
+        "photoId": "6b019a461d59b131ce505571",
+        "order": 0
+      },
+      {
+        "kind": "dimensions",
+        "photoId": "6b019a4a1d59b131ce50557b",
+        "order": 0
+      },
+      {
+        "kind": "foundation",
+        "photoId": "6b019a4d1d59b131ce505585",
+        "order": 2
+      }
+    ],
+    "id": "6b019aa41d59b131ce5056dd",
+    "effectiveImages": [
+      {
+        "kind": "holes",
+        "photoId": "6af2b1a8f044286b3f45962e",
+        "order": 0,
+        "url": "/uploads/passport/2026-11/317eff28-a1a0-4e9d-898f-30b303c62db2.png",
+        "fromProduct": true
+      },
+      {
+        "kind": "overview",
+        "photoId": "6b019a461d59b131ce505571",
+        "order": 0,
+        "url": "/uploads/passport/2026-11/7cc548e8-e6a8-4833-a03d-bb369d127e7e.png",
+        "fromProduct": true
+      },
+      {
+        "kind": "dimensions",
+        "photoId": "6b019a4a1d59b131ce50557b",
+        "order": 0,
+        "url": "/uploads/passport/2026-11/fa11f0e8-e35e-4bbe-8c95-3c8ff0733e26.png",
+        "fromProduct": true
+      },
+      {
+        "kind": "foundation",
+        "photoId": "6b019a4d1d59b131ce505585",
+        "order": 2,
+        "url": "/uploads/passport/2026-11/f0c39d93-649b-4a11-b5a7-82b9ea603aa1.png",
+        "fromProduct": true
+      }
+    ],
+    "standardImages": [],
+    "printFile": {
+      "name": null,
+      "hasFile": false
+    }
+  },
+  "checkedAt": "2026-11-21T13:24:43.6355300Z",
+  "sources": [
+    {
+      "kind": "holes",
+      "createdAt": "2026-11-10T05:54:48.114Z",
+      "originalFilename": "Снимок экрана 2026-11-10 085438.png",
+      "storageUrl": "/uploads/passport/2026-11/317eff28-a1a0-4e9d-898f-30b303c62db2.png",
+      "photoId": "6af2b1a8f044286b3f45962e",
+      "sha256": "bc0fef96676f59860c72fe1728ec3861dcb06fdea8cf5d53d3b8db6febca0504",
+      "linkId": "6af2b1a8f044286b3f45963b",
+      "localFile": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\tools\\logs\\c178-622-images\\holes-20261110.png"
+    },
+    {
+      "kind": "foundation",
+      "createdAt": "2026-11-21T13:19:09.6Z",
+      "originalFilename": "03_Схема установки.png",
+      "storageUrl": "/uploads/passport/2026-11/f0c39d93-649b-4a11-b5a7-82b9ea603aa1.png",
+      "photoId": "6b019a4d1d59b131ce505585",
+      "sha256": "b5eaedbe769f66aefce69a82cee1000e9f44449f8a0520c3d88daa2135bc9ecf",
+      "linkId": "6b019a4f1d59b131ce505591",
+      "localFile": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\tools\\logs\\c178-622-images\\foundation-20261121.png"
+    }
+  ],
+  "byteDuplicate": false,
+  "conclusion": "Дваразныхфайлавдвухразныхслотахfoundation+holes; старыйholes10ноябрянебылзаменённовымfoundation21ноября. mounting/assemblyотсутствуют. Исходныеразмеры480межцентров+280общийразмерфланца=760общийразмердвухопор; геометрическогопротиворечиявэтихразмерахневидно. Наличиеобоихприложенийследуетиздвухсохранённыхназначений,неизповторнойвставкиодногофайла."
+}

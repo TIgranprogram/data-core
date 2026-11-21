@@ -1,0 +1,100 @@
+{
+  "status": "PASS",
+  "scope": "backend/src + backend/test + backend/admin; final PWA checks separate after UI freeze",
+  "testDb": "datacore-test-c176-identification",
+  "mongo": "owned c172-qa-mongo Mongo4.4 rs0 :27172",
+  "before": "c7d6e3ca3c40e07ed594425e0a53a42b3901cfff099629618b33c7c289689b8e",
+  "after": "c7d6e3ca3c40e07ed594425e0a53a42b3901cfff099629618b33c7c289689b8e",
+  "unchanged": true,
+  "fileCount": 1322,
+  "uiChangedDuringServerQa": true,
+  "reusedChecks": {
+    "reason": "coordinator approved fixture-only fixes in four e2e files; backend/src and backend/admin exact SHA unchanged",
+    "baseline": "docs\\crew\\C176-product-identification-queue\\proofs\\qa-2026-11-21T14-06-22-512Z\\FINAL-EVIDENCE.json",
+    "runtimeBefore": "b29cd3f2091b9804717309e05acaaf6e193323d4c9169126c99c51df4c99235c",
+    "runtimeCurrent": "b29cd3f2091b9804717309e05acaaf6e193323d4c9169126c99c51df4c99235c",
+    "checks": [
+      "tsc",
+      "unit",
+      "eslint",
+      "build"
+    ],
+    "unit": {
+      "name": "unit",
+      "passedSuites": 389,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "passed": 3914,
+      "failed": 0,
+      "skipped": 0,
+      "total": 3914,
+      "success": true,
+      "failures": []
+    }
+  },
+  "results": [
+    {
+      "name": "unit",
+      "passedSuites": 389,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "passed": 3914,
+      "failed": 0,
+      "skipped": 0,
+      "total": 3914,
+      "success": true,
+      "failures": [],
+      "reused": true,
+      "baseline": "docs\\crew\\C176-product-identification-queue\\proofs\\qa-2026-11-21T14-06-22-512Z\\FINAL-EVIDENCE.json"
+    },
+    {
+      "name": "e2e",
+      "passedSuites": 95,
+      "failedSuites": 0,
+      "skippedSuites": 1,
+      "passed": 777,
+      "failed": 0,
+      "skipped": 12,
+      "total": 789,
+      "success": true,
+      "failures": []
+    }
+  ],
+  "stages": [
+    {
+      "name": "e2e-full",
+      "start": "2026-11-21T14:25:31.924Z",
+      "end": "2026-11-21T14:36:24.938Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\jest\\bin\\jest.js",
+        "--config",
+        "{\"moduleFileExtensions\":[\"js\",\"json\",\"ts\"],\"rootDir\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\test\",\"testEnvironment\":\"node\",\"testRegex\":\".e2e-spec\\\\.ts$\",\"transform\":{\"^.+\\\\.(t|j)s$\":[\"D:\\\\invSportiN\\\\Сайт\\\\01_Проекты_CRM\\\\data-core\\\\backend\\\\node_modules\\\\.pnpm\\\\ts-jest@29.4.11_@babel+core@7.29.7_@jest+transform@29.7.0_@jest+types@29.6.3_babel-jest@29.7._xy2molyflzuu2e5l6hnyek62dy\\\\node_modules\\\\ts-jest\\\\dist\\\\index.js\",{\"tsconfig\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\tsconfig.json\"}]},\"setupFiles\":[\"./setup/jest-e2e-env.ts\"],\"collectCoverageFrom\":[\"src/modules/**/services/*.ts\"],\"coverageDirectory\":\"./coverage-e2e\",\"testTimeout\":60000}",
+        "--runInBand",
+        "--forceExit",
+        "--silent",
+        "--json",
+        "--outputFile=C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T14-25-31-599Z\\e2e-results.json"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T14-25-31-599Z\\scratch",
+      "log": "tools\\logs\\c176-qa-2026-11-21T14-25-31-599Z\\e2e-full.log"
+    },
+    {
+      "name": "openapi",
+      "start": "2026-11-21T14:36:24.939Z",
+      "end": "2026-11-21T14:36:26.829Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-export-openapi.cjs",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\docs\\crew\\C176-product-identification-queue\\proofs\\qa-2026-11-21T14-25-31-599Z\\openapi.json"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T14-25-31-599Z\\scratch",
+      "log": "tools\\logs\\c176-qa-2026-11-21T14-25-31-599Z\\openapi.log"
+    }
+  ],
+  "raw": "tools\\logs\\c176-qa-2026-11-21T14-25-31-599Z",
+  "out": "docs\\crew\\C176-product-identification-queue\\proofs\\qa-2026-11-21T14-25-31-599Z",
+  "skipBoundary": "T26 opt-in disposable database suite is not enabled; exact counts in Jest results."
+}

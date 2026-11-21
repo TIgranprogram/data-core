@@ -152,7 +152,7 @@ async function submitThroughKit(panel, values, panelCtx = {}) {
   const end = card.indexOf('\n    // readonly:', start);
   const errors = [], changed = [], closed = [];
   const sandbox = vm.createContext({
-    section: panel, form: { read: () => ({ values }) }, row: null, isNew: true,
+    section: panel, form: { read: () => ({ values }) }, id: 'new.fixture', row: null, isNew: true,
     save: { disabled: false }, cancel: {}, err: {}, body: { querySelectorAll: () => [] },
     saving: false, busyBtn: () => () => {}, reportError: (e) => errors.push(e),
     isFailure: () => false, errText: (e) => e.message,

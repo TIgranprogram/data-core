@@ -37,7 +37,7 @@ describe('Новые эндпоинты 2026-11-01', () => {
       { dict: 'passportCategories', code: 'TRN', name: 'Уличный тренажёр', requiredImages: 'overview\nfoundation', deletedAt: null },
     ]);
     const dv = db().collection('dict_values');
-    instId = String((await dv.insertOne({ dict: 'passportInstall', name: 'Анкерами', deletedAt: null })).insertedId);
+    instId = String((await dv.insertOne({ dict: 'passportInstall', code: 'ANCHORS', name: 'Анкерами', deletedAt: null })).insertedId);
     matId = String((await dv.insertOne({ dict: 'passportMaterials', code: 'ST', name: 'Сталь', madeOf: 'листовой стали', deletedAt: null })).insertedId);
     for (const c of ['MINTRUD_883N', 'SP_70', 'GOST_15150', 'GOST_9_014', 'GOST_26653', 'GOST_12_3_009', 'SP_325']) await dv.insertOne({ dict: 'passportStandards', code: c, name: c, status: 'действует', checkedAt: new Date().toISOString().slice(0, 10), deletedAt: null });
     orgId = (await http().post('/api/partners').set(A()).send({ kind: 'our', name: 'ООО «СпортИнЮг» НЭ', inn: '2310181417', kpp: '231201001', phone: '8 (918) 633-91-91', email: 'sportin-yug@mail.ru', trademark: 'STREET IRON', directorName: 'Тен А.Т.' }).expect(201)).body.id;
@@ -118,8 +118,8 @@ describe('Новые эндпоинты 2026-11-01', () => {
 
     it('plan: позиции с состояниями ready / blocked, счётчики, 404 на чужой заказ', async () => {
       orderId = (await http().post('/api/salesorders').set(A()).send({ orderNo: 'НЭ-1', customer: 'Школа 5', stage: 'new' }).expect(201)).body.id;
-      const okPid = await mkProduct('Урна заказ'); await addImg(okPid);
-      const freshPid = await mkProduct('Скамья заказ'); await addImg(freshPid);
+      const okPid = await mkProduct('Урна заказ'); await addImg(okPid); await addImg(okPid, 'mounting');
+      const freshPid = await mkProduct('Скамья заказ'); await addImg(freshPid); await addImg(freshPid, 'mounting');
       const noCatPid = await mkProduct('Изделие без категории', { passportDefaults: {} });
       const line = async (title: string, productId?: string) => {
         const id = (await http().post('/api/incomes').set(A()).send({ orderId, title, qty: 2, unit: 'шт' }).expect(201)).body.id as string;

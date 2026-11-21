@@ -1,0 +1,11 @@
+{
+  "importsExit": 0,
+  "importsSummary": "импорты и синтаксис: 371 файлов, ошибок 0",
+  "guardsExit": 0,
+  "guardsPassed": 365,
+  "guardsFailed": 0,
+  "suites": 1,
+  "before": "e0a78c3fb4cb08e95197c05dea549830fb578c62dbbd7f11abdccd7b8629706a",
+  "after": "e0a78c3fb4cb08e95197c05dea549830fb578c62dbbd7f11abdccd7b8629706a",
+  "unchanged": true
+}

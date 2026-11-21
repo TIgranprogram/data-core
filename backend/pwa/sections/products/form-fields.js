@@ -9,7 +9,7 @@ import { dictNames } from '../../ui/dict-options.js';
 import { loadMaterialDicts, materialsSpec, specSummary } from '../../ui/materials-spec.js';
 import { planMaterialsProposal } from './materials-proposal.js';
 import { funnelBox } from '../../ui/funnel.js';
-import { canEdit as canEditPassportTexts, dictOpts, dictRows, productTypeLine } from '../passports/common.js';
+import { canEdit as canEditPassportTexts, dictOpts, dictRows, passportCategoryOptions, productTypeLine } from '../passports/common.js';
 import { jointsPick, JOINT_OPTIONS } from '../passports/traits.js';
 import { withElementTexts } from '../passports/elements-block.js';
 import { formValues, phrases, staffOptions, skuSearch, materialsFromComposition, createProduct, patchProduct, savePd, takePending, pendingProduct, assignSku } from './data.js';
@@ -246,13 +246,26 @@ export function productForm({ onSimilar, usePending = true } = {}) {
 
 /** БЗ-9: поля массового изменения изделий — общие для всех выбранных. */
 export async function productBulkFields() {
-  const [fv, staffAll] = await Promise.all([formValues(), staffOptions()]);
+  const [fv, staffAll, kindRows, passportCategories] = await Promise.all([formValues(), staffOptions(), dictRows('passportKinds'), passportCategoryOptions()]);
   const staff = staffAll.filter((p) => !p.fired);
   const ids = new Map(staff.map((p) => [p.label, p.value]));
   const n = (v) => (v === '' ? null : v);
+  const passportNames = new Map(passportCategories.map((category) => [category.value, category.label]));
+  const kinds = kindRows.filter((kind) => kind.id && kind.name).map((kind) => ({ value: String(kind.id),
+    label: [kind.name, passportNames.get(kind.passportCategory)].filter(Boolean).join(' · ') }));
+  const kindValue = (value) => {
+    if (!value || value === 'Не менять') return undefined;
+    const matches = kinds.filter((kind) => kind.label.toLocaleLowerCase('ru') === value.toLocaleLowerCase('ru'));
+    if (matches.length !== 1) throw new Error('Выберите однозначный вид изделия из справочника.');
+    return matches[0].value;
+  };
   return [
     { key: 'type', label: 'Раздел', type: 'combo', options: fv.sections.filter((x) => x.n > 0).map((x) => x.value), strict: true, strictText: 'Выберите раздел из списка', hint: 'Группа у каждого изделия останется своя' },
-    { key: 'group', label: 'Группа', type: 'combo', options: fv.groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: 'Раздел у каждого изделия останется свой' },
+    { key: 'group', label: 'Группа каталога', type: 'combo', options: fv.groups.map((g) => ({ value: g.value, label: g.value, sub: g.section })), hint: 'Раздел у каждого изделия останется свой' },
+    { key: 'pd.kindId', label: 'Вид изделия', type: 'combo', strict: true, options: [{ value: '', label: 'Не менять' }, ...kinds],
+      map: kindValue, hint: 'Без галочки — не менять. Только вид из справочника; несовместимые изделия сервер покажет отдельно.' },
+    { key: 'pd.passportCategory', label: 'Тип паспорта', type: 'select', options: [{ value: '', label: 'Не менять' }, ...passportCategories],
+      map: (value) => value || undefined, hint: 'Нормативный тип паспорта, а не группа каталога. Выпущенные паспорта не переписываются.' },
     { key: 'series', label: 'Название серии', type: 'combo', options: fv.series.map((x) => x.value), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике' },
     { key: 'status', label: 'Статус', type: 'select', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже' }, { value: 'archived', label: 'Архив' }] },
     { key: 'price', money: true, label: 'Цена, ₽ — одна для всех', type: 'number', map: n },

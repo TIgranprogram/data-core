@@ -14,7 +14,7 @@ describe('missingFieldsV2', () => {
   });
 
   it('TRN: поля категории, элементы, способ установки и рисунки из справочника', () => {
-    const m = missingFieldsV2({ ...base, passportCategory: 'TRN' }, trnCat);
+    const m = missingFieldsV2({ ...base, passportCategory: 'TRN' }, trnCat, { install: 'concrete' });
     expect(m).toEqual(expect.arrayContaining(['Элементы', 'Способ установки', 'Рост пользователя от', 'Срок службы', 'Рисунок: Чертёж с размерами', 'Рисунок: Схема фундамента']));
     expect(m).not.toContain('Рисунок: Фото изделия');
     expect(m).not.toContain('Рисунок: Зона безопасности'); // только детские площадки (DIO)

@@ -42,3 +42,5 @@
 - Receipt может по умолчанию дописать costCenter и уменьшить qty: для frozen pending полную приёмку проводить с прежними dims, partial блокировать до stock-effect; concurrent source edits/receipt/confirm сериализовать invoice CAS. Командные receipts должны сохранять прежние evidence, иначе новый confirm затрёт историю revoke.
 
 - C165 ARCH-P1: нельзя выбирать receipt callback по invoiceId, прочитанному до ожидания createItem/move. Callback обязателен даже для standalone; fresh source/invoice + запись qty/status/dims в той же stock-транзакции и sourceCAS защищают late attach. Встречный attach/create должен сравнивать qty/status/unpaid и matchedCount, иначе retry reset-ит received из старого preGET.
+
+- 2026-11-21 · C179: concrete trait означает бетонирование опор, а не любое бетонное основание. ANCHORS/EMBEDDED различать только по stable code; профиль применимости один для traits/рисунков/импорта. При явной смене монтажа снимать fieldEdits.install и старую монтажную leaf, сохраняя прочие ручные поля и старый снимок в истории.

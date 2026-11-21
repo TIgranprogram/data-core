@@ -7,13 +7,16 @@ import { confirmDlg } from '../../ui/kit/dialog.js';
 import { button, iconButton } from '../../ui/kit/index.js';
 import { photoDrop } from '../../ui/kit/photos.js';
 import { imagesBody } from '../../core/passport-images.js';
-import { imgsOf, isRequired, kindOf } from './common.js';
+import { imgsOf, isRequired, kindOf, imageKindAllowed, imageKindLabel } from './common.js';
 import { attachProductFile } from '../product-files.js';
 
 /** ctx: { S, can, exclusive(fn), rerender() }. */
 export function imageStrip(ctx, kind, label, full) {
   const { S, can } = ctx;
   const r = S.r;
+  if (!imageKindAllowed(r, kind)) return h('div', { hidden: true });
+  const canonicalLabel = imageKindLabel(r, kind);
+  label = canonicalLabel || label;
   const template = S.template;
   const list = imgsOf(r, kind);
   const inherited = list.some((i) => i.fromProduct);
@@ -47,7 +50,7 @@ export function imageStrip(ctx, kind, label, full) {
   }) : mutate((all) => all.filter((x) => String(x.photoId) !== String(image.photoId)));
   const wrap = h('div', { class: 'bk-imgs' + (full ? ' bk-imgs-full' : ''), 'data-focus': 'img_' + kind, 'data-img-kind': kind });
   list.forEach((i) => wrap.append(h('figure', { class: 'bk-fig' },
-    i.url ? h('img', { src: PREFIX + i.url, alt: i.caption || label }) : h('span', { class: 'muted' }, 'нет файла'),
+    i.url ? h('img', { src: PREFIX + i.url, alt: canonicalLabel || i.caption || label }) : h('span', { class: 'muted' }, 'нет файла'),
     can && (template || !i.fromProduct) ? iconButton({ icon: '×', label: 'Убрать картинку', size: 'S', onClick: async () => {
       if (!(await confirmDlg('Убрать картинку?', label + ': картинка исчезнет из паспорта.', { okText: 'Убрать' }))) return;
       try { await remove(i); ctx.rerender(); } catch (e) { toastError(e); }

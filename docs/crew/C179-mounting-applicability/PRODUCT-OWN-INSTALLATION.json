@@ -1,0 +1,44 @@
+{
+  "id": "6adaff342a8dad6034b1458f",
+  "ownPassportDefaults": {
+    "elements": [
+      "6ada091046ad81616709da46"
+    ],
+    "installationTypeId": "6ada090c7536f8509feb4245",
+    "textChoices": {
+      "6add909915d601111692a410": "6adb5ab2edd024ba63d7f1a9",
+      "6add909915d601111692a40f": "6adb5ab2edd024ba63d7f190"
+    },
+    "joints": [
+      "bolts",
+      "welds"
+    ],
+    "maxUsers": 1,
+    "serviceLifeYears": 10,
+    "warrantyMonths": 12,
+    "materialIds": [
+      "6adceeeb3ca001b9b3b0e4e1",
+      "6adceeeb3ca001b9b3b0e4f5"
+    ],
+    "foundationDepth": 10,
+    "kindId": "6af707fdc451d4c05df6a047",
+    "simpleDescription": {
+      "mode": "parts",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e574",
+        "6adceeeb3ca001b9b3b0e57a",
+        "6adceeeb3ca001b9b3b0e57b",
+        "6adceeeb3ca001b9b3b0e577"
+      ]
+    }
+  },
+  "sku": "1039",
+  "installation": null,
+  "kind": {
+    "id": "6af707fdc451d4c05df6a047",
+    "name": "Тренажёр для груди, плеч и рук",
+    "source": "own",
+    "groupName": "Тренажеры"
+  },
+  "category": "TRN"
+}

@@ -6,6 +6,7 @@ import { h } from '../../core/dom.js';
 import { toast } from '../../ui/kit/toast.js';
 import { button, hint } from '../../ui/kit/index.js';
 import { openMaterialsInBook, openDimsInBook, openCompositionInBook } from './book-side-edit.js';
+import { installationPlanOf, imageKindAllowed, imageKindLabel } from './common.js';
 import { isBookSetting } from './book-template-edit.js';
 
 const PAGE_HINTS = [
@@ -84,11 +85,17 @@ export function mountBookFocus(host, ctx) {
       host.replaceChildren(...head('Готовность этой редакции не указана.'));
       return;
     }
-    const items = q.missing || [];
+    const plan = installationPlanOf(r);
+    const items = (q.missing || []).filter((item) => {
+      const key = String(item.key || '');
+      if (plan && ['installation', 'installationTypeId'].includes(key)) return false;
+      if (key === 'foundationDepth' && plan?.depthApplicable === false) return false;
+      return !key.startsWith('img_') || imageKindAllowed(r, key.slice(4));
+    });
     const list = h('ul', { class: 'bk-focus-list', 'aria-label': 'Что заполнить или проверить' });
     for (const it of items) {
-      const label = focusLabel(it);
       const key = String(it.key || '');
+      const label = key.startsWith('img_') ? imageKindLabel(r, key.slice(4), focusLabel(it)) : focusLabel(it);
       const descriptionChoice = tpl?.variant === 'short' && key.startsWith('choice:')
         && tpl.simpleDescriptionSuggestions?.some(({ rootId }) => key === `choice:${rootId}`);
       const goNow = () => {
@@ -138,6 +145,11 @@ export function mountBookFocus(host, ctx) {
       ...head(items.length
         ? 'Что мешает выпуску'
         : q.ready ? (tpl ? 'Шаблон готов к выпуску.' : 'Обязательные сведения заполнены.') : 'Уточните данные перед выпуском.'),
+      plan ? h('section', null, hint(plan.known
+        ? 'Способ установки определяет монтажный текст и применимые схемы.'
+        : 'Способ установки не выбран или недоступен. Выберите фактический способ — после сохранения обновятся текст и схемы.'),
+      button({ label: plan.known ? 'Изменить способ установки' : 'Выбрать способ установки', kind: 'ghost', size: 'S',
+        onClick: (e) => ctx.openSetting('installationTypeId', e.currentTarget) })) : null,
       items.length ? list : null,
       q.recommendations?.length ? h('section', null,
         h('h3', { class: 'bk-toc-h' }, 'Рекомендации'),

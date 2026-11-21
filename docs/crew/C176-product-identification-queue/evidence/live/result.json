@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "scope": "stand two new QA fixtures; one bulk, one after-CAS undo",
+  "writes": [
+    {
+      "method": "POST",
+      "path": "/api/showcase/bulk",
+      "phase": "bulk"
+    },
+    {
+      "method": "POST",
+      "path": "/api/showcase/bulk/restore",
+      "phase": "undo"
+    }
+  ],
+  "blocked": [],
+  "pageErrors": [],
+  "checks": [
+    {
+      "savedTwo": true,
+      "removedFromFilteredQueue": true,
+      "unrelatedDefaultsPreserved": true
+    },
+    {
+      "undoReadback": true,
+      "queueRestored": true,
+      "undoViaUiClick": true
+    }
+  ],
+  "restored": true
+}

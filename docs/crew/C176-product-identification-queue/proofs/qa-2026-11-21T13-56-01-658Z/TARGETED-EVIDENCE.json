@@ -1,0 +1,13 @@
+{
+  "scope": "passport-import targeted before source freeze, not full acceptance",
+  "passed": 22,
+  "failed": 1,
+  "skipped": 0,
+  "raw": "tools\\logs\\c176-qa-2026-11-21T13-56-01-658Z",
+  "failures": [
+    {
+      "file": "backend\\test\\e2e\\passport-import.e2e-spec.ts",
+      "message": "  ● C172: атомарный импорт рисунков Inventor › concrete: третья схема реально передаётся в short/full PDF правильным видом"
+    }
+  ]
+}

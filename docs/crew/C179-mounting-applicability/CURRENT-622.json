@@ -1,0 +1,284 @@
+{
+  "productId": "6adaff342a8dad6034b1458f",
+  "checkedAt": "2026-11-21T13:27:18.3563495Z",
+  "template": {
+    "standardImages": [],
+    "effectiveImages": [
+      {
+        "kind": "holes",
+        "photoId": "6af2b1a8f044286b3f45962e",
+        "order": 0,
+        "url": "/uploads/passport/2026-11/317eff28-a1a0-4e9d-898f-30b303c62db2.png",
+        "fromProduct": true
+      },
+      {
+        "kind": "overview",
+        "photoId": "6b019a461d59b131ce505571",
+        "order": 0,
+        "url": "/uploads/passport/2026-11/7cc548e8-e6a8-4833-a03d-bb369d127e7e.png",
+        "fromProduct": true
+      },
+      {
+        "kind": "dimensions",
+        "photoId": "6b019a4a1d59b131ce50557b",
+        "order": 0,
+        "url": "/uploads/passport/2026-11/fa11f0e8-e35e-4bbe-8c95-3c8ff0733e26.png",
+        "fromProduct": true
+      },
+      {
+        "kind": "foundation",
+        "photoId": "6b019a4d1d59b131ce505585",
+        "order": 2,
+        "url": "/uploads/passport/2026-11/f0c39d93-649b-4a11-b5a7-82b9ea603aa1.png",
+        "fromProduct": true
+      }
+    ],
+    "documentRequiredImages": [
+      "overview",
+      "dimensions",
+      "foundation"
+    ],
+    "textSnapshotRefs": {
+      "description": {
+        "kind": "product",
+        "id": "6adaff342a8dad6034b1458f",
+        "field": "description"
+      },
+      "purpose": {
+        "kind": "funnel",
+        "id": "6add909915d601111692a40f",
+        "field": "text"
+      },
+      "install": {
+        "kind": "funnel",
+        "id": "6add909915d601111692a410",
+        "field": "text"
+      },
+      "rules": [
+        {
+          "kind": "element",
+          "id": "6ada091046ad81616709da46",
+          "field": "usageRules"
+        },
+        {
+          "kind": "element",
+          "id": "6ada091046ad81616709da46",
+          "field": "usageRules"
+        },
+        {
+          "kind": "element",
+          "id": "6ada091046ad81616709da46",
+          "field": "usageRules"
+        },
+        {
+          "kind": "element",
+          "id": "6ada091046ad81616709da46",
+          "field": "usageRules"
+        }
+      ],
+      "maintenance": [
+        {
+          "kind": "defect",
+          "id": "6ada090c7536f8509feb4237",
+          "field": "name"
+        },
+        {
+          "kind": "element",
+          "id": "6ada091046ad81616709da46",
+          "field": "inspect"
+        },
+        {
+          "kind": "element",
+          "id": "6ada091046ad81616709da46",
+          "field": "inspect"
+        },
+        {
+          "kind": "element",
+          "id": "6ada091046ad81616709da46",
+          "field": "inspect"
+        },
+        {
+          "kind": "element",
+          "id": "6ada091046ad81616709da46",
+          "field": "inspect"
+        },
+        {
+          "kind": "defect",
+          "id": "6ada090c7536f8509feb4234",
+          "field": "name"
+        },
+        {
+          "kind": "defect",
+          "id": "6ada090c7536f8509feb4238",
+          "field": "name"
+        },
+        {
+          "kind": "defect",
+          "id": "6ada090c7536f8509feb423c",
+          "field": "name"
+        },
+        {
+          "kind": "defect",
+          "id": "6ada090c7536f8509feb4240",
+          "field": "name"
+        }
+      ]
+    },
+    "category": "TRN",
+    "product": {
+      "name": "Уличный тренажёр - Подтягивание «STREET IRON»",
+      "article": "1039",
+      "dimensions": {
+        "length": 1555,
+        "width": 1036,
+        "height": 1893,
+        "unit": "мм"
+      },
+      "weightKg": 131.4,
+      "facetValueIds": [
+        "6aeea9373b8b9255839ab43b"
+      ]
+    },
+    "defaults": {
+      "elements": [
+        "6ada091046ad81616709da46"
+      ],
+      "installationTypeId": "6ada090c7536f8509feb4245",
+      "textChoices": {
+        "6add909915d601111692a410": "6adb5ab2edd024ba63d7f1a9",
+        "6add909915d601111692a40f": "6adb5ab2edd024ba63d7f190"
+      },
+      "joints": [
+        "bolts",
+        "welds"
+      ],
+      "maxUsers": 1,
+      "serviceLifeYears": 10,
+      "warrantyMonths": 12,
+      "materialIds": [
+        "6adceeeb3ca001b9b3b0e4e1",
+        "6adceeeb3ca001b9b3b0e4f5"
+      ],
+      "foundationDepth": 10,
+      "kindId": "6af707fdc451d4c05df6a047",
+      "simpleDescription": {
+        "mode": "parts",
+        "partIds": [
+          "6adceeeb3ca001b9b3b0e574",
+          "6adceeeb3ca001b9b3b0e57a",
+          "6adceeeb3ca001b9b3b0e57b",
+          "6adceeeb3ca001b9b3b0e577"
+        ]
+      }
+    },
+    "presentationVersion": 1,
+    "documentInstallationTypeId": "6ada090c7536f8509feb4245",
+    "variant": "short",
+    "documentInstallationMethod": "Изделие устанавливается на открытых спортивных площадках и дворовых территориях и крепится к закладным деталям, забетонированным в основание.",
+    "readiness": {
+      "ready": true,
+      "missing": [],
+      "recommendations": [],
+      "defaulted": [
+        {
+          "key": "heightMin",
+          "label": "Рост пользователя от"
+        },
+        {
+          "key": "weightMax",
+          "label": "Вес пользователя до"
+        }
+      ],
+      "requiredImages": [
+        "overview",
+        "dimensions",
+        "foundation"
+      ],
+      "imageSlots": [
+        "overview",
+        "dimensions",
+        "mounting",
+        "foundation",
+        "holes",
+        "assembly",
+        "bom_item"
+      ]
+    },
+    "textSnapshotInstall": {
+      "text": "Изделие устанавливается на открытых спортивных площадках и дворовых территориях и крепится к закладным деталям, забетонированным в основание.",
+      "requirements": [
+        "Закладные детали выставлены по уровню и в проектных размерах",
+        "Фундамент набрал прочность до начала монтажа"
+      ],
+      "requiredImages": [
+        "foundation",
+        "embedded_layout"
+      ]
+    },
+    "simpleDescriptionSuggestions": [
+      {
+        "id": "6b018fae1d59b131ce504c7e",
+        "rootId": "6b018fa81d59b131ce504c75",
+        "name": "Сиденье со спинкой, рычаги с ручками и площадка для ног",
+        "text": "Тренажёр включает несущую раму, сиденье со спинкой, рычаги с ручками и площадку для ног.",
+        "partIds": [
+          "6adceeeb3ca001b9b3b0e574",
+          "6adceeeb3ca001b9b3b0e57a",
+          "6adceeeb3ca001b9b3b0e57b",
+          "6adceeeb3ca001b9b3b0e576",
+          "6adceeeb3ca001b9b3b0e575",
+          "6adceeeb3ca001b9b3b0e577"
+        ]
+      },
+      {
+        "id": "6b018f8b1d59b131ce504c34",
+        "rootId": "6b018f861d59b131ce504c2b",
+        "name": "Сиденья со спинками и рычаги с рукоятками",
+        "text": "На общей раме тренажёра установлены сиденья со спинками и подвижные рычаги с рукоятками.",
+        "partIds": [
+          "6adceeeb3ca001b9b3b0e574",
+          "6adceeeb3ca001b9b3b0e57a",
+          "6adceeeb3ca001b9b3b0e57b",
+          "6adceeeb3ca001b9b3b0e576",
+          "6adceeeb3ca001b9b3b0e575"
+        ]
+      }
+    ],
+    "simpleDescriptionSource": {
+      "kind": "parts",
+      "partIds": [
+        "6adceeeb3ca001b9b3b0e574",
+        "6adceeeb3ca001b9b3b0e57a",
+        "6adceeeb3ca001b9b3b0e57b",
+        "6adceeeb3ca001b9b3b0e577"
+      ],
+      "text": "Изделие состоит из несущей рамы, сиденья, спинки и упора для ног."
+    },
+    "documentImageSlots": [
+      "overview",
+      "dimensions",
+      "mounting",
+      "foundation",
+      "holes",
+      "assembly",
+      "bom_item"
+    ]
+  },
+  "installationType": {
+    "name": "На закладные детали",
+    "montage": "Установить закладные детали в фундамент по схеме\nПосле набора прочности бетона установить изделие на закладные\nПриварить или прикрутить изделие к закладным по схеме\nЗащитить места сварки антикоррозионным составом",
+    "baseRequirements": "Закладные детали выставлены по уровню и в проектных размерах\nФундамент набрал прочность до начала монтажа",
+    "schemesFoundation": "",
+    "schemesHoles": "",
+    "schemesMounting": "",
+    "categories": "",
+    "requiredImages": "foundation\nembedded_layout",
+    "code": "EMBEDDED",
+    "traits": "",
+    "id": "6ada090c7536f8509feb4245",
+    "_id": "6ada090c7536f8509feb4245",
+    "dict": "passportInstall",
+    "updatedAt": "2026-10-25T05:14:56.937Z"
+  },
+  "dictionaryKeyCorrection": "Живой справочник passportInstall, installationTypes не существует (404)."
+}

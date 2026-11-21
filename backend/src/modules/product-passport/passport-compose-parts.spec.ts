@@ -81,7 +81,7 @@ describe('maintenanceTables', () => {
 
 describe('installText', () => {
   it('разбирает поля', () => {
-    expect(installText({ montage: 'Шаг 1\nШаг 2', baseRequirements: 'Бетон\n', requiredImages: 'foundation\nholes' }))
+    expect(installText({ code: 'CONCRETE_POSTS', montage: 'Шаг 1\nШаг 2', baseRequirements: 'Бетон\n', requiredImages: 'foundation\nholes' }))
       .toEqual({ text: 'Шаг 1\nШаг 2', requirements: ['Бетон'], requiredImages: ['foundation', 'holes'] });
   });
   it('пусто', () => {

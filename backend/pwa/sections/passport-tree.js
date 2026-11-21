@@ -77,6 +77,8 @@ export function mountTree() {
     info.textContent = catFilter
       ? `Тип «${catName}»: применимые разделы и общие варианты. Одинаковые тексты с разными условиями сохраняются отдельно.`
       : 'Нажмите на вариант — правка справа. Фильтр типа показывает каскад, как в паспорте.';
+    const context = { section: current().params.phraseSection, kind: current().params.phraseKind };
+    if (context.kind) info.textContent = `Связанные с видом «${references.passportKinds?.get(context.kind) || 'выбранный вид'}». Назначение — отдельный раздел. Чтобы посмотреть все тексты, откройте «Тексты паспорта» в меню справочников.`;
     filterBox.replaceChildren(
       qualityFilter({ value: mode, counts: { empty: empties, dupes }, onChange: (v) => { mode = v; render(); } }),
       h('label', { class: 'field pt-cat-filter' }, h('span', null, 'Тип паспорта'), select({
@@ -95,7 +97,7 @@ export function mountTree() {
     const secs = model.roots.filter((root) => phraseRootApplies(root, model.leavesOf(root.id), catFilter))
       .filter((root) => mode === 'all' || shown(root));
     if (!secs.length) { tree.replaceChildren(empty({ title: mode === 'all' ? 'Разделов пока нет — их создаёт программа при обновлении справочника.' : mode === 'empty' ? 'Пустых текстов нет.' : 'Дублей нет.' })); return; }
-    tree.replaceChildren(phraseDictionaryTable({ model, roots: secs, shown, references, catText, selected: sel, edit, query, reset: () => search.clear(),
+    tree.replaceChildren(phraseDictionaryTable({ model, roots: secs, shown, references, catText, selected: sel, edit, query, context, reset: () => search.clear(),
       open: (id) => patch({ of: 'ptnode', open: id, new: undefined }),
       add: (id) => patch({ of: 'ptnode', open: 'new.' + id, new: undefined }),
       quality: (node) => qualityBadges({ empty: model.isEmpty(node), dupe: model.dupes.get(node.id) || 0,
@@ -129,10 +131,20 @@ const groupOptions = async () => (await dictRows('productGroups')).map((g) => ({
 async function getNode(id) {
   const d = await loadTree();
   const m = shape(d.items);
+  if (id === 'new.' && current().params.phraseSection === 'simple-description' && current().params.phraseKind) {
+    const kind = (await dictRows('passportKinds')).find((row) => String(row.id) === current().params.phraseKind);
+    if (!kind?.passportCategory) throw new Error('Вид или его тип паспорта не найден. Обновите список.');
+    return { id, kind: 'new', contextRoot: true, section: 'simple-description', kindIds: [String(kind.id)],
+      parentId: '', name: 'Краткое описание — ' + kind.name, pathText: 'Краткое описание · ' + kind.name,
+      cats: d.cats, categories: kind.passportCategory, allCategories: false, text: '', required: true, hasChildren: true };
+  }
   if (String(id).startsWith('new.')) {
     const parent = m.byId.get(String(id).slice(4));
     if (!parent) throw new Error('Раздел не найден — список обновился. Закройте панель и выберите заново.');
-    return { id, kind: 'new', parentId: parent.id, rootName: m.rootOf(parent).name, pathText: m.path(parent).join(' › '), cats: d.cats, text: '', name: '', allCategories: true, categories: '', order: (m.children(parent.id).at(-1)?.order || 0) + 1 };
+    const contextual = current().params.phraseSection === 'simple-description' && parent.section === 'simple-description' && (parent.kindIds || []).map(String).includes(current().params.phraseKind);
+    return { id, kind: 'new', parentId: parent.id, rootName: m.rootOf(parent).name, pathText: m.path(parent).join(' › '), cats: d.cats, text: '',
+      name: contextual ? 'Подтверждённое описание' : '', descriptionStep: contextual,
+      allCategories: contextual ? parent.allCategories : true, categories: contextual ? parent.categories : '', order: (m.children(parent.id).at(-1)?.order || 0) + 1 };
   }
   const [full, facetOpts, groupOpts] = await Promise.all([api(`${DICT}/${id}`), facetOptions(), groupOptions()]);
   const n = norm(full);
@@ -143,14 +155,14 @@ async function getNode(id) {
 }
 
 function nodeForm(r) {
-  const isRoot = r.kind === 'node' && r.isRoot;
+  const isRoot = !!r.contextRoot || (r.kind === 'node' && r.isRoot);
   const leaf = !isRoot && !r.hasChildren;
   const name = h('input', { type: 'text', maxlength: 200, value: r.name || '', placeholder: isRoot ? '' : 'Например: Анкерное крепление' });
   const ta = h('textarea', { rows: 9, maxlength: 4000, class: 'pt-ta' }); ta.value = r.text || '';
   const order = h('input', { type: 'text', inputmode: 'numeric', maxlength: 4, value: r.order ? String(r.order) : '' });
   const def = h('input', { type: 'checkbox', checked: !!r.isDefault });
   const req = h('input', { type: 'checkbox', checked: !!r.required });
-  const chips = !isRoot ? catChips({ options: r.cats, value: r.categories || '', all: r.allCategories, label: 'К каким типам паспорта подходит текст', later: LATER_CATS }) : null;
+  const chips = (!isRoot || r.contextRoot) ? catChips({ options: r.cats, value: r.categories || '', all: r.allCategories, label: 'К каким типам паспорта подходит текст', later: LATER_CATS }) : null;
   const err = h('div', { class: 'err', hidden: true });
   const insert = (v) => { const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s; ta.value = ta.value.slice(0, s) + v + ta.value.slice(e); ta.focus(); ta.selectionStart = ta.selectionEnd = s + v.length; };
   const vars = h('div', { class: 'pt-vars' }, ...VARS.map((v) => h('button', { type: 'button', class: 'tag', title: `Вставить в текст: ${VAR_LABELS[v] || 'значение изделия'}`, onclick: () => insert(v) }, VAR_LABELS[v] || v)));
@@ -162,7 +174,8 @@ function nodeForm(r) {
   if (r.kind === 'node' && !isRoot && !r.hasChildren) tools.push(button({ label: 'Объединить с…', size: 'S', onClick: () => mergeInto(r) }));
   if (r.kind === 'node' && !isRoot) tools.push(button({ label: 'Убрать', kind: 'danger', size: 'S', onClick: () => removeNode(r) }));
   if (r.kind === 'node' && !isRoot && (r.hasChildren || !r.text.trim()) && r.pathText.split(' › ').length < 3) tools.push(button({ label: '+ Подвариант', size: 'S', onClick: () => patch({ of: 'ptnode', open: 'new.' + r.id }) }));
-  const where = r.kind === 'new' ? `Новый вариант в разделе «${r.pathText}».` : isRoot ? 'Раздел паспорта: здесь его название, порядок и обязательность; варианты — ниже в дереве.' : `${r.pathText}${r.used ? ` · используется: ${r.used}` : ''}`;
+  if (isRoot && r.section === 'simple-description' && !r.hasChildren && !r.text.trim()) tools.push(button({ label: 'Добавить текст описания', size: 'S', onClick: () => patch({ of: 'ptnode', open: 'new.' + r.id }) }));
+  const where = r.contextRoot ? `Шаг 1 из 2. Создайте раздел для вида «${r.pathText.split(' · ').at(-1)}». Вид и тип уже заданы. После сохранения откроется ввод текста.` : r.descriptionStep ? 'Шаг 2 из 2. Впишите подтверждённое краткое описание изделия и сохраните. Назначение хранится отдельно.' : r.kind === 'new' ? `Новый вариант в разделе «${r.pathText}».` : isRoot ? 'Раздел паспорта: здесь его название, порядок и обязательность; варианты — ниже в дереве.' : `${r.pathText}${r.used ? ` · используется: ${r.used}` : ''}`;
   const el = h('div', { class: 'form-grid pt-form' },
     h('p', { class: 'hint wide' }, where, ' Выданные паспорта не меняются; черновики подхватят новый текст при открытии.'),
     h('label', { class: 'field wide' }, h('span', null, isRoot ? 'Название раздела' : 'Название варианта', h('span', { class: 'req' }, ' *')), name),
@@ -177,12 +190,14 @@ function nodeForm(r) {
     isRoot ? h('label', { class: 'pt-check span-2' }, req, ' Обязательный раздел (без выбора паспорт не выпустить)') : null,
     tools.length ? h('div', { class: 'wide actions' }, ...tools) : null);
   const values = () => ({ name: name.value.trim(), ...(leaf ? { text: ta.value.trim() } : {}), ...(chips ? { categories: chips.value, allCategories: chips.all } : {}),
+    ...(r.contextRoot ? { section: r.section, kindIds: r.kindIds, required: true } : {}),
     ...(order.value.trim() ? { order: Number(order.value.replace(',', '.')) || 0 } : {}), ...(isRoot ? { required: req.checked } : { isDefault: def.checked }),
     ...(facetPick ? { facetValueIds: ids(facetPick) } : {}), ...(groupPick ? { groupIds: ids(groupPick) } : {}) });
   const start = JSON.stringify(values());
   let removed = false; r.onRemoved = () => { removed = true; };
   return {
     el,
+    bindSave: r.contextRoot ? (bind) => bind(true, 'Создать раздел и перейти к тексту') : undefined,
     focus: () => (leaf ? ta : name).focus(),
     dirty: () => !removed && JSON.stringify(values()) !== start,
     read: () => {
@@ -200,7 +215,6 @@ async function saveNode(id, body) {
   else saved = await api(`${DICT}/${id}`, { method: 'PATCH', body });
   refresh();
   const sid = String(saved?.id || id);
-  if (sid !== String(id)) setTimeout(() => patch({ of: 'ptnode', open: sid }), 0);
   return getNode(sid);
 }
 
@@ -245,5 +259,15 @@ export const ptnode = {
       ];
     },
   },
-  form: { build: (r) => nodeForm(r), toInitial: (r) => r, toBody: (v) => v, update: (id, b) => saveNode(id, b), create: (b) => saveNode('new.' + (b.parentId || ''), b) },
+  form: {
+    afterSave: (saved, { previousId }) => {
+      if (!String(previousId).startsWith('new.')) return false;
+      const nextText = previousId === 'new.' && !saved.parentId && saved.section === 'simple-description'
+        && current().params.phraseSection === 'simple-description'
+        && (saved.kindIds || []).map(String).includes(current().params.phraseKind);
+      patch({ of: 'ptnode', open: nextText ? 'new.' + saved.id : saved.id });
+      return true;
+    },
+    build: (r) => nodeForm(r), toInitial: (r) => r, toBody: (v) => v, update: (id, b) => saveNode(id, b), create: (b) => saveNode('new.' + (b.parentId || ''), b),
+  },
 };

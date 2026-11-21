@@ -17,6 +17,7 @@ import { revisionsBlock } from './passports/revisions.js';
 import { numbersStrip } from './passports/numbers-strip.js';
 import { stepFunnel } from '../ui/kit/index.js';
 import { openBookEditor } from './passports/book-editor.js';
+import { canEditBookInstance } from './passports/book-head.js';
 
 /**
  * Раздел «Паспорта изделий» (TASKS ПС.4–ПС.5): паспорт = экземпляр (№, талон, номер изделия, дата, заказчик/объект),
@@ -135,6 +136,8 @@ export const passports = {
   // C118 W6a: шаблон «Карточка объекта» — шапка (статус бейджем) → предупреждения → «Что дальше» (одна главная кнопка) → сведения → вкладки; остальное — в «⋯»
   card: {
     ...screenCard({
+      // История паспортов доступна во вкладке «Версии»; общий аудит этот тип не поддерживает.
+      noHistory: true,
       title: heading,
       sub: (r) => [r.name, r.category].filter(Boolean).join(' · '),
       stage: (r) => h('span', null, statusBadge(r), r.revision > 1 ? h('span', { class: 'badge dim', title: 'Версия паспорта' }, ' версия ' + r.revision) : null),
@@ -144,11 +147,11 @@ export const passports = {
         r.productCodeDuplicate ? { title: 'Номер изделия повторяется', sub: `${r.productCode} уже есть в другом паспорте` } : null,
       ],
       next: (r, ctx) => {
-        const edit = canWriteDraft(r);
+        const edit = canEditBookInstance(r, canWorkPassport());
         return {
-          text: edit ? 'В книжке указаны данные, необходимые для выпуска.'
+          text: edit ? (statusOf(r) === 'issued' ? 'Правки сохраняются новой редакцией с прежним номером. Предыдущие данные останутся в истории.' : 'В книжке указаны данные, необходимые для выпуска.')
             : !newFormat(r) ? 'Паспорт старого образца.' : 'Паспорт доступен для просмотра и печати.',
-          primary: { label: edit ? 'Дописать в книжке' : 'Открыть паспорт', run: () => openBook(r, ctx) },
+          primary: { label: edit ? (statusOf(r) === 'issued' ? 'Изменить паспорт' : 'Дописать в книжке') : 'Открыть паспорт', run: () => openBook(r, ctx) },
         };
       },
       facts: (r) => [

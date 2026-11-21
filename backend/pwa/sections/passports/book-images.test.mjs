@@ -10,17 +10,20 @@ class Element {
   append(...kids) { this.children.push(...kids.flat().filter(Boolean)); }
   get firstChild() { return this.children[0]; }
 }
-function fixture({ inherited = false, status = 'draft', can = true, failPatch = false, kind = 'overview', images } = {}) {
+function fixture({ inherited = false, status = 'draft', can = true, failPatch = false, kind = 'overview', images, installationPlan } = {}) {
   let row = { id: 'passport', status, images: [
     { kind: 'overview', photoId: 'old-a', caption: 'Старый' }, { kind: 'overview', photoId: 'old-b' },
     { kind: 'dimensions', photoId: 'dims', caption: 'Размеры' }, { kind: 'foundation', photoId: 'base' },
   ] };
   if (images) row.images = clone(images);
+  if (installationPlan) row.installationPlan = installationPlan;
   if (inherited) row.effectiveImages = [{ kind: 'overview', photoId: 'product-view', fromProduct: true }];
   const drops = [], writes = [], requests = [];
   const kindOf = (i) => i.kind === 'safety_zone' ? 'safety' : i.kind || 'overview';
   const context = vm.createContext({
     PREFIX: '', kindOf, h: (tag, attrs, ...kids) => new Element(tag, attrs, kids), imagesBody,
+    imageKindAllowed: (row, kind) => !row.installationPlan?.managedKinds.includes(kind) || row.installationPlan.allowedKinds.includes(kind),
+    imageKindLabel: (row, kind) => row.installationPlan?.labels?.[kind] || '',
     imgsOf: (r, kind) => (r.effectiveImages || r.images || []).filter((i) => kindOf(i) === kind), isRequired: () => false,
     iconButton: (o) => new Element('button', { onclick: o.onClick }, [o.label]),
     button: (o) => new Element('button', { onclick: o.onClick }, [o.label]),
@@ -108,4 +111,10 @@ test('старый safety_zone заменяется из safety, append не д�
   t.row().images[1].kind = 'safety_zone';
   await t.drops[1].attach('new');
   assert.deepEqual(t.row().images.map((i) => [i.kind, i.photoId]), [['overview', 'keep'], ['safety', 'new']]);
+});
+
+test('серверный план скрывает запрещённые legacy-виды без удаления rawrefs; разрешённый alt канонический',()=>{
+ const plan={managedKinds:['foundation','holes','mounting','embedded_layout'],allowedKinds:['mounting'],labels:{mounting:'Схема анкерного крепления'}};
+ const raw=[{kind:'foundation',photoId:'old'},{kind:'holes',photoId:'old2'}];const hidden=fixture({kind:'foundation',images:raw,installationPlan:plan});assert.equal(hidden.tree.hidden,true);assert.equal(hidden.drops.length,0);assert.equal(hidden.writes.length,0);assert.deepEqual(hidden.row().images,raw);
+ const shown=fixture({kind:'mounting',installationPlan:plan,images:[{kind:'mounting',photoId:'a',url:'/uploads/a.png',caption:'Старое название про фундамент'}]});assert.equal(shown.tree.children[0].children[0].attrs.alt,'Схема анкерного крепления');
 });

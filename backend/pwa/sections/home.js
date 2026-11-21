@@ -7,6 +7,7 @@ import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { unmatchedCount } from './matching-queue.js';
 import { fillToday } from './fill.js';
+import { productIdentificationToday, svg } from './home-ui.js';
 import { empty, card, row, button, segmented, section, stack, stat, tabs, link, toolbar, layout, hint, miniChart, tileGrid } from '../ui/kit/index.js';
 
 /**
@@ -17,7 +18,6 @@ import { empty, card, row, button, segmented, section, stack, stat, tabs, link, 
 const SNOOZE_KEY = 'dc-today-snooze';
 const SEC_OF = { delivery: 'requests', shipment: 'salesorders', design: 'design', work: 'work' };
 const KIND_LABEL = { delivery: 'Поставка', shipment: 'Отгрузка', design: 'Проектирование', question: 'Вопрос', payment: 'Оплата', work: 'В работе' };
-const SVGNS = 'http://www.w3.org/2000/svg';
 
 // Блоки по ролям, сверху вниз: [ключ, заголовок]. Роль не из списка — «Срочно» + «План».
 const DIRECTOR = [['urgent', 'Срочно: просрочено'], ['work', 'В работе'], ['shipment', 'Отгрузки'], ['questions', 'Вопросы проектирования'], ['fill', ''], ['money', 'Деньги']];
@@ -34,12 +34,6 @@ const EMPTY = {
   delivery: 'Нет поставок, которые ждут приёмки', work: 'Нет заданий со сроком в ближайшие дни — все задания на доске «В работе»', shipment: 'Нет отгрузок на ближайшие дни', payment: 'Нет платежей к оплате',
 };
 
-function svg(tag, attrs = {}, ...kids) {
-  const n = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, v);
-  for (const k of kids.flat()) if (k) n.append(k);
-  return n;
-}
 const readSnooze = () => { try { return JSON.parse(localStorage.getItem(SNOOZE_KEY) || '{}') || {}; } catch { return {}; } };
 const writeSnooze = (m) => { try { localStorage.setItem(SNOOZE_KEY, JSON.stringify(m)); } catch { /* приватный режим — не страшно */ } };
 const plural = (n, a, b, c) => { const m = n % 100, d = n % 10; return m > 10 && m < 15 ? c : d === 1 ? a : d > 1 && d < 5 ? b : c; };
@@ -79,6 +73,7 @@ export function mountHome(deps) {
   const tilesEl = h('div', { class: 'td-tiles', hidden: true });
   const moneyTileSlot = h('div');
   const fill = has('fill') ? fillToday() : null;
+  const identification = session.sees('products') ? productIdentificationToday() : null;
 
   // ---------- Действия ----------
   const openRec = (c) => {
@@ -401,6 +396,7 @@ export function mountHome(deps) {
   // ---------- Загрузка ----------
   const soon = () => { const d = new Date(); d.setDate(d.getDate() + 14); return isoDay(d); };
   async function load(silent = false) {
+    identification?.load();
     try {
       const [d, q, ct] = await Promise.all([
         api('/today', { query: { days: 7, ...(mode ? { scope: mode } : {}) } }),
@@ -466,6 +462,7 @@ export function mountHome(deps) {
       h('div', null, h('h1', null, 'Сегодня'), h('div', { class: 'sub' }, `${hello}${first ? ', ' + first : ''} · ${dayText}`)),
       h('div', { class: 'td-bellwrap' }, scopeEl)),
     goTiles,
+    identification?.el,
     pulseEl,
     actions,
     filterEl,

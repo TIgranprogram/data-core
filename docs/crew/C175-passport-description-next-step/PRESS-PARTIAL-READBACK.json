@@ -1,0 +1,28 @@
+{
+  "name": "QA-C175-PRESS-1795272326419 раздел",
+  "section": "simple-description",
+  "parentId": "",
+  "categories": "TRN",
+  "allCategories": false,
+  "order": 0,
+  "required": true,
+  "isDefault": false,
+  "installTypeId": "",
+  "facetValueIds": [],
+  "groupIds": [],
+  "slot": 1,
+  "text": "",
+  "partIds": [],
+  "kindIds": [
+    "6af707fdc451d4c05df6a049"
+  ],
+  "id": "6b01ae8928a83d52dcde4702",
+  "_id": "6b01ae8928a83d52dcde4702",
+  "dict": "passportPhrases",
+  "updatedAt": "2026-11-21T14:45:29.415Z",
+  "used": 0,
+  "facetValueNames": "",
+  "groupNames": "",
+  "kindNames": "Тренажёр для пресса",
+  "partNames": ""
+}

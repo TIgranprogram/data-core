@@ -9,8 +9,9 @@ describe('ShowcaseBulk — значения паспорта по умолчан
     const host = {
       db: () => ({ collection: () => ({ findOne: async () => ({ _id: new Types.ObjectId(id), ...raw }) }) }),
       present: async () => [{ type: null, group: null }],
-      update: async () => ({}),
-      setPassportDefaults: async (_id: string, v: Record<string, unknown>) => { saved.push(v); },
+      applyRow: async (_raw: Record<string, unknown>, _patch: Record<string, unknown>, v: Record<string, unknown>) => {
+        saved.push(v); return { set: { passportDefaults: raw.passportDefaults ?? null }, expected: 'test-after-fingerprint' };
+      },
     } as unknown as BulkHost;
     return { bulk: new ShowcaseBulk(host), saved };
   };

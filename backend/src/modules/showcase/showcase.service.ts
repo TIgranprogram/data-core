@@ -5,10 +5,9 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException, 
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { InjectConnection } from '@nestjs/mongoose';
 import { createHash } from 'crypto';
-import type { Connection } from 'mongoose';
+import type { ClientSession, Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
-import { resolveKinds } from '../../common/passport/kind';
 import { checkChoices, toNode } from '../../common/passport/phrase-tree';
 import { skuKey, skuRegex, tokensFilter } from '../../common/text/search-norm';
 import { isUsedByCrm } from '../../common/catalog/catalog-references';
@@ -28,7 +27,9 @@ import { ShowcaseFromPassports } from './showcase-from-passports';
 import { parseMaterialsSpec, presentMaterialsSpec } from '../../common/catalog/materials-table';
 import { ShowcaseMaterials } from './showcase-materials';
 import { groupNoOf, nextSku, skuOfGroup, skuPrefixError } from './showcase-sku';
-import { passportCategoryFor, resolvePassportCategory, type PpFound, seriesInDict, seriesOptions, tallyValues, withDict, type PpCat } from '../../common/passport/form-values';
+import { seriesInDict, seriesOptions, tallyValues, withDict } from '../../common/passport/form-values';
+import { identifyProduct, loadIdentificationContext, passportCode, type IdentificationContext } from './showcase-identification';
+import { bulkExpected, bulkFingerprint } from './showcase-bulk-cas';
 
 /** Число ≥ 0 из поля формы («1 200,5»); пусто — null. */
 const num = (v: unknown, what: string) => {
@@ -76,7 +77,7 @@ export class ShowcaseService {
   private get db() { return this.connection.db!; }
   // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
   private readonly comp = new ShowcaseComposition(() => this.db, this.versions);
-  private readonly bulkOps = new ShowcaseBulk({ db: () => this.db, present: (d) => this.present(d), update: (id, p) => this.update(id, p), setPassportDefaults: (id, v) => this.setPassportDefaults(id, v) });
+  private readonly bulkOps = new ShowcaseBulk({ db: () => this.db, present: (d) => this.present(d), applyRow: (raw, patch, defaults, incoming) => this.applyBulkRow(raw, patch, defaults, incoming) });
   private readonly fromPp = new ShowcaseFromPassports(() => this.db, (dto) => this.create(dto));
   private readonly mi = new ShowcaseMaterials(() => this.db);
 
@@ -90,27 +91,16 @@ export class ShowcaseService {
     return c ? { total: c.total, missing: c.missing } : null;
   }
 
-  private async present(docs: Doc[]) {
-    const catIds = [...new Set(docs.map((d) => d.categoryId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
-    const cats = catIds.length ? await this.db.collection('categories').find({ _id: { $in: catIds } }, { projection: { name: 1, parentId: 1, passportCategory: 1 } }).toArray() : [];
-    const parents = await this.db.collection('categories').find({ _id: { $in: cats.map((c) => c.parentId).filter(Boolean) } }, { projection: { name: 1, passportCategory: 1 } }).toArray();
-    const cat = new Map(cats.map((c) => [String(c._id), c])); const par = new Map(parents.map((p) => [String(p._id), String(p.name)])); const parPp = new Map(parents.map((p) => [String(p._id), String(p.passportCategory ?? '')]));
+  private async present(docs: Doc[], context?: IdentificationContext) {
+    const metadata = context ?? await loadIdentificationContext(this.db);
     const { pictures, covers } = await showcasePhotos(this.db, docs);
     // ПИ: тип паспорта изделия (своя из passportDefaults, иначе — по «Категориям каталога») и сколько паспортов выпущено
-    const [ppCats, ppCounts] = await Promise.all([
-      this.db.collection('dict_values').find({ dict: 'passportCategories', deletedAt: null }, { projection: { code: 1, name: 1, catalogNames: 1 } }).toArray() as unknown as Promise<PpCat[]>,
-      docs.length ? this.db.collection('productpassports').aggregate([{ $match: { deletedAt: null, productId: { $in: docs.map((d) => d._id) } } }, { $group: { _id: '$productId', n: { $sum: 1 } } }]).toArray() : Promise.resolve([]),
-    ]);
+    const ppCounts = docs.length ? await this.db.collection('productpassports').aggregate([{ $match: { deletedAt: null, productId: { $in: docs.map((d) => d._id) } } }, { $group: { _id: '$productId', n: { $sum: 1 } } }]).toArray() : [];
     const ppN = new Map(ppCounts.map((x) => [String(x._id), x.n as number]));
-    const kinds = await resolveKinds(this.db, docs); // C100: вид изделия — своё / группы
+
     return docs.map((d) => {
-      const c = d.categoryId ? cat.get(String(d.categoryId)) : undefined;
-      const grp = c?.parentId ? String(c.name) : null, typ = c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null;
-      const rk = kinds.get(String(d._id));
-      const byGroup = passportCategoryFor({ group: grp, type: typ }, ppCats, { group: c?.parentId ? String(c.passportCategory ?? '') : '', type: c ? (c.parentId ? parPp.get(String(c.parentId)) ?? '' : String(c.passportCategory ?? '')) : '' });
-      const kc = rk?.kind?.passportCategory ?? '';
-      const byKind: PpFound | null = kc ? { code: kc, name: clean(ppCats.find((x) => clean(x.code) === kc)?.name) || kc, via: `вид «${rk!.kind!.name}»`, source: 'kind' } : null;
-      const pp = resolvePassportCategory((d.passportDefaults as PassportDefaults | undefined)?.passportCategory, byKind ?? byGroup, ppCats);
+      const identification = identifyProduct(d, metadata);
+      const { group: c, typeName: typ, kind: rk, passport: pp } = identification;
       const pics = pictures.get(String(d._id)) ?? [];
       const ppCoverPhoto = covers.get(String(d._id)) ?? null;
       const photo = pics[0] ?? ppCoverPhoto ?? null;
@@ -118,13 +108,13 @@ export class ShowcaseService {
       return { id: String(d._id), sku: String(d.sku ?? ''), name: String(d.name ?? d.sku ?? ''), series: (d.series as string) ?? null, fullName: (d.fullName as string) ?? null, orderName: (d.orderName as string) ?? null, description: (d.description as string) ?? null, notes: (d.notes as string) ?? null,
         price: Number(d.listPrice) > 0 ? Number(d.listPrice) : null, status: String(d.status ?? 'new'), groupId: c ? String(c._id) : null, group: c?.parentId ? String(c.name) : null, // категория без родителя — сам раздел (группа не выбрана)
         hasPassportDefaults: !!d.passportDefaults && Object.keys(d.passportDefaults as object).length > 0,
-        type: c ? (c.parentId ? par.get(String(c.parentId)) ?? null : String(c.name)) : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo, ...(photoSource ? { photoSource } : {}), deletedAt: (d.deletedAt as Date) ?? null,
+        type: c ? (c.parentId ? typ : String(c.name)) : null, colors: (d.colors as string[]) ?? [], sizes: (d.sizes as string[]) ?? [], photos: pics, photo, ...(photoSource ? { photoSource } : {}), deletedAt: (d.deletedAt as Date) ?? null,
         // характеристики и тексты для паспорта (ФИ2) — поля общей схемы CRM, читаем как есть
         unit: String(d.unit ?? 'шт'), dimensions: presentDimensions(d.dimensions), weightKg: Number(d.weightKg) > 0 ? Number(d.weightKg) : null,
         ralCode: (d.ralCode as string) || null, purpose: (d.purpose as string) || null, installation: (d.installation as string) || null,
         kind: rk?.kind ? { id: rk.kind.id, name: rk.kind.name, source: rk.source, groupName: rk.groupName } : null,
         facetValueIds: ((d.facetValueIds as Types.ObjectId[]) ?? []).map(String), passportsCount: ppN.get(String(d._id)) ?? 0, designerId: d.designerId ? String(d.designerId) : null,
-        canPassport: !!pp.effective, missing: pp.effective ? [] : ['Нет типа паспорта — задайте его в группе или виде изделия'], ppCategory: pp.effective?.code ?? null, ppSource: pp.effective?.source ?? null, ppOwn: pp.own, ppInherited: pp.inherited };
+        identificationIssues: identification.issues, canPassport: !!pp.effective, missing: pp.effective ? [] : ['Нет типа паспорта — задайте его в группе или виде изделия'], ppCategory: pp.effective?.code ?? null, ppSource: pp.effective?.source ?? null, ppOwn: pp.own, ppInherited: pp.inherited };
     });
   }
 
@@ -147,6 +137,15 @@ export class ShowcaseService {
       const all = await this.db.collection('categories').find({ type: 'product', deletedAt: null }, { projection: { parentId: 1 } }).toArray();
       filter.categoryId = { $in: subtreeIds(g, all) };
     }
+    const metadata = await loadIdentificationContext(this.db);
+    if (String(q.needsIdentification) === '1') {
+      // Eligibility считается без series: фасет показывает и другие серии при остальных фильтрах.
+      const candidatesFilter = { ...filter }; delete candidatesFilter.series;
+      const candidates = await this.db.collection('products').find(candidatesFilter, {
+        projection: { _id: 1, categoryId: 1, 'passportDefaults.kindId': 1, 'passportDefaults.passportCategory': 1 },
+      }).toArray();
+      filter._id = { $in: candidates.filter(row => identifyProduct(row, metadata).issues.length > 0).map(row => row._id) };
+    }
     const sortKey = String(q.sort || 'name').replace(/^-/, ''); const dir = String(q.sort || '').startsWith('-') ? -1 : 1;
     const sortField = ({ name: 'name', sku: 'sku', price: 'listPrice', series: 'series', deletedAt: 'deletedAt', category: 'categoryId' } as Record<string, string>)[sortKey] ?? 'name';
     // category — галерея по разделам (ФИ2): изделия одной группы подряд, внутри — по названию; withPhoto — сначала с обложкой (БЗ-15)
@@ -163,9 +162,9 @@ export class ShowcaseService {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars -- series исключаем из фильтра фасета
       const { series: _s, ...rest } = filter;
       const series = await this.db.collection('products').aggregate([{ $match: { ...rest, series: { $nin: [null, ''] } } }, { $group: { _id: '$series', n: { $sum: 1 } } }, { $sort: { _id: 1 } }]).toArray();
-      return { items: await this.present(docs as Doc[]), total, page, limit, facets: { series: series.map((x) => ({ value: String(x._id), n: x.n as number })) } };
+      return { items: await this.present(docs as Doc[], metadata), total, page, limit, facets: { series: series.map((x) => ({ value: String(x._id), n: x.n as number })) } };
     }
-    return { items: await this.present(docs as Doc[]), total, page, limit };
+    return { items: await this.present(docs as Doc[], metadata), total, page, limit };
   }
 
   /** «Похожее уже есть»: до 5 изделий с похожим названием (подсказка при создании и сопоставлении). */
@@ -258,17 +257,63 @@ export class ShowcaseService {
   async setPassportDefaults(id: string, b: Record<string, unknown>) {
     const _id = oid(id, 'изделия');
     if (!(await this.db.collection('products').findOne({ _id, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено');
+    const v = await this.preparePassportDefaults(b);
+    const result = await this.db.collection('products').updateOne({ _id, deletedAt: null }, [
+      { $set: { passportDefaults: legacyDefaultsReplacement(v), updatedAt: new Date() } },
+    ]);
+    if (!result.matchedCount) throw new NotFoundException('Изделие не найдено');
+    return this.get(id);
+  }
+
+  private async preparePassportDefaults(b: Record<string, unknown>) {
     const v = normalizePassportDefaults(b ?? {});
     if (v.kindId && !(await this.db.collection('dict_values').findOne({ _id: new Types.ObjectId(v.kindId), dict: 'passportKinds', deletedAt: null }, { projection: { _id: 1 } }))) throw new BadRequestException('Вид изделия не найден — выберите из списка');
     if (v.textChoices) {
       const err = checkChoices((await this.db.collection('dict_values').find({ dict: 'passportPhrases', deletedAt: null }).toArray()).map((r) => toNode(r)), v.textChoices);
       if (err) throw new BadRequestException(err);
     }
-    const result = await this.db.collection('products').updateOne({ _id, deletedAt: null }, [
-      { $set: { passportDefaults: legacyDefaultsReplacement(v), updatedAt: new Date() } },
-    ]);
-    if (!result.matchedCount) throw new NotFoundException('Изделие не найдено');
-    return this.get(id);
+    return v;
+  }
+
+  /** Массовая строка: вся проверка до единственной записи; CAS не затирает параллельную правку. */
+  private async applyBulkRow(raw: Doc, patch: Record<string, unknown>, defaults?: Record<string, unknown>, incomingDefaults?: Record<string, unknown>) {
+    const normalized = defaults ? await this.preparePassportDefaults(defaults) : undefined;
+    if (normalized || 'type' in patch || 'group' in patch) {
+      const metadata = await loadIdentificationContext(this.db);
+      // Разрешаем будущую группу чтением: fields() умеет её создать, но при отказе не должно остаться даже новой категории.
+      let categoryId: unknown = raw.categoryId;
+      if ('type' in patch || 'group' in patch) {
+        const same = (a: unknown, b: unknown) => clean(a).toLowerCase() === clean(b).toLowerCase();
+        const type = [...metadata.groups.values()].find(g => !g.parentId && same(g.name, patch.type));
+        const group = type && [...metadata.groups.values()].find(g => String(g.parentId ?? '') === String(type._id) && same(g.name, patch.group));
+        categoryId = clean(patch.group) ? group?._id : type?._id;
+      }
+      const identity = identifyProduct({ ...raw, categoryId, passportDefaults: normalized ?? raw.passportDefaults }, metadata);
+      const explicitCategory = incomingDefaults && Object.prototype.hasOwnProperty.call(incomingDefaults, 'passportCategory') ? passportCode(incomingDefaults.passportCategory) : '';
+      // Выбор только вида не даёт разрешения молча переклассифицировать прежний унаследованный тип.
+      const ownCategory = explicitCategory || passportCode(identifyProduct(raw, metadata).passport.effective?.code);
+      const kindCategory = passportCode(identity.kind.kind?.passportCategory);
+      if (ownCategory && kindCategory && ownCategory !== kindCategory) {
+        throw new BadRequestException('Вид изделия не соответствует выбранному типу паспорта — уточните оба поля');
+      }
+    }
+    return this.connection.transaction(async session => {
+    const set = await this.fields(patch, raw.series, session);
+    const keys = [...Object.keys(set), ...(normalized ? ['passportDefaults'] : [])];
+    const before = Object.fromEntries(keys.map(key => [key, raw[key] ?? null]));
+    const commit = normalized ? [{ $set: {
+      ...Object.fromEntries(Object.entries(set).map(([key, value]) => [key, { $literal: value }])),
+      passportDefaults: legacyDefaultsReplacement(normalized), updatedAt: { $literal: new Date() },
+    } }] : { $set: { ...set, updatedAt: new Date() } };
+    const expected = bulkExpected(raw, [...keys, 'categoryId', 'passportDefaults']);
+    const result = await this.db.collection('products').updateOne({ _id: raw._id, deletedAt: null, ...expected }, commit, { session });
+    if (!result.matchedCount) throw new ConflictException('Изделие изменено другим пользователем — обновите список и повторите');
+    const afterDefaults = normalized ? { ...normalized,
+      ...Object.fromEntries(Object.entries((raw.passportDefaults ?? {}) as Record<string, unknown>).filter(([key]) => ['simpleDescription', 'manualDescription', 'manualPurpose', 'manualInstall'].includes(key))),
+    } : undefined;
+    const after = { ...raw, ...set, ...(afterDefaults ? { passportDefaults: Object.keys(afterDefaults).length ? afterDefaults : undefined } : {}) };
+    return { set: before, expected: bulkFingerprint(after, keys) };
+    });
   }
 
 
@@ -302,17 +347,17 @@ export class ShowcaseService {
   }
 
   /** Категория type product по названию (с родителем) — найти или завести (slug и skuPrefix уникальны в общей схеме). */
-  private async category(name: string | null, parentId: Types.ObjectId | null) {
+  private async category(name: string | null, parentId: Types.ObjectId | null, session?: ClientSession) {
     const n = clean(name);
     if (!n) return parentId;
-    const found = await this.db.collection('categories').findOne({ type: 'product', deletedAt: null, parentId: parentId ?? null, name: new RegExp(`^\\s*${escapeRe(n)}\\s*$`, 'i') });
+    const found = await this.db.collection('categories').findOne({ type: 'product', deletedAt: null, parentId: parentId ?? null, name: new RegExp(`^\\s*${escapeRe(n)}\\s*$`, 'i') }, session ? { session } : {});
     if (found) return found._id as Types.ObjectId;
     const h = createHash('md5').update(`${parentId ?? ''}/${n.toLowerCase()}`).digest('hex').slice(0, 8);
-    const { insertedId } = await this.db.collection('categories').insertOne({ name: n, slug: `product-${h}`, type: 'product', parentId: parentId ?? null, skuPrefix: `PR${h.toUpperCase()}`, sortOrder: 0, isActive: true, deletedAt: null, createdAt: new Date(), updatedAt: new Date() });
+    const { insertedId } = await this.db.collection('categories').insertOne({ name: n, slug: `product-${h}`, type: 'product', parentId: parentId ?? null, skuPrefix: `PR${h.toUpperCase()}`, sortOrder: 0, isActive: true, deletedAt: null, createdAt: new Date(), updatedAt: new Date() }, session ? { session } : {});
     return insertedId;
   }
 
-  private async fields(dto: Record<string, unknown>, curSeries?: unknown) {
+  private async fields(dto: Record<string, unknown>, curSeries?: unknown, session?: ClientSession) {
     const set: Record<string, unknown> = {};
     if (dto.name !== undefined) { const v = clean(dto.name); if (!v) throw new BadRequestException('Наименование не может быть пустым'); set.name = v; }
     if (dto.series !== undefined) {
@@ -325,7 +370,6 @@ export class ShowcaseService {
     if (dto.description !== undefined) set.description = String(dto.description ?? '').trim() || null;
     if (dto.notes !== undefined) set.notes = String(dto.notes ?? '').trim() || null;
     if (dto.price !== undefined) { const p = dto.price === null || dto.price === '' ? 0 : Number(String(dto.price).replace(/\s/g, '').replace(',', '.')); if (!Number.isFinite(p) || p < 0) throw new BadRequestException('Цена — число'); set.listPrice = p; if (p > 0) set.status = 'active'; }
-    if (dto.group !== undefined || dto.type !== undefined) set.categoryId = await this.category(dto.group as string, await this.category(dto.type as string, null));
     for (const k of ['colors', 'sizes'] as const) if (dto[k] !== undefined) set[k] = variants(dto[k]);
     // ФИ2: характеристики, тексты для паспорта, статус (поля схемы CRM — только существующие)
     if (dto.dimensions !== undefined) set.dimensions = parseDimensions(dto.dimensions);
@@ -353,6 +397,8 @@ export class ShowcaseService {
     // C028: признаки продукции — только значения справочника «Значения признаков»
     if (dto.facetValueIds !== undefined) set.facetValueIds = await facetIds(this.db, dto.facetValueIds);
     if (Array.isArray(dto.photoIds)) set.photoIds = (dto.photoIds as string[]).filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
+    // Создание категории — единственный side effect fields; только после проверки остальных полей.
+    if (dto.group !== undefined || dto.type !== undefined) set.categoryId = await this.category(dto.group as string, await this.category(dto.type as string, null, session), session);
     return set;
   }
 

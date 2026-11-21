@@ -40,7 +40,7 @@ describe('C148: происхождение материалов через API �
     expect(ctx.connection.name).toBe(testDb);
     token = (await loginAsAdmin(ctx.app)).access;
     matId = String(await insert('dict_values', { dict: 'passportMaterials', name: 'Сталь C148', madeOf: 'стали C148' }));
-    instId = String(await insert('dict_values', { dict: 'passportInstall', name: 'Анкерами' }));
+    instId = String(await insert('dict_values', { dict: 'passportInstall', code: 'ANCHORS', name: 'Анкерами' }));
     await insert('dict_values', { dict: 'passportCategories', code: 'BLG', name: 'Благоустройство' });
     for (const code of ['MINTRUD_883N', 'SP_70', 'GOST_15150', 'GOST_9_014', 'GOST_26653', 'GOST_12_3_009', 'SP_325']) {
       await insert('dict_values', { dict: 'passportStandards', code, name: code, status: 'действует', checkedAt: '2026-11-18' });
@@ -59,6 +59,7 @@ describe('C148: происхождение материалов через API �
     });
     const photoId = await insert('photos', { storageUrl: `/uploads/${imageName}`, originalFilename: imageName, mimeType: 'image/png' });
     await insert('productphotos', { productId: pid, photoId, purpose: 'passport', kind: 'overview', sortOrder: 0 });
+    await insert('productphotos', { productId: pid, photoId, purpose: 'passport', kind: 'mounting', sortOrder: 1 });
     return String(pid);
   };
   const graph = async (count = 2) => {

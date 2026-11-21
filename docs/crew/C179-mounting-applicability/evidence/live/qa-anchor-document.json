@@ -1,0 +1,80 @@
+{
+  "installationTypeId": "6ada090c7536f8509feb4244",
+  "imageSlots": [
+    "overview",
+    "dimensions",
+    "mounting",
+    "assembly",
+    "bom_item"
+  ],
+  "status": "draft",
+  "installationMethod": "Подготовить плиту или фундамент по схеме\nРазметить и просверлить отверстия под анкеры\nУстановить изделие и выставить по уровню\nЗакрепить изделие анкерами и затянуть моментом, указанным изготовителем анкеров\nПроверить неподвижность опор",
+  "requiredImages": [
+    "overview",
+    "dimensions",
+    "mounting"
+  ],
+  "install": {
+    "text": "Подготовить плиту или фундамент по схеме\nРазметить и просверлить отверстия под анкеры\nУстановить изделие и выставить по уровню\nЗакрепить изделие анкерами и затянуть моментом, указанным изготовителем анкеров\nПроверить неподвижность опор",
+    "requirements": [
+      "Основание ровное, горизонтальное, из бетона марки, указанной в схеме установки",
+      "Толщина основания достаточна для выбранных анкеров",
+      "Расстояние от анкера до края основания — по схеме"
+    ],
+    "requiredImages": [
+      "mounting"
+    ]
+  },
+  "effectiveImages": [
+    {
+      "kind": "overview",
+      "photoId": "6b01a6dc9e6b715a3ba5d6e9",
+      "order": 0,
+      "url": "/uploads/other/2026-11/b58b22c5-8623-467a-b5bf-84e0ef731730.png",
+      "fromProduct": true
+    },
+    {
+      "kind": "dimensions",
+      "photoId": "6b01a6dd9e6b715a3ba5d6f3",
+      "order": 0,
+      "url": "/uploads/other/2026-11/97bef242-f9f0-4e43-9aaf-5ebe5e29ccc1.png",
+      "fromProduct": true
+    },
+    {
+      "kind": "mounting",
+      "photoId": "6b01aac99e6b715a3ba5dbbb",
+      "order": 0,
+      "url": "/uploads/passport/2026-11/d31117a8-a260-444a-84c7-7abb3a2ed352.png",
+      "fromProduct": true
+    }
+  ],
+  "id": "6b01a7af9e6b715a3ba5d7ae",
+  "installationPlan": {
+    "code": "ANCHORS",
+    "known": true,
+    "kind": "anchor",
+    "managedKinds": [
+      "foundation",
+      "holes",
+      "embedded_layout",
+      "mounting"
+    ],
+    "allowedKinds": [
+      "mounting"
+    ],
+    "requiredKinds": [
+      "mounting"
+    ],
+    "labels": {
+      "foundation": "Схема фундамента",
+      "holes": "Разметка ям под опоры",
+      "embedded_layout": "Схема закладных деталей",
+      "mounting": "Схема анкерного крепления"
+    },
+    "depthApplicable": false,
+    "traits": [
+      "anchors"
+    ],
+    "thirdImportKind": "mounting"
+  }
+}

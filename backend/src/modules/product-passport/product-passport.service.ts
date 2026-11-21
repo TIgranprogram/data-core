@@ -1,7 +1,7 @@
 import { passportProductVersion, withPassportProductWrite } from './passport-product-write';
 import { assertSitePassport, copyPassportValue, lineBaseline, passportLine, stalePassport, withPassportSite } from '../../common/passport/line-source';
 import { parseModules } from '../../common/passport/modules';
-import { installKindOf, variantOf, PASSPORT_VARIANTS, type PassportVariant } from './passport-variants';
+import { reconcileInstallationRules, installationProfile, imageKindAllowed, installKindOf, variantOf, PASSPORT_VARIANTS, type PassportVariant } from './passport-variants';
 import { blankItems } from './passport-blanks';
 import { assertRevisionRemovable, revisionRows } from './passport-revisions';
 import { compositionPresentation } from './passport-composition-presentation';
@@ -23,6 +23,7 @@ import { buildV2Text, withTextSources, type FunnelText } from './passport-v2-tex
 import { checkSections, cleanSections, type SectionLike } from './passport-sections-check';
 import { JOINTS_MISSING, jointsMissing } from './passport-traits';
 import { editSnapshotItem, type SnapshotSection } from './passport-snapshot-edit';
+import { snapshotRevisionPatch } from './passport-snapshot-revision';
 import { canon, carryManual, manualConflict, sameSnapshot, type Snap } from './passport-snapshot-refresh';
 import { promoteToOwn } from './passport-promote';
 import { carryFields, cleanFieldText, editField, fieldTarget, parseField, parseIndex, parseMaintPart, removeMaintRow, type FieldSnap } from './passport-snapshot-field';
@@ -33,7 +34,7 @@ import { textsTree } from './passport-texts-tree';
 import { ALL_V2, AFTER_PRINT_FIELDS, DRAFT_PREFIX, MODEL_FIELDS, NUMBER_FIELDS, OID_FIELDS, isIssued, type Doc } from './passport-consts';
 import { PassportBulk } from './passport-bulk';
 import { productFunnel } from './passport-funnel';
-import { DEFAULT_INSTALL, applyCategoryDefaults, gapKind, productGaps } from './passport-gaps';
+import { applyCategoryDefaults, gapKind, productGaps } from './passport-gaps';
 import { buildFillQueue, loadFillContext } from './product-fill-queue';
 import { productTechGaps } from './techsheet-gaps';
 import { productTechAnalogs } from './techsheet-analogs';
@@ -190,13 +191,13 @@ export class ProductPassportService {
     const standardImages = std.map((x) => ({ ...x, url: stdUrl.get(x.photoId) ?? null }));
     // обязательные виды картинок (для сортировки в карточке и форме): safety_zone = safety (v1)
     const instRec = (await this.installs()).get(String(doc.installationTypeId ?? '')) ?? null;
-    const vopts = { variant: 'short' as const, install: installKindOf(instRec) };
+    const vopts = { installationPlan: installationProfile(instRec), variant: 'short' as const, install: installKindOf(instRec) };
     const rules = imageRules(doc as never, cat, { category: String(doc.passportCategory ?? ''), ...vopts });
     const requiredImages = rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k));
     const productImageKinds = [...new Set(eff.filter((i) => !((doc.images as Doc[]) || []).includes(i as never)).map((i) => String(i.kind)))];
     const choiceMissing = await this.choiceMissing(doc);
     const revisionList = await this.revisionList(doc);
-    return { ...doc, ...presentPrint(doc), ...(revisionList.length ? { revisionList } : {}), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, effectiveImages, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
+    return { ...doc, ...presentPrint(doc), installationPlan: vopts.installationPlan, ...(revisionList.length ? { revisionList } : {}), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, effectiveImages, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
 
   /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */
@@ -602,12 +603,28 @@ export class ProductPassportService {
     }
     // Решение пользователя 2026-11-14: выпущенный паспорт правится свободно, как черновик. Номер тот же (привязан к позиции заказа);
     // правка не «после печати» сама становится новой редакцией (редакция +1, прежние значения — в истории).
+    // C179: явная смена монтажа снимает только прежний монтажный выбор/свой текст.
+    if ('installationTypeId' in set && String(set.installationTypeId ?? '') !== String(cur.installationTypeId ?? '')) {
+      const roots = (await this.forest(String(set.passportCategory ?? cur.passportCategory ?? ''))).filter(r => r.section === 'installation');
+      const ids = new Set(roots.map(r => r.id));
+      set.textChoices = Object.fromEntries(Object.entries((set.textChoices ?? cur.textChoices ?? {}) as Record<string, string>).filter(([key]) => !ids.has(key)));
+      set.textOverrides = Object.fromEntries(Object.entries((set.textOverrides ?? cur.textOverrides ?? {}) as Record<string, unknown>).filter(([key]) => key !== 'installation' && !ids.has(key)));
+      set.manualText = ((set.manualText ?? cur.manualText ?? []) as string[]).filter(key => key !== 'installationMethod');
+      set.installationMethod = '';
+      if (!('images' in set)) set.images = ((cur.images as PassportImageLike[]) ?? []).filter(i => !installationProfile(null).managedKinds.includes(String(i.kind)));
+      const snapshot = cur.textSnapshot as FieldSnap | undefined;
+      if (snapshot?.fieldEdits?.install) {
+        const fieldEdits = { ...snapshot.fieldEdits };
+        delete fieldEdits.install;
+        set.textSnapshot = { ...snapshot, fieldEdits };
+      }
+    }
     const changed = Object.keys(set).filter((k) => k !== 'passportNo' && JSON.stringify(set[k] ?? null) !== JSON.stringify(cur[k] ?? null) && !(String(set[k] ?? '') === '' && (cur[k] === undefined || cur[k] === null)));
     const locked = changed.filter((k) => !(AFTER_PRINT_FIELDS as readonly string[]).includes(k) && !(NUMBER_FIELDS as readonly string[]).includes(k) && k !== 'manualText');
     if (issued && locked.length) {
       // Явная правка модулей — новая редакция: богатые сведения должны стать видимыми, прежний режим остаётся в истории.
       if (changed.includes('modules')) set.compositionPresentation = compositionPresentation({ ...cur, ...set, status: 'draft' });
-      const keep = Object.fromEntries([...locked, 'textSnapshot', 'images', ...(presentation ? ['printSnapshot'] : []), ...('compositionPresentation' in set ? ['compositionPresentation'] : [])].map((k) => [k, cur[k] ?? null]));
+      const keep = Object.fromEntries([...locked, 'textSnapshot', 'images', ...(changed.includes('installationTypeId') ? ['manualText'] : []), ...(presentation ? ['printSnapshot'] : []), ...('compositionPresentation' in set ? ['compositionPresentation'] : [])].map((k) => [k, cur[k] ?? null]));
       set.revisions = [...((cur.revisions as unknown[]) ?? []), { revision: cur.revision ?? 1, at: new Date(), by: opts.user?.id ?? null, data: keep }];
       set.revision = Number(cur.revision ?? 1) + 1;
     }
@@ -742,12 +759,22 @@ export class ProductPassportService {
    * Вызывается при создании паспорта с категорией и по кнопке «Обновить текст по справочникам». Паспорт v1 — не трогаем.
    */
   /** Правка пункта текста только для этого паспорта (Э5a3): меняется снимок, справочники — нет. */
-  async editSnapshotItem(id: string, b: { sectionKey?: string; itemKey?: string; text?: string }) {
+  async editSnapshotItem(id: string, b: { sectionKey?: string; itemKey?: string; text?: string }, userId?: string) {
     const doc = await this.findById(id);
-    const previous = doc.toObject() as unknown as Doc;
+    const previous = doc.toObject({ minimize: doc.presentationVersion !== 1 }) as unknown as Doc;
+    if (previous.status === 'annulled') throw new ConflictException('Паспорт аннулирован — изменить его нельзя');
     const snap = previous.textSnapshot as { sections?: SnapshotSection[] } | undefined;
     if (!snap?.sections) throw new BadRequestException('У паспорта нет собранного текста — выберите категорию в «Изменить»');
-    doc.set('textSnapshot', { ...snap, sections: editSnapshotItem(snap.sections, String(b.sectionKey ?? ''), String(b.itemKey ?? ''), String(b.text ?? '')), editedAt: new Date() });
+    const next = { ...snap, sections: editSnapshotItem(snap.sections, String(b.sectionKey ?? ''), String(b.itemKey ?? ''), String(b.text ?? '')) };
+    return this.commitSnapshotEdit(doc, previous, next, userId);
+  }
+
+  private async commitSnapshotEdit(doc: ProductPassportDocument, previous: Doc, next: Snap, userId?: string) {
+    const patch = snapshotRevisionPatch(previous, next, userId);
+    if (!patch) return doc;
+    doc.set(patch);
+    // updatedAt может совпасть в пределах миллисекунды: редакция дополнительно защищает историю от потери.
+    doc.$where = { ...doc.$where, revision: previous.revision === undefined ? { $exists: false } : previous.revision };
     return this.saveCurrent(doc, previous);
   }
 
@@ -761,22 +788,21 @@ export class ProductPassportService {
   }
 
   /** C132: правка строки описания / назначения / монтажа / правил / обслуживания только для этого паспорта { field, index?, text, part?, remove? }. */
-  async editSnapshotField(id: string, b: { field?: string; index?: number; text?: string; part?: string; remove?: boolean }) {
+  async editSnapshotField(id: string, b: { field?: string; index?: number; text?: string; part?: string; remove?: boolean }, userId?: string) {
     const doc = await this.findById(id);
-    const previous = doc.toObject() as unknown as Doc;
+    const previous = doc.toObject({ minimize: doc.presentationVersion !== 1 }) as unknown as Doc;
+    if (previous.status === 'annulled') throw new ConflictException('Паспорт аннулирован — изменить его нельзя');
     const snap = previous.textSnapshot as FieldSnap | undefined;
     if (!(snap as { sections?: unknown } | undefined)?.sections) throw new BadRequestException('У паспорта нет собранного текста — выберите категорию в «Изменить»');
     const field = parseField(b.field);
-    if (isBriefPresentation(previous) && field === 'description') throw new ConflictException('Краткое описание редактируется в шаблоне изделия');
+    if (isBriefPresentation(previous) && field === 'description' && !isIssued(previous)) throw new ConflictException('Краткое описание редактируется в шаблоне изделия');
     const index = parseIndex(field, snap!, b.index);
     if (b.remove) {
       if (field !== 'maintenance') throw new BadRequestException('Удалить можно только строку технического обслуживания');
-      doc.set('textSnapshot', { ...removeMaintRow(snap!, index!), editedAt: new Date() });
-      return this.saveCurrent(doc, previous);
+      return this.commitSnapshotEdit(doc, previous, removeMaintRow(snap!, index!), userId);
     }
     const next = editField(snap!, field, index, b.text, parseMaintPart(field, b.part));
-    doc.set('textSnapshot', { ...next, editedAt: new Date() });
-    return this.saveCurrent(doc, previous);
+    return this.commitSnapshotEdit(doc, previous, next, userId);
   }
 
   /** Допустимые источники старого снимка: только текущие связанные записи, без записи в паспорт. */
@@ -976,7 +1002,7 @@ export class ProductPassportService {
       product: { name: String(prod.name ?? ''), article: prod.sku ? String(prod.sku) : null, dimensions: prod.dimensions ?? null, weightKg: Number(prod.weightKg) > 0 ? Number(prod.weightKg) : null,
         facetValueIds: Array.isArray(prod.facetValueIds) ? prod.facetValueIds.map(String) : null },
       defaults: presentPassportDefaults(prod.passportDefaults as PassportDefaults) ?? {},
-      document,
+      document, installationPlan: readiness.installationPlan,
       passportCategory: document.passportCategory ? String(document.passportCategory) : null,
       effectiveImages: document.effectiveImages,
       standardImages: document.standardImages,
@@ -1013,8 +1039,8 @@ export class ProductPassportService {
       document.warrantyMonths = 12; // действующее умолчание экземпляра
       defaultFields.push('warrantyMonths');
     }
-    if (hasCategory && !document.installationTypeId) this.defaultInstall(document, installs);
-    const options = () => ({ category, variant: variantOf(document.variant), install: previous?.reuseText ? previous.print.install : installKindOf(installs.get(String(document.installationTypeId ?? ''))) });
+    let installationPlan = previous?.reuseText && previous.print.installationPlan ? previous.print.installationPlan : installationProfile(installs.get(String(document.installationTypeId ?? '')));
+    const options = () => ({ category, variant: variantOf(document.variant), installationPlan, install: installationPlan.kind });
     const makeIssue = (key: string, label: string, hint = missingHint(key, label)) => ({ key, label, hint });
     const own = (document.images as PassportImageLike[] | undefined) ?? [];
     const missing: ReturnType<typeof makeIssue>[] = [];
@@ -1022,6 +1048,7 @@ export class ProductPassportService {
     const defaulted: PassportReadiness['defaulted'] = [];
     let built: Awaited<ReturnType<ProductPassportService['buildText']>> = null;
     let simpleWithoutCategory: Awaited<ReturnType<ProductPassportService['resolveSimpleText']>> | null = null;
+    if (previous?.reuseText && !installationPlan.known) missing.push(makeIssue('installationTypeId', 'Выберите способ установки'));
     const savedText = previous?.reuseText ? input.textSnapshot as NonNullable<typeof built>['text'] : undefined;
     if (!hasCategory) {
       document.passportCategory = null;
@@ -1036,6 +1063,7 @@ export class ProductPassportService {
         missing.push(makeIssue('textSnapshot', 'Текст паспорта не собрался', 'Проверьте тексты и правила категории'));
       }
     }
+    if (!previous?.reuseText) installationPlan = installationProfile(installs.get(String(document.installationTypeId ?? '')));
     const effective = await this.effectiveImages(document, session);
     const installation = installs.get(String(document.installationTypeId ?? ''));
     const frozenStandard = previous?.reuseText && document.schemeSource !== 'own' ? previous.print.standardImages : undefined;
@@ -1046,10 +1074,10 @@ export class ProductPassportService {
         ...currentSchemes.filter((s) => !frozenStandard.some((row) => row.kind === s.kind)),
       ]
       : currentSchemes;
-    const images = [...effective, ...standard];
+    const images = [...effective, ...standard].filter(i => imageKindAllowed(String(i.kind), options()));
     const priorReadiness = previous?.reuseText ? previous.print.readiness : undefined;
     const rules = priorReadiness
-      ? { required: priorReadiness.requiredImages, slots: priorReadiness.imageSlots }
+      ? reconcileInstallationRules(priorReadiness, installationPlan)
       : imageRules(document, cat, options());
     const old = { ...input, images };
     const snap = built?.text ?? savedText;
@@ -1118,8 +1146,8 @@ export class ProductPassportService {
     const requiredImages = rules.required.map((k) => k === 'safety_zone' ? 'safety' : k);
     const readiness: PassportReadiness = {
       ready: missing.length === 0,
-      missing: [...new Map(missing.map((m) => [m.key, m])).values()],
-      recommendations, defaulted, requiredImages, imageSlots: rules.slots,
+      missing: [...new Map(missing.map((m) => [m.key, m])).values()].map(m => m.key === 'img_mounting' && installationPlan.kind === 'anchor' ? { ...m, label: 'Добавьте схему анкерного крепления', hint: 'Загрузите схему в поле «Схема анкерного крепления» в книжке паспорта' } : m),
+      recommendations, defaulted, requiredImages, imageSlots: rules.slots, installationPlan,
     };
     const imageIds = [...new Set([...own, ...images].map((i) => String(i.photoId)).filter((id) => Types.ObjectId.isValid(id)))];
     const frozenUrls = previous?.print.photoUrls ?? {};
@@ -1129,12 +1157,13 @@ export class ProductPassportService {
     const present = (row: PassportImageLike) => ({ ...row, photoId: String(row.photoId), url: urls.get(String(row.photoId)) ?? null });
     Object.assign(document, {
       images: own.map(present),
-      effectiveImages: presentEffectiveImages(own, effective, urls).map((i) => ({ ...i, photoId: String(i.photoId) })),
-      standardImages: standard.map((i) => present({ ...i })),
+      installationPlan,
+      effectiveImages: presentEffectiveImages(own, effective, urls).filter(i => imageKindAllowed(String(i.kind), options())).map((i) => ({ ...i, photoId: String(i.photoId) })),
+      standardImages: standard.filter(i => imageKindAllowed(String(i.kind), options())).map((i) => present({ ...i })),
       requiredImages, imageSlots: rules.slots,
     });
     return {
-      document, readiness, images, urls, install: options().install, categoryName: cat?.name,
+      document, readiness, images, urls, installationPlan, install: options().install, categoryName: cat?.name,
       suggestions: simple?.suggestions ?? [],
     };
   }
@@ -1146,10 +1175,16 @@ export class ProductPassportService {
     const priorSchemes = new Set((print?.standardImages ?? []).map((i) => `${i.kind}/${i.photoId}`));
     const images = ((after.images as PassportImageLike[]) ?? []).filter((i) => !priorSchemes.has(`${i.kind}/${i.photoId}`));
     const evaluated = await this.evaluatePresentation({ ...after, images }, 'instance', session, print ? { print, reuseText } : undefined);
-    if (!evaluated.readiness.ready) throw new BadRequestException({ message: 'Проверьте данные новой редакции', missing: evaluated.readiness.missing });
+    const methodChanged = changed.includes('installationTypeId') && String(current.installationTypeId ?? '') !== String(after.installationTypeId ?? '');
+    const missingOnlyNewScheme = methodChanged && evaluated.installationPlan.known && evaluated.readiness.missing.every(m => {
+      const kind = m.key.replace(/^img_/, '');
+      return m.key.startsWith('img_') && evaluated.installationPlan.managedKinds.includes(kind)
+        && !evaluated.images.some(i => i.kind === kind);
+    });
+    if (!evaluated.readiness.ready && !missingOnlyNewScheme) throw new BadRequestException({ message: 'Проверьте данные новой редакции', missing: evaluated.readiness.missing });
     const sources = await this.printSources(evaluated, session, print, reuseText);
     doc.set({
-      textSnapshot: evaluated.document.textSnapshot, images: evaluated.images, printSnapshot: sources,
+      textSnapshot: evaluated.document.textSnapshot, images: evaluated.images, printSnapshot: sources, installationMethod: evaluated.document.installationMethod,
       ...(evaluated.document.installationTypeId ? { installationTypeId: evaluated.document.installationTypeId } : {}),
     });
   }
@@ -1193,9 +1228,10 @@ export class ProductPassportService {
     if (readiness && bindingError) addBindingBlocker(readiness, bindingError);
     const document = evaluated?.document ?? own;
     const frozenSource = (raw.textSnapshot as { simpleDescriptionSource?: SimpleDescriptionSource } | undefined)?.simpleDescriptionSource;
+    const installationPlan = evaluated?.installationPlan ?? (printSnapshot as PassportPrintSources | undefined)?.installationPlan ?? installationProfile((await this.installs()).get(String(raw.installationTypeId ?? '')));
     const revisionList = await this.revisionList(raw);
     return {
-      ...document, ...presentPrint(raw), fromProduct: draft && !!raw.productId,
+      ...document, ...presentPrint(raw), installationPlan, fromProduct: draft && !!raw.productId,
       ...(!draft && frozenSource?.kind === 'parts' ? { simpleDescriptionSource: frozenSource } : {}),
       ...(revisionList.length ? { revisionList } : {}),
       ...(readiness ? { readiness, missing: readiness.missing.map((m) => m.label), requiredImages: readiness.requiredImages, imageSlots: readiness.imageSlots } : {}),
@@ -1230,7 +1266,7 @@ export class ProductPassportService {
   }
 
   private async printSources(evaluated: Awaited<ReturnType<ProductPassportService['evaluatePresentation']>>, session?: ClientSession, previous?: PassportPrintSources, reuseStyle = false): Promise<PassportPrintSources> {
-    const { document, urls, readiness, install, categoryName } = evaluated;
+    const { document, urls, readiness, install, installationPlan, categoryName } = evaluated;
     const db = this.connection.db!;
     const snapshot = document.textSnapshot as { traits?: string[]; unknownTraits?: string[]; maintenance?: Array<{ rows: Array<{ photoId?: string }> }> } | null;
     const otherPhotoIds = [...(snapshot?.maintenance ?? []).flatMap((m) => m.rows.map((r) => r.photoId)), ...(!isBriefPresentation(document) ? ((document.modules as Array<{ photoId?: string }>) ?? []).map((m) => m.photoId) : [])];
@@ -1238,7 +1274,7 @@ export class ProductPassportService {
     const rows = extra.length ? await db.collection('photos').find({ _id: { $in: extra.map((id) => new Types.ObjectId(id)) }, deletedAt: null }, { session, projection: { storageUrl: 1 } }).toArray() : [];
     for (const row of rows) urls.set(String(row._id), String(row.storageUrl ?? ''));
     const images = { effectiveImages: document.effectiveImages as Doc[], standardImages: document.standardImages as Doc[], photoUrls: Object.fromEntries(urls) };
-    if (previous && reuseStyle) return { ...previous, ...images, readiness, install };
+    if (previous && reuseStyle) return { ...previous, ...images, readiness, install, installationPlan };
     const companyId = document.supplierOrgId ? this.oid(document.supplierOrgId) : null;
     const company = companyId ? await db.collection('organizations').findOne({ _id: companyId, deletedAt: null, isOurCompany: true }, { session }) : null;
     const orgFields = ['name', 'shortName', 'fullName', 'inn', 'kpp', 'phone', 'email', 'trademark', 'directorName', 'signerName', 'signerPosition'];
@@ -1253,7 +1289,7 @@ export class ProductPassportService {
       maxUsers: document.maxUsers as number | undefined, traits: snapshot?.traits ?? [], unknownTraits: snapshot?.unknownTraits ?? [],
     });
     return {
-      ...images, readiness, install,
+      ...images, readiness, install, installationPlan,
       supplier: company ? { id: String(company._id), name: String(company.name ?? ''), hasSeal: !!assets.seal, hasSignature: !!assets.signature } : null,
       org, assets, style: { ...style, categoryName }, look,
     };
@@ -1287,9 +1323,13 @@ export class ProductPassportService {
     const product = await this.productCtx(p.productId, p.presentationVersion === 1 ? String(p.kindId ?? '') : undefined, false, session);
     const allRoots = await this.forest(cat, session);
     const applicableForest = forProduct(allRoots, product); // тексты, привязанные к чужим признакам, изделию не идут
-    const forest = printPhraseRoots(applicableForest, isBriefPresentation(p));
+    let forest = printPhraseRoots(applicableForest, isBriefPresentation(p));
     const simple = p.presentationVersion === 1 ? await this.resolveSimpleText(p, await this.simpleChoices(allRoots, product, session), applicableForest, session) : null;
-    const resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined, product);
+    let resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined, product);
+    if (p.installationTypeId) {
+      forest = forest.filter(r => r.section !== 'installation' || String(resolved.leaves.get(r.id)?.leaf?.installTypeId ?? '') === String(p.installationTypeId));
+      resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined, product);
+    }
     const instRoot = forest.find((r) => r.section === 'installation');
     const instLeaf = instRoot ? resolved.leaves.get(instRoot.id)?.leaf : undefined;
     if (instLeaf?.installTypeId) p.installationTypeId = new Types.ObjectId(instLeaf.installTypeId);
@@ -1369,12 +1409,11 @@ export class ProductPassportService {
     // C112 А0-рис: способ установки — из раздела «Установка» текстов, иначе изделия, иначе умолчание типа; только потом схемы
     const built = p.passportCategory ? await this.buildText({ ...p }, usedFields).catch(() => null) : null;
     if (built?.instLeaf?.installTypeId) p.installationTypeId = new Types.ObjectId(built.instLeaf.installTypeId);
-    this.defaultInstall(p, inst);
     const full0 = this.withSchemes(p, inst);
     // C112 А1: умолчания типа паспорта считаются заполненными; что они закрыли — в `defaulted` (для экрана «чего не хватает»)
     const full = { ...full0 } as Doc;
     const usedDefaults = applyCategoryDefaults(full, cat);
-    const vopts = { variant: variantOf(body.variant), install: installKindOf(inst.get(String(p.installationTypeId ?? ''))) };
+    const vopts = { installationPlan: installationProfile(inst.get(String(p.installationTypeId ?? ''))), variant: variantOf(body.variant), install: installKindOf(inst.get(String(p.installationTypeId ?? ''))) };
     const rules = imageRules(p as never, cat, { category: String(p.passportCategory ?? ''), ...vopts });
     const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), textOverrides: p.textOverrides, manualText: p.manualText });
     const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
@@ -1391,7 +1430,7 @@ export class ProductPassportService {
       if (!listed.some((m) => m.key === key)) listed.push({ key, label: `${IMAGE_KIND_LABELS[kind] ?? kind}: файл на сервере повреждён или пропал — замените фото` });
     }
     const extra = blanks.filter((b) => !listed.some((m) => m.key === b.key));
-    return { mode: template ? 'template' : 'instance', missing: [...listed, ...extra, ...choices, ...(built?.text.needJoints ? [JOINTS_MISSING] : [])].filter(keep).map(noHint), defaulted, requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
+    return { mode: template ? 'template' : 'instance', installationPlan: vopts.installationPlan, missing: [...listed, ...extra, ...choices, ...(built?.text.needJoints ? [JOINTS_MISSING] : [])].filter(keep).map(noHint), defaulted, requiredImages: rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k)), imageSlots: rules.slots };
   }
 
   private async checkPresentation(body: Doc) {
@@ -1410,7 +1449,7 @@ export class ProductPassportService {
         return { mode: 'instance', missing: missing.map((m) => ({ ...m, hint: missingHint(m.key, m.label) })), defaulted: [], requiredImages, imageSlots };
       }
       const card = await this.getPresentation(existing);
-      return { mode: 'instance', ...(card.readiness as PassportReadiness), presentationVersion: 1, variant: existing.variant };
+      return { mode: 'instance', ...(card.readiness as PassportReadiness), installationPlan: card.installationPlan, presentationVersion: 1, variant: existing.variant };
     }
     if (body.mode === 'instance') throw new BadRequestException('Для проверки экземпляра укажите passportId');
     const r = await this.passportTemplate(String(body.productId ?? ''), variantOf(body.variant));
@@ -1421,11 +1460,10 @@ export class ProductPassportService {
   async readiness(doc: Doc, session?: ClientSession): Promise<Array<{ label: string; key: string }>> {
     const [cats, inst] = await Promise.all([this.categoryRules(session), this.installs(session)]);
     doc = { ...doc, images: await this.effectiveImages(doc, session) };
-    this.defaultInstall(doc, inst);
     const cat = cats.get(String(doc.passportCategory ?? '')) ?? null;
     const full = this.withSchemes(doc, inst);
     applyCategoryDefaults(full as Doc, cat); // C112 А1: умолчание типа паспорта — заполнено (копия, в паспорт не пишется)
-    const ctx = { category: String(doc.passportCategory ?? ''), variant: 'short' as const, install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) };
+    const ctx = { installationPlan: installationProfile(inst.get(String(doc.installationTypeId ?? ''))), category: String(doc.passportCategory ?? ''), variant: 'short' as const, install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) };
     const missing = [...missingKeyed(full as never, cat, ctx), ...(await this.choiceMissing(doc, session)), ...jointsMissing(doc)];
     const required = imageRules(full, cat, ctx).required;
     const broken = await unreadableRequiredImages(this.connection.db!, (full.images ?? []) as Array<{ kind?: unknown; photoId?: unknown }>, required, session);
@@ -1559,14 +1597,6 @@ export class ProductPassportService {
   /** Р7/Р8 (C112): справочник из dict_values — один расчёт, пока он не менялся (общий результат, не менять). */
   private dictCached<T>(scope: string, make: () => Promise<T>, extra = ''): Promise<T> {
     return this.versions ? this.versions.cached(scope, ['dict_values'], extra, make) : make();
-  }
-
-  /** C112: нет способа установки — умолчание типа паспорта (DEFAULT_INSTALL), чтобы стандартные схемы засчитались. */
-  private defaultInstall(d: Doc, inst: Map<string, Record<string, unknown>>) {
-    if (d.installationTypeId && inst.has(String(d.installationTypeId))) return;
-    const code = DEFAULT_INSTALL[String(d.passportCategory ?? '')];
-    if (!code) return;
-    for (const [id, rec] of inst) if (String(rec.code ?? '') === code) { d.installationTypeId = new Types.ObjectId(id); return; }
   }
 
   private withSchemes(d: Doc, inst: Map<string, Record<string, unknown>>) {

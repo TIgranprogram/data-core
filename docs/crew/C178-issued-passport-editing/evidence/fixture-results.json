@@ -1,0 +1,32 @@
+[
+  {
+    "theme": "light",
+    "status": "PASS",
+    "patches": [
+      {
+        "name": "Скамья исправленная для заказа",
+        "manualText": [
+          "name"
+        ]
+      }
+    ],
+    "number": 618,
+    "revision": 4,
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "status": "PASS",
+    "patches": [
+      {
+        "name": "Скамья исправленная для заказа",
+        "manualText": [
+          "name"
+        ]
+      }
+    ],
+    "number": 618,
+    "revision": 4,
+    "errors": []
+  }
+]

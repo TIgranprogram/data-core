@@ -1,15 +1,15 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { legacyDefaultsReplacement, mergePassportDefaults, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { variants, type Db, type Doc } from './showcase-common';
+import { bulkExpected, bulkFingerprint } from './showcase-bulk-cas';
 
 /** То, что массовым действиям нужно от витрины (одиночные операции — те же, что и в карточке). */
 export interface BulkHost {
   db: () => Db;
   present: (docs: Doc[]) => Promise<Array<{ type: string | null; group: string | null }>>;
-  update: (id: string, patch: Record<string, unknown>) => Promise<unknown>;
-  setPassportDefaults: (id: string, v: Record<string, unknown>) => Promise<unknown>;
+  applyRow: (raw: Doc, patch: Record<string, unknown>, defaults?: Record<string, unknown>, incomingDefaults?: Record<string, unknown>) => Promise<{ set: Record<string, unknown>; expected: string }>;
 }
 
 /** Массовые изменения изделий (БЗ-9) и «Отменить»; вызывается из ShowcaseService. */
@@ -29,7 +29,7 @@ export class ShowcaseBulk {
     const FIELDS = ['type', 'group', 'series', 'status', 'price', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults'];
     const set = Object.fromEntries(Object.entries(dto.set ?? {}).filter(([k]) => FIELDS.includes(k)));
     if (!Object.keys(set).length) throw new BadRequestException('Отметьте, что изменить');
-    const before: Array<{ id: string; set: Record<string, unknown> }> = [];
+    const before: Array<{ id: string; set: Record<string, unknown>; expected: string }> = [];
     const failed: Array<{ id: string; message: string }> = [];
     let updated = 0;
     for (const id of ids) {
@@ -41,14 +41,10 @@ export class ShowcaseBulk {
         delete patch.passportDefaults;
         if ('type' in set || 'group' in set) { patch.type = 'type' in set ? set.type : cur.type ?? ''; patch.group = 'group' in set ? set.group : cur.group ?? ''; }
         for (const k of ['colors', 'sizes'] as const) if (k in set && dto.arrays?.[k] === 'add') patch[k] = [...((raw[k] as string[]) ?? []), ...variants(set[k])];
-        const prev: Record<string, unknown> = {};
-        for (const k of ['categoryId', 'series', 'status', 'listPrice', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults']) prev[k] = raw[k] ?? null;
-        if (Object.keys(patch).length) await this.h.update(id, patch);
-        if (set.passportDefaults && typeof set.passportDefaults === 'object') {
-          const merged = mergePassportDefaults(presentPassportDefaults(raw.passportDefaults as PassportDefaults), set.passportDefaults as Record<string, unknown>);
-          await this.h.setPassportDefaults(id, merged);
-        }
-        before.push({ id, set: prev });
+        const merged = set.passportDefaults && typeof set.passportDefaults === 'object'
+          ? mergePassportDefaults(presentPassportDefaults(raw.passportDefaults as PassportDefaults), set.passportDefaults as Record<string, unknown>) : undefined;
+        const previous = await this.h.applyRow(raw as Doc, patch, merged, set.passportDefaults as Record<string, unknown> | undefined);
+        before.push({ id, ...previous });
         updated++;
       } catch (e) { failed.push({ id, message: e instanceof Error ? e.message : String(e) }); }
     }
@@ -56,11 +52,18 @@ export class ShowcaseBulk {
   }
 
   /** «Отменить» массовое изменение изделий (БЗ-9): прежние значения полей — как были. */
-  async restore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown> }> }) {
+  async restore(dto: { items?: Array<{ id?: string; set?: Record<string, unknown>; expected?: string }> }) {
     if (Array.isArray(dto.items) && dto.items.length > 500) throw new BadRequestException('За раз — не больше 500 изделий');
     let restored = 0;
+    const failed: Array<{ id: string; message: string }> = [];
     for (const it of Array.isArray(dto.items) ? dto.items : []) {
       if (!it?.id || !Types.ObjectId.isValid(it.id)) continue;
+      try {
+      const allowed = ['categoryId', 'series', 'status', 'listPrice', 'designerId', 'unit', 'ralCode', 'colors', 'sizes', 'passportDefaults'];
+      const keys = Object.keys(it.set ?? {}).filter(key => allowed.includes(key));
+      const current = await this.db.collection('products').findOne({ _id: new Types.ObjectId(it.id), deletedAt: null });
+      if (!current) throw new NotFoundException('Изделие не найдено');
+      if (it.expected !== undefined && it.expected !== bulkFingerprint(current, keys)) throw new ConflictException('После массовой правки изделие изменено — автоматическая отмена не выполнена');
       const $set: Record<string, unknown> = { updatedAt: new Date() }; const $unset: Record<string, ''> = {};
       const defaultReplacement = Object.prototype.hasOwnProperty.call(it.set ?? {}, 'passportDefaults')
         ? legacyDefaultsReplacement(normalizePassportDefaults((it.set?.passportDefaults ?? {}) as Record<string, unknown>)) : undefined;
@@ -74,9 +77,11 @@ export class ShowcaseBulk {
         { $set: { ...Object.fromEntries(Object.entries($set).map(([k, v]) => [k, { $literal: v }])), passportDefaults: defaultReplacement } },
         ...(Object.keys($unset).length ? [{ $unset: Object.keys($unset) }] : []),
       ] : { $set, ...(Object.keys($unset).length ? { $unset } : {}) };
-      const r = await this.db.collection('products').updateOne({ _id: new Types.ObjectId(it.id), deletedAt: null }, patch);
+      const r = await this.db.collection('products').updateOne({ _id: new Types.ObjectId(it.id), deletedAt: null, ...bulkExpected(current, keys) }, patch);
+      if (!r.matchedCount) throw new ConflictException('Изделие изменено другим пользователем — обновите список');
       restored += r.modifiedCount;
+      } catch (e) { failed.push({ id: it.id, message: e instanceof Error ? e.message : String(e) }); }
     }
-    return { restored };
+    return { restored, failed };
   }
 }

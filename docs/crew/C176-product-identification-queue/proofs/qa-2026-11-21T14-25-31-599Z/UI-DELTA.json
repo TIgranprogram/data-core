@@ -1,0 +1,31 @@
+{
+  "scope": "overall changed only PWA while server code/tests/admin stayed frozen",
+  "changes": [
+    {
+      "path": "backend/pwa/sections/atlas-data.js",
+      "before": "b0889c186fe787d6a8da91d730fe742fb291fd2bf3bc00cad05f827341f0802e",
+      "after": "2fa4787aa2f908da4212cdb28558e9c04a105b00bf44ca85d6a7c6d94128d9f0"
+    },
+    {
+      "path": "backend/pwa/sections/help-guide-data.js",
+      "before": "985a330c14290e1144c719af97c3aca6fbcf340fe6127e68487f29dba6a40b9d",
+      "after": "14907bb4476b0e09a8709aef3191f95bff1d5336c5267e505a1068a8e8905a6d"
+    },
+    {
+      "path": "backend/pwa/sections/passport-dict-table.js",
+      "before": "090b79abb3c0138055375ba45ed7bda7b5d53bcb3a6fa47a3022c2c943a6cfb2",
+      "after": "de6c9f47cd35fba5aede6d9e426ca38a24a9f3ca90ac8fe8f9a929e53ba69536"
+    },
+    {
+      "path": "backend/pwa/sections/passport-tree.js",
+      "before": "29b19620ee47f798706d1da2e390d9ccafc8827bbead569fda83b1f57240c4de",
+      "after": "f488fc82b6d51389aa8c3769e74bc09aa219613b40cfab92cb107eed9d4d5237"
+    },
+    {
+      "path": "backend/pwa/sections/passports.js",
+      "before": "11235a933eb5e15f2ca5d7586fa01eef9ca413a7ddf3aebbdaeb0a77cfe275c8",
+      "after": "8b0e2e042a6042588c08857f2927fd3d0357d3ba1bad25a686fe19bcd3c393d2"
+    }
+  ],
+  "removed": []
+}

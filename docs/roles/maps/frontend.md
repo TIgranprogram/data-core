@@ -1,3 +1,36 @@
+## C175 — afterSave навигация без гонки (2026-11-21)
+- ui/kit/card.js:309 previousId /:345 optionalform.afterSave(saved,{previousId,isNew}) после успешногоsave и formclear, handledtrue пропускает defaultnavigation; ошибки не выдают запись за несохранённую. card.test.mjs16/16(create/update/default/handled/navfailure).
+- sections/passport-tree.js:263 afterSave exactnewroot/section/kind→new.child; остальныеsyntheticnew→saved.id, прежнийtimerубран. Fixture2themescreate/cancel/resume/leafPASS; liveactualstep2 ещёaccess.
+- Коммит: не коммитил; kit и section раздельно координатором. Карта обновлена.
+
+## C175 PRESS — прямой вход в текст (2026-11-21)
+- passports/book-template-edit.js:49 descriptionHelp; passport-tree.js:130 getNode /:155 nodeForm; passport-dict-table.js:56 phraseContextRows — exactkind displaycontext, штатный root→leaf с resume.
+- targeted34/34, guards365/365, imports371/0, lintnew0; fixture2themes + productionpurefunctions proof. C175/PRESS-REPORT.md, TZ-PRESS-ADDENDUM.md. Коммит: не коммитил. Карта обновлена.
+
+## C181 — таблицы паспортных справочников (2026-11-21)
+- passport-tree.js:59 mountTree; passport-texts.js:109 mountTexts; passport-dict-table.js:36 phraseTableRows/:77 generalTextTableRows — kit table, поиск, наследуемые подписи, прежние маршруты панелей.
+- targeted12/12; guards365/365; imports371/0; design-lintnew0. UI fixture13PASS: 1024/1440/1920, обе темы, child/rightpane/inherited/ALLeditable/empty. C181/REPORT.md и UI-REVIEW.md. API fixture, live отдельно. Tooltip/readonly переменные через withVars, browser dc-garbage0.
+- коммит: не коммитил. Карта обновлена.
+
+## C179 — схема и монтаж из серверного плана (2026-11-21)
+коммит: не коммитил, PWA SOURCE FREEZE передан координатору
+- passports/common.js:10 — installationPlanOf/imageKindAllowed/labels/required; book-template.js:52 — top-levelplan в документ; book-images.js:18 — запретнеприменимого вида/каноническийalt.
+- book-focus.js:88,147 — отборпоplan/depthApplicable и понятный chooser; book-template-edit.js:294 — instanceadapter; book-setup.js:198 — routinginstance≠template; editor:387 — вызовexistingPATCHподlock.
+- book-installation-plan.test.mjs + book-images/autofill adapted: targeted59/59, imports370/0, guards364/364, lintnew0. C179/FRONTEND-REPORT/UI-REVIEW/evidence/ui; fixture3сценарияPASS. Backendhistory/realPDF/actual622/rootreview отдельно. Карта обновлена.
+## C178 — правка выпущенного экземпляра (2026-11-21)
+коммит: не коммитил, PWA SOURCE FREEZE передан координатору
+- passports/book-head.js:10 — canEditBookInstance/bookEditMessage, issuedбезissue/variant+revision/rename; book-editor.js:39,255,369 — доступissued/явное сохранение/Nameinline; book-blocks.js:102,106,137 — firmbindingreadonly, namekey, issuedshortlocaldescription.
+- passports.js:147 и order-passport-plan.js:193 — редактируемыйэкземпляр изкарточки/заказа; atlas/help обновлены. book-issued-edit.test.mjs:1 — draft/issued/annulled/role/file/rename/shortregressions.
+- Targeted19/19, imports370/0, guards364/364, lintnew0; C178/FRONTEND-REPORT и UI-REVIEW, browserfixture2темыPASS. Backendhistory/actualstand/PDF/independentdesign — координатор. Карта обновлена.
+## C177 — номер заказа в истории (2026-11-21)
+коммит: не коммитил, SOURCE FREEZE передан координатору
+- core/recent-cards.js:5 — canonical formatter/optionalwhitelist productionNo; ui/kit/recent-cards.js:28 — recorder productionNo/orderNo; :37 — numberedthumb для salesorders/orderpass; :60 — отдельные договоры salesorder; kit.css:918 — токенная типографика в прежней рамке.
+- Tests17/17, imports370/0, lintновых0; C177/FRONTEND-REPORT.md и UI-REVIEW.md, browserfixture2темы/4группы PASS; реальныйstand/независимаяприёмка у координатора. Карта обновлена.
+## C176 — таблица уточнения изделий (2026-11-21)
+коммит: не коммитил, SOURCE FREEZE передан координатору
+- products.js:59 — contexttable/filter/reasons; products/form-fields.js:248 — realdictbulk; products/data.js:66 — onlysetpayload.
+- home-ui.js:8 — TodaysharedGETtotal; home.js:10 — entry/svghelper вынесены; ui/kit/list-view.js:42 — defaultView без изменения savedgallery; sections/bulk-edit.js:19 — partialCASundo не ложный успех.
+- products/identification.test.mjs:1 — 7регрессий; targeted9/9 сphoto, guards364/364, imports370/0, lintnew0. C176/FRONTEND-REPORT.md, fixture4PNG/results и live scripttools/logs/c176-ui-live.mjs; настоящийstand/designприёмка у координатора. Карта обновлена.
 ## C175 — следующий шаг краткого описания (2026-11-21)
 коммит: не коммитил, передано координатору
 - backend/pwa/sections/passports/book-template-edit.js:105 — причина пустого linked/явный ручной поиск перед полем; :185 — refresh частей без потери ids/ручного текста и с ошибкой; common.canEdit учитывает роль.

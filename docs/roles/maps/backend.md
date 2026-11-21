@@ -324,3 +324,28 @@
 - C172 metadata freeze: backend/src/modules/product-passport/dto/passport-import.dto.ts:1 — явные request/nested/response Swagger schemas; product-passport.controller.ts:49 — ApiOkResponse обоих import routes. tsc/eslint0, SchemaObjectFactory8schemasPASS; коммит: —; карта обновлена.
 
 - C172 cleanup review: passport-import.service.ts/file(false), apply old-own/old-links — защита всех источников history до удаления связи, включая дубли и legacy foundation; typecheck/eslint0; коммит: —; карта обновлена.
+
+## C176 — очередь идентификации и атомарная массовая строка
+- `backend/src/modules/showcase/showcase-identification.ts:12` metadata и `:26` pure effective group/kind/category/reasons; `showcase.service.ts:121` scalar eligibility до пагинации/count/facets, без series для eligibility.
+- `showcase.service.ts:268/279` полная проверка будущего состояния перед одной записью/CAS; `showcase-bulk-cas.ts:13/17` JSON/BSON-стабильная квитанция/guard; `showcase-bulk.ts:25/55` before только затронутых полей и expected, partial/undo conflict.
+- `showcase.controller.ts:24` optional needsIdentification, прежний Query Record сохраняет совместимость. `showcase-identification.spec.ts`, `c176-product-identification.e2e-spec.ts` — inheritance/битые ссылки/MAF/pagination/series/mixed bulk/undo/issued.
+- tsc/eslint0; showcase19/108PASS; strict finale2e5/5/0skipPASS, fullQA у координатора. Коммит: не выполнялся (sourcefreeze для C176); карта обновлена.
+
+### C176 адресные два P1, итоговый sourcefreeze
+- `showcase.service.ts:292` incoming explicitcategory или BEFOREeffectivecategory; `:300` Connection.transaction включает `fields/category` session и productCAS; `:350/:360/:400` optionalClientSession, созданиекатегории после всех проверок. CAS по categoryId+passportDefaults сохраняется даже при kind-only.
+- `c176-product-identification.e2e-spec.ts`: inheritedTRN→BLGkind-only отказ, explicitkind+type успех; invalidstatus/designer/newgroup/CASlost откатываются, validnewgroup коммитится. FixtureждётCategoryModel.init и содержитrequiredunique slug/skuPrefix.
+- tsc/eslint0,unit19/108PASS; finalstrictrealMongo10/10/0skipPASS QA12:59. Коммит: не выполнялся; full/независимыйreview укоординатора; карта обновлена.
+
+## C178 — локальная редакция выданного снимка
+- `backend/src/modules/product-passport/passport-snapshot-revision.ts:8` — no-op до editedAt, fulloldprojection без рекурсивной revisions, issuedrevision+1, ownshortdescription для дальнейшего CAD.
+- `product-passport.service.ts:746/756/775` — field/item единый commitSnapshotEdit→saveCurrent со status/text/updatedAt/revisionCAS; frozenprintSnapshot сохраняется, PDF читает новый textSnapshot. Draftshort и annulled границы сохранены.
+- `product-passport.controller.ts:515/532` — optional CurrentUser для автора истории без изменения requestshape/roles; promote не менялся.
+- tsc/eslint0; product-passport78/807unitPASS. `c178-issued-passport-editing.e2e-spec.ts` —6realMongo/PDF/история/CAS/roles/promoteкейсов, targeted6/6/0skipPASS QA13:29; sourcefreeze, full у координатора. Коммит: не выполнялся; карта обновлена.
+
+## C179 — каноническая применимость монтажа
+- `backend/src/modules/product-passport/passport-variants.ts:35` — installationProfile: 7 explicit codes + unknown, managed/allowed/required, traits/depth/thirdImportKind. Нет NL/default TRN.
+- `product-passport.service.ts:605/1042/1172/1268` — явная смена снимает только старый монтаж, current managed refs в историю; missing только новой схемы разрешён; template/instance/readiness + новый frozen print получают installationPlan.
+- `passport-import.service.ts:27/130` — unknown409 до загрузки рисунков, G только применимым профилям; iLogic wire3 прежний. PDF пользуется общим планом, старые frozen без плана сохраняют прежний набор.
+- `product-passport.schema.ts:11`, `passport-pdf-v2-refs.ts:57` — additive embedded_layout для реальных схем закладных. Коммит: не выполнялся; карта обновлена.
+
+- C179 legacy blocker: `passport-variants.ts:78` reconcileInstallationRules пересчитывает только managedrequired/slots новой image-only редакции; `product-passport.service.ts:1051/1080` неизвестный профиль блокируется независимо frozen текста. Unit79/818 и C1793/3 realMongo/PDF/legacyCAD/noop/CAS PASS; raw `tools/logs/c176-qa-2026-11-21T14-04-14-084Z`. Коммит: не выполнялся; карта обновлена.

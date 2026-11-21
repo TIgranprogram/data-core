@@ -1,0 +1,114 @@
+{
+  "status": "INTERRUPTED",
+  "testDb": "datacore-test-c176-identification",
+  "mongo": "owned c172-qa-mongo Mongo4.4 rs0 :27172",
+  "before": "1aba82a2aa91e919fc58dc389b67f23102cb00fe8af2f30b6d48dd2b122c7d80",
+  "after": "1aba82a2aa91e919fc58dc389b67f23102cb00fe8af2f30b6d48dd2b122c7d80",
+  "unchanged": true,
+  "fileCount": 1768,
+  "results": [
+    {
+      "name": "unit",
+      "passedSuites": 387,
+      "failedSuites": 0,
+      "skippedSuites": 0,
+      "passed": 3897,
+      "failed": 0,
+      "skipped": 0,
+      "total": 3897,
+      "success": true,
+      "failures": []
+    }
+  ],
+  "stages": [
+    {
+      "name": "tsc",
+      "start": "2026-11-21T13:06:01.036Z",
+      "end": "2026-11-21T13:06:03.224Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\typescript\\bin\\tsc",
+        "--noEmit"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T13-06-00-774Z\\tsc.log"
+    },
+    {
+      "name": "unit",
+      "start": "2026-11-21T13:06:03.224Z",
+      "end": "2026-11-21T13:06:53.616Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\jest\\bin\\jest.js",
+        "--runInBand",
+        "--silent",
+        "--json",
+        "--outputFile=C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T13-06-00-774Z\\unit-results.json"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T13-06-00-774Z\\unit.log"
+    },
+    {
+      "name": "eslint",
+      "start": "2026-11-21T13:06:53.616Z",
+      "end": "2026-11-21T13:07:03.479Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\eslint\\bin\\eslint.js",
+        "src/**/*.ts"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T13-06-00-774Z\\eslint.log"
+    },
+    {
+      "name": "build",
+      "start": "2026-11-21T13:07:03.479Z",
+      "end": "2026-11-21T13:07:15.040Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\@nestjs\\cli\\bin\\nest.js",
+        "build"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T13-06-00-774Z\\build.log"
+    },
+    {
+      "name": "e2e-full",
+      "start": "2026-11-21T13:07:15.041Z",
+      "end": "2026-11-21T13:11:41.402Z",
+      "exitCode": 4294967295,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\jest\\bin\\jest.js",
+        "--config",
+        "{\"moduleFileExtensions\":[\"js\",\"json\",\"ts\"],\"rootDir\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\test\",\"testEnvironment\":\"node\",\"testRegex\":\".e2e-spec\\\\.ts$\",\"transform\":{\"^.+\\\\.(t|j)s$\":[\"D:\\\\invSportiN\\\\Сайт\\\\01_Проекты_CRM\\\\data-core\\\\backend\\\\node_modules\\\\.pnpm\\\\ts-jest@29.4.11_@babel+core@7.29.7_@jest+transform@29.7.0_@jest+types@29.6.3_babel-jest@29.7._xy2molyflzuu2e5l6hnyek62dy\\\\node_modules\\\\ts-jest\\\\dist\\\\index.js\",{\"tsconfig\":\"C:\\\\Users\\\\User\\\\.codex\\\\worktrees\\\\c172-passport-release\\\\data-core\\\\backend\\\\tsconfig.json\"}]},\"setupFiles\":[\"./setup/jest-e2e-env.ts\"],\"collectCoverageFrom\":[\"src/modules/**/services/*.ts\"],\"coverageDirectory\":\"./coverage-e2e\",\"testTimeout\":60000}",
+        "--runInBand",
+        "--forceExit",
+        "--silent",
+        "--json",
+        "--outputFile=C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T13-06-00-774Z\\e2e-results.json"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T13-06-00-774Z\\scratch",
+      "log": "tools\\logs\\c176-qa-2026-11-21T13-06-00-774Z\\e2e-full.log"
+    }
+  ],
+  "raw": "tools\\logs\\c176-qa-2026-11-21T13-06-00-774Z",
+  "out": "docs\\crew\\C176-product-identification-queue\\proofs\\qa-2026-11-21T13-06-00-774Z",
+  "skipBoundary": "T26 opt-in disposable database suite is not enabled; exact counts in Jest results.",
+  "reason": "C178_SCOPE_CHANGE",
+  "interruption": {
+    "at": "2026-11-21T13:12:07.461Z",
+    "authorizedBy": "coordinator explicit stop for newly confirmed C178 server revision/history defect",
+    "runnerPid": 33192,
+    "jestPid": 25512,
+    "stoppedOnly": "owned Jest child; runner finalized logs; Mongo untouched",
+    "completedE2eSuites": 37,
+    "observedFailedE2eSuites": 0,
+    "e2eNotAcceptedAsComplete": true
+  },
+  "originalRunnerExitEvidence": "tools/logs/c176-qa-2026-11-21T13-06-00-774Z/RUNNER-EXIT-INTERRUPTED.json"
+}

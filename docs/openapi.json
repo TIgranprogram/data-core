@@ -7517,6 +7517,13 @@
             "required": false,
             "in": "query",
             "schema": {}
+          },
+          {
+            "name": "needsIdentification",
+            "required": false,
+            "in": "query",
+            "description": "1 — изделия без действующей группы, вида или типа паспорта; причины identificationIssues, фильтр до пагинации",
+            "schema": {}
           }
         ],
         "responses": {
@@ -14482,7 +14489,7 @@
       "put": {
         "operationId": "OrganizationController_putAsset",
         "summary": "Загрузить логотип / печать / подпись организации",
-        "description": "Поле формы: `file`. Слот один на роль — новый файл заменяет прежний, старая картинка удаляется. Печать (`seal`) меняет только admin. Файл нормализуется: EXIF-поворот, ≤ 800 px, PNG с палитрой; `?clearWhite=1` — светлый фон стан��вится прозрачным.",
+        "description": "Поле формы: `file`. Слот один на роль — новый файл заменяет прежний, старая картинка удаляется. Печать (`seal`) меняет только admin. Файл нормализуется: EXIF-поворот, ≤ 800 px, PNG с палитрой; `?clearWhite=1` — светлый фон становится прозрачным.",
         "parameters": [
           {
             "name": "id",
@@ -15195,7 +15202,7 @@
           }
         },
         "tags": [
-          "Справочники — Кат��гории"
+          "Справочники — Категории"
         ]
       }
     },
@@ -17215,7 +17222,7 @@
             "name": "due",
             "required": false,
             "in": "query",
-            "description": "overdue | soon | all (умо��ч.)",
+            "description": "overdue | soon | all (умолч.)",
             "schema": {}
           }
         ],
@@ -19045,7 +19052,7 @@
     "/api/pdm-import/preview": {
       "post": {
         "operationId": "PdmImportController_preview",
-        "summary": "Сравнить дерево pdm-tree/1 с сайтом: что создать, что связать, где расхождения (ничего не записывает в номенкл��туру)",
+        "summary": "Сравнить дерево pdm-tree/1 с сайтом: что создать, что связать, где расхождения (ничего не записывает в номенклатуру)",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -19591,7 +19598,7 @@
           },
           "appSections": {
             "type": "array",
-            "description": "Разделы «Рабочего места», которые видит роль; пусто — по иерархии рол��",
+            "description": "Разделы «Рабочего места», которые видит роль; пусто — по иерархии роли",
             "items": {
               "type": "string",
               "enum": [
@@ -24884,7 +24891,7 @@
           },
           "bankAccount": {
             "type": "string",
-            "description": "��асчётный счёт"
+            "description": "Расчётный счёт"
           },
           "bankCorrAccount": {
             "type": "string",
@@ -25307,7 +25314,7 @@
           "name": {
             "type": "string",
             "example": "RAL 9003 — Сигнальный белый",
-            "description": "Название цв��та"
+            "description": "Название цвета"
           },
           "slug": {
             "type": "string",

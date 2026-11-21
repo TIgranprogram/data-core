@@ -54,8 +54,23 @@ export function filterDictionaryRows(rows, query) {
   const matches = (row) => [row.path, row.parent, row.title, row.text, row.type, row.origin, row.replaces, row.condition, ...(row.links || []), ...(row.badges || [])].join(' ').toLocaleLowerCase('ru').includes(q);
   return rows.filter(matches);
 }
-export function phraseDictionaryTable({ model, roots, shown, references, catText, selected, edit, open, add, quality, renderText, query, reset, gap }) {
-  const rows = filterDictionaryRows(phraseTableRows({ model, roots, shown, references, catText }), query);
+export function phraseContextRows(rows, model, section, kind) {
+  if (!section && !kind) return rows;
+  const retained = new Set();
+  for (const row of rows) {
+    const chain = chainOf(model, row.node);
+    if ((!section || chain[0]?.section === section) && (!kind || chain.some((node) => ids(node.kindIds).includes(kind)))) {
+      chain.forEach((node) => retained.add(node.id));
+    }
+  }
+  return rows.filter((row) => retained.has(row.id));
+}
+export function phraseDictionaryTable({ model, roots, shown, references, catText, selected, edit, open, add, quality, renderText, query, reset, gap, context }) {
+  const contextual = phraseContextRows(phraseTableRows({ model, roots, shown, references, catText }), model, context?.section, context?.kind);
+  if (context?.kind && !contextual.length) return empty({ title: 'Краткое описание для этого вида ещё не задано',
+    hint: `Вид: ${references.passportKinds?.get(context.kind) || 'выбранный вид'}. Назначение хранится отдельно. ${edit ? 'Добавьте подтверждённое краткое описание. Вид и раздел уже выбраны.' : 'Попросите директора дополнить краткое описание этого вида. В паспорте можно выбрать части или свою формулировку.'}`,
+    action: edit ? { label: 'Добавить описание для «' + (references.passportKinds?.get(context.kind) || 'выбранного вида') + '»', href: '#dicts?d=passportPhrases&phraseSection=simple-description&phraseKind=' + encodeURIComponent(context.kind) + '&of=ptnode&open=new.' } : undefined });
+  const rows = filterDictionaryRows(contextual, query);
   if (!rows.length) return empty({ kind: 'notFound', query, onReset: reset, hint: 'Измените поиск или фильтр типа и качества.' });
   return table({ label: 'Тексты паспорта: разделы, варианты и связи', clickable: true,
     columns: [{ label: 'Раздел / родитель', wrap: true }, { label: 'Вариант', wrap: true }, { label: 'Текст', wrap: true }, { label: 'Тип паспорта', wrap: true }, { label: 'Связи / применимость', wrap: true }],
@@ -63,7 +78,7 @@ export function phraseDictionaryTable({ model, roots, shown, references, catText
       stack(clamp(row.path), row.parent !== '—' ? hint('Родитель: ' + row.parent) : null),
       stack(h(row.root ? 'strong' : 'span', null, row.title), row.branch ? hint(row.root ? 'Раздел' : 'Группа вариантов') : null,
         ...row.badges.map((text) => hint(text)), ...quality(row.node), gap?.(row.node) ? hint('Нет текста для выбранного типа', 'warn') : null,
-        row.branch && edit ? button({ label: '+ Вариант', kind: 'ghost', size: 'S', onClick: (e) => { e.stopPropagation(); add(row.id); } }) : null),
+        (row.branch || (row.root && !row.text && context?.kind)) && edit ? button({ label: row.root && !row.branch && context?.kind ? 'Продолжить описание' : '+ Вариант', kind: 'ghost', size: 'S', onClick: (e) => { e.stopPropagation(); add(row.id); } }) : null),
       row.text ? clamp(h('span', null, ...renderText(row.text))) : hint(row.branch ? 'Текст в дочерних вариантах' : 'Пустой текст'),
       clamp(row.type || 'Тип не указан'), row.links.length ? stack(...row.links.map((text) => hint(clamp(text)))) : hint('Без дополнительных связей'),
     ] })) });

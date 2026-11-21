@@ -83,3 +83,23 @@ Frozen890dece6: CAS/постоянные слоты/outbox/ночное окно
 
 ## C176 — очередь идентификации, совет до кода
 коммит: ed72ef69 (новая реализация ещё не проверена). Якорь: docs/crew/C176-product-identification-queue/ARCHITECTURE.md; service.list/present:93–174, common/passport/kind.ts:33–57, form-values.ts; bulk:50–54/65–91, defaults setter:258–270. Shared metadata/scalar helper до pagination; facets без series в eligibility; перед новыми bulk-полями atomic row/prevalidation и безопасный undo. cycles0; глобальный review-scope --done не выставлялся. Карта обновлена.
+
+## C176 — финальный узкий review до full
+коммит: d8b03f4f + незакоммиченный C176. REVIEW.md: блокеры service:292–295 inherited-type compatibility и:298/369/377/384/306 category-sideeffect до validation/CAS; до них FAIL. Sharedfilter/facets/CAS/undo просмотрены, cycles0; PWA/full не принимались. Нужен адресный повтор после фикса. Карта обновлена.
+
+## C176 — закрытие двух блокеров
+коммит: d8b03f4f + текущий C176diff. Адресный повтор PASS: service:292–299 beforeeffective/explicitincoming, :300–317 настоящий transaction+CAScategoryId/pd; categoryfind/insert session и fieldsvalidationдоcreate. REVIEW.md обновлён, QA10/10realMongo принято, full/UI впереди. Карта обновлена.
+
+## C180 — срочныйсоветC179 иdirectreviewC178
+коммит: текущийWIP, непринятыйmain. Якоря C180/ADVICE-C179.md (exactcode7+unknown, одинimage/readiness/PDF/importprofile;622reviewedmigration), DIRECT-REVIEW-C178.md (узкийhistory/CAS/UIcapabilitiesdiffPASSкQA). По7codesневыдумыватьphysicalспособ,unknownнеfoundation, Inventorнепеределывать. Полныйauditнепроводился; расширенныйпланпослесрочногопаспорта. Картаобновлена.
+
+C180 первыйадресныйauditзакреплён: AUDIT.md/FINDINGS.md/REFACTOR-PLAN.md, изужепросмотренныхстыковбезрасширенногопоиска. F01–03срочныеC179/622, C178локальныйhistorybypassзакрыт, F05–08freeze/commit/capabilities/единыйverificationследующимиэтапами. Коммит: текущийWIP; release/fullещёнеприняты. Картаобновлена.
+
+## C179 — directreview legacyimage-only
+коммит: текущийWIP/sourcefreeze, непринятыйmain. DIRECT-REVIEW.md FAIL: service1042/1075–1079 новыйprofile+старыйpriorrequiredнесогласованы дляlegacyfrozenбезplan; нужнаадреснаяmanaged-required миграцияТОЛЬКОнoвойредакции, historicalreadсохранить. ДобавитьrealMongolegacyANCHORSimportрегрессию+unknownmutationguard;fullпослефикса. Картаобновлена.
+
+## C179 — legacy blocker закрыт
+коммит: текущийWIP/finalfreeze. DIRECT-REVIEW.md PASS адресногоповтора: reconcileInstallationRules replacesmanagedrequired/slots + сохраняетnonmanaged; reuseTextunknownguard; historicalREADне меняется. Просмотрены2realMongoregressionкейса, QA3/3/import23/23/C1786/6/unit818принятыпоотчётам. Можноодинобщийfull; выпуск/622/UIещёнепринимались. Картаобновлена.
+
+## C175 — afterSave навигация
+коммит: текущийWIP/UI-diff. АдресныйPASS2файлов: ui/kit/card.jsoptionalafterSaveпослеAPIуспеха/formclear,доdefaultnav; passport-tree.jsnewroot→new.id/newleaf→id, таймерудалён. AFTER-SAVE-REVIEW.md;16card/34target/guards365imports371принятыпоотчёту, backendfullнеповторялся. Картаобновлена.

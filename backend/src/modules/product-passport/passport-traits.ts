@@ -1,3 +1,4 @@
+import { installationProfile } from './passport-variants';
 import { ELEMENT_TRAITS, JOINT_TRAITS, MATERIAL_TRAITS, PASSPORT_TRAIT_CODES, USERS_CATEGORIES, whenCodes } from '../../common/passport/traits';
 import { evalCondition, parseWhen, TRAITS_FIELD, type ExcludedItem, type PassportCondition } from './passport-compose';
 import type { DictRec } from './passport-compose-parts';
@@ -34,7 +35,10 @@ export function collectTraits(joints: unknown, src: TraitSources, category = '')
   };
   src.elements.forEach((r) => take('Вид изделия', r));
   src.materials.forEach((r) => take('Материал', r));
-  take('Способ установки', src.install);
+  if (src.install) {
+    const plan = installationProfile(src.install);
+    take('Способ установки', { ...src.install, traits: [...codesOf(src.install.traits).filter(c => !['concrete', 'anchors', 'freestanding'].includes(c)), ...plan.traits] });
+  }
   // C094: вид или материал не указан — пункты безопасности остаются; категория BLG людей не подразумевает, остальные (и пустая) — да
   // вид изделия — запись справочника не «часть» и не «крепёж»; материал — не «покрытие»
   const hasKind = src.elements.some((r) => !['part', 'fastener'].includes(String(r.kind ?? '')));

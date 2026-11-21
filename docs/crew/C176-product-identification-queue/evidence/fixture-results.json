@@ -1,0 +1,126 @@
+[
+  {
+    "theme": "light",
+    "status": "PASS",
+    "write": {
+      "ids": [
+        "111111111111111111111111",
+        "222222222222222222222222"
+      ],
+      "set": {
+        "passportDefaults": {
+          "kindId": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "passportCategory": "BLG"
+        }
+      },
+      "arrays": {}
+    },
+    "query": [
+      {
+        "needsIdentification": "1",
+        "limit": "1"
+      },
+      {
+        "status": "draft",
+        "limit": "1"
+      },
+      {
+        "status": "archived",
+        "limit": "1"
+      },
+      {
+        "needsIdentification": "1",
+        "page": "1",
+        "limit": "100",
+        "sort": "withPhoto"
+      },
+      {
+        "facets": "1",
+        "limit": "1"
+      },
+      {
+        "needsIdentification": "1",
+        "page": "1",
+        "limit": "100",
+        "sort": "withPhoto"
+      },
+      {
+        "facets": "1",
+        "limit": "1"
+      },
+      {
+        "needsIdentification": "1",
+        "page": "1",
+        "limit": "100",
+        "sort": "withPhoto"
+      },
+      {
+        "facets": "1",
+        "limit": "1"
+      }
+    ],
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "status": "PASS",
+    "write": {
+      "ids": [
+        "111111111111111111111111",
+        "222222222222222222222222"
+      ],
+      "set": {
+        "passportDefaults": {
+          "kindId": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "passportCategory": "BLG"
+        }
+      },
+      "arrays": {}
+    },
+    "query": [
+      {
+        "needsIdentification": "1",
+        "limit": "1"
+      },
+      {
+        "status": "draft",
+        "limit": "1"
+      },
+      {
+        "status": "archived",
+        "limit": "1"
+      },
+      {
+        "needsIdentification": "1",
+        "page": "1",
+        "limit": "100",
+        "sort": "withPhoto"
+      },
+      {
+        "facets": "1",
+        "limit": "1"
+      },
+      {
+        "needsIdentification": "1",
+        "page": "1",
+        "limit": "100",
+        "sort": "withPhoto"
+      },
+      {
+        "facets": "1",
+        "limit": "1"
+      },
+      {
+        "needsIdentification": "1",
+        "page": "1",
+        "limit": "100",
+        "sort": "withPhoto"
+      },
+      {
+        "facets": "1",
+        "limit": "1"
+      }
+    ],
+    "errors": []
+  }
+]

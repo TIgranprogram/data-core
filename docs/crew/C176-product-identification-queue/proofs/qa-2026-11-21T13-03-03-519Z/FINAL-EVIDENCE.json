@@ -1,0 +1,89 @@
+{
+  "status": "FAIL",
+  "failure": "unit failed",
+  "testDb": "datacore-test-c176-identification",
+  "mongo": "owned c172-qa-mongo Mongo4.4 rs0 :27172",
+  "before": "1aba82a2aa91e919fc58dc389b67f23102cb00fe8af2f30b6d48dd2b122c7d80",
+  "after": "1aba82a2aa91e919fc58dc389b67f23102cb00fe8af2f30b6d48dd2b122c7d80",
+  "unchanged": true,
+  "fileCount": 1768,
+  "results": [
+    {
+      "name": "unit",
+      "passedSuites": 383,
+      "failedSuites": 4,
+      "skippedSuites": 0,
+      "passed": 3891,
+      "failed": 6,
+      "skipped": 0,
+      "total": 3897,
+      "success": false,
+      "failures": [
+        {
+          "file": "backend\\src\\modules\\product\\product.service.spec.ts",
+          "failedTestNames": [
+            "TZ-NX-DOCSTUDIO-VITRINA-PHOTO-BROKEN-IMG — findAll blanks orphaned photoIds.storageUrl blanks storageUrl for a photo whose file no longer exists on disk, keeps a real one intact"
+          ],
+          "message": "  ● TZ-NX-DOCSTUDIO-VITRINA-PHOTO-BROKEN-IMG — findAll blanks orphaned photoIds.storageUrl › blanks storageUrl for a photo whose file no longer exists on disk, keeps a real one intact"
+        },
+        {
+          "file": "backend\\src\\modules\\material\\material.service.spec.ts",
+          "failedTestNames": [
+            "MaterialService (TZ-MATERIALS-303/307) findAll blanks orphaned photoIds/mainPhotoId.storageUrl (TZ-NX-DOCSTUDIO-VITRINA-PHOTO-BROKEN-IMG) blanks storageUrl for an orphaned mainPhotoId and a photoIds entry, keeps a real one intact"
+          ],
+          "message": "  ● MaterialService (TZ-MATERIALS-303/307) › findAll blanks orphaned photoIds/mainPhotoId.storageUrl (TZ-NX-DOCSTUDIO-VITRINA-PHOTO-BROKEN-IMG) › blanks storageUrl for an orphaned mainPhotoId and a ph"
+        },
+        {
+          "file": "backend\\src\\modules\\product-module\\product-module.service.spec.ts",
+          "failedTestNames": [
+            "ProductModuleService.findAll — photos (TZ-NX-MODULE-LIST-POPULATE-PHOTOS) populates photoIds/mainPhotoId and blanks storageUrl for a photo whose file no longer exists on disk"
+          ],
+          "message": "  ● ProductModuleService.findAll — photos (TZ-NX-MODULE-LIST-POPULATE-PHOTOS) › populates photoIds/mainPhotoId and blanks storageUrl for a photo whose file no longer exists on disk"
+        },
+        {
+          "file": "backend\\src\\modules\\document-render\\document-render.utils.spec.ts",
+          "failedTestNames": [
+            "document-render.utils PDF upload inlining inlines local upload files as data URLs for PDF",
+            "TZ-NX-DOCSTUDIO-VITRINA-PHOTO-BROKEN-IMG — localUploadFileExists / blankMissingUploadUrls localUploadFileExists resolves true for a real file, false for a missing one",
+            "TZ-NX-DOCSTUDIO-VITRINA-PHOTO-BROKEN-IMG — localUploadFileExists / blankMissingUploadUrls blankMissingUploadUrls blanks storageUrl only on docs whose file is missing"
+          ],
+          "message": "  ● document-render.utils PDF upload inlining › inlines local upload files as data URLs for PDF"
+        }
+      ]
+    }
+  ],
+  "stages": [
+    {
+      "name": "tsc",
+      "start": "2026-11-21T13:03:03.785Z",
+      "end": "2026-11-21T13:03:06.034Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\typescript\\bin\\tsc",
+        "--noEmit"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T13-03-03-519Z\\tsc.log"
+    },
+    {
+      "name": "unit",
+      "start": "2026-11-21T13:03:06.035Z",
+      "end": "2026-11-21T13:04:05.203Z",
+      "exitCode": 1,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\node_modules\\jest\\bin\\jest.js",
+        "--runInBand",
+        "--silent",
+        "--json",
+        "--outputFile=C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T13-03-03-519Z\\unit-results.json"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend",
+      "log": "tools\\logs\\c176-qa-2026-11-21T13-03-03-519Z\\unit.log"
+    }
+  ],
+  "raw": "tools\\logs\\c176-qa-2026-11-21T13-03-03-519Z",
+  "out": "docs\\crew\\C176-product-identification-queue\\proofs\\qa-2026-11-21T13-03-03-519Z",
+  "skipBoundary": "T26 opt-in disposable database suite is not enabled; exact counts in Jest results."
+}

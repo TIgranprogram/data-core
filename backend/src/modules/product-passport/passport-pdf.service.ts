@@ -14,7 +14,7 @@ import { isDraftNumber, isIssued } from './passport-consts';
 import type { PdfOrg } from './passport-pdf';
 import { zipStore } from './zip';
 import { safeUploadPath } from '../../common/uploads/safe-path';
-import { filterImagesByKind, installKindOf, variantOf, type PassportVariant } from './passport-variants';
+import { filterImagesByKind, installationProfile, planOfContext, installKindOf, variantOf, type PassportVariant } from './passport-variants';
 import { standardSchemes } from './passport-schemes';
 import { renderPassportCoverPreview, renderPassportPdfV2, renderPassportsPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
 import { PassportLookService } from './passport-look.service';
@@ -294,8 +294,13 @@ export class PassportPdfService {
       for (const x of std) { const buf = await this.file(su.get(x.photoId)); if (buf) (byKind[x.kind] ||= []).push({ buf }); }
     }
     // вариант паспорта, категория и способ установки решают, какие рисунки печатать (passport-variants.ts)
-    const ctx = { category: String(p.passportCategory ?? ''), install: frozen?.install ?? installKindOf(installs?.get(String(p.installationTypeId ?? ''))), variant };
+    const ctx = { category: String(p.passportCategory ?? ''), installationPlan: frozen?.installationPlan ?? (!frozen ? installationProfile(installs?.get(String(p.installationTypeId ?? ''))) : undefined), install: frozen?.install ?? installKindOf(installs?.get(String(p.installationTypeId ?? ''))), variant };
+    // Исторические снимки до C179 сохраняют свой набор рисунков.
+    if (frozen && !frozen.installationPlan) ctx.installationPlan = { ...planOfContext(ctx), allowedKinds: ['foundation', 'holes', 'mounting', 'embedded_layout'] };
     const images = filterImagesByKind(byKind, ctx);
+    if (ctx.installationPlan && (!frozen || frozen.installationPlan)) for (const kind of ctx.installationPlan.managedKinds) {
+      for (const image of images[kind] ?? []) if (!image.caption) image.caption = ctx.installationPlan.labels[kind];
+    }
     const required = frozen?.readiness.requiredImages ?? (p.presentationVersion === 1 ? p.requiredImages as string[] | undefined : undefined)
       ?? imageRules(p, (await this.passports.categoryRules()).get(ctx.category), ctx).required;
     const absent = required.map((kind) => kind === 'safety' ? 'safety_zone' : kind).filter((kind) => !images[kind]?.length);
@@ -323,7 +328,7 @@ export class PassportPdfService {
     }); // выпуск: пустые фразы выпадают; черновик: «не заполнено» (passport-blanks.ts)
     return {
       watermark: this.watermark(p),
-      passport: p as never,
+      passport: { ...p, ...((!frozen || frozen.installationPlan) && ctx.installationPlan?.known && !ctx.installationPlan.depthApplicable ? { foundationDepth: null } : {}) } as never,
       org: orgIn,
       text,
       images,

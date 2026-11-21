@@ -1,0 +1,16 @@
+{
+ "status":"REVIEW_REQUIRED_NO_WRITES",
+ "scope":"owned stand only, QAadmin via DC_STAND_ADMIN=1 api.sh; exactly4operations; no existingdict/product PATCH",
+ "kindId":"6af707fdc451d4c05df6a049",
+ "category":"TRN",
+ "unique":"QA-C175-PRESS-<UTC unique>",
+ "operations":[
+  {"method":"POST","path":"/api/dicts/passportPhrases","via":"Actual contextual UI step1","body":{"name":"QA-C175-PRESS-<unique> раздел","section":"simple-description","kindIds":["6af707fdc451d4c05df6a049"],"categories":"TRN","allCategories":false,"parentId":"","required":true,"order":0},"note":"No text at root. Exact UI optional emptyfacet/group arrays allowed, no nonemptyconditions."},
+  {"method":"POST","path":"/api/dicts/passportPhrases","via":"Automatic next UI step2","body":{"name":"QA-C175-PRESS-<unique> вариант","parentId":"<rootReceiptId>","text":"QA-C175-PRESS-<unique>: искусственный пример описания для проверки двух шагов, не для эксплуатации.","categories":"TRN","allCategories":false,"isDefault":false,"order":1},"note":"Kind/section inherit from exact TRN/press root, noforeignkind/group/facetlinks."},
+  {"method":"POST","path":"/api/showcase","via":"Actual API","body":{"sku":"QA-C175-PRESS-<unique>","name":"QA-C175-PRESS-<unique>","type":"Спортивное оборудование","group":"Тренажеры","dimensions":{"length":1000,"width":500,"height":800,"unit":"мм"},"weightKg":10,"status":"draft"}},
+  {"method":"PATCH","path":"/api/showcase/<newQAproduct>/passport-template?variant=short","via":"Actual API CAS","body":{"changes":{"kindId":"6af707fdc451d4c05df6a049","passportCategory":"TRN","installationTypeId":"6af1cc81bde492a73d513db8","joints":["solid"]},"expected":{"kindId":null,"passportCategory":null,"installationTypeId":null,"joints":null}}}
+ ],
+ "preconditions":["FreshGETdictkind press/TRN andLAID,uniqueQAnameabsent.","Allroots/leaf creation is new. No old dict PATCH/delete/merge, no existing493product edits.","Only exact newproductID fromreceipt may be PATCHed. No passports/issue/photos needed."],
+ "proof":["UI step1 required humanname,step2 opens automatically and visibletextinput.","GETnewroot/leaf:roottextempty,leafQAtext,exactparent/category/kindcontext.","GETnewQAshorttemplate:source.kind=dictionary/source.id=newleaf/textSnapshot.description contains exact QAtext. No manualsimpleDescription/textChoices assigned.","Real book opens with dictionary text;othermissingphotos/numerics are not claimed ready or waived."],
+ "writesExecuted":false
+}

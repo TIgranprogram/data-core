@@ -1,0 +1,24 @@
+{
+  "scope": "standalone OpenAPI export from the completed final build; not a substitute for failed e2e",
+  "status": "PASS",
+  "before": "463430dc5174fa638c29493a5fec7b2cb7ea10c6a48e7d39d5fcafea96119ced",
+  "after": "463430dc5174fa638c29493a5fec7b2cb7ea10c6a48e7d39d5fcafea96119ced",
+  "unchanged": true,
+  "testDb": "datacore-test-c176-identification",
+  "stages": [
+    {
+      "name": "openapi",
+      "start": "2026-11-21T14:20:03.695Z",
+      "end": "2026-11-21T14:20:05.490Z",
+      "exitCode": 0,
+      "command": [
+        "C:/Program Files/WindowsApps/OpenAI.CodexPrimaryRuntime.v26-1119-907-0_26.1119.907.0_x64__3k8sg7r9htsxt/dependencies/node/bin/node.exe",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\dist\\src\\export-openapi.js",
+        "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\docs\\crew\\C176-product-identification-queue\\proofs\\qa-2026-11-21T14-20-03-450Z\\openapi.json"
+      ],
+      "cwd": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\tools\\logs\\c176-qa-2026-11-21T14-20-03-450Z\\scratch",
+      "log": "tools\\logs\\c176-qa-2026-11-21T14-20-03-450Z\\openapi.log"
+    }
+  ],
+  "artifact": "docs\\crew\\C176-product-identification-queue\\proofs\\qa-2026-11-21T14-20-03-450Z\\openapi.json"
+}

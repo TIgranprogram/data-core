@@ -7,9 +7,22 @@ import { openBookSample, previewPassport, printDialog } from './dialogs.js';
 import { bookVariants, variantName } from './book-template.js';
 import { forgetBookIssue, issueBookTemplate, pendingBookIssue } from './book-issue.js';
 
+export function canEditBookInstance(row, allowed) {
+  return !!allowed && row?.presentationVersion === 1 && ['draft', 'issued'].includes(statusOf(row))
+    && row.printSource !== 'file' && !row.printFile?.hasFile;
+}
+export function bookEditMessage(row, editable) {
+  if (editable) return statusOf(row) === 'issued'
+    ? 'Правки сохраняются новой редакцией. Номер паспорта прежний; предыдущая редакция остаётся в истории.'
+    : 'Правки сохраняются сразу при нажатии «Сохранить».';
+  return row.printSource === 'file' || row.printFile?.hasFile
+    ? 'Прикреплён готовый PDF. Измените исходный файл и прикрепите новую версию; текст этого PDF здесь не редактируется.'
+    : 'Просмотр и печать доступны в этом окне.';
+}
+
 export function paintBookHead(head, {
   S, position, can, zoom, run, switchTemplate, changeInstanceVariant,
-  showInstance, issueInstance, isMounted, requestClose, openTemplate, returnToInstance,
+  showInstance, issueInstance, isMounted, requestClose, openTemplate, returnToInstance, openName,
 }) {
   const r = S.r;
   const tpl = S.template;
@@ -33,7 +46,7 @@ export function paintBookHead(head, {
   }) : null;
   const retry = tpl && pendingBookIssue(tpl, position);
   const ready = r.readiness?.ready;
-  const primary = !can() || (tpl && returnToInstance) ? null : tpl
+  const primary = !can() || issued || (tpl && returnToInstance) ? null : tpl
     ? button({ label: retry?.complete ? 'Открыть паспорт' : retry ? 'Продолжить выпуск' : 'Выпустить паспорт', kind: 'primary', size: 'S',
       disabled: !ready && !retry,
       title: ready || retry ? undefined : 'Заполните то, что указано слева в «Сначала»',
@@ -52,6 +65,7 @@ export function paintBookHead(head, {
   head.replaceChildren(
     h('h2', null, tpl ? 'Шаблон паспорта' : heading(r), name ? ' · ' + name : '', ' ',
       tpl ? null : badge(issued ? 'выпущен' : statusOf(r) === 'annulled' ? 'аннулирован' : 'черновик', issued ? 'ok' : 'warn'),
+      issued ? badge('Редакция ' + (r.revision || 1), 'dim') : null,
       !tpl && !formats ? badge(variantName(variant) || 'Старый образец', 'dim') : null),
     h('div', { class: 'bk-sku', title: 'Артикул изделия' },
       art ? ['Артикул ', h('b', null, art)] : h('span', { class: 'muted' }, 'Артикул не задан'),
@@ -59,10 +73,12 @@ export function paintBookHead(head, {
         position.lineNo != null && 'поз. ' + position.lineNo].filter(Boolean).join(' · ') || 'Позиция заказа') : null),
     h('div', { class: 'bk-acts' },
       r.printSource === 'file' || r.printFile?.hasFile ? h('span', { class: 'bk-mark' }, 'К номеру прикреплён свой PDF — печать отдаёт его. ') : null,
+      issued && can() ? h('span', { class: 'bk-mark' }, 'Правки сохраняются новой редакцией с прежним номером.') : null,
+      !tpl && can() && openName ? button({ label: 'Изменить название', size: 'S', kind: 'ghost', onClick: (e) => run(e.currentTarget, null, openName) }) : null,
       formats?.el,
       tpl ? button({ label: 'Обновить', size: 'S', kind: 'ghost', title: 'Перечитать шаблон после изменений в справочниках',
         onClick: (e) => run(e.currentTarget, null, () => switchTemplate(tpl.productId, tpl.variant)) }) : null,
-      returnToInstance ? button({ label: 'Вернуться к черновику', size: 'S', kind: 'primary',
+      returnToInstance ? button({ label: 'Вернуться к паспорту', size: 'S', kind: 'primary',
         onClick: (e) => run(e.currentTarget, 'Открываю…', returnToInstance) }) : null,
       !tpl && can() && r.productId ? button({ label: 'Шаблон изделия', size: 'S', kind: 'ghost',
         onClick: (e) => run(e.currentTarget, 'Открываю…', openTemplate) }) : null,

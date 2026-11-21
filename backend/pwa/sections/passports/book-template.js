@@ -48,5 +48,6 @@ export function templateDocument(template) {
     readiness: template.readiness,
     requiredImages: template.readiness.requiredImages,
     imageSlots: template.readiness.imageSlots,
+    installationPlan: template.installationPlan || template.readiness.installationPlan,
   };
 }

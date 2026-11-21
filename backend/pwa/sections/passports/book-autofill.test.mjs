@@ -46,6 +46,7 @@ function scenario({ alternatives = [phrase, other], auto = false, defaults = {},
     hint: (message) => node('p', null, message), stack: (...children) => node('div', null, children),
     actions: (...children) => node('div', null, children), sidePanel: (title, ...children) => node('section', null, title, children),
     setSideWide() {}, busyBtn: () => () => {}, dictRows: async (key) => dict[key], canEdit: () => editor,
+    installationPlanOf: (row) => row.installationPlan, imageKindAllowed: () => true, imageKindLabel: (_row, _kind, fallback) => fallback,
     dictOpts: async () => [{ value: 'element', label: 'Кардио', cats: ['TRN'] }], jointsPick() {},
     api: async (path) => { assert.equal(path, '/dicts/passportParts'); return { items: typeof parts === 'function' ? parts() : parts }; },
     confirmDlg: async (title) => confirm(title), codeList: (value) => value?.split(',') || [], catNames: () => '',
@@ -206,14 +207,15 @@ test('если у известного вида словарной фразы н
   field(s.slot, 'kindId').props.values.kindId = 'kind';
   await action(s.slot, 'Сохранить в шаблон').props.onClick();
   assert.match(viewText(s.slot), /нет готового краткого описания/);
-  assert.ok(nodes(s.slot).some((it) => it.props?.href === '#dicts?d=passportPhrases'));
+  assert.ok(nodes(s.slot).some((it) => it.props?.href === '#dicts?d=passportPhrases&phraseSection=simple-description&phraseKind=kind'));
   assert.equal(field(s.slot, 'text'), undefined);
   assert.equal(s.writes.length, 1);
 });
 
 test('вход редактора использует сценарий из очереди и оставляет собственный текст отдельным действием', () => {
   const source = read('./book-editor.js');
-  assert.match(source, /key === 'simpleDescription' \? openDescription\(\) : editSetting\(key\)/);
+  assert.match(read('./book-setup.js'), /key === 'simpleDescription' \? openDescription\(\) : editSetting\(key\)/);
+  assert.match(source, /openSetting: bookFocusSettingOpener/);
   assert.match(source, /label: 'Краткое описание', size: 'S', onClick: openDescription/);
   assert.match(source, /function openDescription\(\) \{ editTemplateSide\(openSimpleDescription, \{ description: true \}\); \}/);
 });

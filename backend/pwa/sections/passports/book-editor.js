@@ -10,7 +10,7 @@ import { button, select } from '../../ui/kit/index.js';
 import { busyBtn } from '../../ui/kit/busy.js';
 import { buildForm } from '../../ui/kit/form.js';
 import { srcLegend } from '../../ui/kit/src.js';
-import { canEdit, canWorkPassport, ourCompanies, statusOf } from './common.js';
+import { canEdit, canWorkPassport, ourCompanies } from './common.js';
 import { passportAction } from './field-edit.js';
 import { pickSourceKey, aiCheckBlock, pageText, exclusive, sidePanel } from './book-shared.js';
 import { bindBookScroll, renderBookDocument } from './book-document.js';
@@ -22,10 +22,10 @@ import { SRC_LABEL } from './card-blocks.js';
 import { bindBookInlineEvents } from './book-inline-events.js';
 import { loadBookTemplate, saveBookTemplate, templateDocument } from './book-template.js';
 import { issueBookInstance } from './book-issue.js';
-import { paintBookHead } from './book-head.js';
-import { editBookTemplateText, openBookCategory, openBookSetting, openDescriptionSetup, openSimpleDescription } from './book-template-edit.js';
+import { paintBookHead, canEditBookInstance, bookEditMessage } from './book-head.js';
+import { editBookTemplateText, openBookCategory, openBookSetting, openDescriptionSetup, openSimpleDescription, openBookInstanceInstallation } from './book-template-edit.js';
 import { openCompositionInBook, openDimsInBook, openMaterialsInBook } from './book-side-edit.js';
-import { bookSettingOpener, paintBookSetup } from './book-setup.js';
+import { bookSettingOpener, bookFocusSettingOpener, paintBookSetup } from './book-setup.js';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 
@@ -36,7 +36,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
   catch (e) { toastError(e); return false; }
   if (!isCurrent()) return false;
   const S = { r: row, template, changed: false, cur: null, fit: true };
-  const can = () => canWorkPassport() && (!!S.template || (S.r.presentationVersion === 1 && statusOf(S.r) === 'draft'));
+  const can = () => !!S.template ? canWorkPassport() : canEditBookInstance(S.r, canWorkPassport());
   const pid = () => S.r.id;
   const lock = (fn) => exclusive(S.template ? `template/${S.template.productId}` : pid(), passportAction, fn);
   const setTemplate = (next) => { S.r = templateDocument(next); S.template = next; };
@@ -47,8 +47,8 @@ export async function openBookEditor(passport, { template = null, position, onCl
   let actionBusy = false;
   let draftId = null;
 
-  const readOnlyStat = 'Просмотр и печать доступны в этом окне.';
-  const stat = h('span', { class: 'bk-stat', 'aria-live': 'polite' }, can() ? 'Правки сохраняются сразу при нажатии «Сохранить».' : readOnlyStat);
+  const readOnlyStat = bookEditMessage(S.r, false);
+  const stat = h('span', { class: 'bk-stat', 'aria-live': 'polite' }, bookEditMessage(S.r, can()));
   const tocPagesList = h('div', { class: 'bk-toc-pages-list', 'aria-label': 'Страницы' });
   const tocPages = h('section', { class: 'bk-panel bk-toc-pages' },
     h('header', { class: 'bk-panel-h' }, h('h3', { class: 'bk-toc-h' }, 'Страницы')),
@@ -252,7 +252,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
         busy(false); S.cur = null; render();
       } catch (e) { busy(false); st.textContent = ''; toastError(e); }
     };
-    const local = button({ label: 'Только в этом паспорте', kind: 'primary', size: 'S', title: 'Enter или Ctrl+Enter', onClick: () => saveLocal() });
+    const local = button({ label: 'Сохранить в этом паспорте', kind: 'primary', size: 'S', title: 'Enter или Ctrl+Enter', onClick: () => saveLocal() });
     const shared = spec.shared && canEdit() ? button({ label: 'В справочник', size: 'S', title: 'Для всех изделий этой категории или источника', onClick: saveShared }) : null;
     const reset = spec.original != null && spec.original !== '' ? button({ label: 'Вернуть исходный', kind: 'ghost', size: 'S', title: 'Подставить текст из справочника, как было до правки', onClick: () => { ctl.value = spec.original; fit(); ctl.focus(); } }) : null;
     const removeBtn = spec.remove ? button({ label: 'Удалить строку', kind: 'ghost', size: 'S', title: 'Убрать эту строку из таблицы обслуживания', onClick: async () => {
@@ -366,7 +366,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
   };
   const paintHead = () => paintBookHead(head, {
     S, position, can, zoom, run: runHeadAction, switchTemplate, changeInstanceVariant, showInstance,
-    openTemplate: editDraftTemplate, returnToInstance: draftId ? returnToDraft : null,
+    openTemplate: editDraftTemplate, returnToInstance: draftId ? returnToDraft : null, openName: () => { const i = edits.findIndex(({ spec }) => spec.fieldKey === 'name'); if (i >= 0) openEditor(i); },
     issueInstance: (row) => lock(() => issueBookInstance(row)), isMounted: () => back.isConnected, requestClose,
   });
 
@@ -384,10 +384,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
     S, get can() { return can(); }, pagesEl: pages,
     sideSlot: slot,
     openSide,
-    openSetting: async (key, buttonEl) => {
-      if (!S.template) await runHeadAction(buttonEl, null, editDraftTemplate);
-      if (S.template) key === 'simpleDescription' ? openDescription() : editSetting(key);
-    },
+    openSetting: bookFocusSettingOpener({ S, runHeadAction, editDraftTemplate, openDescription, editSetting, openInstanceInstallation: () => openSide(() => openBookInstanceInstallation(slot, S.r, { done: sideDone, isCurrent: () => back.isConnected, save: async (change) => { await lock(() => patchPassport(change)); await refreshRow(); } })) }),
     openChoices: (root) => choicesApi?.focus(root),
     sideHome: () => { releaseSlot(() => slot.replaceChildren(sideEmpty())); },
     onChanged: async () => {

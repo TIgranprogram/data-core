@@ -1,0 +1,71 @@
+{
+  "freshReadonly": {
+    "proof": {
+      "productId": "6b01ace40e09653a2321eb00",
+      "rootId": "6b01b06466e852a78b56430d",
+      "leafId": "6b01b06466e852a78b564321",
+      "kindId": "6af707fdc451d4c05df6a049",
+      "source": {
+        "kind": "dictionary",
+        "id": "6b01b06466e852a78b564321",
+        "rootId": "6b01b06466e852a78b56430d",
+        "partIds": []
+      },
+      "description": "QA-C175-AUTO-1795272801478: искусственный пример описания для проверки двух шагов, не для эксплуатации.",
+      "otherMissing": [
+        "img_overview",
+        "maxUsers",
+        "img_dimensions"
+      ]
+    },
+    "checks": [
+      {
+        "freshRootLeafGet": true,
+        "automaticDictionarySource": true,
+        "ownManualAbsent": true,
+        "actualBookDescriptionVisible": true
+      }
+    ],
+    "status": "PASS",
+    "pageErrors": [],
+    "blocked": [],
+    "raw": "evidence/press-auto-readonly/result.json"
+  },
+  "previousFailedRoot": {
+    "retainedWithoutChild": true,
+    "id": "6b01ae8928a83d52dcde4702"
+  },
+  "evidence": [
+    "evidence/press-auto-live/step1-before-save.png",
+    "evidence/press-auto-live/step2-before-save-dark.png",
+    "evidence/press-auto-readonly/light-book-description.png",
+    "evidence/press-auto-readonly/dark-book-description.png"
+  ],
+  "status": "PASS",
+  "scope": "Stand QAadmin, exact TRN/press kind; existingQAproduct GET only; no prod writes",
+  "proofType": "combined actual2POST+automaticStep2+freshGET/book; no POST repeated",
+  "notClaimed": "QAfixture still lacks overview/dimensions/maxUsers; whole passport readiness/issue not tested or bypassed.",
+  "actualCreate": {
+    "automaticStep2": true,
+    "writes": [
+      {
+        "method": "POST",
+        "path": "/api/dicts/passportPhrases",
+        "phase": "root"
+      },
+      {
+        "method": "POST",
+        "path": "/api/dicts/passportPhrases",
+        "phase": "leaf"
+      }
+    ],
+    "note": "Raw timeout preserved: finaltext waited on old cover/nonselectedpage; no root/leaf repetition.",
+    "partialIds": {
+      "productId": "6b01ace40e09653a2321eb00",
+      "rootId": "6b01b06466e852a78b56430d",
+      "leafId": "6b01b06466e852a78b564321"
+    },
+    "rawStatus": "FAIL",
+    "raw": "evidence/press-auto-live/result.json"
+  }
+}

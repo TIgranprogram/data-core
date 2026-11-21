@@ -1,0 +1,38 @@
+[
+  {
+    "canonical": {
+      "selectedId": "111111111111111111111112",
+      "text": "Тестовый текст QA: подтверждённое описание проверяется владельцем.",
+      "rootId": "111111111111111111111111",
+      "suggestions": 1,
+      "wrongKindExcluded": true
+    },
+    "theme": "light",
+    "section": "simple-description",
+    "kindIds": [
+      "6af707fdc451d4c05df6a049"
+    ],
+    "category": "TRN",
+    "errors": [],
+    "garbage": 0,
+    "writes": 2
+  },
+  {
+    "canonical": {
+      "selectedId": "111111111111111111111112",
+      "text": "Тестовый текст QA: подтверждённое описание проверяется владельцем.",
+      "rootId": "111111111111111111111111",
+      "suggestions": 1,
+      "wrongKindExcluded": true
+    },
+    "theme": "dark",
+    "section": "simple-description",
+    "kindIds": [
+      "6af707fdc451d4c05df6a049"
+    ],
+    "category": "TRN",
+    "errors": [],
+    "garbage": 0,
+    "writes": 2
+  }
+]

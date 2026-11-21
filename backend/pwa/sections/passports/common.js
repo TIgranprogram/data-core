@@ -7,13 +7,26 @@ import { hint, link, stack } from '../../ui/kit/index.js';
 /** Общее для раздела «Паспорта»: категории, поля, статусы, справочники, комплектность (ПР-1: разрезан passports.js). */
 /** 1 паспорт, 2 паспорта, 5 паспортов. */
 export const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many; };
+export const installationPlanOf = (row) => row?.installationPlan || row?.readiness?.installationPlan;
+/** Только сервер определяет применимость; старые снимки без плана сохраняют прежнюю проекцию. */
+export const imageKindAllowed = (row, kind) => {
+  const plan = installationPlanOf(row);
+  return !plan?.managedKinds?.includes(kind) || !!plan.allowedKinds?.includes(kind);
+};
+export const imageKindLabel = (row, kind, fallback = '') => installationPlanOf(row)?.labels?.[kind] || fallback;
+const requiredKinds = (row) => {
+  const plan = installationPlanOf(row);
+  return plan ? [...(row?.requiredImages || []).filter((kind) => !plan.managedKinds?.includes(kind)), ...(plan.requiredKinds || [])]
+    .filter((kind) => imageKindAllowed(row, kind)) : row?.requiredImages || [];
+};
 /** Виды картинок: обязательные для типа паспорта — первыми (порядок справочника), остальные — как были. */
 export const kinds = (r) => {
-  const all = [...KINDS, ...KINDS_V2];
-  const req = (r?.requiredImages || []).filter((k) => all.some(([x]) => x === k));
-  return [...req.map((k) => all.find(([x]) => x === k)), ...all.filter(([x]) => !req.includes(x))];
+  const all = [...KINDS, ...KINDS_V2].map(([kind, label, help]) => [kind, imageKindLabel(r, kind, label), installationPlanOf(r)?.managedKinds?.includes(kind) ? '' : help]);
+  for (const [kind, label] of Object.entries(installationPlanOf(r)?.labels || {})) if (!all.some(([key]) => key === kind)) all.push([kind, label, '']);
+  const req = requiredKinds(r).filter((k) => all.some(([x]) => x === k));
+  return [...req.map((k) => all.find(([x]) => x === k)), ...all.filter(([x]) => !req.includes(x))].filter(([kind]) => imageKindAllowed(r, kind));
 };
-export const isRequired = (r, kind) => (r?.requiredImages || []).includes(kind);
+export const isRequired = (r, kind) => requiredKinds(r).includes(kind);
 /** Типы, отложенные пользователем (2026-10-22: «детские пока не делаем») — в выборе не предлагаются. */
 export const LATER_CATS = ['DIO', 'DSP'];
 /** Типы паспорта v2 и подсказки норм (решения по умолчанию — TASKS БЗ-6). */

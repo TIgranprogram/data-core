@@ -7,7 +7,7 @@ describe('imageRules: правила рисунков по категории', 
   it('зона безопасности — только DIO; фундамент — не при анкере', () => {
     expect(imageRules({}, cat, { category: 'DIO', install: 'concrete', variant: 'full' }).required).toEqual(['overview', 'safety_zone', 'foundation']);
     const trn = imageRules({}, cat, { category: 'TRN', install: 'anchor', variant: 'full' });
-    expect(trn.required).toEqual(['overview']);
+    expect(trn.required).toEqual(['overview', 'mounting']);
     expect(trn.slots).not.toContain('safety_zone');
     expect(trn.slots).not.toContain('foundation');
   });

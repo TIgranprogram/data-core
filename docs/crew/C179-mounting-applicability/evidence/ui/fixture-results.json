@@ -1,0 +1,43 @@
+[
+  {
+    "theme": "light",
+    "mode": "anchors→concrete",
+    "patches": [
+      {
+        "installationTypeId": "cccccccccccccccccccccccc"
+      }
+    ],
+    "rawRefsPreserved": [
+      "legacy-f",
+      "legacy-h",
+      "verified-m"
+    ],
+    "number": 622,
+    "errors": []
+  },
+  {
+    "theme": "dark",
+    "mode": "anchors→concrete",
+    "patches": [
+      {
+        "installationTypeId": "cccccccccccccccccccccccc"
+      }
+    ],
+    "rawRefsPreserved": [
+      "legacy-f",
+      "legacy-h",
+      "verified-m"
+    ],
+    "number": 622,
+    "errors": []
+  },
+  {
+    "mode": "unknown→explicit anchors",
+    "patches": [
+      {
+        "installationTypeId": "aaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "number": 622
+  }
+]

@@ -1,5 +1,5 @@
 import { PREFIX, session } from '../core/api.js';
-import { sku as kitSku, button as kitButton, carousel, stack, toast, confirmDlg } from '../ui/kit/index.js';
+import { sku as kitSku, button as kitButton, carousel, stack, hint, toast, confirmDlg } from '../ui/kit/index.js';
 import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
@@ -46,12 +46,11 @@ export const products = {
     viewKey: 'products',
     createLabel: 'Изделие',
     // БЗ-9: отметить изделия → «Изменить выбранные» (артикул, наименование, фото, состав — по одному)
-    bulk: { extra: [qrBulkAction('P')], open: (ids, { done }) => openBulk({ ids, done, fields: productBulkFields,
+    bulk: { extra: [qrBulkAction('P')], open: (ids, { done, rows }) => openBulk({ ids, done, fields: productBulkFields,
+      labels: Object.fromEntries((rows || []).map((row) => [row.id, [row.sku, row.name].filter(Boolean).join(' · ')])),
       // «pd.*» — значения паспорта по умолчанию: собираем в один объект (сервер дополняет, не заменяет)
       apply: (set, arrays) => {
-        const pd = Object.fromEntries(Object.entries(set).filter(([k]) => k.startsWith('pd.')).map(([k, v]) => [k.slice(3), v]));
-        const rest = Object.fromEntries(Object.entries(set).filter(([k]) => !k.startsWith('pd.')));
-        return data.bulkApply(ids, { ...rest, ...(Object.keys(pd).length ? { passportDefaults: pd } : {}) }, arrays);
+        return data.bulkApply(ids, data.productBulkSet(set), arrays);
       },
       restore: data.bulkRestore }),
       extra: [{ label: 'В КП', run: (_ids, rows) => { rows.forEach(kpAdd); toast(`В КП: ${rows.length} изд. — всего ${kpCount()}`); refreshKpButtons(); } }] }, // права — canEditSection в списке
@@ -61,14 +60,19 @@ export const products = {
     sidebar: true,
     chipsTop: true, // «Состояние» — строкой над списком, слева — только «что ищем»
     extraKeys: ['sec', 'grp', 'sub'],
-    toolbarExtra: prodFunnel,
+    defaultView: (P) => P.needsIdentification === '1' ? 'table' : undefined,
+    toolbarExtra: () => {
+      const funnel = prodFunnel();
+      return { ...funnel, el: stack(hint('«Требует уточнения»: группа каталога, вид изделия или тип паспорта. Остальная готовность паспорта проверяется в его шаблоне.'), funnel.el) };
+    },
     filters: [
       { key: 'series', label: 'Серия', type: 'hidden' }, // ПРД.6: последний шаг воронки слева (toolbarExtra)
       { key: 'status', label: 'Статус', type: 'chips', allLabel: 'Все', options: () => data.statusChips() },
+      { key: 'needsIdentification', label: 'Уточнение изделия', type: 'chips', allLabel: 'Все изделия', options: () => [{ value: '1', label: 'Требует уточнения' }] },
     ],
     limit: 100, // таблица: по умолчанию 100 строк, меньше — выбор внизу
     // серия — точное совпадение на сервере (query series)
-    query: (P) => ({ ...(P.series ? { series: P.series } : {}), ...(deepGroup(P) ? { groupId: deepGroup(P) } : {}) }),
+    query: (P) => ({ ...(P.series ? { series: P.series } : {}), ...(deepGroup(P) ? { groupId: deepGroup(P) } : {}), ...(P.needsIdentification === '1' ? { needsIdentification: '1' } : {}) }),
     // ФИ2: основной вид — карточки с фото по разделам и группам, как «Паспорта»; «Таблица» — для поиска и сортировки
     gallery: {
       default: true, limit: 100, sort: 'category', lastGroup: 'Без типа',
@@ -81,7 +85,7 @@ export const products = {
         badge: r.status === 'archived' ? h('span', { class: 'badge dim gc-badge' }, 'архив') : !r.price ? h('span', { class: 'badge warn gc-badge', title: 'Цена не указана — изделие ещё не в продаже' }, 'без цены') : null,
       }),
     },
-    landing: { when: (P) => !deepGroup(P) && !P.groupId && !P.q && !P.series && !P.status && !P.all, render: catLanding },
+    landing: { when: (P) => !P.needsIdentification && !deepGroup(P) && !P.groupId && !P.q && !P.series && !P.status && !P.all, render: catLanding },
     // П2/Д12: в шапке «КП» и главная «+ Изделие»; весь импорт — одним пунктом в «Ещё ▾»
     headActions: () => {
       const b = kitButton({ label: `КП (${kpCount()})`, title: 'Собранное коммерческое предложение', onClick: () => patch({ of: 'kp', new: '1', open: undefined }) });
@@ -97,7 +101,8 @@ export const products = {
     columns: [
       { key: 'pic', label: '', cls: 'pic-cell', export: false, render: (r) => { const p = pic(r.photo); p?.classList.add('pic-lg'); return p; } },
       { key: 'sku', label: 'Артикул', sort: 'sku', cls: 'nowrap', render: (r) => kitSku(r.sku) },
-      { key: 'name', label: 'Название', sort: 'name', cls: 'name-2', render: (r) => h('span', { title: r.name }, r.name) },
+      { key: 'name', label: 'Название', sort: 'name', cls: 'name-2', render: (r) => stack(h('span', { title: r.name }, r.name),
+        r.identificationIssues?.length ? hint(r.identificationIssues.map((item) => item.label).join(' · ')) : null) },
       { key: 'group', label: 'Раздел · Группа', cls: 'md-hide', render: (r) => [r.type, r.group].filter(Boolean).join(' → ') },
       { key: 'series', label: 'Серия', sort: 'series', cls: 'md-hide', render: (r) => r.series || '' },
       { key: 'price', money: true, label: 'Цена', sort: 'price', cls: 'num right', render: (r) => (r.price ? money(r.price) : h('span', { class: 'muted' }, 'нет цены')) },

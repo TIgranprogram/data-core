@@ -18,7 +18,7 @@ describe('варианты паспорта и правила по катего�
   });
   it('фундамент: бетонирование — обязателен, анкер — не печатается', () => {
     expect(installKindOf({ code: 'CONCRETE_POSTS' })).toBe('concrete');
-    expect(installKindOf({ name: 'Анкерное крепление' })).toBe('anchor');
+    expect(installKindOf({ code: 'ANCHORS', name: 'Анкеры на бетон' })).toBe('anchor');
     expect(installKindOf(null)).toBe('unknown');
     expect(missingFieldsV2(base, cat, { install: 'concrete' })).toContain('Рисунок: Схема фундамента');
     expect(missingFieldsV2(base, cat, { install: 'anchor' })).not.toContain('Рисунок: Схема фундамента');

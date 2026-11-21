@@ -1,0 +1,8 @@
+{
+  "scope": "passport-import targeted before source freeze, not full acceptance",
+  "passed": 23,
+  "failed": 0,
+  "skipped": 0,
+  "raw": "tools\\logs\\c176-qa-2026-11-21T13-58-41-631Z",
+  "failures": []
+}

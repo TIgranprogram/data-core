@@ -189,8 +189,8 @@ function lineView(l, reload, issueOne, order) {
           catch (er) { kit.toastError(er, 'открыть печать паспорта'); }
           finally { b.classList.remove('is-busy'); }
         } }),
-      kit.button({ label: 'Открыть паспорт', size: 'S', kind: 'ghost',
-        title: 'Большое окно: паспорт как в PDF, любое поле правится на месте',
+      kit.button({ label: canEdit() && ['short', 'full'].includes(l.passport.variant) ? 'Изменить паспорт' : 'Открыть паспорт', size: 'S', kind: 'ghost',
+        title: canEdit() && ['short', 'full'].includes(l.passport.variant) ? 'Правки сохранятся новой редакцией с прежним номером' : 'Открыть паспорт для просмотра и печати',
         onClick: async (e) => {
           const b = e.currentTarget; b.classList.add('is-busy');
           try {

@@ -54,6 +54,7 @@ export const APPENDIX_GROUPS: Array<{ key: string; title: string; kinds: string[
   // дополнительные «Общий вид» (первый — на обложке)
   { key: 'overview_more', title: 'Общий вид', kinds: ['overview_more'], perPage: 4 },
   { key: 'foundation', title: 'Схемы установки опор', kinds: ['foundation'], perPage: 2 },
+  { key: 'embedded_layout', title: 'Схема закладных деталей', kinds: ['embedded_layout'], perPage: 2 },
   { key: 'holes', title: 'Схема скважин и разметки', kinds: ['holes'], perPage: 2 },
   { key: 'mounting', title: 'Инструкция по монтажу', kinds: ['mounting'], perPage: 2 },
   { key: 'assembly', title: 'Инструкция по сборке', kinds: ['assembly'], perPage: 2 },
@@ -61,7 +62,7 @@ export const APPENDIX_GROUPS: Array<{ key: string; title: string; kinds: string[
 const KIND_TITLE: Record<string, string> = {
   overview_callouts: 'Общий вид изделия с обозначением элементов', nameplate: 'Место маркировочной таблички',
   dimensions: 'Габаритные размеры', safety_zone: 'Зона безопасности (площадка вокруг изделия)', foundation: 'Схема установки опор',
-  holes: 'Схема разметки скважин', safety: 'Требования безопасности при монтаже', mounting: 'Монтаж изделия', assembly: 'Сборка',
+  embedded_layout: 'Схема закладных деталей', holes: 'Схема разметки скважин', safety: 'Требования безопасности при монтаже', mounting: 'Монтаж изделия', assembly: 'Сборка',
   view_front: 'Вид спереди', view_side: 'Вид сбоку', view_top: 'Вид сверху', view_3d: 'Общий вид 3D', overview_more: 'Общий вид',
 };
 

@@ -1,0 +1,12 @@
+{
+  "paths": 540,
+  "removedPaths": [],
+  "removedOperations": [],
+  "prefixMatchesMain": true,
+  "needsIdentification": {
+    "required": false,
+    "description": "1 — изделия без действующей группы, вида или типа паспорта; причины identificationIssues, фильтр до пагинации"
+  },
+  "sourceEmbeddedLayout": true,
+  "swaggerImageEnumDebt": "Existing Create/UpdateProductPassport DTO images have no Swagger metadata; no synthetic enum added"
+}

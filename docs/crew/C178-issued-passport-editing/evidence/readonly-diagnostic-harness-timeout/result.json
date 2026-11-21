@@ -1,0 +1,83 @@
+{
+  "preferenceWrites": [
+    {
+      "path": "/api/auth/me/prefs",
+      "key": "cardTab:passarchive",
+      "value": "main"
+    },
+    {
+      "path": "/api/auth/me/prefs",
+      "key": "cardTab:passarchive",
+      "value": "versions"
+    }
+  ],
+  "failedGets": [
+    {
+      "path": "/app/version.json",
+      "status": 404,
+      "queryKeys": [],
+      "safeQuery": {},
+      "message": "Не найдено — возможно, запись уже удалили."
+    },
+    {
+      "path": "/uploads/passport/2026-11/927a6729-4b70-4ac7-898f-b7c6be65c2fc.webp",
+      "status": 404,
+      "queryKeys": [],
+      "safeQuery": {},
+      "message": "Не найдено — возможно, запись уже удалили."
+    },
+    {
+      "path": "/uploads/passport/2026-11/32c423fe-2519-46f2-a329-5efb12f0d559.webp",
+      "status": 404,
+      "queryKeys": [],
+      "safeQuery": {},
+      "message": "Не найдено — возможно, запись уже удалили."
+    },
+    {
+      "path": "/uploads/passport/2026-11/f23b6faa-26c8-4470-93b6-252b4c26f529.webp",
+      "status": 404,
+      "queryKeys": [],
+      "safeQuery": {},
+      "message": "Не найдено — возможно, запись уже удалили."
+    },
+    {
+      "path": "/uploads/passport/2026-11/0856e9b2-ad4c-48e1-99b7-7bb5322de8ca.webp",
+      "status": 404,
+      "queryKeys": [],
+      "safeQuery": {},
+      "message": "Не найдено — возможно, запись уже удалили."
+    },
+    {
+      "path": "/uploads/other/2026-11/91f0a565-d65b-4acf-b9ce-d49deeb8f143.webp",
+      "status": 404,
+      "queryKeys": [],
+      "safeQuery": {},
+      "message": "Не найдено — возможно, запись уже удалили."
+    },
+    {
+      "path": "/uploads/passport/2026-11/b702eb02-f511-463a-bcf7-b73da12be7ed.webp",
+      "status": 404,
+      "queryKeys": [],
+      "safeQuery": {},
+      "message": "Не найдено — возможно, запись уже удалили."
+    }
+  ],
+  "scope": "readonly reopen QAissued, diagnostic fields only",
+  "blocked": [],
+  "pageErrors": [],
+  "reopened": true,
+  "versionPaneDiagnostic": [
+    "Версии паспорта2›ВерсияДатаКтоВерсия 2 · печатается21.11.2026Версия 121.11.2026ИИ-тестировщик (стенд)Удалить"
+  ],
+  "tableLabels": [
+    {
+      "label": null,
+      "visible": false
+    },
+    {
+      "label": "Версии паспорта",
+      "visible": true
+    }
+  ],
+  "failure": "locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('table', { name: 'Версии паспорта', exact: true }) to be visible\u001b[22m\n"
+}

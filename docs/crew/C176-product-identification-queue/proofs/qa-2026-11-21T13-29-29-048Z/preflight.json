@@ -1,0 +1,7 @@
+{
+  "db": "datacore-test-c176-identification",
+  "host": "127.0.0.1:27172",
+  "version": "4.4.30",
+  "replicaSet": "rs0",
+  "collectionCount": 2
+}

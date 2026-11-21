@@ -1,0 +1,95 @@
+{
+  "status": "REVIEW_REQUIRED_NOT_EXECUTED",
+  "baseline": "622-CAS-BEFORE.json",
+  "preconditions": [
+    "Fresh GET equals exact reviewed baseline including revision/updateAt/images/installation/textChoices/snapshotSHA; stop drift.",
+    "Final C179/C178code released and passed stand mounting/edit/history/PDF. No APIexpectedRevision DTO exists: issued update has internal saveCurrentCAS but does not accept external reviewedrevision guard; coordinate exclusive short execution window, stop if own state differs. Do not invent expectedRevision field (strictDTO400).",
+    "Product-photo PATCH and softunlink have no client expected guard; verify current exact linkID/photoID/kind immediately before. If this is insufficient for review, execution remains blocked pending contract decision."
+  ],
+  "writesExecuted": false,
+  "operations": [
+    {
+      "path": "/api/products/6adaff342a8dad6034b1458f/photos/6b019a4f1d59b131ce505591",
+      "method": "PATCH",
+      "step": 1,
+      "purpose": "Same verified03file reclassified; no upload/no file delete/no image guess.",
+      "guard": {
+        "currentKind": "foundation",
+        "photoId": "6b019a4d1d59b131ce505585"
+      },
+      "body": {
+        "kind": "mounting"
+      }
+    },
+    {
+      "method": "PATCH",
+      "purpose": "ExplicitANCHORS and remove only prior installationchoice; unrelatedchoices untouched.",
+      "step": 2,
+      "path": "/api/showcase/6adaff342a8dad6034b1458f/passport-template?variant=short",
+      "body": {
+        "changes": {
+          "installationTypeId": "6ada090c7536f8509feb4244",
+          "textChoices": {
+            "6add909915d601111692a410": null
+          }
+        },
+        "expected": {
+          "installationTypeId": "6ada090c7536f8509feb4245",
+          "textChoices": {
+            "6add909915d601111692a410": "6adb5ab2edd024ba63d7f1a9"
+          }
+        }
+      }
+    },
+    {
+      "method": "DELETE",
+      "step": 3,
+      "path": "/api/products/6adaff342a8dad6034b1458f/photos/6af2b1a8f044286b3f45963b",
+      "guard": {
+        "currentKind": "holes",
+        "photoId": "6af2b1a8f044286b3f45962e"
+      },
+      "purpose": "Soft-delete ProductPhoto link only. Photo/file untouched, original issuedhistory retains reference."
+    },
+    {
+      "method": "PATCH",
+      "purpose": "One atomic issuedrevision preservingnumber622; C179 clears only oldmontagechoice/override/manualinstall in same write, previousimages/text retained inhistory.",
+      "step": 4,
+      "path": "/api/passports/6b019aa41d59b131ce5056dd",
+      "body": {
+        "installationTypeId": "6ada090c7536f8509feb4244",
+        "images": [
+          {
+            "photoId": "6b019a461d59b131ce505571",
+            "order": 0,
+            "kind": "overview"
+          },
+          {
+            "photoId": "6b019a4a1d59b131ce50557b",
+            "order": 0,
+            "kind": "dimensions"
+          },
+          {
+            "photoId": "6b019a4d1d59b131ce505585",
+            "order": 2,
+            "kind": "mounting"
+          }
+        ]
+      }
+    }
+  ],
+  "acceptance": [
+    "producttemplateandissued installationPlan.codeANCHORS,requiredKinds=[mounting],foundation/holes/embedded_layoutexcluded;readytrue;exact03mountingPhotoID",
+    "Number622/statusissued unchanged; revision=baseline+1; historyoldrevisionretainsEMBEDDED/images/snapshot, currentprintprojectionagrees",
+    "GETnewPDFreadOnly1 showsoneapplicablemountingscheme/nooporpits/concreteinstruction; originaloverview/dimensionsretained,PDFSHAandextractsaved",
+    "Readall4actualresults; no blindretry/cleanupifpartial. Stopandreportrecoveryplan."
+  ],
+  "totalBusinessWrites": 4,
+  "preserve": [
+    "product/passportID, number622, statusissued, variantshort,presentationVersion1",
+    "Overview+dimensionsPhotoIDs, allothernumbersincludingfoundationDepth10(unusedbyanchors),name,binding/customer/order/product/warranty; untouchedpayloadfields",
+    "UnrelatedtextChoices,textOverrides,manualText; only installation-specific own text removed by explicitmethodchange per C179",
+    "All original Photo/filebytes; no /photosDELETE or filedeletion; no other product/passport changes"
+  ],
+  "contour": "prod only after finalcode livePASS and coordinator permission"
+}

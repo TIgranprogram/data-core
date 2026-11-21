@@ -63,6 +63,13 @@ export const skuSearch = (v) => cachedFetch('showcase:sku:' + v, 10000, () => {
 export const assignSku = (id, confirm) => api(`/showcase/${id}/assign-sku`, { method: 'POST', body: confirm ? { confirm: true } : {} });
 
 /** БЗ-9: массовое изменение выбранных изделий и откат. */
+export function productBulkSet(set) {
+  const fields = Object.entries(set).filter(([, value]) => value !== undefined);
+  if (!fields.length) throw new Error('Выберите поле и новое значение. «Не менять» не изменяет изделия.');
+  const pd = Object.fromEntries(fields.filter(([key]) => key.startsWith('pd.')).map(([key, value]) => [key.slice(3), value]));
+  const rest = Object.fromEntries(fields.filter(([key]) => !key.startsWith('pd.')));
+  return { ...rest, ...(Object.keys(pd).length ? { passportDefaults: pd } : {}) };
+}
 export const bulkApply = (ids, set, arrays) => api('/showcase/bulk', { method: 'POST', body: { ids, set, arrays } });
 export const bulkRestore = (before) => api('/showcase/bulk/restore', { method: 'POST', body: { items: before } });
 

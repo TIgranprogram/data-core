@@ -8,13 +8,13 @@ import { ProductPassportService } from './product-passport.service';
 import type { Doc } from './passport-consts';
 
 describe('C172 контракт подтверждённых полей', () => {
-  it('третий лист: анкеры→mounting, бетон/неизвестно→foundation; собственный способ экземпляра важнее изделия', () => {
+  it('третий лист: анкеры→mounting, бетон→foundation, неизвестно→409; собственный способ экземпляра важнее изделия', () => {
     const anchor = new Types.ObjectId(), concrete = new Types.ObjectId();
     const installs = [{ _id: anchor, code: 'ANCHOR' }, { _id: concrete, code: 'CONCRETE_POSTS' }];
     expect(importInstallationKind({ passportDefaults: { installationTypeId: anchor } }, installs)).toBe('mounting');
     expect(importInstallationKind({ installationTypeId: concrete, passportDefaults: { installationTypeId: anchor } }, installs)).toBe('foundation');
-    expect(importInstallationKind({ passportCategory: 'DIO' }, installs)).toBe('foundation');
-    expect(importInstallationKind({}, installs)).toBe('foundation');
+    expect(() => importInstallationKind({ passportCategory: 'DIO' }, installs)).toThrow('Выберите способ установки');
+    expect(() => importInstallationKind({}, installs)).toThrow('Выберите способ установки');
   });
   const input = () => ({ contextToken: 'context', images: ['overview', 'dimensions', 'foundation'].map(kind => ({ kind, photoId: String(new Types.ObjectId()) })), confirmed: {} });
   const errors = (body: unknown) => validate(plainToInstance(PassportImportDto, body), { whitelist: true, forbidNonWhitelisted: true });

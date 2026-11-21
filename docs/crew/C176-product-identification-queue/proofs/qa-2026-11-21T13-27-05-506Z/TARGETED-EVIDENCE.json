@@ -1,0 +1,13 @@
+{
+  "scope": "c178 targeted before source freeze, not full acceptance",
+  "passed": 5,
+  "failed": 1,
+  "skipped": 0,
+  "raw": "tools\\logs\\c176-qa-2026-11-21T13-27-05-506Z",
+  "failures": [
+    {
+      "file": "backend\\test\\e2e\\c178-issued-passport-editing.e2e-spec.ts",
+      "message": "  ● C178: редактор выданного экземпляра с историей › issued short description: одна редакция, старый print/text в истории, новый PDF использует новый текст"
+    }
+  ]
+}

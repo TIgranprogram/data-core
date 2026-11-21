@@ -51,7 +51,7 @@ describe('МИ.6 / МЦ-7: закупка → состав изделия → п
     const dict = db().collection('dict_values');
     const pipeId = String((await dict.insertOne({ dict: 'passportMaterials', code: 'QA_MC_PIPE', name: 'Труба контрольная МЦ', kind: 'material', genSingular: 'контрольной трубы', genPlural: 'контрольных труб', sizeTemplate: '{sizes} мм', deletedAt: null })).insertedId);
     const woodId = String((await dict.insertOne({ dict: 'passportMaterials', code: 'QA_MC_WOOD', name: 'Сосна контрольная МЦ', kind: 'material', genSingular: 'контрольной сосны', genPlural: 'контрольной сосны', deletedAt: null })).insertedId);
-    const installId = String((await dict.insertOne({ dict: 'passportInstall', code: 'QA_MC_ANCHOR', name: 'Крепление анкерами', deletedAt: null })).insertedId);
+    const installId = String((await dict.insertOne({ dict: 'passportInstall', code: 'ANCHORS', name: 'Крепление анкерами', deletedAt: null })).insertedId);
     const photoId = String((await db().collection('photos').insertOne({ storageUrl: `/uploads/${fileName}`, mimeType: 'image/png', deletedAt: null })).insertedId);
     const supplier = (await http().post('/api/partners').set(auth()).send({ kind: 'our', name: 'ООО МЦ испытание' }).expect(201)).body.id;
 
@@ -95,7 +95,7 @@ describe('МИ.6 / МЦ-7: закупка → состав изделия → п
 
     const manualMaterials = 'Ручное примечание о материалах МЦ.';
     const makeDraft = async () => (await http().post('/api/passports').set(auth()).send({
-      productId, supplierOrgId: supplier, materials: manualMaterials, images: [{ kind: 'overview', photoId }],
+      productId, supplierOrgId: supplier, materials: manualMaterials, images: [{ kind: 'overview', photoId }, { kind: 'mounting', photoId }],
     }).expect(201)).body;
     const oldDraft = await makeDraft();
     expect(oldDraft).toMatchObject({ materialsSpec: oldSpec, materials: manualMaterials });

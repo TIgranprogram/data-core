@@ -194,6 +194,15 @@ export function bookSettingOpener(S, editTemplateSide, openDescription) {
   };
 }
 
+/** Монтаж экземпляра правится в нём; прочие пункты сохраняют существующий переход к шаблону. */
+export function bookFocusSettingOpener({ S, runHeadAction, editDraftTemplate, openDescription, editSetting, openInstanceInstallation }) {
+  return async (key, button) => {
+    if (key === 'installationTypeId' && !S.template) return openInstanceInstallation();
+    if (!S.template) await runHeadAction(button, null, editDraftTemplate);
+    if (S.template) key === 'simpleDescription' ? openDescription() : editSetting(key);
+  };
+}
+
 /** Компактные шаги перед очередью обязательных сведений; значения правятся справа. */
 export function paintBookSetup(host, template, { can, open }) {
   const visible = can && template?.variant === 'short';

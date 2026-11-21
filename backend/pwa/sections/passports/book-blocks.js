@@ -99,11 +99,11 @@ export function buildBook(ctx) {
   const contacts = [org.phone ? 'Тел.: ' + org.phone : '', org.email ? 'E-mail: ' + org.email : ''].filter(Boolean).join(' · ');
   const cover = h('div', { class: 'bk-cover' },
     !template ? h('div', { class: 'bk-band' }, ctx.editable(h('div', { class: 'bk-firm' }, orgName || h('span', { class: 'muted' }, 'Фирма не выбрана')),
-      scalarSpec('Фирма', r.supplierOrgId || org.id || '', (v) => ctx.patchPassport({ supplierOrgId: v }), { options: ctx.firms || [[r.supplierOrgId || '', orgName]], readonly: !ctx.firms })),
+      scalarSpec('Фирма', r.supplierOrgId || org.id || '', (v) => ctx.patchPassport({ supplierOrgId: v }), { options: ctx.firms || [[r.supplierOrgId || '', orgName]], readonly: !ctx.firms || statusOf(r) === 'issued' })),
     org.trademark ? h('span', { class: 'bk-tm' }, `«${String(org.trademark).replace(/[«»"]/g, '')}»`) : null) : null,
     contacts ? h('p', { class: 'bk-contacts' }, contacts) : null,
     h('p', { class: 'bk-ptitle' }, template ? 'ОБРАЗЕЦ ПАСПОРТА' : 'ПАСПОРТ № ' + (numberOf(r) || '—')),
-    ctx.editable(h('p', { class: 'bk-pname' }, r.name || h('span', { class: 'muted' }, 'Название не задано')), scalarSpec('Название в этом паспорте', r.name, (v) => ctx.patchPassport(passportNamePatch(r, v)))),
+    ctx.editable(h('p', { class: 'bk-pname' }, r.name || h('span', { class: 'muted' }, 'Название не задано')), scalarSpec('Название в этом паспорте', r.name, (v) => ctx.patchPassport(passportNamePatch(r, v)), { fieldKey: 'name' })),
     r.productCode || statusOf(r) === 'issued'
       ? ctx.editable(h('p', { class: 'bk-pcode' }, 'Номер изделия: ', r.productCode || '—'),
         scalarSpec('Номер изделия', r.productCode, (v) => ctx.patchPassport({ productCode: v, confirmNumbers: true }), { readonly: !(ctx.canNumber && statusOf(r) === 'issued') }))
@@ -134,7 +134,7 @@ export function buildBook(ctx) {
         { open: ctx.openSimple }, t.src?.description));
     } else if (t.description || template) {
       push(sub(`${plan.descrNo}.${++k} Описание изделия`), textP(t.description,
-        short ? { readonly: true } : fieldSpec('description', undefined, t.description, refs.description, 6, orig('description')),
+        short && statusOf(r) !== 'issued' ? { readonly: true } : fieldSpec('description', undefined, t.description, refs.description, 6, orig('description')),
         t.src?.description, { edit: edited('description') }));
     }
     if (t.purpose) push(sub(`${plan.descrNo}.${++k} Назначение`), textP(t.purpose, fieldSpec('purpose', undefined, t.purpose, refs.purpose, 3, orig('purpose')), t.src?.purpose, { edit: edited('purpose') }));

@@ -1,0 +1,13 @@
+{
+  "scope": "targeted before source freeze, not full acceptance",
+  "passed": 0,
+  "failed": 10,
+  "skipped": 0,
+  "raw": "tools\\logs\\c176-qa-2026-11-21T12-56-47-196Z",
+  "failures": [
+    {
+      "file": "C:\\Users\\User\\.codex\\worktrees\\c172-passport-release\\data-core\\backend\\test\\e2e\\c176-product-identification.e2e-spec.ts",
+      "message": "  ● C176: очередь и атомарная массовая идентификация › фильтрует до пагинации и учитывает живой унаследованный вид вместо битого своего"
+    }
+  ]
+}
