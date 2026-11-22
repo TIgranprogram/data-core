@@ -51,10 +51,15 @@ const KINDS = ['info', 'ok', 'warn', 'danger', 'dim'];
 const STATUSES = { plan: 'запланировано', work: 'в работе', done: 'сделано' };
 
 export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, autoScroll = true, canEdit = false, rowsMovable = false, onOpen, onMove, empty, expanded, onToggle, legend = [], onScale, onShift, onToday } = {}) {
-  const px = scale === 'fit' ? fitPx(fitWidth || 720, from, to) : PX[scale] || PX.week;
+  const min = dayNum(from), max = dayNum(to) + 1;
+  const days = Math.max(1, max - min);
+  // Широкий экран растягивает загруженные дни, не добавляя новых дат к периоду.
+  const px = scale === 'fit'
+    ? fitPx(fitWidth || 720, from, to)
+    : Math.max(PX[scale] || PX.week, (fitWidth || 0) / days);
+  const W = days * px;
   const dayCols = scale === 'day';
   const coarse = touch(), LANE = coarse ? 44 : 32;
-  const min = dayNum(from), max = Math.max(dayNum(to) + 1, scale !== 'fit' && fitWidth ? min + Math.ceil(fitWidth / px) : 0), W = (max - min) * px; // лента не короче окна — справа нет пустого поля
   const today = todayNum();
   const xOf = (n) => (n - min) * px;
   const todayX = xOf(today) + px / 2;
