@@ -1,5 +1,7 @@
+import { canOpen, canViewStock, stockView, OWNER } from './core/route-access.js';
 import { startRain, stopRain } from './ui/cat-rain.js';
 import { startLiveSync, stopLiveSync } from './core/live-sync.js';
+import { resetHeldStock } from './core/stock-list.js';
 import { isDragging } from './ui/kit/drag.js';
 /* «Рабочее место» — вход, шапка, разделы (docs/PRODUCT.md, docs/CANON.md).
  * Раздел = описание в sections/*.js; список, карточка и форма — общие компоненты из ui/. */
@@ -45,6 +47,7 @@ const SECTIONS = {};   // имя раздела -> описание (запол�
 const FN = {};         // имя функции монтирования -> функция
 // ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
 const LAZY = {
+  woodgrid: [() => import('./sections/wood-grid.js'), [['@mountWoodGrid', 'mountWoodGrid']]],
   partwork: [() => import('./sections/part-work.js'), [['partwork','partWork']]], // C122: виды работ детали — правая панель
   requests: [() => import('./sections/requests.js'), [['requests','requests'],['reqreceive','reqReceive']]],
   stock: [() => import('./sections/stock.js'), [['stock','stock'], ['@mountPipeGrid','mountPipeGrid'], ['@mountSheetGrid','mountSheetGrid']]],
@@ -113,7 +116,7 @@ let warmed = false;
 function warmUp() {
   if (warmed) return;
   warmed = true;
-  const run = () => { ['salesorders', 'requests', 'stock', 'design', 'products'].forEach((k) => { loadSec(k).catch(() => {}); }); };
+  const run = () => { ['salesorders', 'requests', 'stock', 'design', 'products'].filter(id => allowed(id)).forEach((k) => { loadSec(k).catch(() => {}); }); };
   if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 5000 }); else setTimeout(run, 2500);
 }
 /** Загрузить модуль раздела (один раз; при сбое промис сбрасывается — повтор по «Повторить»). */
@@ -131,16 +134,14 @@ function needed(section, params) {
   const keys = new Set();
   const add = (n) => { const k = LOADER_OF[n] || n; if (LAZY[k]) keys.add(k); };
   add(section); add(params?.of);
+  if (section === 'stock' && woodScreen(params)) keys.add('woodgrid');
   if (section === 'requests') keys.add('reqtabs');
   if (section === 'money' && params?.tab === 'debts') keys.add('orders'); // «Долги» — список из orders.js
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
 const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог номенклатуры', 'partners'], ['contracts', 'Договоры поставщиков', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['workschedule', 'Гант', 'ops'], ['products', 'Продукция', 'stock'], ['modules', 'Модули', 'gallery'], ['parts', 'Детали', 'table'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Доходы и расходы', 'money'], ['expenses', 'Прочие расходы', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад · мобильный', 'stock']];
 /** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
-const defaultSection = () => (session.onlyStockMobile ? 'stock-mobile' : isStockRole() ? 'stock' : 'home'); // «Труборез», «Лазер лист» — сразу своя таблица (2026-11-06)
-// SK-8b: экраны, которые по адресу (#…) принадлежат пункту меню, — закрыты вместе с ним. Панели справа (?of=…) не фильтруются.
-const OWNER = { passfunnel: 'docs', salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', workplan: 'salesorders', wsstep: 'workschedule', designorder: 'design', prodreq: 'design', designsettings: 'design', profile: 'home', shipdo: 'salesorders', movements: 'stock', stockop: 'stock', stockissue: 'stock', resedit: 'stock', ops: 'stock', pasteorder: 'requests', reqstep: 'requests', orderbulk: 'requests', techsheet: 'products', invoicecard: 'requests', invoice: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', incpay: 'money', incprice: 'money', expense: 'money', payout: 'payroll', finstart: 'money', moneyclassification: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog',
-  kp: 'products', catalogimport: 'products', fromorders: 'products', frompassports: 'products', composition: 'products', modulecomp: 'modules', partblank: 'parts', offerpack: 'offers', offerfunnel: 'offers', ptext: 'products', ptextview: 'products', ptnode: 'products', passports: 'products', passarchive: 'products', orderpass: 'products', doctpl: 'products' };
+const defaultSection = () => session.onlyStockMobile ? 'stock-mobile' : isStockRole() && allowed('stock') ? 'stock' : 'home';
 // ЦВ-1: раздел данных → цвет (--sec-*)
 const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', stock: 'stock', movements: 'stock', salesorders: 'orders', matching: 'orders', design: 'orders', work: 'orders', workschedule: 'orders', docs: 'products', products: 'products', modules: 'products', parts: 'products', offers: 'products', orders: 'money', money: 'money', expenses: 'money' };
 // Группа меню по разделу — для хлебных крошек (те же группы, что в боковом меню)
@@ -148,8 +149,7 @@ const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supp
 const GROUP_FIRST = { 'Производство': 'salesorders', 'Продукция': 'products', 'Склад': 'stock', 'Снабжение': 'requests', 'Деньги': 'money', 'Управление': 'staff' };
 const GROUP_OF = { salesorders: 'Производство', matching: 'Производство', design: 'Производство', work: 'Производство', workschedule: 'Производство', products: 'Продукция', modules: 'Продукция', parts: 'Продукция', offers: 'Продукция', docs: 'Продукция', stock: 'Склад', 'stock-mobile': 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', expenses: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
-/** Открыт ли экран по адресу для этой роли (не пункт меню и не принадлежит ему — открыт). */
-const allowed = (section) => { const id = OWNER[section] || section; return !NAV_IDS.has(id) || session.sees(id); };
+const allowed = (route, screen) => canOpen(session, route, screen) && (!['payroll', 'payout'].includes(route) || FEATURES.payroll);
 const root = $('#root');
 const developmentMode = loadDevelopmentMode(location.href);
 
@@ -187,14 +187,14 @@ async function watchDevelopmentDialogs() {
 
 // ---------- Вход ----------
 /** Роли склада: свой экран (таблица как Excel) и фон — котики у «Труборез», собачки у «Лазер лист». */
-const isPipeRole = () => /труб[ао]рез/i.test(String(session.user?.roleLabel || '')); // «Труборез» / старое «Трубарез»; без ^ — не ломается от пробела/BOM (2026-11-09)
-const isSheetRole = () => /лазер\s+лист/i.test(String(session.user?.roleLabel || ''));
-/** Этим ролям открыт только склад: справочники, корзина и история закрыты (пользователь 2026-10-30). */
-const STOCK_ROLE_SECTIONS = new Set(['home', 'stock', 'stock-mobile', 'movements', 'help', 'atlas']);
-const isStockRole = () => isPipeRole() || isSheetRole(); const adminSees = (params, v) => (session.role === 'admin' || session.user?.isOwner) && params?.view === v; // админ смотрит экраны ролей склада (2026-11-06)
+const isPipeRole = () => stockView(session.user) === 'pipe';
+const isSheetRole = () => stockView(session.user) === 'sheet';
+const isStockRole = () => Boolean(stockView(session.user));
+const woodScreen = params => stockView(session.user) === 'wood' || params?.view === 'wood' && session.isAdmin;
+const adminSees = (params, v) => (session.role === 'admin' || session.user?.isOwner) && params?.view === v; // админ смотрит экраны ролей склада (2026-11-06)
 /** Фон и подпись меню склада: после входа, «Смотреть как» и обновления /me — иначе котики не появляются. */
 const stockTheme = () => { if (isPipeRole()) startRain('cats'); else if (isSheetRole()) startRain('dogs'); else stopRain(); };
-const stockNavLabel = () => (isPipeRole() ? 'Трубы' : isSheetRole() ? 'Листы' : 'Остатки');
+const stockNavLabel = () => (isPipeRole() ? 'Трубы' : isSheetRole() ? 'Листы' : stockView(session.user) === 'wood' ? 'Деревообработка' : 'Остатки');
 
 function showLogin(message) {
   stopRain();
@@ -264,7 +264,7 @@ function shell() {
   const link = (id, label, ico) => h('a', { class: 'side-link' + (SEC_OF[id] ? ' sec-' + SEC_OF[id] : ''), href: '#' + id, title: label, onclick: () => shellEl.classList.remove('nav-open') },
     icon(ico), h('span', { class: 'lbl' }, label), h('span', { class: 'cnt', hidden: true }));
   // SK-8b: только разделы, отмеченные у роли (нет отметок — все, как раньше)
-  navLinks = Object.fromEntries(NAV.filter(([id]) => session.sees(id)).map(([id, label, ico]) => [id, link(id, id === 'stock' ? stockNavLabel() : label, ico)]));
+  navLinks = Object.fromEntries(NAV.filter(([id]) => allowed(id)).map(([id, label, ico]) => [id, link(id, id === 'stock' ? stockNavLabel() : label, ico)]));
   const group = (title, ...links) => (links.some(Boolean) ? [h('div', { class: 'side-group' }, title), ...links] : null);
   let gsb;
   // Ищет сразу при вводе (от 2 знаков, пауза 0,4 с); в истории — один шаг «Поиск», а не каждая буква. Enter — сразу.
@@ -281,7 +281,7 @@ function shell() {
   gsb = searchBox({ placeholder: 'Найти заявку, позицию, поставщика…', label: 'Поиск по всему', delay: 400, minLength: 2, className: 'gs-box', onSearch: runSearch, onEnter: (q) => { if (q.length >= 2) gsb.input.blur(); } });
   const gs = gsb.input;
   document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); gs.focus(); }
+    if (allowed('search') && e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) { e.preventDefault(); gs.focus(); }
   });
   const sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Меню' },
     h('a', { class: 'brand', href: '#' + defaultSection(), 'aria-label': 'Рабочее место — на главную' }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
@@ -290,7 +290,7 @@ function shell() {
     // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
     group('Производство', navLinks.salesorders, navLinks.design, navLinks.work), // Гант — один: «В работе → Гант» (C053); #workschedule — для старых ссылок
     group('Продукция', navLinks.products, navLinks.modules, navLinks.parts, navLinks.offers, session.canEdit ? navLinks.docs : null),
-    group('Склад', navLinks.stock, navLinks['stock-mobile'], ...(navLinks.stock && (session.role === 'admin' || session.user?.isOwner) ? [link('stock?view=pipe', 'Экран «Труборез»', 'stock'), link('stock?view=sheet', 'Экран «Лазер лист»', 'stock')] : [])), // «Склад · мобильный» — кладовщику с телефона: выдать, принять
+    group('Склад', navLinks.stock, navLinks['stock-mobile'], ...(navLinks.stock && session.isAdmin ? [link('stock?view=pipe', 'Экран «Труборез»', 'stock'), link('stock?view=sheet', 'Экран «Лазер лист»', 'stock'), link('stock?view=wood', 'Деревообработка', 'stock')] : [])),
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
     session.canMoney ? group('Деньги', navLinks.money, navLinks.expenses, FEATURES.payroll && session.canMoney && session.canPayroll ? navLinks.payroll : null) : null,
     group('Управление', navLinks.staff),
@@ -310,8 +310,8 @@ function shell() {
     // назад / вперёд — всегда в одном месте (история браузера: раздел, фильтр, открытая карточка)
     h('div', { class: 'histnav' },
       backBtn, fwdBtn),
-    h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')),
-    chatButton(),
+    allowed('search') ? h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')) : null,
+    allowed('chat') ? chatButton() : null,
     bellButton(),
     h('a', { class: 'btn btn-ghost btn-icon hide-sm', href: '#atlas', title: 'Карта сайта: как всё устроено и связано', 'aria-label': 'Карта сайта' }, icon('help')),
     themeButton(),
@@ -362,7 +362,7 @@ function settingsButton() {
     onclick: () => {
       if (isOpenFor(btn)) { closePopMenu(); return; }
       shellEl.classList.remove('nav-open');
-      const seesHistory = session.user?.isOwner === true || ['admin', 'director'].includes(session.role);
+      const seesHistory = allowed('history');
       const nav = (id) => ({ label: id === 'dicts' ? 'Справочники' : id === 'trash' ? 'Корзина' : 'История', icon: id, href: '#' + id });
       const sys = [session.role === 'admin' ? { label: 'Администрирование', icon: 'admin', href: PREFIX + '/admin/' } : null,
         PREFIX && !isStockRole() ? { label: 'CRM', icon: 'crm', href: '/' } : null].filter(Boolean);
@@ -408,12 +408,13 @@ function avatarButton() {
   return btn;
 }
 
-/** Счётчики в меню: активные заявки; позиции к закупке и без остатка. */
+/** Счётчики в меню: активные заявки и позиции склада ниже минимума. */
 let noCounters = false;
 async function refreshCounts(only) {
+  if (stockView(session.user) === 'wood') return; // Счётчики всего склада не описывают эту зону.
   const set = (id, n) => { const c = navLinks[id]?.querySelector('.cnt'); if (c) { c.textContent = String(n); c.hidden = !n; } };
   // SK-8d: только по разделам, открытым роли (закрытые сервер отдаёт 403); каждый запрос — сам по себе, сбой одного не гасит другие
-  const get = (id, path) => (session.sees(id) && (!only || only.has(id)) ? api(path, { query: { limit: 1 } }).catch(() => null) : Promise.resolve(null));
+  const get = (id, path, query) => (session.sees(id) && (!only || only.has(id)) ? api(path, { query: { limit: 1, ...query } }).catch(() => null) : Promise.resolve(null));
   // SPEED-2: один лёгкий запрос; сервер без /me/counters (404) — прежние шесть
   if (!noCounters) {
     try {
@@ -425,13 +426,13 @@ async function refreshCounts(only) {
     } catch (e) { if (e?.status === 404) noCounters = true; /* иное — пробуем по-старому */ }
   }
   try {
-    const [r, s, o, so, dz, wk] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items'), get('money', '/incomes'), get('salesorders', '/production-orders'), get('design', '/design-tasks'), get('work', '/work-tasks')]);
+    const [r, s, o, so, dz, wk] = await Promise.all([get('requests', '/supply/requests'), get('stock', '/stock/items', { held: '1' }), get('money', '/incomes'), get('salesorders', '/production-orders'), get('design', '/design-tasks'), get('work', '/work-tasks')]);
     if (o) set('money', o.counts?.awaiting || 0); // «ждём оплату» — на пункте «Платёжный календарь»
     if (so) set('salesorders', so.counts?.active || 0); // заказы производства, не договоры
     if (dz) set('design', (dz.counts?.queue || 0) + (dz.counts?.work || 0));
     if (wk) set('work', (wk.counts?.waiting || 0) + (wk.counts?.work || 0));
     if (r) { const c = r.counts || {}; set('requests', (c.requested || 0) + (c.in_progress || 0) + (c.ordered || 0) + (c.paid || 0)); }
-    if (s) set('stock', (s.counts?.low || 0) + (s.counts?.none || 0));
+    if (s) set('stock', s.counts?.low || 0);
   } catch { /* счётчики не критичны */ }
 }
 
@@ -468,7 +469,6 @@ function render(c) {
   if (card?.handle?.isDirty?.() && routeKey(c) !== routeKey(acceptedRoute)) return;
   const { section, params } = c;
   if (!section) { go(defaultSection(), {}, { replace: true }); return; }
-  if (keepScreen(section, params)) return;
   // QR-наклейка: ссылка …/db/app/#q=<код>. Мобильный склад — сразу «Принять / Выдать»; остальные — карточка позиции или изделия
   if (section.startsWith('q=')) {
     const code = decodeURIComponent(section.slice(2));
@@ -476,11 +476,24 @@ function render(c) {
     else import('./sections/qr.js').then((m) => m.routeCode(code, defaultSection()));
     return;
   }
+  if (!allowed(section) || (section === 'stock' && !canViewStock(session, params.view))) {
+    toast('Этот раздел для вашей роли закрыт.');
+    go(defaultSection(), {}, { replace: true }); return;
+  }
+  if (section === 'stock' && woodScreen(params) && params.of !== 'profile' && (params.of || params.open || params.new)) {
+    go('stock', params.view ? { view: params.view } : {}, { replace: true }); return;
+  }
+  if (params.of && !allowed(params.of, section)) {
+    toast('Эта карточка для вашей роли закрыта.');
+    const screen = Object.fromEntries(Object.entries(params).filter(([key]) => !CARD_PARAMS.includes(key)));
+    go(section, screen, { replace: true }); return;
+  }
+  if (keepScreen(section, params)) return;
   // старый раздел «Позиции и оплаты» (#orders) ушёл из меню: список — «Деньги → Долги», карточка позиции — справа (of=orders)
   if (section === 'orders') { const { open, new: isNew, ...rest } = params; go('money', { ...rest, tab: 'debts', ...(open || isNew ? { of: 'orders', ...(open ? { open } : { new: isNew }) } : {}) }, { replace: true }); return; }
   // разделы грузятся при первом открытии: пока модуль едет — прежний экран на месте, потом тот же render
   if (section === 'requests' && params.tab === 'invoices' && params.open && !params.of) { patch({ of: 'invoicecard' }); return; }
-  const miss = allowed(section) ? needed(section, params) : [];
+  const miss = needed(section, params);
   if (miss.length) {
     trackLoad(Promise.all(miss.map(loadSec))).then(() => render(current())).catch((e) => {
       reportError(e, { kind: 'unhandled', action: 'загрузить раздел' });
@@ -490,11 +503,6 @@ function render(c) {
     return;
   }
   // старый раздел «Операции» (SK-4b): адреса #ops?mode=… открывают «Склад» с нужной панелью справа
-  // SK-8b: раздел снят с роли — прямой адрес ведёт на «Сегодня» с подсказкой, без ошибки
-  if (!allowed(section) || (session.onlyStockMobile && section !== 'stock-mobile') || (isStockRole() && !STOCK_ROLE_SECTIONS.has(section))) {
-    toast(`Раздел «${titleOf(OWNER[section] || section) || 'этот'}» для вашей роли закрыт — открыто «${titleOf(defaultSection()) || 'Сегодня'}».`);
-    go(defaultSection(), {}, { replace: true }); return;
-  }
   // старый адрес #passports (ссылки из изделия, заказа, истории): «Архив паспортов» в «Документации», карточка — только просмотр и печать
   if (section === 'passports') { go('docs', { tab: 'archive', ...(params.open ? { of: 'passarchive', open: params.open } : {}) }, { replace: true }); return; }
   if (section === 'ops') { go('stock', { of: 'stockop', new: '1', op: { in: 'in', reserve: 'reserve', count: 'count' }[params.mode] || 'out' }, { replace: true }); return; }
@@ -512,7 +520,8 @@ function render(c) {
     let list = null;
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
-    if (section === 'stock' && (isPipeRole() || adminSees(params, 'pipe'))) list = FN.mountPipeGrid();
+    if (section === 'stock' && woodScreen(params)) list = FN.mountWoodGrid();
+    else if (section === 'stock' && (isPipeRole() || adminSees(params, 'pipe'))) list = FN.mountPipeGrid();
     else if (section === 'stock' && (isSheetRole() || adminSees(params, 'sheet'))) list = FN.mountSheetGrid();
     else if (section === 'docs') list = FN.mountDocs(params, { onChanged: () => refreshCounts() });
     else if (section === 'requests') list = FN.mountRequests(params, (p) => mountList(sec, p, {
@@ -696,18 +705,18 @@ async function showApp() {
 function refreshMe() {
   return api('/auth/me').then(async (me) => {
     if (!(me?.id || me?.username)) return;
-    const was = JSON.stringify(session.user?.sections ?? null);
-    const wasStock = `${isPipeRole() ? 'p' : ''}${isSheetRole() ? 's' : ''}|${session.user?.roleLabel || ''}`;
+    const access = () => JSON.stringify([session.role, session.user?.role, session.user?.isOwner,
+      session.user?.sections, session.canMoney, stockView(session.user), session.user?.roleLabel]);
+    const was = access();
     const face = (u) => `${u?.avatar ?? ''}|${u?.displayName ?? ''}`;
     const wasFace = face(session.realUser);
     session.user = { ...session.realUser, ...me };
     serverPrefs(me.uiPrefs); // ШП: с сервера перекрывают локальные (с другого ПК)
-    const nowStock = `${isPipeRole() ? 'p' : ''}${isSheetRole() ? 's' : ''}|${session.user?.roleLabel || ''}`;
     let rebuilt = false;
     if (getViewAs() && !session.canViewAs) rebuilt = setViewAs(null) !== false && !getViewAs();
     else if (getViewAs() && session.canViewAs) {
       try { rebuilt = await syncViewAsRoles(api); } catch { /* снимок прежний, меню по нему */ }
-    } else if (JSON.stringify(session.user?.sections ?? null) !== was || nowStock !== wasStock) { rebuildShell(); rebuilt = true; }
+    } else if (access() !== was) { rebuildShell(); rebuilt = true; }
     if (!rebuilt && face(session.realUser) !== wasFace) window.dispatchEvent(new CustomEvent('dc:profile'));
   }).catch(() => {});
 }
@@ -765,6 +774,7 @@ const SHOWS = { requests: ['requests', 'stock'], stock: ['stock'], movements: ['
 /** Изменились данные у других: экран — если он их показывает, числа в меню — всегда. */
 function onVersions(keys) {
   quietLoadFor(); // чужая правка обновляет экран фоном, без полоски загрузки
+  if (keys.has('stock')) resetHeldStock();
   if (keys.has('users')) { refreshMe(); keys.delete('users'); if (!keys.size) return; }
   const shows = SHOWS[current().section];
   if (!shows || shows.some((k) => keys.has(k))) { onDataChanged(); return; }

@@ -6,9 +6,10 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
-import { sku as kitSku } from '../ui/kit/index.js';
+import { sku as kitSku, stack } from '../ui/kit/index.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 import { buildCompForm, compositionPeek } from './comp-editor.js';
+import { catalogPhotoBlock, catalogPhotoColumn, catalogWhereUsed } from './catalog-entry-blocks.js';
 
 const canWrite = () => (['admin', 'manager'].includes(session.role) || session.user?.isOwner === true) && session.sees('modules');
 
@@ -116,6 +117,7 @@ export const modules = {
       { key: 'categoryId', label: 'Категория', allLabel: 'Все категории', options: catOptions },
     ],
     columns: [
+      catalogPhotoColumn,
       { key: 'article', label: 'Обозначение', sort: 'article', cls: 'nowrap', render: (r) => kitSku(r.article) },
       { key: 'name', label: 'Название', sort: 'name', cls: 'name-2', render: (r) => h('span', { title: r.name }, r.name || '') },
       { key: 'category', label: 'Категория', cls: 'md-hide', render: (r) => catOf(r).name },
@@ -136,10 +138,14 @@ export const modules = {
         ['Категория', catOf(r).name],
         ['Вес', r.weight != null && r.weight !== '' ? `${r.weight} кг` : null],
       ],
-      body: (r) => compositionPeek({
-        id: r.id, base: '/modules', title: 'Состав', label: 'Показать состав',
-        hintText: 'Детали, вложенные модули, покупное и сырьё. Правка — в меню «Изменить состав».',
-      }),
+      body: (r) => stack(
+        catalogPhotoBlock(r),
+        compositionPeek({
+          id: r.id, base: '/modules', title: 'Состав', label: 'Показать состав',
+          hintText: 'Детали, вложенные модули, покупное и сырьё. Правка — в меню «Изменить состав».',
+        }),
+        catalogWhereUsed('/modules', r.id),
+      ),
       menu: () => [
         canWrite() && { label: 'Изменить', title: 'Название, обозначение и категория', run: (_row, ctx) => ctx.edit() },
         canWrite() && { label: 'Изменить состав', title: 'Что входит в сборку и сколько на 1 шт', run: (row) => openComp(row) },

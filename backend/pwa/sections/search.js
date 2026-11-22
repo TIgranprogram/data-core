@@ -14,7 +14,7 @@ import { failBlock } from '../ui/kit/busy.js';
 /** Поиск по всему (PRODUCT §6): номер / название / поставщик → совпадения во всех разделах. Раздел без прав (403) не показывается. */
 const SOURCES = [
   { id: 'requests', section: requests, title: 'Заявки', path: '/supply/requests' },
-  { id: 'stock', section: stock, title: 'Склад', path: '/stock/items' },
+  { id: 'stock', section: stock, title: 'Склад', path: '/stock/items', query: () => stock.list.query({}) },
   { id: 'salesorders', section: salesorders, title: 'Заказы', path: '/salesorders' },
   { id: 'orders', section: orders, title: 'Позиции заказов', path: '/incomes' },
   { id: 'passports', section: passports, title: 'Паспорта', path: '/passports' },
@@ -42,7 +42,7 @@ export function mountSearch(params) {
     const more = h('div', { class: 'list-foot' });
     const panel = h('div', { class: 'panel' }, h('h3', null, src.title), list, more);
     box.append(panel);
-    api(src.path, { query: { search: q, limit: 10 } }).then((r) => {
+    Promise.resolve(src.query?.()).then((query) => api(src.path, { query: { ...query, search: q, limit: 10 } })).then((r) => {
       // пустой раздел не показываем; если пусто везде — одна строка сверху
       if (!r.items.length) { panel.remove(); return; }
       found++;
@@ -50,7 +50,10 @@ export function mountSearch(params) {
         const v = src.section.searchRow(row);
         return h('li', { onclick: () => src.section.open(row.id) }, h('div', { class: 'c-main' }, h('div', { class: 'c-title' }, v.title), h('div', { class: 'c-sub' }, v.sub)), h('div', { class: 'c-side' }, v.side));
       }));
-      if (r.total > r.items.length) more.append(h('a', { href: `#${src.section.id}?q=${encodeURIComponent(q)}` }, `Все результаты в разделе «${src.title}» (${r.total}) →`));
+      if (r.total > r.items.length) {
+        const route = { orders: 'money?tab=debts&', passports: 'docs?tab=archive&' }[src.id] || src.id + '?';
+        more.append(h('a', { href: `#${route}q=${encodeURIComponent(q)}` }, `Все результаты в разделе «${src.title}» (${r.total}) →`));
+      }
     }).catch((e) => { found += e.status === 403 ? 0 : 1; e.status === 403 ? panel.remove() : list.replaceChildren(h('li', null, failBlock(e, null, { text: 'Не удалось выполнить поиск' }))); }).finally(done);
   }
   return { el };

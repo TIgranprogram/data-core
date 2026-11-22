@@ -1,5 +1,6 @@
 import { stockCard } from './stock-card.js';
-import { stockLookup, stockList } from '../core/stock-list.js';
+import { heldStockList, heldStockQuery, stockLookup } from '../core/stock-list.js';
+import { stockPositionCode, stockPositionName } from '../core/stock-display.js';
 import { normSearch } from '../core/facets.js';
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
@@ -8,25 +9,27 @@ import { go, patch } from '../core/router.js';
 import { STOCK_STATUS } from '../ui/kit/badges.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
-import { facetFilter, ftParams, ftQuery, parseFt } from '../ui/kit/index.js';
-import { facetLabel, pipeKey, index as facetIndex, pick as facetPick } from '../core/facets.js';
+import { facetFilter, parseFt } from '../ui/kit/index.js';
+import { facetLabel, stockPipeProfile, index as facetIndex, pick as facetPick } from '../core/facets.js';
 import { typeExpand } from './stock-types.js';
 import { stockRequestsBox, requestFromHash, catalogFromHash, closeRequest } from './stock-requests.js';
-import { loadZones, setZone, zoneNow, zoneQuery } from '../core/zone.js';
+import { loadZones, setZone, zoneNow } from '../core/zone.js';
 import { segmented, toolbar, catArt, section, stack, button as kitButton, badge, card, row, tileGrid, landing, hint, empty, posPic } from '../ui/kit/index.js';
 
 /** Переключатель склада над списком (kit.segmented): виден, если доступно больше одного склада. Выбор запоминается; список и категории перечитываются. */
 function zoneBar() {
   const box = toolbar();
   box.hidden = true;
-  const used = zoneNow();
   loadZones().then((zs) => {
-    // один склад: переключатель скрыт; раньше при used слали data-changed и сбрасывали кэш 10k (C022)
+    // При одном складе сервер сам ограничивает список по роли.
     if (zs.length < 2) return;
     box.hidden = false;
     box.replaceChildren(segmented({ label: 'Склад', scroll: true, items: zs.map((z) => ({ key: z.id, label: z.name })), value: zoneNow(),
-      onChange: (id) => { setZone(id); patch({ categoryId: undefined, page: undefined }); window.dispatchEvent(new CustomEvent('data-changed')); } }).el);
-    if (zoneNow() !== used) window.dispatchEvent(new CustomEvent('data-changed')); // запомненный склад устарел — список уже ушёл с другим
+      onChange: (id) => {
+        setZone(id);
+        patch({ categoryId: undefined, ft: undefined, page: undefined, open: undefined }, { replace: true, kind: 'screen' });
+        window.dispatchEvent(new CustomEvent('data-changed'));
+      } }).el);
   }).catch(() => { /* без списка складов экран работает как раньше: сервер сам ограничивает по роли */ });
   return box;
 }
@@ -40,6 +43,7 @@ import { openStockOp, openStockIssue } from './stock-ops.js';
 import { passportSpecField, savePassportSpec } from './stock-passport.js';
 import { mobileStockDashboard } from './warehouse-mobile.js';
 import { qrBulkAction } from './qr.js';
+import { stockDuplicateAction } from './stock-duplicate-preview.js';
 import { stockOrderAction } from './order-bulk.js';
 import { openStockBulk } from './stock-bulk.js';
 
@@ -65,14 +69,20 @@ const similarOnStock = () => ({
   suggest: async () => (await stockLookup()).map((x) => ({ label: x.name, sub: `${qty(x.quantity ?? 0)} ${x.unit || ''}`.trim(), cat: x.categoryName || '', search: normSearch(x.name), values: { name: x.name } })),
 });
 
-/** Полный список склада с признаками (тот же, по которому кнопки-признаки считают числа); грузится вместе с фильтром. */
-let ftItems = null;
-const ftLoad = () => stockList().then((x) => { ftItems = facetIndex(x); }).catch(() => {});
-/** Позиции под выбранные признаки — как у кнопки: { ids } для GET /stock/items; нет списка — null. */
-function ftIds(P) {
-  if (!ftItems) { ftLoad().then(() => ftItems && window.dispatchEvent(new CustomEvent('data-changed'))); return null; } // открыли по ссылке с признаком — догрузили и перечитали
-  const ids = facetPick(ftItems, { q: P.q || '', cat: P.categoryId || '', sel: parseFt(P.ft) }).map((it) => it.id);
-  return { ids: ids.length ? ids.join(',') : 'none' };
+/** Выборка «Остатков»: список и признаки получают одну зону с сервера. */
+async function balanceQuery(P) {
+  await loadZones().catch(() => []);
+  const zoneId = zoneNow();
+  const query = { priority: 1, ...heldStockQuery(zoneId) };
+  if (P.ft) {
+    const items = facetIndex(await heldStockList(zoneId), { stockSearch: true });
+    const candidates = facetPick(items, { q: P.q || '', cat: P.categoryId || '' });
+    const matching = facetPick(candidates, { sel: parseFt(P.ft) });
+    if (!matching.length || matching.length !== candidates.length) {
+      query.ids = matching.length ? matching.map((it) => it.id).join(',') : 'none';
+    }
+  }
+  return query;
 }
 
 // ---------- первая страница «Остатков»: плитки категорий (эталон cat-tile, как «Каталог поставщиков») ----------
@@ -81,33 +91,27 @@ const stockTag = (text, title, tone = 'dim') => { const b = badge(text, tone); b
 /** Метка у названия трубы (эталон badge): «нерж.» / «Мытая». */
 const pipeBadge = (text, tone) => { const b = badge(text, tone); b.setAttribute('style', 'margin-left: 6px'); return b; };
 async function stockLanding() {
-  const [catsR, zones] = await Promise.all([api('/stock/categories'), loadZones().catch(() => [])]);
-  const cats = (catsR.items || []).filter((c) => c.id !== 'none' && c.total);
+  const categories = (zoneId) => api('/stock/categories', { query: heldStockQuery(zoneId) });
+  const [summary, zones] = await Promise.all([categories(), loadZones().catch(() => [])]);
+  const cats = (summary.items || []).filter((c) => c.id !== 'none');
   const open = (p) => patch({ ...p, view: 'table', page: undefined });
   const all = kitButton({ label: 'Все позиции списком', onClick: () => open({ all: '1' }) });
-  if (!cats.length) { const box = empty({ title: 'Категорий пока нет — позиции покажутся списком.' }); box.append(all); return box; }
+  if (!summary.total) { const box = empty({ title: 'На складе пока нет позиций в наличии.' }); box.append(all); return box; }
   const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
-  const low = (c) => [c.low ? `к закупке ${c.low}` : '', c.none ? `закончились: ${c.none}` : ''].filter(Boolean).join(' · '); // «нет 2» было непонятно (2026-11-08): N позиций с нулём на складе
-  const catTile = (c, zoneId) => card({ size: 'S', artCover: true, art: art(c.name), title: c.name, meta: nPos(c.total), low: low(c) || undefined,
-    ...typeExpand({ categoryId: c.id, categoryName: c.name, onPick: (t) => { if (zoneId) setZone(zoneId); open({ categoryId: c.id, ft: t ? `type:${t}` : undefined }); } }) });
-  const total = cats.reduce((a, c) => a + c.total, 0);
-  const head = `Выберите ${zones.length > 1 ? 'склад' : 'категорию'} · всего ${nPos(total)}`;
+  const catTile = (c, zoneId) => card({ size: 'S', artCover: true, art: art(c.name), title: c.name, meta: nPos(c.total), low: c.low ? `к закупке ${c.low}` : undefined,
+    ...typeExpand({ categoryId: c.id, categoryName: c.name, zoneId, onPick: (t) => { if (zoneId) setZone(zoneId); open({ categoryId: c.id, ft: t ? `type:${t}` : undefined }); } }) });
+  const head = `Выберите ${zones.length > 1 ? 'склад' : 'категорию'} · всего ${nPos(summary.total)}`;
   // один склад или ни одного — сразу категории
-  if (zones.length < 2) return landing({ head, action: all, body: tileGrid(...cats.map((c) => catTile(c, ''))) });
-  // склады — плитки с раскрывающейся панелью (card S expand), под ними — категории склада; категория без склада — в основном
-  const def = zones.find((z) => z.isDefault) || zones[0];
-  const zoneOf = (c) => zones.find((z) => (z.categoryIds || []).includes(c.id)) || def;
-  const zoneItem = (z) => {
-    const zc = cats.filter((c) => zoneOf(c) === z);
-    const n = zc.reduce((a, c) => a + c.total, 0);
-    const el = card({ size: 'S', artCover: true, art: art(z.name), title: z.name, meta: nPos(n) + (zc.length ? ` · категорий ${zc.length}` : ''),
+  if (zones.length < 2) return landing({ head: cats.length ? head : `Всего ${nPos(summary.total)}`, action: all, body: tileGrid(...cats.map((c) => catTile(c, ''))) });
+  const zoneItems = await Promise.all(zones.map(async (z) => {
+    const one = await categories(z.id);
+    const zc = one.items.filter((c) => c.id !== 'none');
+    return card({ size: 'S', artCover: true, art: art(z.name), title: z.name, meta: nPos(one.total) + (zc.length ? ` · категорий ${zc.length}` : ''),
       expand: { title: 'Категории склада «' + z.name + '»',
         action: kitButton({ label: 'Весь склад →', kind: 'ghost', size: 'S', onClick: () => { setZone(z.id); open({ all: '1' }); } }),
-        body: zc.length ? tileGrid(...zc.map((c) => catTile(c, z.id))) : hint('Категорий нет — отметьте их в «Справочники» → «Склады».') } });
-    return el;
-  };
-  const node = landing({ head, action: all, body: tileGrid(...zones.map(zoneItem)) });
-  return node;
+        body: zc.length ? tileGrid(...zc.map((c) => catTile(c, z.id))) : hint(one.total ? 'В наличии только позиции без категории.' : 'В этой зоне пока нет позиций в наличии.') } });
+  }));
+  return landing({ head, action: all, body: tileGrid(...zoneItems) });
 }
 
 export const stock = {
@@ -126,13 +130,12 @@ export const stock = {
     toolbarExtra: () => facetFilter({ categoryKey: 'categoryId', inline: true }),
     extraKeys: ['ft', 'all'],
     // первая страница — плитки категорий с рисунками (как «Продукция» и «Каталог номенклатуры»); галерея — карточки позиций с фото
-    gallery: { limit: 100, card: (r) => ({ pic: r.photos?.[0] ? PREFIX + (r.photos[0].thumb || r.photos[0].url) : null, title: r.name, meta: [r.categoryName, r.article].filter(Boolean).join(' · '), price: `${qty(r.quantity)} ${unit(r)}` }) },
+    gallery: { limit: 100, card: (r) => ({ pic: r.photos?.[0] ? PREFIX + (r.photos[0].thumb || r.photos[0].url) : null, title: stockPositionName(r), meta: [r.categoryName, stockPositionCode(r)].filter(Boolean).join(' · '), price: `${qty(r.quantity)} ${unit(r)}` }) },
     landing: { when: (P) => !P.categoryId && !P.q && !P.ft && !P.status && !P.all, render: stockLanding },
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)
-    // признаки: список — ровно те позиции, что посчитала кнопка (ids из полного списка склада); список ещё не загружен — по словам, как раньше
-    query: (P) => ({ priority: 1, ...zoneQuery(), ...(P.ft ? ftIds(P) || { search: [P.q, ftQuery(P.ft)].filter(Boolean).join(' ') || undefined, ...ftParams(P.ft) } : {}) }),
+    query: balanceQuery,
     export: 'admin',
-    bulk: { open: (ids, { done: finish }) => openStockBulk({ ids, done: () => { ftItems = null; finish(); } }), extra: [stockOrderAction, qrBulkAction('S')] }, // над отмеченными: «Изменить выбранные» (C043: тип, категория, ед., марка, сортамент), «В заявку», QR; после правки — заново считаем признаки (ftItems), иначе фильтр по типу покажет старое
+    bulk: { open: (ids, { done }) => openStockBulk({ ids, done }), extra: [stockOrderAction, stockDuplicateAction(), qrBulkAction('S')] },
     headActions: () => [kitButton({ label: 'Выдать материалы', kind: 'primary', onClick: openStockIssue }), stockActions()],
     moreActions: stockMore,
     top: (_reload) => h('div', null, zoneBar(), stockRequestsBox(), mobileStockDashboard()),
@@ -143,22 +146,18 @@ export const stock = {
     filters: [
       { key: 'status', label: 'Состояние', type: 'chips',
         options: () => [
-          { value: 'ok,low,reserved', label: 'В наличии' },
-          { value: 'none', label: 'Нет на складе' },
-          { value: 'low,none', label: 'Требуют внимания' },
           { value: 'low', label: 'Ниже минимума' },
           { value: 'ordered', label: 'Ждут поставку' },
           { value: 'reserved', label: 'В брони' },
           { value: 'ok', label: 'В норме' },
         ],
-        count: (resp, v) => v === '' ? resp.counts?.all : v.includes(',') ? v.split(',').reduce((s, k) => s + (resp.counts?.[k] ?? 0), 0) : resp.counts?.[v],
+        count: (resp, v) => resp.counts?.[v || 'all'],
       },
       { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается списком «Категории» в левой панели
     ],
     hints: {
-      '': 'Все позиции склада. «+ Принять» и «Забронировать» — в строке; бронь списком, пересчёт и движения — в «Ещё».',
+      '': 'Позиции с остатком в выбранном складе. «+ Принять» и «Забронировать» — в строке.',
       low: 'Меньше минимального остатка — пора заказать: откройте позицию → «Заказать».',
-      none: 'Закончилось — закажите из карточки, если позиция ещё нужна.',
       ordered: 'Заказано, ждём поставку. Приехало — откройте позицию и нажмите «Принять» у заявки.',
       reserved: 'Отложено под заказы. В строке — «Выдать». Снять бронь — в карточке позиции.',
       ok: 'Хватает. Делать ничего не нужно.',
@@ -173,16 +172,27 @@ export const stock = {
     },
     tiles: {
       key: 'categoryId', title: 'Категории',
-      load: async () => (await api('/stock/categories', { query: zoneQuery() })).items.filter((c) => c.id !== 'none').map((c) => ({
-        value: c.id, label: c.name, n: c.total,
-        sub: h('span', null, c.low || c.none ? [c.low ? h('span', { class: 'warn' }, `к закупке ${c.low}`) : null, c.low && c.none ? ' · ' : null, c.none ? `закончились: ${c.none}` : null] : 'всё в норме', c.ordered ? ` · заказано ${c.ordered}` : null),
-      })),
+      load: async () => {
+        await loadZones().catch(() => []);
+        return (await api('/stock/categories', { query: heldStockQuery(zoneNow()) })).items.filter((c) => c.id !== 'none').map((c) => ({
+          value: c.id, label: c.name, n: c.total,
+          sub: h('span', null, c.low ? h('span', { class: 'warn' }, `к закупке ${c.low}`) : 'всё в норме', c.ordered ? ` · заказано ${c.ordered}` : null),
+        }));
+      },
     },
     columns: [
       { key: 'pic', label: '', pic: true, render: (r) => pic(r.photos?.[0]) },
-      { key: 'name', label: 'Название', sort: 'name', cls: 'clip', render: (r) => (r.metal === 'pipe' && r.assortment
-        ? h('span', { title: r.name }, h('b', null, facetLabel('pipe', pipeKey(r))), /нерж/i.test(r.name) ? pipeBadge('нерж.', 'dim') : null, r.washed == null ? null : pipeBadge(r.washed ? 'Мытая' : 'Не мытая', r.washed ? 'info' : 'warn'))
-        : h('span', { title: r.name }, r.name)) },
+      { key: 'name', label: 'Название', sort: 'name', cls: 'clip name-2', export: stockPositionName, render: (r) => {
+        const profile = stockPipeProfile(r);
+        const title = stockPositionName(r);
+        const code = stockPositionCode(r);
+        const shown = profile ? facetLabel('pipe', profile) : title;
+        return h('div', { title },
+          h('span', null, shown),
+          profile && /нерж/i.test(r.name) ? pipeBadge('нерж.', 'dim') : null,
+          profile && r.washed != null ? pipeBadge(r.washed ? 'Мытая' : 'Не мытая', r.washed ? 'info' : 'warn') : null,
+          code && code !== shown ? h('div', { class: 'muted small' }, code) : null);
+      } },
       { key: 'categoryName', label: 'Категория', sort: 'categoryName', cls: 'md-hide', render: (r) => r.categoryName || '' },
       { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => {
         // C022-4: «м» и пересчёт хлыстов — только труба в метрах с длиной хлыста; обрезок в шт — как штуки
@@ -195,17 +205,16 @@ export const stock = {
       { key: 'minQuantity', label: 'Мин.', sort: 'minQuantity', cls: 'num right md-hide', render: (r) => (r.minQuantity ? qty(r.minQuantity) : '') },
       { key: 'lastCountedAt', label: 'Пересчёт', sort: 'lastCountedAt', cls: 'md-hide muted', render: (r) => (r.lastCountedAt ? date(r.lastCountedAt) : '') },
       { key: 'status', label: 'Состояние', sort: 'status', nowrap: true, render: (r) => h('span', { class: 'nowrap' },
-          r.status === 'none' && r.ordered
-            ? h('span', { class: 'badge warn', title: `Нет на складе, в заявках: ${qty(r.ordered)} ${unit(r)}` }, `нет (заказано ${qty(r.ordered)})`)
-            : [badge(STOCK_STATUS, r.status), r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  зак. ${qty(r.ordered)}`) : null],
+          badge(STOCK_STATUS, r.status),
+          r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  зак. ${qty(r.ordered)}`) : null,
           r.reservedQty ? stockTag(`бронь ${qty(r.reservedQty)}`, 'Отложено под заказы. Снять — откройте позицию, кнопка «Снять бронь»') : null,
           r.hangingQty ? stockTag(`висит ${qty(r.hangingQty)}`, 'Заказ уже отгружен, закрыт или аннулирован, а материал всё ещё в брони. Откройте позицию, кнопка «Снять бронь»', 'warn') : null) },
     ],
     card: {
       thumb: photoThumb,
-      title: (r) => r.name,
-      sub: (r) => [r.categoryName, r.reservedQty ? `бронь ${qty(r.reservedQty)}` : '', r.supplierArticle && `арт. ${r.supplierArticle}`].filter(Boolean).join(' · '),
-      side: (r) => [h('b', { class: 'num' }, `${qty(r.quantity)} ${unit(r)}`), r.status === 'none' && r.ordered ? h('span', { class: 'badge warn' }, `нет (заказано ${qty(r.ordered)})`) : badge(STOCK_STATUS, r.status)],
+      title: stockPositionName,
+      sub: (r) => [r.categoryName, r.reservedQty ? `бронь ${qty(r.reservedQty)}` : '', stockPositionCode(r)].filter(Boolean).join(' · '),
+      side: (r) => [h('b', { class: 'num' }, `${qty(r.quantity)} ${unit(r)}`), badge(STOCK_STATUS, r.status)],
     },
   },
 
@@ -328,7 +337,7 @@ export const stock = {
     restore: (r) => api(`/stock/items/${r.id}/restore`, { method: 'POST' }),
   },
 
-  searchRow: (r) => ({ title: r.name, sub: [r.categoryName, `${qty(r.quantity)} ${unit(r)}`].filter(Boolean).join(' · '), side: badge(STOCK_STATUS, r.status) }),
+  searchRow: (r) => ({ title: stockPositionName(r), sub: [stockPositionCode(r), r.categoryName, `${qty(r.quantity)} ${unit(r)}`].filter(Boolean).join(' · '), side: badge(STOCK_STATUS, r.status) }),
   open: (id) => go('stock', { open: id }),
 };
 

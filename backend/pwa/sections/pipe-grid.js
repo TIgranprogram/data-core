@@ -73,7 +73,8 @@ export function noDrag(input) {
 
 export function moveCell(input, dx, dy) {
   const td = input.closest('td'), tr = td.parentElement;
-  const rows = [...tr.closest('.pg').querySelectorAll('tbody tr')];
+  const grid = tr.closest('.pg') || tr.closest('table');
+  const rows = [...grid.querySelectorAll('tbody tr')];
   const next = rows[rows.indexOf(tr) + dy]?.children[td.cellIndex + dx] || (dy ? null : tr.children[td.cellIndex + dx]);
   const el = next?.querySelector('input');
   if (el) { el.focus(); el.select(); }

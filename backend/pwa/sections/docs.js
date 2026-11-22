@@ -9,6 +9,8 @@ import { canWorkPassport as canEditTexts } from './passports/common.js';
 import { openBookSample } from './passports/dialogs.js';
 import { mountOrdersTab } from './docs-orders.js';
 import { mountQueueTab } from './docs-queue.js';
+import { mountActsTab } from './docs-records-view.js';
+import { mountRegistryTab } from './docs-registries.js';
 import { openPassportFunnel, openReadyPassport } from './passports/funnel/open.js';
 import { openBookForProduct } from './passports/open-book.js';
 import { lastNumbersTop, passnums } from './passports/numbers-view.js';
@@ -16,7 +18,7 @@ import { tabs as kitTabs, sku as kitSku, crumbTail, button } from '../ui/kit/ind
 
 
 /*
- * «Документация» (#docs?tab=…): вкладки паспортов (C114 G).
+ * «Документация» (#docs?tab=…): паспорта (C114 G), акты и реестры (C198).
  *  — «К выпуску» (queue, по умолчанию): очередь по заказам;
  *  — «Выпущенные» (archive): журнал от новых номеров к старым, поиск по номеру, отбор «№ от — до», полоска последних номеров;
  *  — «Паспорта по заказам» (orders);
@@ -26,7 +28,9 @@ import { tabs as kitTabs, sku as kitSku, crumbTail, button } from '../ui/kit/ind
  */
 const TABS = [['queue', 'К выпуску'], ['archive', 'Выпущенные'], ['orders', 'Паспорта по заказам'], ['templates', 'Настройки изделий']];
 // старые адреса: «По номерам» — теперь сортировка и отбор «№ от — до» внутри «Выпущенных»
-const tabOf = (p) => (['archive', 'orders', 'templates'].includes(p.tab) ? p.tab : p.tab === 'numbers' ? 'archive' : 'queue');
+const tabOf = (p) => (['archive', 'orders', 'templates', 'acts', 'registries'].includes(p.tab) ? p.tab : p.tab === 'numbers' ? 'archive' : 'queue');
+const GROUPS = [{ key: 'passports', label: 'Паспорта' }, { key: 'acts', label: 'Акты' }, { key: 'registries', label: 'Реестры' }];
+const groupOf = (tab) => ['acts', 'registries'].includes(tab) ? tab : 'passports';
 const hasTpl = (d) => !!d && Object.keys(d).length > 0;
 const canTpl = () => session.canEdit && canEditTexts();
 
@@ -120,24 +124,42 @@ export const passarchive = {
 /** Параметры внутреннего списка: без вкладки и панели справа, иначе открытие карточки перезагружало бы список. */
 const listParams = (p) => { const { tab, sec, of, ...rest } = p; return rest; }; // sec — устаревший адрес заглушек
 
-// Только паспорта: заглушки «Акты / Накладные / Сертификаты» убраны (нет API, путали меню)
+// Имена вкладок паспортов сохраняют прежние ссылки.
 const TAB_NAME = Object.fromEntries(TABS);
 
 export function mountDocs(params, { onChanged } = {}) {
   let tab = tabOf(params);
   let inner = null;
-  const seg = h('div');
   const body = h('div', { class: 'docs-body' });
-  const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, seg, canTpl() ? button({ label: 'Новый паспорт', kind: 'primary', title: 'Выбрать изделие по шагам и выпустить PDF', onClick: () => openPassportFunnel() }) : null, canTpl() ? button({ label: 'Загрузить готовый паспорт (PDF)', title: 'Паспорт сделан отдельно: приложить файл PDF, указать фирму, изделие, заказ и номер', onClick: () => openReadyPassport() }) : null), body);
-
+  const groups = kitTabs({
+    label: 'Документация', items: GROUPS, value: groupOf(tab),
+    onChange: (key) => { if (groupOf(tab) !== key) go('docs', key === 'passports' ? {} : { tab: key }, { replace: true }); },
+  });
+  const passportsTabs = kitTabs({
+    label: 'Паспорта', items: TABS.map(([key, label]) => ({ key, label })), value: tab,
+    onChange: (key) => { if (tab !== key) go('docs', key === 'queue' ? {} : { tab: key }, { replace: true }); },
+  });
+  const passportHead = h('div', { class: 'page-head' }, passportsTabs.el,
+    canTpl() ? button({ label: 'Новый паспорт', kind: 'primary', title: 'Выбрать изделие по шагам и выпустить PDF', onClick: () => openPassportFunnel() }) : null,
+    canTpl() ? button({ label: 'Загрузить готовый паспорт (PDF)', title: 'Паспорт сделан отдельно: приложить файл PDF, указать фирму, изделие, заказ и номер', onClick: () => openReadyPassport() }) : null);
+  const el = h('div', { class: 'docs' }, h('div', { class: 'page-head' }, groups.el), passportHead, body);
   const drawTabs = () => {
-    seg.replaceChildren(kitTabs({ label: 'Паспорта', items: TABS.map(([key, label]) => ({ key, label })), value: tab, onChange: (k) => { if (tab !== k) go('docs', k === 'queue' ? {} : { tab: k }, { replace: true }); } }).el);
-    crumbTail('Паспорта › ' + TAB_NAME[tab]);
+    const group = groupOf(tab);
+    groups.set(group);
+    passportHead.hidden = group !== 'passports';
+    if (group === 'passports') passportsTabs.set(tab);
+    crumbTail(group === 'passports' ? 'Паспорта › ' + TAB_NAME[tab] : GROUPS.find((item) => item.key === group).label);
   };
 
   function mountTab(p) {
     inner?.destroy?.();
     inner = null;
+    if (tab === 'acts' || tab === 'registries') {
+      inner = tab === 'acts' ? mountActsTab(p) : mountRegistryTab(p);
+      body.replaceChildren(inner.el);
+      drawTabs();
+      return;
+    }
     if (tab === 'queue') { inner = mountQueueTab(p); body.replaceChildren(inner.el); drawTabs(); return; }
     if (tab === 'orders') { inner = mountOrdersTab(p, { onChanged }); body.replaceChildren(inner.el); drawTabs(); return; }
     const section = tab === 'archive' ? passarchive : doctpl;
@@ -159,7 +181,7 @@ export function mountDocs(params, { onChanged } = {}) {
     destroy: () => inner?.destroy?.(),
     update: (p) => {
       if (tabOf(p) !== tab) { tab = tabOf(p); mountTab(p); return; }
-      if (tab === 'orders' || tab === 'queue') { inner.update(p); return; }
+      if (['orders', 'queue', 'acts', 'registries'].includes(tab)) { inner.update(p); return; }
       inner.update(listParams({ ...p, open: p.of === (tab === 'archive' ? 'passarchive' : 'doctpl') ? p.open : undefined }));
     },
   };

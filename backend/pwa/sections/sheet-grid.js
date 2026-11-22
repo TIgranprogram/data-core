@@ -36,7 +36,7 @@ export function buildSheets(items) {
 }
 
 /** Поле-ячейка: Enter и стрелки ходят по таблице, сохраняет при выходе из ячейки. */
-function field(cls, label, start, save) {
+export function gridField(cls, label, start, save) {
   const input = h('input', { class: cls, value: start, 'aria-label': label, ...(cls === 'pg-in' ? { inputmode: 'decimal' } : {}) });
   noDrag(input); // только ввод — мышкой число в соседнюю ячейку не утащить
   let was = start;
@@ -73,9 +73,9 @@ function table(block, match) {
       h('thead', null, h('tr', null, h('th', { class: 'pg-name' }, 'Толщина, мм'), h('th', { class: 'pg-for' }, 'Формат, мм'), h('th', null, 'Листов'), h('th', null, 'В брони'), h('th', { class: 'pg-for' }, 'Обрезки'), h('th', { class: 'pg-for' }, 'Примечание'))),
       h('tbody', null, ...rows.map((it) => h('tr', null,
         h('th', { class: 'pg-name', scope: 'row' }, qty(it.dims?.thickness ?? 0)), h('td', { class: 'pg-for' }, sizeOf(it)),
-        h('td', { class: 'pg-c' }, field('pg-in', `Листов, ${it.name}`, String(it.quantity ?? 0), (v) => saveSheets(it, v))),
+        h('td', { class: 'pg-c' }, gridField('pg-in', `Листов, ${it.name}`, String(it.quantity ?? 0), (v) => saveSheets(it, v))),
         h('td', { class: 'pg-held' }, it.reservedQty ? qty(it.reservedQty) : ''), h('td', { class: 'pg-for' }, offcutsOf(it)),
-        h('td', { class: 'pg-c' }, field('pg-note', `Примечание, ${it.name}`, noteOf(it), (v) => api(`/stock/items/${it.materialId || it.id}`, { method: 'PATCH', body: { notes: v } }))))))));
+        h('td', { class: 'pg-c' }, gridField('pg-note', `Примечание, ${it.name}`, noteOf(it), (v) => api(`/stock/items/${it.materialId || it.id}`, { method: 'PATCH', body: { notes: v } }))))))));
 }
 
 export function mountSheetGrid() {

@@ -1,16 +1,16 @@
 // «Карта сайта» (#atlas и прежний #help): полотно и ранее сохранённые ссылки на окно блока.
 import { h } from '../core/dom.js';
 import { patch } from '../core/router.js';
+import { session } from '../core/api.js';
+import { canFollow, stockView } from '../core/route-access.js';
 import { entityPanel, guide, link } from '../ui/kit/index.js';
 import { atlasMap } from '../ui/kit/atlas-map.js';
-import { buildAtlasModel, traceAtlas } from './atlas-model.js';
+import { buildAtlasModel, traceAtlas, visibleAtlas } from './atlas-model.js';
 import { SECTIONS } from './help-guide-data.js';
 import { bandOf, byId, nameOf } from './atlas-util.js';
 import { detail } from './atlas-window.js';
 
-const model = buildAtlasModel();
-const graphNodes = new Map(model.nodes.map((node) => [node.id, node]));
-const areaIds = new Set(model.groups.map(({ id }) => 'area:' + id));
+const fullModel = buildAtlasModel();
 
 function guideDetail(node) {
   const section = SECTIONS[node.section], steps = section?.steps || [];
@@ -25,6 +25,10 @@ export const atlas = {
   id: 'atlas',
   title: 'Карта сайта',
   mount(el, { params } = {}) {
+    const follows = href => canFollow(session, href);
+    const model = visibleAtlas(fullModel, follows, !Array.isArray(session.user?.sections) && !stockView(session.user));
+    const graphNodes = new Map(model.nodes.map(node => [node.id, node]));
+    const areaIds = new Set(model.groups.map(({ id }) => 'area:' + id));
     let panelEl = null, current = null, prev = null, returnTo = null;
     let selected = null, directPanel = null;
 
@@ -52,13 +56,13 @@ export const atlas = {
     };
     const open = (id, goingBack = false, opener = document.activeElement) => {
       const node = graphNodes.get(id), record = byId.get(id);
-      if (node?.kind !== 'section' && !record) return;
+      if (node?.kind !== 'section') return;
       prev = goingBack ? null : (current && current !== id ? byId.get(current) : prev);
       current = id;
       map.pin(id);
       const title = record ? nameOf(record) : node.title;
       const band = bandOf.get(record?.band ?? node.band);
-      const main = record ? detail(record, open, prev, dismiss) : guideDetail(node);
+      const main = record ? detail(record, open, prev, dismiss, graphNodes, follows) : guideDetail(node);
       const p = entityPanel({ section: band?.name || 'Карта сайта', title, main, onClose: dismiss });
       p.el.classList.remove('k-panel');
       p.el.style.setProperty('--detail-w', 'min(1080px, 100vw)');
@@ -88,7 +92,7 @@ export const atlas = {
     const update = ({ n, focus } = {}) => {
       const nextFocus = graphNodes.has(focus) || areaIds.has(focus) ? focus : null;
       if (selected !== nextFocus) { selected = nextFocus; map.pin(selected); }
-      if (byId.has(n) || graphNodes.get(n)?.kind === 'section') {
+      if (graphNodes.get(n)?.kind === 'section') {
         if (n !== directPanel || !panelEl) open(n, true, findOpener(n));
         directPanel = n;
       } else if (directPanel) {

@@ -1,4 +1,5 @@
 import { api, session } from '../core/api.js';
+import { seesTodayBlock, todayRoute, visibleToday } from '../core/route-access.js';
 import { h } from '../core/dom.js';
 import { failBlock, busyBlock } from '../ui/kit/busy.js';
 import { modal } from '../ui/kit/dialog.js';
@@ -16,7 +17,6 @@ import { empty, card, row, button, segmented, section, stack, stat, tabs, link, 
  * deps: { open(of, id), refreshCounts() }.
  */
 const SNOOZE_KEY = 'dc-today-snooze';
-const SEC_OF = { delivery: 'requests', shipment: 'salesorders', design: 'design', work: 'work' };
 const KIND_LABEL = { delivery: 'Поставка', shipment: 'Отгрузка', design: 'Проектирование', question: 'Вопрос', payment: 'Оплата', work: 'В работе' };
 
 // Блоки по ролям, сверху вниз: [ключ, заголовок]. Роль не из списка — «Срочно» + «План».
@@ -48,14 +48,7 @@ export function mountHome(deps) {
   const seeReq = session.sees('requests'), seeStock = session.sees('stock');
   const role = session.role;
 
-  // какие блоки доступны этой роли
-  const AVAILABLE = {
-    delivery: () => session.sees('requests'), work: () => session.sees('work'), shipment: () => session.sees('salesorders'), payment: () => session.canMoney,
-    questions: () => session.sees('design'), passports: () => session.seesDocs(), contracts: () => session.sees('contracts'),
-    fill: () => true, // «fill» — не пункт меню: сервер сам отдаёт только группы открытых роли разделов
-    money: () => session.canMoney,
-  };
-  const plan = (PLAN[role] || DEFAULT_PLAN).filter(([k]) => !AVAILABLE[k] || AVAILABLE[k]());
+  const plan = (PLAN[role] || DEFAULT_PLAN).filter(([k]) => seesTodayBlock(session, k));
   const has = (k) => plan.some(([key]) => key === k);
   const ownKinds = new Set(plan.map(([k]) => k).filter((k) => LISTED.includes(k)));
   const showWeek = role !== 'user' && role !== 'accountant' && !has('plan');
@@ -77,9 +70,10 @@ export function mountHome(deps) {
 
   // ---------- Действия ----------
   const openRec = (c) => {
+    if (c.kind === 'question') { answer(c); return; }
     if (c.kind === 'payment') { go('money', { tab: 'debts' }); return; }
     if (c.kind === 'work') { go('work', { open: c.id }); return; }
-    deps.open(SEC_OF[c.kind], c.id);
+    deps.open(todayRoute[c.kind], c.id);
   };
   const dropCard = (c) => {
     if (!data) return;
@@ -356,13 +350,13 @@ export function mountHome(deps) {
   function paintTiles() {
     const m = data?.metrics || {};
     const out = [];
-    if (m.supply?.counts) {
+    if (seeReq && m.supply?.counts) {
       const c = m.supply.counts;
       const n = (c.requested || 0) + (c.in_progress || 0) + (c.ordered || 0);
       out.push(tile('Заявки в пути', String(n), segBar([{ n: c.requested || 0, cls: 's1' }, { n: c.in_progress || 0, cls: 's2' }, { n: c.ordered || 0, cls: 's3' }, { n: c.received || 0, cls: 's4' }]),
         () => go('requests'), 'Запрошено · в работе · заказано · получено'));
     }
-    if (m.orders) {
+    if (session.sees('salesorders') && m.orders) {
       const b = m.orders.byStage || {};
       out.push(tile('Заказы в работе', String((b.new || 0) + (b.production || 0) + (b.ready || 0)), segBar([{ n: b.new || 0, cls: 's1' }, { n: b.production || 0, cls: 's2' }, { n: b.ready || 0, cls: 's3' }, { n: b.shipped || 0, cls: 's4' }]),
         () => go('salesorders', { filter: 'active' }), 'Новые · в производстве · готовы · отгружены'));
@@ -372,7 +366,7 @@ export function mountHome(deps) {
       () => go('docs'), 'Позиции, где проектирование готово, а паспорта нет и до отгрузки не больше 3 дней'));
     const days = m.money?.days;
     moneyTileSlot.replaceChildren();
-    if (days?.length && session.canMoney) {
+    if (days?.length && session.sees('money')) {
       const last = days[days.length - 1].balance;
       const mt = tile('Деньги, 14 дн.', Math.round(last).toLocaleString('ru-RU') + ' ₽', spark(days), () => go('money'), 'Остаток денег на 14 дней');
       if (has('money')) moneyTileSlot.append(mt); else out.push(mt);
@@ -403,12 +397,12 @@ export function mountHome(deps) {
         has('passports') || session.seesDocs() ? api('/passports/queue', { query: { due: 'soon', limit: 5 } }).catch(() => pq) : Promise.resolve(pq),
         has('contracts') ? api('/supply/contracts', { query: { status: 'active', limit: 200 } }).catch(() => null) : Promise.resolve(null),
       ]);
-      data = d; pq = q;
+      data = visibleToday(session, d); pq = q;
       if (ct) contractsSoon = (ct.items || []).filter((c) => c.validTo && String(c.validTo).slice(0, 10) <= soon()).sort((a, b) => String(a.validTo).localeCompare(String(b.validTo)));
       if (!mode) mode = d.scope?.defaultMode === 'mine' ? 'mine' : 'all';
       paintScope();
       fill?.load();
-      unmatchedN = (has('urgent') || has('unmatched')) ? (await unmatchedCount()).total || 0 : 0;
+      unmatchedN = session.sees('salesorders') && (has('urgent') || has('unmatched')) ? (await unmatchedCount()).total || 0 : 0;
       paintTiles(); paintAll();
     } catch (e) {
       if (silent && data) return;

@@ -134,6 +134,19 @@ export function buildAtlasModel() {
   return { nodes, edges, groups: BANDS.map((band) => ({ ...band })), coverage };
 }
 
+/** Оставляет доступные переходы и связи, у которых видны оба конца. Полная карта остаётся источником для dc atlas. */
+export function visibleAtlas(model, follows, showUnlinked) {
+  const sections = new Set(model.nodes.filter(node => node.kind === 'section' &&
+    (node.href ? follows(node.href) : showUnlinked)).map(node => node.id));
+  const nodes = model.nodes.filter(node => sections.has(node.section) && (!node.href || follows(node.href)));
+  const ids = new Set(nodes.map(node => node.id)), bands = new Set(nodes.map(node => node.band));
+  return {
+    nodes,
+    edges: model.edges.filter(edge => ids.has(edge.from) && ids.has(edge.to)),
+    groups: model.groups.filter(group => bands.has(group.id)),
+  };
+}
+
 /** Поиск идёт по направлению связи. В обе стороны выполняются два независимых обхода. */
 export function traceAtlas(edges, id, direction = 'both') {
   const nodeIds = new Set([id]), edgeIds = new Set();

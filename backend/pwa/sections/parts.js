@@ -5,6 +5,7 @@ import { sku as kitSku, stack } from '../ui/kit/index.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 import { partWorkBlock } from './part-work.js';
 import { buildCompForm, compositionPeek } from './comp-editor.js';
+import { catalogPhotoBlock, catalogPhotoColumn, catalogWhereUsed } from './catalog-entry-blocks.js';
 
 /*
  * «Детали» (C142): materials с materialKind=part.
@@ -82,6 +83,7 @@ export const parts = {
       { key: 'categoryId', label: 'Категория', allLabel: 'Все категории', type: 'select', options: async () => asList(await api('/categories', { query: { type: 'material' } }).catch(() => [])).map((c) => ({ value: String(c.id || c._id), label: c.name || c.fullPath || 'Категория' })) },
     ],
     columns: [
+      catalogPhotoColumn,
       { key: 'article', label: 'Обозначение', cls: 'nowrap', render: (r) => kitSku(r.article) },
       { key: 'name', label: 'Название', cls: 'name-2', render: (r) => h('span', { title: r.name }, r.name || '') },
       { key: 'category', label: 'Категория', cls: 'md-hide', render: (r) => catName(r) },
@@ -108,11 +110,13 @@ export const parts = {
         ['Вес', r.weightKg ? `${r.weightKg} кг` : null],
       ],
       body: (r) => stack(
+        catalogPhotoBlock(r),
         compositionPeek({
           id: r.id, base: '/materials', title: 'Заготовка', label: 'Показать заготовку',
           hintText: 'Сырьё, из которого делаем деталь. Правка — в меню «Изменить заготовку».',
           emptyHint: 'Заготовки нет. Добавьте сырьё кнопкой «Изменить заготовку».',
         }),
+        catalogWhereUsed('/materials', r.id),
         partWorkBlock(r),
       ),
       menu: () => [

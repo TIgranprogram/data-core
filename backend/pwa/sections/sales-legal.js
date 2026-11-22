@@ -122,7 +122,7 @@ function editPaymentStage(kind, record, ctx, stage) {
   });
 }
 
-async function showOriginal(document) {
+export async function showOriginal(document) {
   if (!session.canMoney || !/^[a-f\d]{24}$/i.test(String(document.fileId || ''))) return;
   const photo = await api(`/photos/${document.fileId}`);
   const storage = String(photo.storageUrl || '');
@@ -180,7 +180,7 @@ function addDocument(kind, record, ctx) {
 export function legalBlocks(kind, record, ctx) {
   const legal = record.legal;
   if (!legal) return null;
-  const can = writable();
+  const can = writable() && !record.activeArchiveVersion;
   const issues = legal.issues || [];
   const unknown = openIssues(legal);
   const issueRows = issues.map((x) => row({ title: x.label, meta: [ISSUE_STATES[x.state] || x.state, x.reason, x.resolution].filter(Boolean).join(' · '), tone: ['unknown', 'conflict'].includes(x.state) ? 'warn' : 'neutral', action: can ? button({ label: 'Заполнить', size: 'S', onClick: () => editIssue(kind, record, ctx, x) }) : null }));

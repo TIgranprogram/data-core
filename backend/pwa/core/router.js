@@ -48,6 +48,12 @@ export function go(section, params = {}, { replace = false, kind } = {}) {
 /** Поменять часть параметров текущего экрана. */
 export function patch(changes, opts = { replace: true }) {
   const { section, params } = current();
+  // Карточка из списка склада закрывается при смене выборки, ссылка на карточку остаётся самостоятельным входом.
+  if (section === 'stock' && params.open && !params.of &&
+      ['q', 'ft', 'status', 'categoryId'].some((key) => key in changes && (changes[key] || '') !== (params[key] || ''))) {
+    go(section, { ...params, ...changes, open: undefined }, { ...opts, kind: 'screen' });
+    return;
+  }
   go(section, { ...params, ...changes }, opts);
 }
 

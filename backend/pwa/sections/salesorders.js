@@ -26,10 +26,11 @@ import { unmatchedTop, unmatchedFlag, unmatchedOrders } from './matching-queue.j
 import { posPic } from '../ui/pos-pic.js';
 import { moveContract, stageBack, canChangeLines } from './order-line-actions.js';
 import { distribBlock, lineMark, countOf, countBadge } from './order-lines.js';
+import { archivedOrder, canEditOrder as editableOrder, orderArchiveActions, orderArchiveBlock } from './order-archive.js';
 import { shipmentsBlock, historyBlock, canShip } from './order-shipments.js';
 import { importOrderExcel, downloadOrderTemplate } from './salesorders-import.js';
 import { suggestLink } from '../ui/composition-suggest.js';
-import { NEXT_TIP, STAGE_NOW, HINT, ourLine, issuedBlock, sec, seq, produceBlock } from './order-blocks.js';
+import { NEXT_TIP, STAGE_NOW, HINT, shipLine, ourLine, issuedBlock, sec, seq, produceBlock } from './order-blocks.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 import { positionsTable, boardCard } from '../ui/kit/screens/blocks.js';
 import { orderFooter } from './order-footer.js';
@@ -39,7 +40,7 @@ import { manualLegalDraft } from './sales-legal-state.js';
 /** Заказы производства группируют договоры по productionNo; карточка договора сохраняет исходный комплект отдельно. */
 export { STAGE };
 const NEXT = { new: 'production', production: 'ready', ready: 'shipped', shipped: 'closed' };
-const NEXT_LABEL = { new: 'В производство', production: 'Готово к отгрузке', ready: 'Отгружен', shipped: 'Завершить заказ' };
+const NEXT_LABEL = { new: 'В производство', production: 'Готово к отгрузке', ready: 'Отгружен', shipped: 'Завершить этап' };
 const STAGE_ORDER = Object.keys(STAGE);
 /** Приоритет заказа: «обычный» не показываем. */
 const prio = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
@@ -150,8 +151,6 @@ async function matchProducts(r) {
   return saved && saved.id ? saved : null;
 }
 const closedStage = (o) => ['closed', 'cancelled'].includes(o.stage);
-/** Править заказ/договор может админ, менеджер, владелец; завершённый — только админ. */
-const editableOrder = (o) => session.canEditOrders && (o.stage !== 'closed' || session.role === 'admin');
 /** Шаг воронки → вкладка договора (прежние ключи: шаг этап не меняет, а открывает нужный блок). */
 const STEP_TAB = { new: 'design', production: 'work', ready: 'stock', shipped: 'ship', closed: 'pass' };
 const TAB_NAME = { pos: 'Позиции', design: 'Проектирование', work: 'Работа', stock: 'Склад', ship: 'Отгрузки', pass: 'Паспорта' };
@@ -221,7 +220,8 @@ function contractMenu(o, reload, prefix = '') {
     !['closed', 'cancelled', 'new', 'shipped'].includes(o.stage) && canShip() && { label: 'Отгрузить', onSelect: () => patch({ of: 'shipdo', open: o.id, pick: undefined }, { replace: false }) },
     can && !closedStage(o) && seeStock && { label: 'Загрузить спецификацию из Excel', onSelect: () => patch({ of: 'specimport', new: '1', orderId: o.id, open: undefined }, { replace: false }) },
     can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
-    session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
+    ...orderArchiveActions(o, reload).map((action) => ({ label: action.label, onSelect: () => action.run().catch(toastError) })),
+    !archivedOrder(o) && session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
     can && !closedStage(o) && canChangeLines(o) && { label: '+ Позиция', title: 'Новая позиция: все поля — в правой панели', onSelect: () => addLine(o) },
     can && { label: 'Удалить договор', danger: true, onSelect: remove },
   ].filter(Boolean).map((m) => ({ ...m, label: prefix + m.label }));
@@ -282,7 +282,7 @@ function moneyPane(d) {
       if (l.cancelledAt) return null;
       const debt = Math.max(0, (Number(l.amount) || 0) - paidOf(l));
       return { onOpen: openLine(l), cells: [{ v: seq(l, i), cls: 'muted' }, l.title, { v: l.amount ? money(l.amount) : '', cls: 'num' }, { v: paidOf(l) ? money(paidOf(l)) : '', cls: 'num nowrap muted' }, { v: l.amount ? (debt > 0 ? money(debt) : h('span', { class: 'muted' }, '—')) : '', cls: 'num nowrap' },
-        ...(payOn ? [l.amount && debt > 0 ? button({ label: 'Принять оплату', kind: 'ghost', size: 'S', title: 'Принять оплату по этой позиции', onClick: (e) => { e.stopPropagation(); patch({ of: 'incpay', open: String(l.id), new: undefined }, { replace: false }); } }) : ''] : [])] };
+        ...(payOn ? [!archivedOrder(o) && l.amount && debt > 0 ? button({ label: 'Принять оплату', kind: 'ghost', size: 'S', title: 'Принять оплату по этой позиции', onClick: (e) => { e.stopPropagation(); patch({ of: 'incpay', open: String(l.id), new: undefined }, { replace: false }); } }) : ''] : [])] };
     }).filter(Boolean);
     return { head, rows };
   });
@@ -380,20 +380,13 @@ function boardBody(r) {
   };
 }
 
-/** «Отгружено N из M»: позиция отгружена, если отгружено не меньше заказанного; отменённые не считаются. До отгрузки — этап. */
-function shipLine(r) {
-  if (!['partly', 'ready', 'shipped', 'closed'].includes(r.stage)) return stageCell(r);
-  const live = (r.orders || []).flatMap((o) => o.lines || []).filter((l) => !l.cancelledAt);
-  const done = live.filter((l) => (Number(l.shipped) || 0) >= (Number(l.qty) || 0) && Number(l.qty) > 0).length;
-  return h('span', null, h('span', { class: 'muted' }, 'Отгружено '), `${done} из ${live.length}`);
-}
 /** Заказ производства: единая карточка, позиции первыми; сведения и выполнение свёрнуты. */
 const orderCard = screenCard({
   title: heading,
   // шапка — один блок (владелец 15.11): слева № и «заказчик · компания» (заказчик — ссылкой), по центру этап, справа срок
   sub: (r) => [...(r.customers || []).flatMap((c, i) => [i ? ', ' : '', customerLink(c)]), ...(r.companyNames || []).filter(Boolean).flatMap((c, i) => [i ? ', ' : ' · ', companyLink(c)])],
   // справа в шапке: срок, под ним — отгрузка «N из M позиций» (с отгрузки) или этап (до неё) — владелец 15.11
-  side: (r) => [r.deadline ? h('span', null, h('span', { class: 'muted' }, 'Срок '), due(r)) : null, shipLine(r)],
+  side: (r) => [r.deadline ? h('span', null, h('span', { class: 'muted' }, 'Срок '), due(r)) : null, shipLine(r, stageCell)],
   noHistory: true,
   bodyFirst: true, // эталон 11-26: таблица позиций всегда первой, «Что дальше» и предупреждения — под ней (C131)
   before: (r, ctx) => {
@@ -427,7 +420,7 @@ const orderCard = screenCard({
     const many = (r.orders || []).length > 1;
     const reload = () => salesorders.get(r.key || r.id).then((s) => s && ctx.setRow(s));
     return [
-      editableOrder(r) && { label: 'Изменить заказ', title: '№ заказа, срок и приоритет — сразу у всех договоров заказа', run: (row) => openSide('orderedit', row.key || row.id) },
+      editableOrder(r) && !(r.orders || []).some(archivedOrder) && { label: 'Изменить заказ', title: '№ заказа, срок и приоритет — сразу у всех договоров заказа', run: (row) => openSide('orderedit', row.key || row.id) },
       ...addContractItems(r),
       ...(r.orders || []).flatMap((o) => contractMenu(o, reload, many ? `Договор ${o.orderNo || '—'}: ` : '').map((m) => ({ label: m.label, danger: m.danger, run: () => m.onSelect() }))),
     ];
@@ -579,6 +572,7 @@ export const orderEdit = sideForm({
     if (v.deadline && v.deadline !== was) body.shipDate = v.deadline;
     if (prioNew !== prioNow) body.priority = prioNew;
     const list = row.orders || [];
+    if (list.some(archivedOrder)) throw new Error('В заказе есть архивный договор. Откройте нужный действующий договор отдельно.');
     const key = body.productionNo || row.productionNo || row.key;
     if (Object.keys(body).length && list.length) {
       const done = [];
@@ -610,10 +604,10 @@ export const salesorder = {
   historyLabels: { 'salesorder.created': 'Создан', 'salesorder.updated': 'Изменён', 'salesorder.deleted': 'Удалён', 'salesorder.restored': 'Восстановлен' },
   get: (id) => api(`/salesorders/${id}`),
 
-  card: screenCard({
+  card: { ...screenCard({
     title: (r) => `Договор ${r.orderNo || '—'}`,
     sub: (r) => [r.customer, r.companyName].filter(Boolean).join(' · '),
-    side: (r) => [r.contractDate ? date(r.contractDate) : null, badge(STAGE, r.stage)],
+    side: (r) => [r.contractDate ? date(r.contractDate) : null, archivedOrder(r) ? kbadge('В архиве', 'ok') : badge(STAGE, r.stage)],
     parent: (r) => r.productionNo ? ({ label: `Заказ № ${r.productionNo}`, run: () => patch({ of: undefined, open: r.productionNo }, { replace: false }) }) : null,
     bodyFirst: true,
     facts: () => [],
@@ -621,6 +615,7 @@ export const salesorder = {
     body: (r, ctx) => stack(
       contractLinesBlock(r, { canAdd, addLineBtn, openLine }),
       legalBlocks('salesorders', r, ctx),
+      orderArchiveBlock(r),
       section({ title: 'Сведения договора', body: readonlyGroup({ rows: [
       ['№ заказа', r.productionNo || h('span', { class: 'muted' }, 'нет №')],
       ...(r.offerId || r.offerNo ? [['Из КП', r.offerNo ? link({ label: r.offerNo, onClick: () => go('offers', { open: r.offerId }) }) : '—']] : []),
@@ -639,14 +634,15 @@ export const salesorder = {
       handoffLine('salesorder', r.id)),
     menu: (r, ctx) => [
       ...(!editableOrder(r) ? [] : [
-      NEXT[r.stage] && { label: NEXT_LABEL[r.stage], run: async (row, ctx) => ctx.setRow(await setContractStage(row, NEXT[row.stage])) },
+      r.stage !== 'shipped' && NEXT[r.stage] && { label: NEXT_LABEL[r.stage], run: async (row, ctx) => ctx.setRow(await setContractStage(row, NEXT[row.stage])) },
       r.stage !== 'cancelled' && !['shipped', 'closed'].includes(r.stage) && { label: 'Отменить договор с заказчиком', run: async (row, ctx) => { if (!(await confirmDlg(`Отменить договор с заказчиком ${row.orderNo || ''}?`, 'Договор перейдёт в «Отменён» и уйдёт из «В работе». Брони и заявки не удаляются — снимите их отдельно. Вернуть можно сменой этапа.', { okText: 'Да, отменить договор с заказчиком', danger: true }))) return; ctx.setRow(await setContractStage(row, 'cancelled')); } },
       !closedStage(r) && ['admin', 'manager'].includes(session.role) && { label: 'Связать с каталогом', title: 'Связать позиции заказчика с нашими изделиями — для паспорта и производства. Договор не меняется.', run: async (row, ctx) => { const s = await matchProducts(row); if (s) ctx.setRow(s); } },
     ]),
-      session.canEditOrders && r.legal && { label: 'Уточнить сведения', run: () => editLegal('salesorders', r, ctx) },
-      session.canEditOrders && !r.productionNo && { label: 'Привязать к заказу', run: async () => { if (await chooseTarget([r.id])) await ctx.reload(); } },
+      ...orderArchiveActions(r, () => ctx.reload()),
+      !archivedOrder(r) && session.canEditOrders && r.legal && { label: 'Уточнить сведения', run: () => editLegal('salesorders', r, ctx) },
+      !archivedOrder(r) && session.canEditOrders && !r.productionNo && { label: 'Привязать к заказу', run: async () => { if (await chooseTarget([r.id])) await ctx.reload(); } },
     ],
-  }),
+  }), editable: (r) => !archivedOrder(r) },
   form: {
     fields: async (row) => {
       const [l, nums, next, parties] = await Promise.all([
@@ -698,6 +694,7 @@ export const salesorder = {
   },
 
   remove: { password: true,
+    blocked: (r) => archivedOrder(r) ? 'Архивный договор защищён от удаления.' : '',
     text: (r) => `Удалить договор ${r.orderNo || ''} (${r.customer || 'без заказчика'})? Его позиции уйдут в корзину вместе с ним и вернутся при восстановлении. Заявки и брони останутся. Сорвавшийся заказ не удаляют: поставьте этап «Отменён», он останется в списке.`,
     run: (r) => api(`/salesorders/${r.id}`, { method: 'DELETE' }),
     restore: (r) => api(`/salesorders/${r.id}/restore`, { method: 'POST' }),

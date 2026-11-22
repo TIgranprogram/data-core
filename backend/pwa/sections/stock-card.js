@@ -1,4 +1,5 @@
 import { api } from '../core/api.js';
+import { stockPositionCode, stockPositionName } from '../core/stock-display.js';
 import { h } from '../core/dom.js';
 import { date, qty } from '../core/format.js';
 import { busyBtn, busyBlock, failBlock } from '../ui/kit/busy.js';
@@ -42,8 +43,8 @@ function recentMoves(r) {
 // шапка → «Что дальше» (одна главная кнопка по смыслу) → сведения → вкладки; остальные действия — в «⋯»
 export const stockCard = {
     ...screenCard({
-      title: (r) => r.name,
-      sub: (r) => [r.categoryName, r.supplierArticle && `арт. ${r.supplierArticle}`].filter(Boolean).join(' · '),
+      title: stockPositionName,
+      sub: (r) => [r.categoryName, stockPositionCode(r)].filter(Boolean).join(' · '),
       stage: (r) => badge(STOCK_STATUS, r.status),
       warns: (r) => [r.hangingQty > 0 && { tone: 'warn', title: `Висит в брони: ${qty(r.hangingQty)} ${unit(r)}`, sub: 'Заказ уже отгружен, закрыт или аннулирован, а материал всё ещё в брони.', label: 'Снять бронь', run: () => { openStockOp('unreserve', r.id); } }],
       next: (r) => {
@@ -67,7 +68,8 @@ export const stockCard = {
         ...metalView(r).filter(Boolean),
         ['Ед. изм.', r.unit],
         // АР.1: артикул поставщика и внутренний код — раздельно; СКЛ-… — не артикул
-        ['Артикул (поставщика)', r.supplierArticle ? h('span', null, r.supplierArticle, r.articleSource ? h('span', { class: 'muted' }, ` · из: ${r.articleSource}`) : null) : h('span', { class: 'muted' }, 'нет — впишите из счёта или заявки')],
+        ['Артикул (поставщика)', r.supplierArticle && r.supplierArticle !== r.pdmCode ? h('span', null, r.supplierArticle, r.articleSource ? h('span', { class: 'muted' }, ` · из: ${r.articleSource}`) : null) : h('span', { class: 'muted' }, 'нет — впишите из счёта или заявки')],
+        ['Код PDM', r.pdmCode],
         ['Внутр. код', r.internalCode ? h('span', { class: 'muted' }, r.internalCode) : ''],
         ['Вес 1 шт.', r.weightG ? `${qty(r.weightG)} г` : ''],
         ['Примечание', r.notes],

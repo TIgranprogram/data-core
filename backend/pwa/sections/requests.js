@@ -177,13 +177,13 @@ const fields = async (r) => {
     ...(r && !linked ? linkStockFields(r, { past: pastItems, onLinked: () => { pastCache = null; } }) : []),
     { key: 'materialId', type: 'hidden' }, { key: 'num', type: 'hidden' },
     linked
-      ? { key: '_stk_open', type: 'widget', label: 'Позиция склада', hint: 'Чтобы изменить название или реквизиты — откройте карточку позиции', widget: () => ({
+      ? { key: '_stk_open', type: 'widget', label: 'Номенклатура', hint: 'Название и реквизиты хранятся в каталоге', widget: () => ({
         el: h('div', { class: 'rq-stock-ref' },
           h('div', null, r.title || r.materialName || '—'),
-          h('a', { class: 'btn btn-ghost btn-sm', href: '#stock?open=' + r.materialId }, 'Открыть карточку позиции')),
+          session.sees('suppliercatalog') ? h('a', { class: 'btn btn-ghost btn-sm', href: '#suppliercatalog?open=m:' + r.materialId }, 'Открыть в каталоге') : null),
         get value() { return ''; }, set value(_) { /* только показ */ },
       }), span: 3 }
-      : { key: 'title', mount: wireFill, label: 'Название', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Уже заказывали / есть на складе — выберите, чтобы не завести дубль', hint: r ? undefined : 'Начните печатать — появятся ранее заказанные позиции', span: 3 },
+      : { key: 'title', mount: wireFill, label: 'Название', required: true, max: 500, suggest: r ? undefined : pastItems, suggestTitle: 'Выбрать из каталога или прошлых заявок', hint: r ? undefined : 'Новая позиция сохранится в каталоге даже без поставщика', span: 3 },
     linked ? fromStock('Артикул', r.article) : { key: 'article', label: 'Артикул', max: 100, span: 1 },
     { key: 'qty', label: 'Количество', type: 'number', required: true, min: 0, span: 1 },
     linked && r.unit ? fromStock('Единица', r.unit) : { key: 'unit', label: 'Единица', type: 'combo', options: unitList(lk), max: 30, span: 1 },

@@ -1,3 +1,4 @@
+import { STOCK } from './atlas-stock.js';
 import { SERVER_GUIDE } from './help-guide-data.js';
 // Данные «Карты сайта» (#atlas): слои сверху вниз, блоки-разделы, связи между ними и «что внутри» каждого блока.
 // Карта — общая шпаргалка для менеджеров и для ИИ: правите устройство сайта — правьте и здесь (связи, «внутри», docs).
@@ -7,9 +8,9 @@ import { SERVER_GUIDE } from './help-guide-data.js';
 /** Слои сверху вниз: путь заказа от клиента до денег. */
 export const BANDS = [
   { id: 'sale', name: 'Клиенты и продажи', hint: 'кто покупает и что', tok: 'orders' },
-  { id: 'prod', name: 'Продукция', hint: 'изделие, модуль, деталь', tok: 'products' },
+  { id: 'prod', name: 'Каталог изделий', hint: 'Что делаем: изделия, модули и детали', tok: 'products' },
   { id: 'paper', name: 'Проектирование и документы', hint: 'проектирование изделий и выпуск паспортов', tok: 'products' },
-  { id: 'make', name: 'Производство', hint: 'кто и когда делает', tok: 'products' },
+  { id: 'make', name: 'Производство', hint: 'Кто и когда выполняет заказ', tok: 'products' },
   { id: 'supply', name: 'Снабжение и заявки', hint: 'расчёт закупки, заявки поставщикам и приёмка', tok: 'supply' },
   { id: 'stock', name: 'Склад', hint: 'что лежит и куда ушло', tok: 'stock' },
   { id: 'after', name: 'Отгрузка и сервис', hint: 'довезти, смонтировать, гарантия', tok: 'orders' },
@@ -33,7 +34,7 @@ export const BANDS = [
 export const NODES = [
   { id: 'fill', tpl: 'queue', tplStatus: 'ok', band: 'quality', col: 0, sec: 'fill', t: 'Требуют заполнения', l: ['неизвестные сведения', 'и пометки менеджеру'],
     inside: [
-      { id: 'utochneniya-dokumentov', t: 'Уточнения договоров и КП', l: 'открыть документ, заполнить известное и проверить пометки', in: ['offers', 'salesorders'] },
+      { id: 'utochneniya-dokumentov', t: 'Уточнения договоров и КП', l: 'открыть документ, заполнить известное и проверить пометки', in: ['offers', 'customercontract', 'salesorders'] },
       { id: 'nedostayuschie-dannye', t: 'Недостающие сведения', l: 'поля записей, реквизиты в карточке связанного счёта и оплаты без даты', in: ['money', 'requests'] },
     ],
     rules: ['Неизвестные даты, адреса и связи остаются пустыми до уточнения.', 'Подтверждение оплаты без даты не создаёт датированную денежную операцию.'],
@@ -42,7 +43,7 @@ export const NODES = [
   // ── Клиенты и продажи
   { id: 'partners', tpl: 'card', tplStatus: 'ok', band: 'sale', col: 0, sec: 'partners', href: '#partners', t: 'Контрагенты', l: ['заказчики, поставщики,', 'наши фирмы'],
     inside: [
-      { id: 'zakazchiki', t: 'Заказчики', l: 'кому продаём: реквизиты, контакты', out: ['offers', 'salesorders'] },
+      { id: 'zakazchiki', t: 'Заказчики', l: 'кому продаём: реквизиты, контакты', out: ['offers', 'customercontract', 'salesorders'] },
       { id: 'nashi-firmy', t: 'Наши фирмы', l: 'от чьего имени КП, счёт, паспорт; «Изменить» — в «⋯» шапки карточки', out: ['offers'] },
       { id: 'postavschiki', t: 'Поставщики', l: 'у кого покупаем: счета, договоры', out: ['requests'] },
       { id: 'kontakty-i-ploschadki', t: 'Контакты и площадки', l: 'люди и адреса контрагента' },
@@ -53,19 +54,31 @@ export const NODES = [
   { id: 'offers', tpl: 'list', tplStatus: 'legacy', band: 'sale', col: 1, sec: 'offers', t: 'КП', l: ['подбор изделий, цена', 'с наценкой, PDF'],
     seq: true, inside: [
       { id: 'zakazchik-i-firma', t: 'Заказчик и фирма', l: 'из контрагентов', in: ['partners'] },
-      { id: 'pozicii-kp', t: 'Позиции КП', l: 'исходные строки или изделия каталога; непонятное сопоставляет менеджер позже', in: ['products'] },
+      { id: 'pozicii-kp', t: 'Позиции КП', l: 'исходные строки или изделия каталога; непонятное сопоставляет менеджер позже', in: ['products'], out: ['salesorders'] },
       { id: 'cena-i-nacenka', t: 'Цена и наценка', l: 'исходная и согласованная сумма различаются; исключённая строка сохраняется в истории' },
-      { id: 'istoriya-kp', t: 'История и оригиналы', l: 'дата исходного КП, оригинал PDF, редакции и пометки менеджеру; связь с существующим договором', out: ['salesorders', 'fill'] },
-      { id: 'pdf', t: 'PDF', l: 'бланк нашей фирмы', out: ['salesorders'] },
+      { id: 'istoriya-kp', t: 'История и оригиналы', l: 'дата исходного КП, оригинал PDF, редакции и пометки менеджеру; связь с существующим договором', out: ['customercontract', 'fill'] },
+      { id: 'pdf', t: 'PDF', l: 'бланк нашей фирмы', out: ['customercontract'] },
       { id: 'kp-po-shagam', t: 'КП по шагам', l: 'тот же путь мастером: заказчик → изделия → цвет', alt: true },
       { id: 'razobrat-zayavku-ii', t: 'Разобрать заявку (ИИ)', l: 'текст заказчика → строки КП с подбором', alt: true, plan: 'C092' },
     ],
     rules: ['КП не меняет изделие: цена в КП — своя, у изделия — базовая.', 'Исключённая строка не входит в согласованную сумму, исходный состав остаётся в истории.', 'Исходное КП и связанный договор не создают два денежных поступления.'],
     docs: ['docs/PRODUCT.md — «КП»', 'docs/MAP.md — offers'], tech: 'offers',
     code: ['backend/src/modules/offers', 'backend/pwa/sections/offers.js', 'backend/pwa/sections/offer-source.js', 'backend/pwa/sections/sales-legal.js', 'backend/pwa/sections/offers/', 'backend/pwa/sections/kp.js'] },
-  { id: 'salesorders', tpl: 'board', tplStatus: 'ok', band: 'sale', col: 2, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
+  { id: 'customercontract', tpl: 'list', tplStatus: 'ok', band: 'sale', col: 2, sec: null,
+    href: '#salesorders?view=table', where: 'Заказы → Договоры без заказа или карточка конкретного заказа',
+    t: 'Договор заказчика', l: ['что подписали:', 'оригинал, условия, сроки и позиции'],
+    inside: [
+      { id: 'original', t: 'Оригинал и приложения', l: 'загрузить подписанный договор и приложить действующие документы; без КП договор тоже сохраняется', in: ['partners', 'offers'] },
+      { id: 'terms', t: 'Условия и сроки', l: 'сверить по тексту поставку, монтаж, дату или событие отсчёта; неизвестное оставить на уточнение', out: ['fill'] },
+      { id: 'lines', t: 'Позиции договора', l: 'согласованное наименование, количество, цена и сопоставление с изделием', in: ['offers'], out: ['matching'] },
+      { id: 'production', t: 'Назначить заказ', l: 'один или несколько договоров объединяются в заказ производства под одним номером', out: ['salesorders'] },
+    ],
+    rules: ['КП даёт перечень и цены для сверки. Обязательства подтверждают по подписанному договору и действующим приложениям.', 'Срок от события требует подтверждённого события и точного правила подсчёта.'],
+    docs: ['docs/crew/C196-contract-atlas/TZ.md', 'docs/PRODUCT.md — «Заказы»', 'docs/MAP.md — salesorders'],
+    tech: 'salesorders, incomes', code: ['backend/src/modules/salesorders', 'backend/pwa/sections/sales-legal.js', 'backend/pwa/sections/salesorders-unassigned.js'] },
+  { id: 'salesorders', tpl: 'board', tplStatus: 'ok', band: 'sale', col: 3, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
     seq: true, inside: [
-      { id: 'zakaz-i-dogovory', t: 'Заказ и договоры', l: 'договор можно сохранить без заказа; позже менеджер объединит несколько договоров в один заказ', in: ['partners', 'offers'] },
+      { id: 'zakaz-i-dogovory', t: 'Договоры в заказе', l: 'менеджер включает один или несколько договоров в заказ под одним номером производства', in: ['customercontract', 'partners', 'offers'] },
       { id: 'komplekt-dogovora', t: 'Комплект договора', l: 'оригинал, исходящий счёт и план оплаты связаны с договором; неизвестное пустым и пометка «Требует заполнения»', out: ['fill'] },
       { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга; таблица всегда первой, пустая — кнопка «+ Позиция» (так же в окне договора, блок «Позиции»); в карточке позиции «Выбрать изделие» или «⋯ → Сменить изделие»: найдите по фото, названию или артикулу, подтвердите привязку; в раскрытии строки — «Вложения»: папки, файл скачать, перетащить или загрузить; «Документы» — паспорт точной позиции заказа: шаблон изделия, образец без номера и отдельный выпуск; существующий паспорт открывается по своему id, старый образец только просматривается/печатается', in: ['products', 'matching'], out: ['matching'] },
       { id: 'raspredelenie', t: 'Распределение', l: 'все позиции распределены — задачи проектирования создаются сами', out: ['design'] },
@@ -74,6 +87,7 @@ export const NODES = [
       { id: 'ves-zakaz', t: 'Весь заказ (подвал)', l: 'галочки у позиций; внизу — паспорта, печать, отгрузить, PDF и вложения: для всех или отмеченных' },
       { id: 'otgruzka', t: 'Отгрузка', l: 'предлагаются изготовленные; не весь остаток — с причиной', out: ['shiporder', 'shipping'] },
       { id: 'raschety', t: 'Расчёты', l: 'оплаты заказчика по заказу', out: ['money'] },
+      { id: 'archiv', t: 'Архив договора', l: 'После исполнения и полной оплаты каждой позиции закройте договор и зафиксируйте комплект. История хранит версии и файлы. Возобновление с причиной доступно администратору.' },
       { id: 'kandidaty-v-katalog', t: 'Позиции для добавления в каталог', l: 'в каталоге команда «Из заказов» показывает кандидатов и создаёт отмеченные изделия по подтверждению', out: ['products'] },
     ],
     rules: ['Для строк из юридических документов автоматическое создание изделий и проектных задач отключено; сначала ручное сопоставление.', 'Задачи проектирования обычных заказов создаются только после распределения.', 'Позиция связывает изделие, количество, срок и работу.', 'Изменение заказа не переписывает выпущенный паспорт.', '«В производство» недоступно, пока есть нераспределённые позиции.'],
@@ -89,9 +103,9 @@ export const NODES = [
     docs: ['docs/PRODUCT.md — «Договоры»'], tech: 'contracts',
     code: ['backend/src/modules/supply', 'backend/pwa/sections/contracts.js'] },
 
-  { id: 'matching', tpl: 'queue', tplStatus: 'legacy', band: 'sale', col: 3, sec: null, href: '#salesorders?view=table', where: 'Заказы → «Несопоставленные» в шапке', t: 'Сопоставление', l: ['позиция заказа ↔', 'изделие из каталога'],
+  { id: 'matching', tpl: 'queue', tplStatus: 'legacy', band: 'quality', col: 1, sec: null, href: '#salesorders?view=table', where: 'Заказы → «Несопоставленные» в шапке', t: 'Сопоставление', l: ['позиция заказа ↔', 'изделие из каталога'],
     seq: true, inside: [
-      { id: 'nesopostavlennye', t: 'Несопоставленные', l: 'позиции заказов без изделия', in: ['salesorders'] },
+      { id: 'nesopostavlennye', t: 'Несопоставленные', l: 'позиции договора без изделия', in: ['customercontract', 'salesorders'] },
       { id: 'podbor', t: 'Подбор', l: 'похожие изделия или «Выбрать из каталога»: поиск, раздел, группа, серия и фото с увеличением', in: ['products'] },
       { id: 'podtverdit', t: 'Подтвердить', l: 'изделие закрепляется за позицией', out: ['salesorders'] },
     ],
@@ -140,23 +154,23 @@ export const NODES = [
   { id: 'modules', tpl: 'card', tplStatus: 'ok', band: 'prod', col: 2, sec: 'modules', t: 'Модуль (сборка)', l: ['сборка из деталей и покупных позиций', 'может входить в изделие или другой модуль'],
     productMap: true,
     inside: [
-      { id: 'mod-kartochka', t: 'Карточка', l: 'обозначение, название, фото, категория из «Справочники → Категории модулей»', out: ['products'] },
+      { id: 'mod-kartochka', t: 'Карточка', l: 'обозначение, категория, фото и «Где используется»: прямые вхождения в изделия и другие модули с количеством', out: ['products'] },
       { id: 'mod-sostav', t: 'Состав сборки', l: 'Детали, покупные позиции, сырьё и вложенные модули с количеством. Состав используется в изделии и в расчёте закупки.', in: ['parts'], out: ['products', 'needs'] },
       { id: 'mod-raboty', t: 'Работы', l: 'часы и дни на модуль', out: ['work'] },
     ],
     rules: ['Модуль = сборка (productmodules). В меню — после «Продукция», до «Детали».', 'Состав модуля раскрывается в изделии «по цепочке».'],
     docs: ['docs/PRODUCT.md — словарь состава', 'docs/MAP.md — product-module'], tech: 'productmodules',
-    code: ['backend/src/modules/product-module', 'backend/pwa/sections/modules.js', 'backend/pwa/sections/comp-editor.js'] },
+    code: ['backend/src/modules/product-module', 'backend/pwa/sections/modules.js', 'backend/pwa/sections/comp-editor.js', 'backend/pwa/sections/catalog-entry-blocks.js'] },
   { id: 'parts', tpl: 'card', tplStatus: 'ok', band: 'prod', col: 3, sec: 'parts', t: 'Деталь', l: ['изготавливаем из сырья', 'входит в модуль или прямо в изделие'],
     productMap: true,
     inside: [
-      { id: 'part-kartochka', t: 'Карточка', l: 'обозначение, категория, заготовка, материал', out: ['modules', 'products'] },
+      { id: 'part-kartochka', t: 'Карточка', l: 'обозначение, категория, фото, заготовка и «Где используется»: модули и прямые вхождения в изделия с количеством', out: ['modules', 'products'] },
       { id: 'part-sostav', t: 'Из чего', l: 'только сырьё (сортамент + материал + размер заготовки)', in: ['suppliercatalog'] },
       { id: 'part-raboty', t: 'Работы', l: 'виды работ детали (C122)', out: ['work'] },
     ],
     rules: ['Деталь = materials с materialKind part. В меню — после «Модули».', 'Не путать с «частями» паспорта (стойка, перекладина) — это другое слово.'],
     docs: ['docs/PRODUCT.md — словарь состава', 'docs/MAP.md — material'], tech: 'materials',
-    code: ['backend/src/modules/material', 'backend/pwa/sections/parts.js', 'backend/pwa/sections/comp-editor.js', 'backend/pwa/sections/part-work.js'] },
+    code: ['backend/src/modules/material', 'backend/pwa/sections/parts.js', 'backend/pwa/sections/comp-editor.js', 'backend/pwa/sections/part-work.js', 'backend/pwa/sections/catalog-entry-blocks.js'] },
   { id: 'design', tpl: 'board', tplStatus: 'legacy', band: 'paper', col: 0, sec: 'design', t: 'Проектирование', l: ['новые изделия', 'из заказов'],
     seq: true, inside: [
       { id: 'na-raspredelenii', t: 'На распределении', l: 'появляется, когда все позиции заказа распределены', in: ['salesorders'] },
@@ -167,7 +181,7 @@ export const NODES = [
     rules: ['Пока задача не закрыта, заказ нельзя отправить «В производство».'],
     docs: ['docs/PRODUCT.md — «Проектирование»', 'docs/MAP.md — design, product-requests'], tech: 'designtasks, productrequests',
     code: ['backend/src/modules/design', 'backend/src/modules/product-requests', 'backend/pwa/sections/design.js', 'backend/pwa/sections/design-requests.js'] },
-  { id: 'docs', tpl: 'queue', tplStatus: 'legacy', band: 'paper', col: 1, sec: 'docs', t: 'Документация', l: ['паспорта: черновик →', 'выпуск PDF, редакции'],
+  { id: 'docs', tpl: 'queue', tplStatus: 'legacy', band: 'paper', col: 1, sec: 'docs', t: 'Документация', l: ['паспорта, акты, реестры', 'выпуск, печать и передача'],
     seq: true, inside: [
       { id: 'ochered', t: 'Очередь', l: '«К выпуску» по заказам', in: ['salesorders'] },
       { id: 'chernovik', t: 'Черновик', l: 'новый экземпляр из шаблона изделия: фирма нужна при выпуске; образец и правка шаблона без фирмы, заказа и номера; повтор запроса не создаёт дубль', in: ['products'] },
@@ -178,11 +192,13 @@ export const NODES = [
       { id: 'vypusk-pdf', t: 'Выпуск PDF', l: 'текст и рисунки фиксируются', out: ['warranty'] },
       { id: 'pasporta-zakaza', t: 'Паспорта заказа', l: 'готовность различает выпущенные, вложенные, готовые к выпуску и требующие заполнения; фото изделия в строке; отменённые позиции — отдельно', alt: true },
       { id: 'vlozhennyi-pasport', t: 'Вложенный паспорт', l: 'позиция заказа → выбрать конкретный доступный файл → подтвердить «Использовать как паспорт»; отметка сохраняется только у позиции. Такой паспорт скачивается отдельно и исключён из выпуска и PDF сайта; потерянный файл не считается готовым. Можно вернуться к паспорту сайта без удаления истории', in: ['salesorders', 'products'], alt: true },
+      { id: 'akty-dogovora', t: 'Акты', l: 'Акты и УПД из договоров. Строка раскрывает оригинал и ссылку на договор по правам. В закрытом договоре открывается архивная копия.', in: ['salesorders'], alt: true },
+      { id: 'reestr-pasportov', t: 'Реестры', l: 'Комплект паспортов по заказу: позиции, готовность, печать отдельного реестра и история передачи.', in: ['salesorders'], alt: true },
       { id: 'pasporta-v-katalog', t: 'Паспорта для добавления в каталог', l: 'в каталоге команда «Из паспортов» создаёт выбранные изделия и привязывает исходные паспорта', out: ['products'], alt: true },
     ],
     rules: ['Без типа паспорта PDF не выпускается.', 'Одна позиция заказа — один паспорт и один номер: правка и смена фирмы номер не меняют.'],
     docs: ['docs/DOCUMENT-AUTOFILL-MAP.md', 'docs/PATTERNS.md — П-1 все документы', 'docs/crew/C155-passport-owner-queue/CONTRACT.md', 'docs/PASSPORTS-V2.md', 'docs/crew/C096-passport-system-audit/', 'docs/MAP.md — product-passport'], tech: 'productpassports, passporttemplates',
-    code: ['backend/src/modules/product-passport', 'backend/pwa/sections/passports.js', 'backend/pwa/sections/passports/', 'backend/pwa/sections/docs.js', 'backend/pwa/sections/docs-queue.js', 'backend/pwa/sections/order-passport-plan.js', 'backend/pwa/sections/passport-source-picker.js'] },
+    code: ['backend/src/modules/product-passport', 'backend/pwa/sections/passports.js', 'backend/pwa/sections/passports/', 'backend/pwa/sections/docs.js', 'backend/pwa/sections/docs-queue.js', 'backend/pwa/sections/docs-records-view.js', 'backend/pwa/sections/docs-registries.js', 'backend/src/modules/salesorders/order-acts.controller.ts', 'backend/pwa/sections/order-passport-plan.js', 'backend/pwa/sections/passport-source-picker.js'] },
 
   // ── Производство
   { id: 'staff', tpl: 'dict', tplStatus: 'legacy', band: 'make', col: 0, sec: 'staff', t: 'Сотрудники', l: ['роли, зоны,', 'ставки, доступ'],
@@ -272,20 +288,7 @@ export const NODES = [
     rules: ['Это те же остатки — просто другой экран.'],
     docs: ['docs/DESIGN-MOBILE.md'], tech: 'storageitems, stockmovements',
     code: ['backend/pwa/sections/stock-mobile.js', 'backend/pwa/sections/warehouse-mobile.js'] },
-  { id: 'stock', tpl: 'card', tplStatus: 'ok', band: 'stock', col: 2, sec: 'stock', t: 'Остатки', l: ['где и сколько лежит,', 'приём, бронь, выдача'],
-    seq: true, inside: [
-      { id: 'priem', t: 'Приём', l: 'из заявки, с телефона или вручную', in: ['requests', 'stockmobile'] },
-      { id: 'pozicii-po-polkam', t: 'Позиции по полкам', l: 'категория → тип → позиция', out: ['needs', 'movements', 'shortage', 'shipping'] },
-      { id: 'bron', t: 'Бронь', l: 'держит материал за позицией заказа' },
-      { id: 'vydacha', t: 'Выдача', l: 'в работу по брони или заданию', out: ['work'] },
-      { id: 'zony-sklada', t: 'Зоны склада', l: 'кто за какую зону отвечает', alt: true },
-      { id: 'bron-po-sostavu', t: 'Бронь по составу', l: 'одна кнопка в позиции заказа', alt: true, plan: 'C068-4', in: ['products'] },
-      { id: 'ekran-truboreza', t: 'Экран «Труборез»', l: 'рабочая сетка остатков заготовок для соответствующей роли', href: '#stock?view=pipe', alt: true },
-      { id: 'ekran-lazera', t: 'Экран «Лазер лист»', l: 'рабочая сетка остатков листового металла для соответствующей роли', href: '#stock?view=sheet', alt: true },
-    ],
-    rules: ['Приём, выдача и пересчёт меняют остаток; всё видно в журнале.', 'Количество — только операцией, не правкой карточки.'],
-    docs: ['docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/MAP.md — stock, stock-zones'], tech: 'storageitems, reservations, warehouses (общие с CRM)',
-    code: ['backend/src/modules/stock', 'backend/src/modules/stock-zones', 'backend/pwa/sections/stock.js', 'backend/pwa/sections/reservations.js'] },
+  STOCK,
   { id: 'movements', tpl: 'list', tplStatus: 'ok', band: 'stock', col: 3, sec: 'movements', t: 'Журнал движений', l: ['каждый приход', 'и каждая выдача'],
     seq: true, inside: [
       { id: 'zapis-operacii', t: 'Запись операции', l: 'кто, что, сколько, когда', in: ['stock'] },
@@ -294,7 +297,6 @@ export const NODES = [
     rules: ['Записи не удаляются — только исправляются.'],
     docs: ['docs/MAP.md — stock'], tech: 'stockmovements (общая с CRM)',
     code: ['backend/src/modules/stock', 'backend/pwa/sections/movements.js'] },
-
   { id: 'shortage', tpl: 'queue', tplStatus: 'plan', band: 'stock', col: 1, sec: null, plan: 'C048-8', t: 'Не хватает под заказы', l: ['состав заказов в работе', '− свободный остаток'],
     seq: true, inside: [
       { id: 'potrebnost-zakazov', t: 'Потребность заказов', l: 'состав позиций в работе × количество', in: ['salesorders'] },

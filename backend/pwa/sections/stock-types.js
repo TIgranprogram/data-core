@@ -1,5 +1,5 @@
-import { stockList } from '../core/stock-list.js';
-import { typeGroups } from '../core/facets.js';
+import { heldStockList } from '../core/stock-list.js';
+import { index, typeGroups } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { plural } from '../core/format.js';
 import { busyBlock, button, card, failBlock, hint, landing, stack, tileGrid, typeArt } from '../ui/kit/index.js';
@@ -12,12 +12,12 @@ const nPos = (n) => `${n} ${plural(n, 'позиция', 'позиции', 'по�
 const art = (t, cat) => { const el = h('span'); el.innerHTML = typeArt(t, cat); return el; }; // свой статичный SVG, данных пользователя нет
 
 /** typeTiles({ categoryId, categoryName, onPick(type) }) → { el, load } — el кладётся в тело раскрывающейся плитки, load() вызывают при раскрытии. */
-export function typeTiles({ categoryId, categoryName, onPick }) {
+export function typeTiles({ categoryId, categoryName, zoneId, onPick }) {
   const el = h('div', null, hint('Загружаю типы…'));
   async function load() {
     el.replaceChildren(busyBlock('типы'));
     try {
-      const items = (await stockList()).filter((it) => it.categoryId === categoryId);
+      const items = index(await heldStockList(zoneId), { stockSearch: true }).filter((it) => it.categoryId === categoryId);
       const groups = typeGroups(items);
       // C043: плитки типов в раскрытой категории — компактные (рисунок 28 px, название в одну строку): все типы видны без прокрутки
       const tile = (t) => card({ size: 'S', artCover: true, compact: true, art: art(t.label, categoryName), title: t.label, meta: nPos(t.count), onClick: () => onPick(t.id) });
@@ -37,8 +37,8 @@ export function typeTiles({ categoryId, categoryName, onPick }) {
 }
 
 /** Поля expand/onToggle для card S категории: раскрыли — плитки типов; «Вся категория →» и плитка типа вызывают onPick('' | тип). */
-export function typeExpand({ categoryId, categoryName, onPick }) {
-  const tt = typeTiles({ categoryId, categoryName, onPick });
+export function typeExpand({ categoryId, categoryName, zoneId, onPick }) {
+  const tt = typeTiles({ categoryId, categoryName, zoneId, onPick });
   let loaded = false;
   return {
     expand: { title: 'Типы: ' + categoryName, action: button({ label: 'Вся категория →', kind: 'ghost', size: 'S', onClick: () => onPick('') }), body: tt.el },

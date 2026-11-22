@@ -3,7 +3,9 @@ import { h } from '../core/dom.js';
 import { money } from '../core/format.js';
 import { modal, stack, table, guide, hint } from '../ui/kit/index.js';
 
-export function compareCatalogRows(rows) {
+import { catalogStockLinksAction } from './stock-duplicate-preview.js';
+
+export async function compareCatalogRows(rows) {
   if (rows.length !== 2) return;
   const fields = [
     ['Название', (r) => r.name],

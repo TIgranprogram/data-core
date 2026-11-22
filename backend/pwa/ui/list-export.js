@@ -17,9 +17,10 @@ const asNumber = (s) => {
 export async function exportList({ title, path, columns, query, sort }, btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Готовлю…'; }
   try {
+    const filters = await query;
     const rows = [];
     for (let page = 1; rows.length < MAX; page++) {
-      const r = await api(path, { query: { ...query, page, limit: 500, sort } });
+      const r = await api(path, { query: { ...filters, page, limit: 500, sort } });
       rows.push(...r.items);
       if (!r.items.length || rows.length >= (r.total ?? 0) || r.items.length < (r.limit || 500)) break;
     }

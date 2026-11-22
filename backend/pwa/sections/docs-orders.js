@@ -105,7 +105,7 @@ export function mountOrdersTab(params, { onChanged } = {}) {
       g.notReady ? h('span', { title: READINESS.notReady.hint }, badge(`не готовы: ${g.notReady}`, 'dim')) : null);
     // C111 Ш4: печать всего заказа и панель — справа в заголовке, вне кнопки раскрытия (клик не сворачивает группу)
     const issuedN = (g.items || []).filter((p) => statusOf(p) === 'issued').length;
-    const acts = g.orderId ? actions(printOrderButton(g.orderId, { issued: issuedN }), canChange() ? orderPassportsButton(g.orderId) : null) : null;
+    const acts = g.orderId ? actions(button({ label: 'Реестр паспортов', size: 'S', onClick: () => go('docs', { tab: 'registries', registryState: 'all', registryOrder: g.orderId }) }), printOrderButton(g.orderId, { issued: issuedN }), canChange() ? orderPassportsButton(g.orderId) : null) : null;
     return h('section', { class: 'do-group' }, acts ? headbar(head, acts, { inset: true }) : head,
       isOpen ? h('div', { class: 'do-body' }, h('div', { class: 'section-title' }, `Паспорта (${g.total})`), ...subgroups(g)) : null,
       isOpen && g.orderId ? h('div', { class: 'do-foot' }, h('a', { href: '#salesorders?open=' + g.orderId }, 'Открыть заказ →')) : null);

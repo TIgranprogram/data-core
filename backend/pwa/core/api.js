@@ -1,3 +1,4 @@
+import { canOpen, mobileOnly } from './route-access.js';
 import { isBackgroundPath, newKey, withWriteRetry } from './write-retry.js';
 import { applyView, canViewAsUser, clearViewAsStore, viewAsActive, VIEW_AS_BLOCK } from './view-as.js';
 import { errorContext, reportableHttpError } from './error-context.js';
@@ -44,23 +45,9 @@ export const session = {
   get name() { const u = this.user; return u?.displayName || u?.username || ''; },
   /** SK-8b: виден ли раздел меню по галочкам роли (user.sections; нет списка — всё как раньше; «Сегодня» и админ — всегда).
    *  Сессия хранится в localStorage — без связи работает по последнему входу / /auth/me. */
-  sees(id) {
-    if (id === 'expenses') id = 'money'; // «Прочие расходы» видны там же, где «Деньги»
-    if (id === 'workschedule') id = 'work'; // Гант виден там же, где «В работе»
-    if (id === 'contracts') id = 'requests'; // «Договоры» видны там же, где «Заявки»
-    // «Модули» и «Детали» — та же галочка, что «Продукция»; запись на сервере только у менеджера и админа
-    if (id === 'modules' || id === 'parts') {
-      if (!['admin', 'director', 'manager'].includes(this.role) && this.user?.isOwner !== true) return false;
-      id = 'products';
-    }
-    if (id === 'staff') return this.role === 'admin' || this.role === 'director' || this.user?.isOwner === true; // «Управление → Сотрудники»: только руководство
-    const u = this.user, s = u?.sections;
-    // «Документация» (docs) видна и ролям со старой галочкой «паспорта» — миграция ролей не нужна
-    // «Склад (телефон)» — только явная галочка в sections (onlyStockMobile ниже не трогаем)
-    return id === 'home' || !Array.isArray(s) || this.role === 'admin' || s.includes(id) || (id === 'docs' && s.includes('passports'));
-  },
-  /** Роль «Ассистент кладовщика»: отмечен только раздел «Склад (телефон)» — меню и шапка скрыты, сразу эта страница. */
-  get onlyStockMobile() { const s = this.user?.sections; return this.role !== 'admin' && Array.isArray(s) && s.length === 1 && s[0] === 'stock-mobile'; },
+  sees(id) { return canOpen(this, id); },
+  /** Ассистент кладовщика открывает единственный мобильный экран. */
+  get onlyStockMobile() { return mobileOnly(this.user); },
   /** Раздел «Документация» (паспорта, шаблоны, архив) открыт этой роли. */
   seesDocs() { return this.sees('docs'); },
 };

@@ -7,9 +7,9 @@ import { NODES, LINKS } from './atlas-data.js';
 import { atlasBrief } from './atlas-brief.js';
 import { byId, nameOf, hrefOf, planLabel } from './atlas-util.js';
 
-function partList(parts, ordered = false) {
+function partList(parts, ordered, visible) {
   const relation = (label, ids) => ids?.length
-    ? h('div', null, h('b', null, label), h('div', null, ids.map((id) => nameOf(byId.get(id))).join(', ')))
+    ? h('div', null, h('b', null, label), h('div', null, ids.filter(id => visible.has(id)).map((id) => nameOf(byId.get(id))).join(', ')))
     : null;
   return h(ordered ? 'ol' : 'ul', { class: 'g-detail-parts', role: ordered ? null : 'list' }, parts.map((part) =>
     h('li', null, guide.cat({
@@ -35,10 +35,11 @@ function relationList(title, entries, open) {
     })));
 }
 
-function blockDetails(n, open) {
-  const parts = n.inside || [];
+function blockDetails(n, open, visible) {
+  const parts = (n.inside || []).filter(part => visible.has(n.id + '.' + part.id));
   const incoming = [], outgoing = [];
   for (const [from, to, what] of LINKS) {
+    if (!visible.has(from) || !visible.has(to)) continue;
     if (to === n.id) incoming.push([from, what]);
     if (from === n.id) outgoing.push([to, what]);
   }
@@ -46,9 +47,9 @@ function blockDetails(n, open) {
   return h('div', { class: 'g-detail' }, h('div', { class: 'g-detail-grid' },
     parts.length ? h('section', { class: 'g-detail-section g-detail-main' },
       h('h2', null, n.seq ? 'Шаги по порядку' : 'Что внутри'),
-      primary.length ? partList(primary, n.seq) : null,
+      primary.length ? partList(primary, n.seq, visible) : null,
       extra.length ? h('h3', null, 'Ещё в разделе') : null,
-      extra.length ? partList(extra) : null) : null,
+      extra.length ? partList(extra, false, visible) : null) : null,
     relationList('Откуда поступают данные', incoming, open),
     relationList('Куда передаются', outgoing, open)));
 }
@@ -59,13 +60,13 @@ function scenarioNode(sc) {
   return (NODES.find((m) => !m.plan && baseHref(hrefOf(m)) === baseHref(sc.href)) || NODES.find((m) => m.sec === sc.sec))?.id;
 }
 
-export function detail(n, open, back, close) {
+export function detail(n, open, back, close, visible, follows) {
   const sec = n.sec ? SECTIONS[n.sec] : null, href = hrefOf(n);
   const what = sec?.what || n.l.join(' ');
   const go = n.plan ? h('span', { class: 'muted small' }, n.plan === 'идея' ? 'На сайте нет — это идея' : 'На сайте пока нет — в разработке')
     : href ? button({ label: `Открыть раздел «${nameOf(n)}»`, kind: 'primary', onClick: () => { close(); location.hash = href; } })
       : h('span', { class: 'muted small' }, `Где найти: ${n.where || 'из карточек и поиска'}`);
-  const wants = SCENARIOS.filter((sc) => scenarioNode(sc) === n.id);
+  const wants = SCENARIOS.filter((sc) => scenarioNode(sc) === n.id && (!sc.href || follows(sc.href)));
   // для ИИ и для коллег: сводка блока текстом (та же, что `dc atlas <блок>`) и ссылка, открывающая это окно
   const copy = async (text, ok) => { try { await navigator.clipboard.writeText(text); toast(ok); } catch { toast('Не удалось скопировать — браузер не дал доступ к буферу', { error: true }); } };
   const link = `${location.origin}${location.pathname}#atlas?n=${n.id}`;
@@ -79,7 +80,7 @@ export function detail(n, open, back, close) {
       : { label: 'В разработке', text: 'Раздела пока нет на сайте. Ниже — как он задуман.', tone: 'warn' }) : null,
     h('p', null, what),
     href && n.where ? h('p', { class: 'muted small' }, n.where) : null,
-    blockDetails(n, open),
+    blockDetails(n, open, visible),
     // «Я хочу…» — частые задачи этого раздела (бывший общий блок «С чего начать?», 2026-11-12)
     wants.length ? h('section', null, h('h3', null, 'Частые задачи'), h('div', { class: 'g-wants' }, ...wants.map((sc) => guide.want({ tok: sc.tok, want: sc.want, menu: sc.menu, href: sc.href, start: sc.start })))) : null,
     n.productMap ? productMapCat() : null, // памятка о редактировании продукции
