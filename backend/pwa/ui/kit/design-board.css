@@ -113,22 +113,6 @@ body > .drag-ghost:is(.design-side-line, .design-board-task) { --drag-rotation: 
 .filter-layout:has(.design-board-layout) > .filter-tools .chip { height: var(--control-height); margin: 0; }
 .filter-layout:has(.design-board-layout):has(.filter-tools > .chips) .list-panel.compact:not(:has(> :not([hidden]))) { display: none; }
 
-@media (min-width: 1101px) {
-  .main:has(.design-board-layout):has(.filter-tools > .chips) > [data-development-mode] {
-    width: fit-content;
-    max-width: calc(100% - 2 * var(--gutter));
-    margin: var(--s2) var(--gutter) 0;
-    padding: var(--s1) var(--s3);
-    align-items: center;
-  }
-  .main:has(.design-board-layout):has(.filter-tools > .chips) > [data-development-mode] .ntf-body {
-    flex-flow: row wrap;
-    align-items: baseline;
-    column-gap: var(--s3);
-    padding: 0;
-  }
-}
-
 @media (max-width: 720px) {
   .design-board-layout { grid-template-columns: minmax(0, 1fr); }
   .design-board-area > .design-board { grid-auto-columns: 85vw; }

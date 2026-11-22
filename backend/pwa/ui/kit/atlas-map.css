@@ -1,7 +1,7 @@
 /* Полноэкранная карта использует обычное меню и верхнюю строку приложения. */
 .main:has(> .page > .atlas-canvas-page) { height: 100dvh; min-height: 0; }
 .main:has(> .page > .atlas-canvas-page) > :not(.page) { flex-shrink: 0; }
-.main:has(> .page > .atlas-canvas-page) > :is(.crumbs, [data-development-mode]) { display: none; }
+.main:has(> .page > .atlas-canvas-page) > .crumbs { display: none; }
 .page:has(> .atlas-canvas-page) { flex: 1; min-height: 0; max-inline-size: none; padding: 0; }
 .page > .atlas-canvas-page { height: 100%; min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
 .atlas-canvas-page > .atlas-map { height: 100%; min-height: 0; }

@@ -1,16 +1,12 @@
-import { session, PREFIX } from '../../core/api.js';
+import { PREFIX } from '../../core/api.js';
+import { recentStore as store, recentUserKey as userKey } from '../../core/recent-session.js';
 import { current } from '../../core/router.js';
 import { h } from '../../core/dom.js';
-import { createRecentCards, recentHref, recentThumb, recentOrderNumber } from '../../core/recent-cards.js';
+import { recentHref, recentThumb, recentOrderNumber } from '../../core/recent-cards.js';
 import { icon } from '../icons.js';
 import { openPopMenu, closePopMenu, isOpenFor } from './pop-menu.js';
 
 const list = (value) => Array.isArray(value) ? value : [];
-const userKey = () => String(session.user?.id || session.user?._id || '');
-function store() {
-  try { const id = userKey(); return id ? createRecentCards(localStorage, `dc-recent-cards:${PREFIX}:${id}`) : null; }
-  catch { return null; }
-}
 /** Запоминаем только успешно загруженную карточку текущего пользователя и текущего адреса. */
 export function recentRecorder(of) {
   const owner = userKey();
@@ -26,6 +22,7 @@ export function recentRecorder(of) {
     const thumb = photos.flatMap((p) => [p?.thumb, p?.url]).map(recentThumb).find(Boolean);
     const productionNo = of === 'salesorders' ? row.productionNo || row.key : of === 'orderpass' ? row.productionNo || row.orderNo : undefined;
     store()?.remember({ section, of, id, title: [title, customer].filter(Boolean).join(' · '), kind, thumb, productionNo, tab: params.tab, d: params.d });
+    document.dispatchEvent(new Event('dc:recent-cards'));
   };
 }
 /** Миниатюра — декоративный узел внутри одной ссылки; сбой загрузки возвращает значок сущности. */

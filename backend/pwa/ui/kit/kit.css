@@ -905,7 +905,17 @@ table.cal.k-tree .k-lv2 > td.day, table.cal.k-tree .k-lv2 > td.tot { font-weight
 table.cal.k-tree .k-lv3 > td.day, table.cal.k-tree .k-lv3 > td.tot { font-weight: 400; color: var(--muted); }
 table.cal.k-tree .k-tree-more > .sticky { padding-left: var(--s5); font-weight: 400; }
 table.cal.k-tree td.today { background: var(--row-hover); }
-table.cal.k-tree tbody tr:hover > td { background: var(--row-hover); }
+table.cal.k-tree:not(.k-tree-disclosing) tbody tr:hover > td { background: var(--row-hover); }
+table.cal.k-tree-disclosing .sticky { padding-inline-start: calc(var(--s3) + var(--tree-level, 0) * var(--s3)); }
+table.cal.k-tree-disclosing .k-tree-disclose { display: inline-flex; align-items: center; gap: var(--s2); text-align: start; color: var(--link); font: inherit; border: 0; background: transparent; cursor: pointer; padding: var(--s1) var(--s2); }
+table.cal.k-tree-disclosing .k-tree-disclose:hover, table.cal.k-tree-disclosing .k-tree-disclose:focus-visible { background: var(--row-hover); }
+table.cal.k-tree-disclosing .k-tree-disclose[aria-expanded="true"] .k-tree-arrow { transform: rotate(90deg); }
+table.cal.k-tree-disclosing td.click .num { color: var(--link); text-decoration: underline dotted; text-underline-offset: var(--s1); }
+table.cal.k-tree-disclosing tbody .grp .sticky { font-weight: 650; }
+.u-money-in { color: var(--ok); }
+.u-money-out { color: var(--danger); }
+table.cal.k-tree-disclosing tbody .grp.in .sticky { border-inline-start: 2px solid var(--ok); }
+table.cal.k-tree-disclosing tbody .grp.out .sticky { border-inline-start: 2px solid var(--danger); }
 table.cal.k-tree tbody tr > td.click:hover { background: var(--gold-soft); }
 table.cal.k-tree tbody tr.is-sel > td { background: var(--gold-soft); }
 table.cal.k-tree tbody tr.is-sel > td.sticky { box-shadow: inset 3px 0 0 var(--gold), 1px 0 0 var(--border); }
@@ -921,6 +931,7 @@ table.cal.k-tree .k-tree-share .share-bar { margin-top: var(--s1); }
 .stat:not(.k-pill).tone-danger b { color: var(--danger); }
 table.cal.k-tree .k-tree-share .share-bar i { width: var(--w, 0); }
 table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-align: left; background: var(--surface); border-bottom: 2px solid var(--gold); }
+table.cal.k-tree-disclosing .k-tree-ins table.list :is(th, td):not(.num) { text-align: start; }
 .k-tree-ins-body { position: sticky; left: 0; width: var(--w, 100%); max-width: 100%; box-sizing: border-box; padding: var(--s3) var(--s4); }
 @media (prefers-reduced-motion: reduce) { .k-tree-arrow { transition: none; } table.cal.k-tree tr.k-tree-in > td { animation: none; } }
 
@@ -1364,3 +1375,6 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .product-path { padding: var(--s3); }
 .product-path .crumbs { margin: 0; flex-wrap: wrap; }
 @media (max-width: 720px) { .filter-tools > .sb { flex: 1; min-width: 130px; } }
+.fin-report-filter .k-select { width: 100%; }
+.fin-filter-dates.k-fieldrow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
+.fin-filter-dates input { width: 100%; min-width: 0; }
