@@ -89,8 +89,9 @@ export async function batchMoveTasks(rows, people) {
 const idOf = (x) => String(x?.orderId ?? x?.id ?? '');
 export function normOrder(o) {
   const c = o.counts || {};
+  const free = c.free ?? o.lines?.filter((line) => !line.task).length ?? null;
   return { orderId: idOf(o), orderNo: clean(o.orderNo), productionNo: clean(o.productionNo), customer: clean(o.customer), deadline: o.deadline ?? null, priority: o.priority || 'normal', stage: o.stage || '',
-    note: o.note || '', addedAt: o.addedAt || null, counts: { queue: c.queue || 0, work: c.work || 0, paused: c.paused || 0, done: c.done || 0, cancelled: c.cancelled || 0, free: c.free ?? null }, linesCount: o.linesCount ?? o.lines?.length, lines: o.lines };
+    note: o.note || '', addedAt: o.addedAt || null, counts: { queue: c.queue || 0, work: c.work || 0, paused: c.paused || 0, done: c.done || 0, cancelled: c.cancelled || 0, free }, linesCount: o.linesCount ?? o.lines?.length, lines: o.lines };
 }
 /** Позиция заказа (с задачей или без) → единый вид. */
 export function normLine(l, order) {

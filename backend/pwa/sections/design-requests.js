@@ -80,7 +80,9 @@ export function withRequestsTab(mountInner) {
     const pick = (req) => { const P = current().params; go('design', { ...P, tab: req ? 'requests' : undefined, of: undefined, open: undefined, new: undefined }, { replace: true }); };
     function paintTabs() {
       const req = isReq();
-      tabs.replaceChildren(kitTabs({ label: 'Раздел проектирования', items: [{ key: 'tasks', label: 'Задачи' }, ...(n > 0 || req ? [{ key: 'requests', label: `Заявки на создание изделия (${n})` }] : [])], value: req ? 'requests' : 'tasks', onChange: (k) => pick(k === 'requests') }).el);
+      tabs.hidden = n === 0 && !req;
+      if (tabs.hidden) { tabs.replaceChildren(); return; }
+      tabs.replaceChildren(kitTabs({ label: 'Раздел проектирования', items: [{ key: 'tasks', label: 'Задачи' }, { key: 'requests', label: `Заявки на создание изделия (${n})` }], value: req ? 'requests' : 'tasks', onChange: (k) => pick(k === 'requests') }).el);
     }
     function show() {
       const req = isReq();

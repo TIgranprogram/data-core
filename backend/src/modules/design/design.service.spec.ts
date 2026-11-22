@@ -308,6 +308,38 @@ describe('DesignService', () => {
       await expect(board.addOrder({ orderId: String(id()) })).rejects.toThrow('Заказ не найден');
     });
 
+    it('очередь считает действующие позиции, а распределение пропускает уже обработанные', async () => {
+      const cancelled = await service.create({ incomeId: String(line1) });
+      const finishedLine = id();
+      incomes.rows.push({ _id: finishedLine, orderId, lineNo: 9, title: 'Готовая позиция' });
+      const finished = await service.create({ incomeId: String(finishedLine) });
+      await service.update(finished.id, { status: 'done' });
+      await service.update(cancelled.id, { status: 'cancelled', pauseReason: 'Отменили позицию' });
+      incomes.rows[0].cancelledAt = new Date();
+      expect((await board.board()).orders[0]).toMatchObject({ linesCount: 2, counts: { free: 1, done: 1, cancelled: 1 } });
+      expect(await board.addOrder({ orderId: String(orderId), distribute: true })).toMatchObject({ created: 1, skipped: 1 });
+      expect((await board.board()).orders[0].counts).toMatchObject({ free: 0, queue: 1, done: 1 });
+      expect(tasks.rows.filter((task) => same(task.incomeId, finishedLine))).toHaveLength(1);
+      expect(tasks.rows.some((task) => same(task.incomeId, line2) && task.status === 'queue')).toBe(true);
+    });
+
+    it('ограничение списка не скрывает входящие заказы за старыми метками', async () => {
+      await board.addOrder({ orderId: String(orderId) });
+      orders.rows[0].activeArchiveVersion = 1;
+      expect((await board.board()).orders[0].counts.free).toBe(0);
+      for (let i = 0; i < 200; i++) {
+        const older = id();
+        orders.rows.push({ _id: older, orderNo: String(i) });
+        marks.rows.push({ orderId: older, addedAt: new Date('2025-01-01') });
+      }
+      const { o2 } = order2();
+      await board.addOrder({ orderId: String(o2) });
+      const result = await board.board();
+      expect(result.orders).toHaveLength(200);
+      expect(result.ordersTotal).toBe(202);
+      expect(result.orders[0]).toMatchObject({ orderId: String(o2), counts: { free: 1 } });
+    });
+
     it('DELETE: с открытыми задачами — 409; без них — метка гаснет, задачи остаются; добавление после этого — та же запись', async () => {
       await board.addOrder({ orderId: String(orderId), distribute: true });
       await expect(board.removeOrder(String(orderId))).rejects.toBeInstanceOf(ConflictException);

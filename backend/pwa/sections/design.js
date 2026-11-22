@@ -161,6 +161,7 @@ export const design = {
     },
     board: {
       default: true,
+      inlineChips: true,
       mount: withRequestsTab((b, path, q, o) => {
         const inner = mountDesignBoard(b, path, q, o);
         if (!stk.length) visibleStickers().then((l) => { if (l.length) { stk = l; inner.reload(); } });
@@ -179,7 +180,7 @@ export const design = {
         { key: 'done', label: STATUS.done.label, tone: 'ok', compact: true, portion: true, per: 20, query: { status: 'done', sort: '-completedAt' } },
         { key: 'cancelled', label: STATUS.cancelled.label, tone: 'dim', compact: true, portion: true, per: 20, emptyText: 'Пусто. Сюда — снятые задачи (расторжение договора и т. п.)', query: { status: 'cancelled', sort: '-createdAt' } },
       ],
-      card: (r, c) => ({ title: title(r), body: boardBody(r, c), orderKey: r.orderId || '' }),
+      card: (r, c) => ({ title: title(r), body: boardBody(r, c), orderKey: r.orderId || '', cls: 'design-board-task' }),
       move: async (r, to) => !!(await moveTask(r, to)),
       addLabel: '+ Задача',
       add: (key) => go('design', { ...current().params, new: '1', dstatus: key, open: undefined }, { replace: true }),

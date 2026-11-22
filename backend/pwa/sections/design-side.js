@@ -8,33 +8,26 @@ import { clean, createTask, distributeOrder, dropOrder, loadLines, normBoard, op
 import { copyLink } from './design-menu.js';
 
 /**
- * Левая панель «Проектирования» (kit.layout.split): заказы с открытой работой.
+ * Левая панель «Проектирования» (kit.layout.split): входящие заказы с позициями без задачи.
  * Заказ появляется сам после «Передать в проектирование» в карточке заказа (сервер подхватывает
  * метку designorders ∪ открытые задачи). Кнопок «добавить заказ» нет — принимать позиции
  * можно на карточке: «На распределение» / «Взять в работу» или перетаскиванием на доску.
- * board — правая доска и её область прокрутки; onBoard() — перечитать доску после действия.
+ * board — рабочие колонки и область прокрутки; pauseTarget — открытая колонка паузы; onBoard() — перечитать доску после действия.
  */
 const COLS = ['queue', 'work', 'paused', 'done', 'cancelled'];
 const SHORT = { queue: 'распределение', work: 'в работе', paused: 'пауза', done: 'готово', cancelled: 'отменено' };
-const CREATE_IN = new Set(['queue', 'work', 'paused']);
 const plain = (s) => String(s ?? '').toLowerCase().replace(/ё/g, 'е');
 const isPhone = () => window.matchMedia('(max-width: 720px)').matches;
 
-/** Нужна работа проектировщика: есть позиции без задачи или открытые задачи. */
-const needsWork = (o) => {
-  const c = o.counts || {};
-  return (c.free || 0) > 0 || (c.queue || 0) + (c.work || 0) + (c.paused || 0) > 0;
-};
-
-export function designSide({ query, board, env, onBoard }) {
+export function designSide({ query, board, pauseTarget, env, onBoard }) {
   const canEdit = session.canEdit;
-  let q = query, showClosed = false, seq = 0;
+  let q = query, seq = 0;
   const S = { orders: [], tasks: [], positions: new Map(), expanded: new Set(), taking: new Set(), error: null, ready: false };
   const el = h('div', { class: 'k-side-item' });
   const taskText = (t) => plain([t.code, t.title, t.productName, t.sku, t.productionNo, t.orderNo, t.customerTitle].join(' '));
   const visible = () => {
     const s = plain(q.search);
-    return S.orders.filter((o) => needsWork(o) !== showClosed && (!q.orderId || o.orderId === q.orderId)
+    return S.orders.filter((o) => (!q.orderId || o.orderId === q.orderId)
       && (!s || plain([o.productionNo, o.orderNo, o.customer].join(' ')).includes(s) || S.tasks.some((t) => t.orderId === o.orderId && taskText(t).includes(s))));
   };
   const openOrder = (id) => openDesignCard(id, 'designorder');
@@ -82,8 +75,8 @@ export function designSide({ query, board, env, onBoard }) {
     const node = row({ tag: 'li', cls: 'design-side-line' + (free ? ' design-side-line-free' : ''), title, meta, lead, below: status, action: menu, wrap: true });
     if (free) draggable(node, {
       canStart: () => !isPhone() && !S.taking.has(l.incomeId),
-      targetSel: '.design-board > .col', scroller: board, scrollAxis: 'x',
-      canDrop: (col) => board.contains(col) && CREATE_IN.has(col.dataset.key),
+      targetSel: '.col', scroller: board, scrollAxis: 'x',
+      canDrop: (col) => col.parentElement === board || pauseTarget(col),
       onDrop: (col) => take(l, col.dataset.key),
     });
     return node;
@@ -109,10 +102,9 @@ export function designSide({ query, board, env, onBoard }) {
     const head = h('div', { class: 'db-oh' }, h('h3', null, openButton), more);
     const state = S.positions.get(o.orderId);
     const count = o.linesCount ?? state?.lines?.length;
-    const mayExpand = count !== 0 || open;
-    const disclosure = mayExpand ? button({ label: [h('span', { class: 'design-order-chevron', 'aria-hidden': 'true' }, '▸'), `Изделия${count == null ? '' : ` · ${count}`}`], kind: 'ghost', size: 'S', cls: 'design-order-toggle', onClick: () => toggle(o.orderId) }) : null;
-    disclosure?.setAttribute('aria-controls', groupId);
-    disclosure?.setAttribute('aria-expanded', String(open));
+    const disclosure = button({ label: [`Изделия${count == null ? '' : ` · ${count}`}`, h('span', { class: 'design-order-chevron', 'aria-hidden': 'true' }, '›')], size: 'S', cls: 'design-order-toggle', onClick: () => toggle(o.orderId) });
+    disclosure.setAttribute('aria-controls', groupId);
+    disclosure.setAttribute('aria-expanded', String(open));
     const summary = h('div', { class: 'design-order-summary', onclick: (e) => { if (!e.target.closest('button')) openOrder(o.orderId); } },
       head, o.customer ? h('span', { class: 'db-cust' }, o.customer) : null,
       h('div', { class: 'design-order-footer' }, badges.some(Boolean) ? h('div', { class: 'design-order-badges' }, ...badges) : null, disclosure));
@@ -124,36 +116,27 @@ export function designSide({ query, board, env, onBoard }) {
       else content = empty({ title: 'В заказе нет позиций.' });
     }
     return paintOrder(h('article', { class: 'db-order design-side-order', 'aria-labelledby': nameId }, summary,
-      mayExpand ? h('div', { class: 'db-lines design-side-lines', id: groupId, hidden: !open }, content) : null), o.orderId);
+      h('div', { class: 'db-lines design-side-lines', id: groupId, hidden: !open }, content)), o.orderId);
   }
   function paint() {
     const vis = visible();
-    const doneOnly = S.orders.filter((o) => !needsWork(o)).length;
-    const switchView = showClosed || doneOnly ? button({ label: showClosed ? 'Активные' : `Закрытые (${doneOnly})`, kind: 'ghost', size: 'S', cls: 'design-orders-switch', onClick: () => {
-      showClosed = !showClosed;
-      if (q.orderId) go('design', { ...current().params, designOrder: undefined }, { replace: true });
-      else paint();
-      el.querySelector('.design-orders-switch')?.focus();
-    } }) : null;
-    const bar = h('div', { class: 'toolbar' }, h('h3', null, showClosed ? 'Закрытые заказы' : 'Заказы', ' · ', String(vis.length)), switchView);
+    const bar = h('div', { class: 'toolbar' }, h('h3', null, 'Заказы к распределению', ' · ', String(vis.length)));
     if (!S.ready) { el.replaceChildren(bar, busyBlock('заказы')); return; }
     if (S.error) { el.replaceChildren(bar, failBlock(S.error, () => load(), { text: 'Доска не загрузилась' })); return; }
-    const emptyHint = S.orders.length
-      ? 'Новые появятся после «Передать в проектирование» в карточке заказа.'
-      : 'В карточке заказа нажмите «Передать в проектирование» — заказ появится здесь сам.';
     const active = el.contains(document.activeElement) ? document.activeElement : null;
     const disclosureId = active?.matches('.design-order-toggle') ? active.getAttribute('aria-controls') : null;
-    const focusSelector = disclosureId ? `[aria-controls="${CSS.escape(disclosureId)}"]` : active?.matches('.design-orders-switch') ? '.design-orders-switch' : null;
-    const blank = q.search || q.orderId ? 'Заказы по этому фильтру не найдены.' : showClosed ? 'Закрытых заказов нет.' : 'Активных заказов пока нет.';
-    el.replaceChildren(bar, ...(vis.length ? vis.map(orderNode) : [empty({ title: blank, hint: !q.search && !q.orderId && !showClosed ? emptyHint : null })]));
-    if (focusSelector) el.querySelector(focusSelector)?.focus({ preventScroll: true });
+    const filtered = q.search || q.orderId;
+    const blank = filtered ? 'Заказы по этому фильтру не найдены.' : 'Нет заказов с нераспределёнными позициями.';
+    el.replaceChildren(bar, ...(vis.length ? vis.map(orderNode) : [empty({ title: blank,
+      hint: filtered ? null : 'Новые появятся после «Передать в проектирование» в карточке заказа.' })]));
+    if (disclosureId) el.querySelector(`[aria-controls="${CSS.escape(disclosureId)}"]`)?.focus({ preventScroll: true });
   }
   async function load() {
     const my = ++seq;
     try {
       const nb = normBoard(await api('/design-board'));
       if (my !== seq) return;
-      S.orders = nb.orders.sort((a, z) => (a.deadline ? 0 : 1) - (z.deadline ? 0 : 1) || String(a.deadline).localeCompare(String(z.deadline)) || String(a.orderNo).localeCompare(String(z.orderNo), 'ru', { numeric: true }));
+      S.orders = nb.orders.filter((o) => o.counts.free > 0).sort((a, z) => (a.deadline ? 0 : 1) - (z.deadline ? 0 : 1) || String(a.deadline).localeCompare(String(z.deadline)) || String(a.orderNo).localeCompare(String(z.orderNo), 'ru', { numeric: true }));
       S.tasks = nb.tasks; S.error = null;
       S.expanded = new Set([...S.expanded].filter((id) => S.orders.some((o) => o.orderId === id)));
       S.ready = true;

@@ -61,19 +61,28 @@ export class DesignBoardService {
     // заказы, удалённые в CRM, отсекаются
     const orders = ids.size ? await this.db().collection('salesorders').find(
       { _id: { $in: [...ids.values()] }, deletedAt: null },
-      { projection: { orderNo: 1, productionNo: 1, customer: 1, title: 1, productionDeadline: 1, shipDate: 1, deliveryDeadline: 1, priority: 1, stage: 1, notes: 1 } },
+      { projection: { orderNo: 1, productionNo: 1, customer: 1, title: 1, productionDeadline: 1, shipDate: 1, deliveryDeadline: 1, priority: 1, stage: 1, notes: 1, activeArchiveVersion: 1 } },
     ).toArray() : [];
-    const rank = (o: Doc) => addedAt.get(String(o._id))?.getTime() ?? Number.MAX_SAFE_INTEGER; // подхваченные без метки — в конце
-    orders.sort((a, b) => rank(a) - rank(b) || String(a.orderNo ?? '').localeCompare(String(b.orderNo ?? ''), 'ru', { numeric: true }));
+    const orderIds = orders.map((o) => o._id);
+    const activeLines = orderIds.length ? await this.db().collection('incomes').find(
+      { orderId: { $in: orderIds }, deletedAt: null, cancelledAt: null },
+      { projection: { orderId: 1 } },
+    ).toArray() : [];
+    const byOrderLines = new Map<string, { total: number; free: number }>();
+    for (const line of activeLines) {
+      const orderId = String(line.orderId);
+      const count = byOrderLines.get(orderId) ?? { total: 0, free: 0 };
+      count.total++;
+      if (!byOrder.get(orderId)?.lines.has(String(line._id))) count.free++;
+      byOrderLines.set(orderId, count);
+    }
+    const free = (o: Doc) => o.activeArchiveVersion == null ? byOrderLines.get(String(o._id))?.free ?? 0 : 0;
+    const rank = (o: Doc) => addedAt.get(String(o._id))?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    orders.sort((a, b) => Number(free(b) > 0) - Number(free(a) > 0)
+      || rank(a) - rank(b) || String(a.orderNo ?? '').localeCompare(String(b.orderNo ?? ''), 'ru', { numeric: true }));
     const shown = orders.slice(0, ORDERS_CAP);
-    const shownIds = shown.map((o) => o._id as Oid);
 
-    const lineCounts = shownIds.length ? await this.db().collection('incomes').aggregate([
-      { $match: { orderId: { $in: shownIds }, deletedAt: null, cancelledAt: null } }, { $group: { _id: '$orderId', n: { $sum: 1 } } },
-    ]).toArray() : [];
-    const linesOf = new Map(lineCounts.map((r) => [String(r._id), r.n as number]));
-
-    const taskFilter: Doc = { status: { $in: OPEN }, deletedAt: null, $or: [{ orderId: null }, { orderId: { $in: shownIds } }] };
+    const taskFilter: Doc = { status: { $in: OPEN }, deletedAt: null, $or: [{ orderId: null }, { orderId: { $in: orderIds } }] };
     const [openTasks, tasksTotal] = await Promise.all([
       this.tasks.find(taskFilter).sort({ seq: 1 }).limit(TASKS_CAP).lean().exec(),
       this.tasks.countDocuments(taskFilter).exec(),
@@ -82,7 +91,7 @@ export class DesignBoardService {
     return {
       orders: shown.map((o) => {
         const e = byOrder.get(String(o._id));
-        const lines = linesOf.get(String(o._id)) ?? 0;
+        const lines = byOrderLines.get(String(o._id))?.total ?? 0;
         return {
           orderId: String(o._id), orderNo: (o.orderNo as string | undefined) ?? null, productionNo: (o.productionNo as string | undefined) ?? null, customer: (o.customer as string | undefined) ?? null,
           title: (o.title as string | undefined) ?? null,
@@ -90,7 +99,7 @@ export class DesignBoardService {
           priority: (o.priority as string | undefined) ?? 'normal', stage: (o.stage as string | undefined) ?? null, note: (o.notes as string | undefined) ?? null,
           addedAt: addedAt.get(String(o._id)) ?? null,
           linesCount: lines,
-          counts: { ...(e?.counts ?? { queue: 0, work: 0, paused: 0, done: 0, cancelled: 0 }), free: Math.max(0, lines - (e?.lines.size ?? 0)) },
+          counts: { ...(e?.counts ?? { queue: 0, work: 0, paused: 0, done: 0, cancelled: 0 }), free: free(o) },
         };
       }),
       ordersTotal: orders.length,

@@ -229,8 +229,8 @@ export class DesignService {
     return this.presentOne(String(doc._id));
   }
 
-  /** Задача на каждую позицию заказа (или выбранные); у кого уже есть открытая — пропуск, повтор дублей не создаёт. */
-  async fromOrder(dto: FromOrderDto, userId?: string, requireBoardMark = false) {
+  /** На доске распределяем позиции без задач и сохраняем метку в той же транзакции. */
+  async fromOrder(dto: FromOrderDto, userId?: string, fromBoard = false) {
     const orderId = oid(dto.orderId, 'заказа');
     const { created, skipped } = await withOrderWrite(this.connection, [orderId], async session => {
       if (!(await this.db().collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { session, projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
@@ -238,16 +238,18 @@ export class DesignService {
       const lines = await this.db().collection('incomes').find({ orderId, deletedAt: null, cancelledAt: null, ...(want ? { _id: { $in: want } } : {}) },
         { session, projection: { productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
       if (want && lines.length !== new Set(want.map(String)).size) throw new BadRequestException('Некоторые позиции не из этого заказа или удалены');
-      const open = await this.model.find({ openIncomeId: { $in: lines.map(l => l._id) } }, { openIncomeId: 1 }, { session }).lean().exec();
-      const taken = new Set(open.map(t => String(t.openIncomeId)));
+      const positionKey = fromBoard ? 'incomeId' : 'openIncomeId';
+      const existing = await this.model.find({ [positionKey]: { $in: lines.map((l) => l._id) }, deletedAt: null },
+        { [positionKey]: 1 }, { session }).lean().exec();
+      const taken = new Set(existing.map((task) => String(fromBoard ? task.incomeId : task.openIncomeId)));
       const created: Doc[] = [];
       for (const l of lines) {
         if (!taken.has(String(l._id))) created.push(await this.insert({ status: 'queue', incomeId: l._id, orderId, ...(l.productId ? { productId: l.productId } : {}) }, userId, session));
       }
-      if (requireBoardMark) await this.markOrder(orderId, userId, session);
+      if (fromBoard) await this.markOrder(orderId, userId, session);
       return { created, skipped: lines.length - created.length };
     });
-    if (!requireBoardMark) await this.markQuiet(orderId, userId);
+    if (!fromBoard) await this.markQuiet(orderId, userId);
     return { created: created.length, skipped, items: await presentTasks(this.connection, created) };
   }
 
