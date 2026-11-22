@@ -96,11 +96,12 @@ async function setStage(r, stage) {
   if (saved?.warnings?.length) toast('Не всё готово', { tone: 'warn', sub: saved.warnings.map((w) => (typeof w === 'string' ? w : w.label || w.hint || '')).filter(Boolean).join('; ') });
   return shape(saved);
 }
-/** «Открыть» у проверки «есть позиции»: один договор — сразу новая позиция, несколько — окно первого договора (там «+ Позиция»). Ссылка на ту же карточку не работала. */
+/** «Есть позиции» в готовности: перейти к добавлению или показать договоры на выбор. */
 function linesLink(r) {
-  const orders = r.orders || []; const o = orders.find(canAdd);
-  const open = (e) => { e.preventDefault(); if (orders.length === 1 && o) addLine(o); else patch({ of: 'salesorder', open: orders[0].id, new: undefined }, { replace: false }); };
-  return orders.length ? h('a', { href: '#', class: 'small', onclick: open }, ' Добавить позицию') : null;
+  const orders = (r.orders || []).filter(canAdd);
+  if (!orders.length) return null;
+  const open = (e) => { e.preventDefault(); if (orders.length === 1) addLine(orders[0]); else goTab('pos'); };
+  return h('a', { href: '#', class: 'small', onclick: open }, orders.length === 1 ? ' Добавить позицию' : ' Выбрать договор для позиции');
 }
 /** Блок «Готовность к отгрузке» в карточке заказа: проверки сервера + кнопка «Отметить: готов к отгрузке». */
 function readinessBlock(r, after) {
@@ -200,9 +201,9 @@ const cancelledRow = (l, i, span, open) => h('tr', { class: 'muted', onclick: op
 /** Новая позиция в договоре: все поля — в правой панели. */
 const addLine = (o) => patch({ of: 'orders', new: '1', open: undefined, orderNo: o.orderNo || '', customer: o.customer || '', companyName: o.companyName || '', orderId: o.id }, { replace: false });
 const canAdd = (o) => editableOrder(o) && !closedStage(o) && canChangeLines(o);
+const hasActiveLines = (o) => (o.lines || []).some((l) => !l.cancelledAt);
 const addLineBtn = (o, label = '+ Позиция', kind = 'primary') => button({ label, kind, size: 'S', title: `Новая позиция в договоре ${o.orderNo || ''}: все поля — в правой панели`, onClick: () => addLine(o) });
 
-/** Заголовок-группа «Договор 109-П»: этап, срок, «+ Позиция» и «⋯» (одно меню действий по договору). */
 /** Действия по договору — в «⋯» шапки заказа (владелец 15.11: правка заказа — только там, в таблице только смотреть). */
 function contractMenu(o, reload, prefix = '') {
   const seeStock = session.sees('stock');
@@ -222,7 +223,7 @@ function contractMenu(o, reload, prefix = '') {
     can && o.productionNo && !closedStage(o) && { label: 'Перенести в другой заказ', onSelect: () => moveContract(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
     ...orderArchiveActions(o, reload).map((action) => ({ label: action.label, onSelect: () => action.run().catch(toastError) })),
     !archivedOrder(o) && session.role === 'admin' && o.stage !== 'new' && { label: 'Вернуть на прежний этап…', onSelect: () => stageBack(o).then((r) => r && reload?.()).catch((e) => toastError(e)) },
-    can && !closedStage(o) && canChangeLines(o) && { label: '+ Позиция', title: 'Новая позиция: все поля — в правой панели', onSelect: () => addLine(o) },
+    canAdd(o) && hasActiveLines(o) && { label: '+ Позиция', title: 'Новая позиция: все поля — в правой панели', onSelect: () => addLine(o) },
     can && { label: 'Удалить договор', danger: true, onSelect: remove },
   ].filter(Boolean).map((m) => ({ ...m, label: prefix + m.label }));
   return menu;
@@ -232,9 +233,12 @@ function contractHead(o, many = true) {
   return kitRow({ title: ['Договор ' + (o.orderNo || '—'), o.customer].filter(Boolean).join(' · '), side: many ? [badge(STAGE, o.stage), due(o)].filter(Boolean) : [] });
 }
 /** Подпись под таблицей договора: пусто / «менять позиции может администратор». */
-function contractFoot(o) {
-  const lines = o.lines || [];
-  if (!lines.length) return h('div', null, h('p', { class: 'muted' }, 'В этом договоре позиций пока нет.'), canAdd(o) ? addLineBtn(o) : null);
+function contractFoot(o, many) {
+  if (!hasActiveLines(o)) {
+    const empty = (o.lines || []).length ? 'В этом договоре нет действующих позиций.' : 'В этом договоре позиций пока нет.';
+    const label = many ? `+ Позиция в договор ${o.orderNo || 'без номера'}` : '+ Позиция';
+    return h('div', null, h('p', { class: 'muted' }, empty), canAdd(o) ? addLineBtn(o, label) : null);
+  }
   if (editableOrder(o) && !closedStage(o) && !canChangeLines(o)) return h('p', { class: 'hint' }, 'Договор уже в работе — менять позиции может администратор.');
   return null;
 }
@@ -258,10 +262,10 @@ function positionsPane(d, ctx, pick = null) {
       { v: markOf(l.id), cls: 'num nowrap' },
       { v: `${qty(l.qty)} ${l.unit || ''}`, cls: 'num nowrap' }, ...(showShip ? [{ v: l.shipped ? `${qty(l.shipped)} из ${qty(l.qty)}` : '', cls: 'num nowrap muted' }] : []), ...(showColor ? [{ v: l.color || '', cls: 'muted' }] : []),
 ] }));
-    return { head: many ? contractHead(o, many) : null, rows, foot: contractFoot(o) }; // один договор — без строки-заголовка: чистая таблица (владелец 15.11)
+    return { head: many ? contractHead(o, many) : null, rows, foot: contractFoot(o, many) }; // один договор — без строки-заголовка: чистая таблица (владелец 15.11)
   });
-  box.append(positionsTable({ columns, groups, label: 'Позиции заказа', empty: orders.length ? { title: `В ${orders.length > 1 ? 'договорах' : 'договоре'} ${orders.map((o) => '№ ' + (o.orderNo || '—')).join(', ')} позиций пока нет.`, hint: 'Нажмите «+ Позиция» ниже — поля откроются справа.' } : { title: 'Договоров нет.', hint: 'Добавьте договор: «⋯» вверху.' }, pick }),
-    !allLines.length ? actions(...orders.filter(canAdd).map((o) => addLineBtn(o, orders.length > 1 ? `+ Позиция в договор ${o.orderNo || '—'}` : '+ Позиция'))) : null, ...orders.map((o) => distribBlock(o, reload)), produceBlock(d, openLine)); // таблица первой (C131)
+  box.append(positionsTable({ columns, groups, label: 'Позиции заказа', empty: { title: 'Договоров нет.', ...(editableOrder(d) && !closedStage(d) ? { hint: 'Добавьте договор: «⋯» вверху.' } : {}) }, pick }),
+    ...orders.map((o) => distribBlock(o, reload)), produceBlock(d, openLine)); // таблица первой (C131)
   whenReady();
   return box;
 }
@@ -400,7 +404,7 @@ const orderCard = screenCard({
     if (legacy) setTimeout(() => goTab(legacy), 80);
   },
   warns: (r, ctx) => [
-    r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? { tone: 'error', title: 'В заказе нет позиций — «В производство» не сработает', label: 'Добавить позицию', run: () => { const o = (r.orders || []).find(canAdd); if (o) addLine(o); else ctx.openTab('pos'); } } : null,
+    r.stage === 'new' && r.lineCount === 0 && !(r.lines || []).length ? { tone: 'error', title: 'В заказе нет позиций — «В производство» не сработает' } : null,
     countOf(r) ? { title: `${countOf(r)} поз. без изделия — «В производство» не сработает, пока их не распределят`, label: 'Распределить', run: () => ctx.openTab('pos') } : null,
   ],
   next: (r, ctx) => {
