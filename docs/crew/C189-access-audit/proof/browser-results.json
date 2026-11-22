@@ -1,0 +1,89 @@
+[
+  {
+    "label": "Наблюдатель",
+    "expected": "#home",
+    "sections": [
+      "stock",
+      "!docs",
+      "!money"
+    ],
+    "passed": true
+  },
+  {
+    "label": "Менеджер",
+    "expected": "#atlas",
+    "sections": [
+      "stock",
+      "docs",
+      "money",
+      "!payroll"
+    ],
+    "passed": true
+  },
+  {
+    "label": "Бухгалтер",
+    "expected": "#atlas",
+    "sections": [
+      "payroll",
+      "!staff"
+    ],
+    "passed": true
+  },
+  {
+    "label": "Директор",
+    "expected": "#atlas",
+    "sections": [
+      "payroll",
+      "staff"
+    ],
+    "passed": true
+  },
+  {
+    "label": "Администратор",
+    "expected": "#atlas",
+    "sections": [
+      "payroll",
+      "staff"
+    ],
+    "passed": true
+  },
+  {
+    "label": "Труборез",
+    "expected": "#atlas?n=money",
+    "sections": [
+      "stock",
+      "!money",
+      "!salesorders"
+    ],
+    "passed": true
+  },
+  {
+    "label": "Лазер лист",
+    "expected": "#stock?tab=items",
+    "sections": [
+      "stock",
+      "!money",
+      "!salesorders"
+    ],
+    "passed": true
+  },
+  {
+    "label": "Мобильный склад",
+    "expected": "#stock-mobile",
+    "sections": [
+      "stock-mobile",
+      "!stock"
+    ],
+    "passed": true
+  },
+  {
+    "label": "Ограниченный менеджер",
+    "expected": "#home",
+    "sections": [
+      "docs",
+      "!money",
+      "!stock"
+    ],
+    "passed": true
+  }
+]
