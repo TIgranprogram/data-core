@@ -4,7 +4,8 @@
  * палец — долгое нажатие 350 мс (раньше сдвинулся — это прокрутка). Esc — отмена. На телефоне и с клавиатуры
  * основной путь — меню «Статус», перетаскивание только дополнение.
  *
- * draggable(el, { canStart(), onDrop(target, el), targetSel, scroller?, scrollAxis?, canDrop?(target), sourceClass? }) → снять обработчики().
+ * draggable(el, { canStart(), onDrop(target, el), targetSel, handleSel?, scroller?, scrollAxis?, canDrop?(target), sourceClass? }) → снять обработчики().
+ *  handleSel — селектор области захвата внутри карточки.
  *  targetSel — селектор цели (`.col`), onDrop вызывается только если отпустили над целью.
  *  canDrop — можно ли бросить на эту цель (по умолчанию да; доска не принимает бросок в ту же колонку).
  *  scrollAxis — 'x' только горизонтальная автопрокрутка у краёв scroller (по умолчанию и по вертикали).
@@ -22,17 +23,19 @@ export function dragStep({ touch, started, dist }) {
 
 let active = null;
 let lastEnd = 0;
+let lastSource = null;
 const queue = [];
 
 /** Идёт перетаскивание — перерисовку по `data-changed` откладываем (иначе карточка уедет из-под курсора). */
 export const isDragging = () => !!active?.started;
 /** Только что отпустили — клик по карточке не открывает панель. */
 export const justDragged = () => Date.now() - lastEnd < 60;
-/** Выполнить fn сразу, а во время перетаскивания — после него. */
-export function afterDrag(fn) { if (isDragging()) queue.push(fn); else fn(); }
+/** Отложить fn до конца перетаскивания. pending также защищает область захвата между нажатием и началом движения. */
+export function afterDrag(fn, { pending = false } = {}) { if (isDragging() || (pending && active)) queue.push(fn); else fn(); }
+const flushDeferred = () => queue.splice(0).forEach((fn) => fn());
 
-export function draggable(el, { canStart = () => true, canDrop = () => true, onDrop, targetSel, scroller, scrollAxis, sourceClass = 'placeholder' }) {
-  const clickGuard = (e) => { if (justDragged()) { e.stopImmediatePropagation(); e.preventDefault(); } };
+export function draggable(el, { canStart = () => true, canDrop = () => true, onDrop, targetSel, handleSel, scroller, scrollAxis, sourceClass = 'placeholder' }) {
+  const clickGuard = (e) => { if (lastSource === el && justDragged()) { e.stopImmediatePropagation(); e.preventDefault(); } };
   el.addEventListener('click', clickGuard, true);
 
   const moveGhost = (d, x, y) => {
@@ -68,20 +71,21 @@ export function draggable(el, { canStart = () => true, canDrop = () => true, onD
     document.removeEventListener('pointerup', onUp);
     document.removeEventListener('pointercancel', onCancel);
     document.removeEventListener('keydown', onEsc, true);
-    if (!d.started) return;
+    if (!d.started) { flushDeferred(); return; }
     lastEnd = Date.now();
+    lastSource = el;
     document.body.classList.remove('dragging');
     d.over?.classList.remove('drop');
     const target = commit ? d.over : null;
     if (target) {
       d.ghost.remove();
       el.classList.remove(sourceClass);
-      try { onDrop(target, el); } finally { queue.splice(0).forEach((fn) => fn()); }
+      try { onDrop(target, el); } finally { flushDeferred(); }
     } else {
       const r = el.getBoundingClientRect();
       d.ghost.style.transition = 'transform .16s ease';
       d.ghost.style.transform = `translate(${r.left - d.left}px, ${r.top - d.top}px)`;
-      setTimeout(() => { d.ghost.remove(); el.classList.remove(sourceClass); queue.splice(0).forEach((fn) => fn()); }, 160);
+      setTimeout(() => { d.ghost.remove(); el.classList.remove(sourceClass); flushDeferred(); }, 160);
     }
   };
   function onMove(e) {
@@ -102,6 +106,7 @@ export function draggable(el, { canStart = () => true, canDrop = () => true, onD
   const down = (e) => {
     e.stopPropagation(); // вложенные перетаскиваемые (позиция внутри карточки заказа) не мешают друг другу
     if (active || !canStart() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (handleSel && !e.target.closest?.(handleSel)) return;
     if (e.target.closest?.('button, a, input, select, textarea, summary')) return; // кнопки карточки — не начало переноса
     const d = { over: null, started: false, x0: e.clientX, y0: e.clientY, pointerId: e.pointerId, touch: e.pointerType !== 'mouse', ghost: null };
     active = d;

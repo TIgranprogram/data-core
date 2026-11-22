@@ -15,7 +15,7 @@ export function treeTable({ label, head = 'Статья', periods = [], totalLab
   const colSpan = periods.length + 3;
   const recs = new Map();
   const root = { id: '', kids: [], depth: 0, more: null };
-  let ins = null; // { rec, tr, key }
+  let ins = null;
 
   const cellTd = (c, i, cls = 'day') => {
     const can = !!c?.click;
@@ -78,6 +78,7 @@ export function treeTable({ label, head = 'Статья', periods = [], totalLab
       const v = show && (!rec.isRest || parent.moreOpen);
       setVis(rec.tr, v, animate);
       rec.tr.classList.toggle('is-open', open.has(rec.id));
+      rec.tr.classList.toggle('k-tree-child', !!parent.n);
       if (rec.kids.length) rec.tr.querySelector('.k-tree-chev, .k-tree-disclose')?.setAttribute('aria-expanded', String(open.has(rec.id)));
       walk(rec, v && open.has(rec.id), animate);
     });
@@ -85,7 +86,7 @@ export function treeTable({ label, head = 'Статья', periods = [], totalLab
   };
   function sync(animate) {
     walk(root, true, animate);
-    if (ins) { if (ins.rec.tr.classList.contains('k-tree-off')) closeInsert(); else setVis(ins.tr, true, false); }
+    if (ins?.rec.tr.classList.contains('k-tree-off')) closeInsert();
   }
   function toggle(id, force) {
     const on = force ?? !open.has(id);
@@ -107,42 +108,66 @@ export function treeTable({ label, head = 'Статья', periods = [], totalLab
     sync(true);
   };
 
-  const fit = () => { if (ins) ins.content.style.setProperty('--w', wrap.clientWidth + 'px'); };
+  const fit = () => ins?.content?.style.setProperty('--w', wrap.clientWidth + 'px');
   const unlisten = () => { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', fit); };
   const onKey = (e) => {
     if (!wrap.isConnected) { unlisten(); return; }
-    if (e.key === 'Escape' && ins) closeInsert(true);
+    if (e.key === 'Escape' && ins && !e.defaultPrevented && !document.querySelector('aside.drawer')) closeInsert(true);
   };
   /** restore — вернуть фокус на ячейку, открывшую вставку (Esc, «Скрыть»); при переходе на другую вставку не нужен. */
   function closeInsert(restore) {
     if (!ins) return;
-    const { rec, tr, onClose, opener } = ins;
+    const { rec, nodes, onClose, opener } = ins;
     ins = null;
     rec.tr.classList.remove('is-sel');
     if (disclosure) opener?.setAttribute('aria-expanded', 'false');
-    tr.remove();
+    for (const row of nodes) row.remove();
     unlisten();
     if (restore === true && opener?.isConnected) opener.focus();
     onClose?.();
   }
-  function insert(id, { title, onClose, key, trigger } = {}) {
+  function beginInsert(id, { onClose, key, trigger }) {
     if (key != null && ins?.rec.id === id && ins.key === key) { closeInsert(true); return null; }
     if (ins) closeInsert(false);
-    const opener = wrap.contains(trigger) ? trigger : wrap.contains(document.activeElement) ? document.activeElement : null;
     const rec = recs.get(id);
+    if (!rec) return null;
+    const opener = wrap.contains(trigger) ? trigger : wrap.contains(document.activeElement) ? document.activeElement : null;
+    ins = { rec, nodes: [], onClose, opener, key };
+    rec.tr.classList.add('is-sel');
+    if (disclosure) opener?.setAttribute('aria-expanded', 'true');
+    document.addEventListener('keydown', onKey);
+    return ins;
+  }
+  function insert(id, { title, onClose, key, trigger } = {}) {
+    const state = beginInsert(id, { onClose, key, trigger });
+    if (!state) return null;
     const content = h('div', { class: 'k-tree-ins-body' });
     const box = h('div');
     const tr = h('tr', { class: 'k-tree-ins' }, h('td', { colspan: String(colSpan) }, content));
     content.append(h('div', { class: 'q-head' }, h('h3', null, title || ''), button({ label: 'Скрыть', kind: 'ghost', size: 'S', onClick: () => closeInsert(true) })), box);
-    rec.tr.after(tr);
-    rec.tr.classList.add('is-sel');
-    ins = { rec, tr, onClose, opener, content, key };
-    if (disclosure) opener?.setAttribute('aria-expanded', 'true');
+    state.rec.tr.after(tr);
+    state.nodes = [tr];
+    state.content = content;
     fit();
-    document.addEventListener('keydown', onKey);
     window.addEventListener('resize', fit);
     tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     return { body: box, close: () => closeInsert(true) };
+  }
+
+  /** Строки с теми же колонками, что у дерева. Поздние ответы предыдущего запроса игнорируются. */
+  function insertRows(id, options = {}) {
+    const state = beginInsert(id, options);
+    if (!state) return null;
+    return {
+      active: () => ins === state && wrap.isConnected,
+      set(next) {
+        if (ins !== state) return;
+        state.nodes.forEach((row) => row.remove());
+        state.nodes = next;
+        for (const row of next) row.style.setProperty('--tree-level', Math.min(state.rec.depth, 8));
+        state.rec.tr.after(...next);
+      },
+    };
   }
 
   const table = h('table', { class: 'cal k-tree' + (disclosure ? ' k-tree-disclosing' : ''), 'aria-label': label || null },
@@ -154,5 +179,5 @@ export function treeTable({ label, head = 'Статья', periods = [], totalLab
     body);
   const wrap = mark(h('div', { class: 'panel cal-wrap k-tree-wrap' }, table), 'treeTable');
   sync(false);
-  return { el: wrap, toggle, expandAll, collapseAll, insert, closeInsert };
+  return { el: wrap, toggle, expandAll, collapseAll, insert, insertRows, closeInsert };
 }

@@ -896,6 +896,9 @@ table.list td.k-col-act .k-actions { justify-content: flex-end; flex-wrap: nowra
 .drawer.solo > .resizer { display: none; }
 @media (max-width: 720px) { .drawer-head .btn-icon[aria-label="В отдельном окне"] { display: none; } } /* на телефоне отдельных окон нет */
 
+table.list.fin-ops-list th.k-col-wrap { white-space: normal; }
+table.list.fin-ops-list td.k-col-wrap { min-width: 0; max-width: none; width: auto; overflow-wrap: anywhere; }
+
 /* «Дерево в таблице» (treeTable, C084): вариант table.cal — уровни, шеврон, подсветка строки и колонки, строка-вставка */
 table.cal.k-tree tr.k-tree-off { display: none; }
 table.cal.k-tree .k-lv1 > .sticky { padding-left: var(--s2); }
@@ -1378,3 +1381,33 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .fin-report-filter .k-select { width: 100%; }
 .fin-filter-dates.k-fieldrow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
 .fin-filter-dates input { width: 100%; min-width: 0; }
+
+.fin-report-tree table.cal.k-tree .k-tree-arrow {
+  display: inline-grid;
+  place-items: center;
+  width: var(--s5);
+  height: var(--s5);
+  flex: none;
+  font-size: var(--fs-h2);
+  line-height: 1;
+}
+.fin-report-tree table.cal.k-tree .k-tree-disclose { font-weight: 650; min-height: var(--control-compact); }
+.fin-report-tree table.cal.k-tree .k-tree-child { --fin-level-bg: var(--surface-2); }
+.fin-report-tree table.cal.k-tree tr.is-open:not(.k-tree-child) { --fin-level-bg: var(--surface-3); }
+.fin-report-tree table.cal.k-tree .k-tree-child.is-open {
+  --fin-level-bg: color-mix(in srgb, var(--surface-3) 75%, var(--sec-money-soft) 25%);
+}
+.fin-report-tree table.cal.k-tree tr.fin-tree-entry { --fin-level-bg: color-mix(in srgb, var(--surface) 90%, var(--sec-money-soft) 10%); }
+.fin-report-tree table.cal.k-tree tr:not(.is-sel) > td { background: var(--fin-level-bg, var(--surface)); }
+.fin-report-tree table.cal.k-tree tr:not(.is-sel) > td.click:hover { background: var(--gold-soft); }
+.fin-report-tree table.cal.k-tree .fin-tree-entry > .sticky {
+  border-inline-start: 2px solid var(--sec-money);
+  padding-inline-start: calc(var(--s3) + var(--tree-level, 0) * var(--s3) + var(--s5));
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.fin-report-tree table.cal.k-tree .fin-tree-entry small { display: block; margin-block-start: var(--s1); }
+.fin-report-tree table.cal.k-tree .fin-tree-entry-click { cursor: pointer; }
+.fin-report-tree table.cal.k-tree .fin-tree-entry-click:hover > td,
+.fin-report-tree table.cal.k-tree .fin-tree-entry-click:focus-within > td { background: var(--row-selected); }
+.fin-report-tree table.cal.k-tree .fin-tree-note > td { text-align: start; background: var(--surface-2); }
