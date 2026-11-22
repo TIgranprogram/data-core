@@ -1,6 +1,6 @@
 // Вызывается только e2e C171 с выделенным сервером Nest, временной папкой и учебным логином.
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createDocumentIntake } from '../../pult/document-intake.mjs';
@@ -49,11 +49,15 @@ const success = async (...args) => {
   const result = await call(...args); assert.ok(result.status < 300, JSON.stringify(result)); return result.body;
 };
 await success('settings', settings); await success('folder'); await success('login', user);
-const inbox = path.join(documents,'Inbox');
+const inboxPath = async () => (await pult.route('GET','status')).body.inboxPath;
+const inbox = await inboxPath();
 for (const [name, bytes] of [['1.pdf','%PDF-1.4 fixture A C171'],['2.pdf','порченый'],['3.pdf','%PDF-1.4 fixture A C171']]) await writeFile(path.join(inbox,name),bytes);
 await success('analyze');
 for (let i=0; i<200 && pult.busy(); i++) await delay(30);
 const report = await success('reviewreport', {}, 'GET');
+assert.deepEqual(await readdir(inbox), []);
+assert.equal((await readdir(path.join(documents, 'Проверенные'))).length, 2);
+assert.equal((await readdir(path.join(documents, 'Сомнительные'))).length, 1);
 assert.equal(report.counts.checked, 2, JSON.stringify(report)); assert.equal(report.counts.question, 1);
 const preview = await success('prepare'); assert.equal(preview.items.length, 1, JSON.stringify(preview));
 const auth = await fetch(apiBase + '/auth/login', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(user) }).then(r=>r.json());
@@ -73,7 +77,7 @@ assert.equal(commits, 1); await pult.stop();
 const other = path.join(root, 'independent-batch');
 pult = createDocumentIntake({ ...options, stateDir: path.join(root, 'other-settings'), pickFolder: async () => other });
 await success('settings', settings); await success('folder'); await success('login', user);
-await writeFile(path.join(other, 'Inbox', 'повтор.pdf'), '%PDF-1.4 fixture A C171');
+await writeFile(path.join(await inboxPath(), 'повтор.pdf'), '%PDF-1.4 fixture A C171');
 await success('analyze');
 for (let i=0; i<200 && pult.busy(); i++) await delay(30);
 const recovered = await success('prepare');
@@ -138,8 +142,8 @@ const transfer = async (kind, lose) => {
   if (lose) assert.equal(sent.status, 409, JSON.stringify(sent));
   else assert.equal(sent.body.uploaded, 1, JSON.stringify(sent));
 };
-await writeFile(path.join(sales, 'Inbox', 'Договор.pdf'), '%PDF-1.4 fixture contract C223');
-await writeFile(path.join(sales, 'Inbox', 'Заказ.pdf'), '%PDF-1.4 fixture order C223');
+await writeFile(path.join(await inboxPath(), 'Договор.pdf'), '%PDF-1.4 fixture contract C223');
+await writeFile(path.join(await inboxPath(), 'Заказ.pdf'), '%PDF-1.4 fixture order C223');
 const waiting = await analyze();
 assert.equal(waiting.counts.checked, 1, JSON.stringify(waiting));
 assert.equal(waiting.items.find(row => row.kind === 'order')?.state, 'question', JSON.stringify(waiting));

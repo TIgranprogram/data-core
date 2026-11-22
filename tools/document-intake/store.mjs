@@ -13,6 +13,7 @@ export const uid = () => randomUUID();
 export const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 export const MAX_BYTES = 20 * 1024 * 1024;
 export const FOLDERS = { inbox: 'Inbox', processing: 'Processing', ready: 'Ready', question: 'Question' };
+export const RUSSIAN_FOLDERS = { inbox: 'Входящие', processing: 'В разборе', ready: 'Проверенные', question: 'Сомнительные' };
 
 export class IntakeError extends Error {
   constructor(code, message, action) {
@@ -63,7 +64,7 @@ function rootChain(root) {
   }
 }
 
-export async function openRoot(root) {
+export async function openRoot(root, { create = true, localized = false } = {}) {
   if (typeof root !== 'string' || !path.isAbsolute(root)) {
     throw new IntakeError('FOLDER', 'Выберите полную папку разбора документов.');
   }
@@ -73,6 +74,7 @@ export async function openRoot(root) {
   }
   async function directory(dir, dev) {
     let stats = await exists(dir);
+    if (!stats && !create) return null;
     if (!stats) {
       await fs.mkdir(dir, { recursive: true, mode: 0o700 });
       stats = await fs.lstat(dir);
@@ -82,16 +84,29 @@ export async function openRoot(root) {
     }
     return stats;
   }
-  for (const dir of rootChain(resolved)) await directory(dir);
-  const rootStat = await fs.lstat(resolved);
-  const folders = Object.fromEntries(Object.entries(FOLDERS).map(([key, name]) => [key, path.join(resolved, name)]));
+  let rootStat;
+  for (const dir of rootChain(resolved)) {
+    rootStat = await directory(dir);
+    if (!rootStat) break;
+  }
   const state = path.join(resolved, '.intake');
+  const marker = path.join(state, 'folders-ru');
+  const stateStat = rootStat && await directory(state, rootStat.dev);
+  const layout = stateStat && await exists(marker);
+  if (layout && !layout.isFile()) throw new IntakeError('FOLDER', 'Служебный файл папки разбора повреждён.');
+  let russian = !!layout;
+  if (create && localized && !russian) {
+    const previous = await Promise.all(Object.values(FOLDERS).map(name => exists(path.join(resolved, name))));
+    if (!previous.some(Boolean)) {
+      await fs.writeFile(marker, '', { flag: 'wx', mode: 0o600 });
+      russian = true;
+    }
+  }
+  const folders = Object.fromEntries(Object.entries(russian ? RUSSIAN_FOLDERS : FOLDERS).map(([key, name]) => [key, path.join(resolved, name)]));
   const arrivals = path.join(state, 'arrivals');
   const documents = path.join(state, 'documents');
-  for (const dir of [...Object.values(folders), state, arrivals, documents]) {
-    await directory(dir, rootStat.dev);
-  }
-  return { root: await fs.realpath(resolved), folders, arrivals, documents, rootStat };
+  if (rootStat) for (const dir of [...Object.values(folders), arrivals, documents]) await directory(dir, rootStat.dev);
+  return { root: rootStat ? await fs.realpath(resolved) : resolved, folders, arrivals, documents, rootStat, readOnly: !create };
 }
 
 // Сокет удерживает ОС. При аварийном выходе блокировка освобождается без удаления чужого lock-файла.
@@ -135,8 +150,13 @@ export async function saveArrival(store, entry) {
   await jsonAtomic(arrivalFile(store, entry.arrivalId), entry);
 }
 
+async function listFolder(store, directory, options) {
+  try { return await fs.readdir(directory, options); }
+  catch (error) { if (store.readOnly && error.code === 'ENOENT') return []; throw error; }
+}
+
 export async function arrivalsOf(store) {
-  const names = (await fs.readdir(store.arrivals)).filter((name) => /^[\da-f-]{36}\.json$/.test(name));
+  const names = (await listFolder(store, store.arrivals)).filter((name) => /^[\da-f-]{36}\.json$/.test(name));
   const rows = await Promise.all(names.map(async (name) => {
     const row = await readJson(path.join(store.arrivals, name));
     if (row && (name !== `${row.arrivalId}.json` || !safeName(row.name) || !Object.hasOwn(FOLDERS, row.state)
@@ -152,7 +172,7 @@ const safeName = (name) => typeof name === 'string' && name.length > 0 && name.l
   && name !== '.' && name !== '..' && !/[\\/:\x00-\x1f\x7f]/u.test(name);
 
 export async function inboxFiles(store) {
-  return (await fs.readdir(store.folders.inbox, { withFileTypes: true }))
+  return (await listFolder(store, store.folders.inbox, { withFileTypes: true }))
     .filter((item) => item.isFile() && safeName(item.name) && !item.name.startsWith('.') && !item.name.startsWith('~$') && !/\.(?:part|partial|tmp|crdownload|download|filepart)$/i.test(item.name))
     .map((item) => item.name).sort();
 }
@@ -272,7 +292,7 @@ async function moveArrival(store, entry, from, to) {
   await syncDirectory(store.folders[to]);
 }
 
-export async function readOriginal(store, entry, maxBytes = MAX_BYTES, state = 'processing') {
+export async function readOriginal(store, entry, maxBytes = MAX_BYTES, state = entry.state) {
   const folder = await checkArrivalFolder(store, entry, state);
   const file = path.join(folder, entry.name);
   const snapshot = await exists(file);
@@ -325,23 +345,24 @@ export async function reconcileRetry(store, entry) {
 }
 
 export async function reconcileArrival(store, entry) {
-  const source = withinArrival(store, 'processing', entry);
+  const from = entry.state;
+  const source = withinArrival(store, from, entry);
   if (entry.pending) {
     const destination = entry.pending.state;
     const target = withinArrival(store, destination, entry);
     const original = path.join(target, entry.name);
-    await checkWorkflowFolders(store, ['processing', destination]);
+    await checkWorkflowFolders(store, [from, destination]);
     if (await exists(target)) {
       await checkArrivalFolder(store, entry, destination);
       if (await exists(source) || !(await exists(original))?.isFile()) {
         throw new IntakeError('JOURNAL', 'Две папки одного поступления требуют сверки.', 'Откройте папки «Разбираются» и папку результата. Сохраните оба файла.');
       }
     } else {
-      await checkArrivalFolder(store, entry, 'processing');
-      if (!(await exists(originalPath(store, entry)))?.isFile()) {
-        throw new IntakeError('ORIGINAL', 'Не найден оригинал для перемещения.', 'Верните файл в папку «Разбираются» по имени из отчёта.');
+      await checkArrivalFolder(store, entry, from);
+      if (!(await exists(path.join(source, entry.name)))?.isFile()) {
+        throw new IntakeError('ORIGINAL', 'Не найден оригинал для перемещения.', 'Верните файл в исходную папку поступления.');
       }
-      await moveArrival(store, entry, 'processing', destination);
+      await moveArrival(store, entry, from, destination);
     }
     if (destination === 'ready') {
       try {
@@ -351,7 +372,7 @@ export async function reconcileArrival(store, entry) {
         }
       } catch (error) {
         // Возврат допустим только через проверенные папки и при свободном месте в очереди.
-        await moveArrival(store, entry, 'ready', 'processing');
+        await moveArrival(store, entry, 'ready', from);
         if (error instanceof IntakeError && error.code === 'QUESTION') {
           throw new IntakeError('ORIGINAL', 'Размер оригинала изменился после перемещения.', 'Верните неизменённый оригинал и возобновите разбор.');
         }

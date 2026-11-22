@@ -1,8 +1,8 @@
 // C171: локальная проверка не имеет средств записи в DataCore.
 import path from 'node:path';
 import {
-  IntakeError, MAX_BYTES, arrivalsOf, claim, inboxFiles, jsonAtomic, lock,
-  openRoot, readJson, readOriginal, reconcileArrival, saveArrival, sha256, uid,
+  IntakeError, MAX_BYTES, arrivalsOf, claim, exists, finishArrival, inboxFiles, jsonAtomic, lock,
+  openRoot, readJson, readOriginal, reconcileArrival, reconcileRetry, saveArrival, sha256, startRetry, uid,
 } from './store.mjs';
 import { apiAddress, authorize, connectApi, decideInvoice, findOrderContract, resolveSalesParties } from './api.mjs';
 import { checkPages, EXTRACTOR_VERSION, extractDocument, evidencedKind, propose, referencedContract, RULES_VERSION, validateProposal, verifyPartyCitations } from './proposal.mjs';
@@ -25,7 +25,9 @@ export function checkBinding(draft, target, actor) {
 export async function findReview(store, arrivalId) {
   const entry = (await arrivalsOf(store)).find(row => row.arrivalId === arrivalId && row.workflow === 'c171');
   if (!entry?.hash || !/^[a-f0-9]{64}$/.test(entry.hash)) throw new IntakeError('SELECTION', 'Черновик не найден.');
-  const bytes = await readOriginal(store, entry, MAX_BYTES);
+  const destination = entry.pending?.state;
+  const moved = destination && await exists(path.join(store.folders[destination], entry.arrivalId));
+  const bytes = await readOriginal(store, entry, MAX_BYTES, moved ? destination : entry.state);
   if (sha256(bytes) !== entry.hash) throw new IntakeError('ORIGINAL', 'Оригинал изменён.', 'Восстановите неизменённый исходный файл.');
   const draft = await readJson(draftFile(store, entry.hash));
   if (!draft || draft.hash !== entry.hash || draft.workflow !== 'c171') throw new IntakeError('JOURNAL', 'Черновик не соответствует оригиналу.');
@@ -75,8 +77,13 @@ async function validate(draft, api) {
   }
 }
 
+async function fileReviewResult(store, entry, draft) {
+  const state = draft.state === 'question' ? 'question' : 'ready';
+  if (entry.state !== state) await finishArrival(store, entry, { state });
+}
+
 export async function reviewStatus({ root, owner, target }) {
-  const store = await openRoot(root);
+  const store = await openRoot(root, { create: false });
   const entries = (await arrivalsOf(store)).filter(row => row.workflow === 'c171');
   const items = [];
   for (const entry of entries) {
@@ -119,7 +126,7 @@ export async function reviseDraft(options, dependencies = {}) {
   const release = await lock(store.root);
   try {
     abort(signal);
-    const { draft } = await findReview(store, arrivalId);
+    const { draft, entry } = await findReview(store, arrivalId);
     if (draft.sendStarted || draft.state === 'uploaded') throw new IntakeError('VERSION', 'Сначала завершите сверку отправленного счёта.');
     if (!Number.isSafeInteger(version) || draft.version !== version) throw new IntakeError('VERSION', 'Черновик изменён в другом окне.', 'Откройте актуальную версию и повторите правку.');
     if (draft.version >= 100) throw new IntakeError('VERSION', 'Достигнут предел версий черновика.', 'Передайте историю ответственному за приложение.');
@@ -139,6 +146,8 @@ export async function reviseDraft(options, dependencies = {}) {
     await validate(draft, api);
     abort(signal);
     await jsonAtomic(draftFile(store, draft.hash), draft);
+    if (entry.pending) await reconcileArrival(store, entry);
+    await fileReviewResult(store, entry, draft);
     return getDraft({ root, arrivalId });
   } finally { await release(); }
 }
@@ -169,9 +178,14 @@ export async function analyze(options, dependencies = {}) {
     const api = readOnly(runtime.connect(options));
     const actor = await authorize(api);
     const entries = [];
-    for (const entry of existingEntries.filter(row => row.workflow === 'c171' && row.state === 'processing')) {
-      const restored = entry.phase === 'claiming' ? await reconcileArrival(store, entry) : entry;
-      if (restored) entries.push(restored);
+    for (const entry of existingEntries.filter(row => row.workflow === 'c171')) {
+      if (entry.reviewOwner !== actor.id || entry.reviewTarget !== target) continue;
+      if (entry.pending || entry.phase === 'claiming') {
+        if (!await reconcileArrival(store, entry)) continue;
+      }
+      if (entry.state === 'question') await startRetry(store, entry, { target, owner: actor.id });
+      if (entry.phase === 'retrying') await reconcileRetry(store, entry);
+      if (entry.state === 'processing') entries.push(entry);
     }
     const incoming = await inboxFiles(store);
     // Снимок пачки: новые поступления во время анализа остаются до следующего запуска.
@@ -189,6 +203,7 @@ export async function analyze(options, dependencies = {}) {
       if (draft) {
         checkBinding(draft, target, actor);
         if (draft.submission || draft.sendStarted || draft.state === 'uploaded') {
+          await fileReviewResult(store, entry, draft);
           processed++; stage = draft.state; notify(true); return;
         }
       }
@@ -224,6 +239,7 @@ export async function analyze(options, dependencies = {}) {
       abort(signal);
       draft.updatedAt = new Date().toISOString();
       await jsonAtomic(draftFile(store, hash), draft);
+      await fileReviewResult(store, entry, draft);
       processed++; stage = draft.state; notify(true);
     };
     const workSafely = async entry => {
@@ -235,7 +251,8 @@ export async function analyze(options, dependencies = {}) {
         entry.reviewIssue = problem(error instanceof IntakeError ? error.code : 'DOCUMENT',
           error instanceof IntakeError ? error.message : 'Не удалось прочитать документ.',
           error instanceof IntakeError ? error.action : 'Сверьте наличие и читаемость оригинала.');
-        await saveArrival(store, entry);
+        if (error.code === 'QUESTION' && !entry.pending && entry.state === 'processing') await finishArrival(store, entry, { state: 'question' });
+        else await saveArrival(store, entry);
         processed++; stage = 'question'; notify(true);
       }
     };

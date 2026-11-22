@@ -20,6 +20,28 @@ async function pdfProbe(run, signal) {
   if (JSON.parse(stdout)?.ready !== true) throw new Error();
 }
 
+export async function probeLocalModel({ modelBase, model, signal, fetchFn = fetch }) {
+  const endpoint = localModel(modelBase);
+  if (!endpoint || typeof model !== 'string' || !model.trim() || model.length > 200 || /[\x00-\x1f\x7f]/.test(model)) throw new Error();
+  const response = await fetchFn(endpoint, {
+    method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/json' },
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000),
+    // Рассуждающая модель расходует бюджет до JSON; усечённый ответ всё равно запрещён.
+    body: JSON.stringify({ model, temperature: 0, max_tokens: 1024,
+      response_format: { type: 'json_schema', json_schema: { name: 'document_intake_probe', strict: true, schema: PROBE_SCHEMA } },
+      messages: [{ role: 'user', content: 'Проверка готовности. Верни JSON строго по схеме: {"ready":true}.' }],
+    }),
+  });
+  if (!response.ok) { await response.body?.cancel().catch(() => {}); throw new Error(); }
+  const result = await response.json();
+  const choice = result?.choices?.[0];
+  const content = choice?.message?.content;
+  if (choice?.finish_reason !== 'stop' || typeof content !== 'string' || content.length > 1024) throw new Error();
+  const value = JSON.parse(content);
+  if (!value || Array.isArray(value) || Object.keys(value).length !== 1 || value.ready !== true) throw new Error();
+  return { model };
+}
+
 /** Проверка перед анализом. Не устанавливает программы и не меняет данные DataCore. */
 export async function preflight(options, dependencies = {}) {
   const { root, modelBase, model, apiBase, token, signal, onStep } = options;
@@ -57,27 +79,7 @@ export async function preflight(options, dependencies = {}) {
     return { freeBytes, requiredBytes: MIN_FREE };
   });
   await check('pdf', 'Чтение текстового PDF', 'Для чтения текста PDF на этом компьютере нужен Python с PyMuPDF.', () => pdfProbe(runtime.exec, signal));
-  await check('model', 'Ответ локальной модели по схеме', 'Запустите локальный сервер LM Studio, загрузите выбранную модель и проверьте её имя и локальный адрес.', async () => {
-    const endpoint = localModel(modelBase);
-    if (!endpoint || typeof model !== 'string' || !model.trim() || model.length > 200 || /[\x00-\x1f\x7f]/.test(model)) throw new Error();
-    const response = await runtime.fetchFn(endpoint, {
-      method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/json' },
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000),
-      // Рассуждающая модель расходует бюджет до JSON; усечённый ответ всё равно запрещён.
-      body: JSON.stringify({ model, temperature: 0, max_tokens: 1024,
-        response_format: { type: 'json_schema', json_schema: { name: 'document_intake_probe', strict: true, schema: PROBE_SCHEMA } },
-        messages: [{ role: 'user', content: 'Проверка готовности. Верни JSON строго по схеме: {"ready":true}.' }],
-      }),
-    });
-    if (!response.ok) { await response.body?.cancel().catch(() => {}); throw new Error(); }
-    const result = await response.json();
-    const choice = result?.choices?.[0];
-    const content = choice?.message?.content;
-    if (choice?.finish_reason !== 'stop' || typeof content !== 'string' || content.length > 1024) throw new Error();
-    const value = JSON.parse(content);
-    if (!value || Array.isArray(value) || Object.keys(value).length !== 1 || value.ready !== true) throw new Error();
-    return { model };
-  });
+  await check('model', 'Ответ локальной модели по схеме', 'Запустите локальный сервер LM Studio, загрузите выбранную модель и проверьте её имя и локальный адрес.', () => probeLocalModel({ modelBase, model, signal, fetchFn: runtime.fetchFn }));
   await check('datacore', 'Контур DataCore и права', 'Проверьте выбранный контур и войдите с правами менеджера и доступом к суммам.', async () => {
     contour = apiAddress(apiBase).replace(/\/$/, '');
     const api = runtime.connectApi({ apiBase, token, signal });

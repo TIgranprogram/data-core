@@ -53,9 +53,24 @@ export function createIntakeView({ api, el }) {
 
   const main = el('div', 'intake-main');
   const side = el('div', 'intake-side-content');
-  const path = el('p', 'intake-root', 'Загружаем настройки…');
-  const folder = button('Папка…', () => perform('folder', {}, mainFeedback));
-  const inbox = button('Открыть входящие', () => perform('inbox', {}, mainFeedback));
+  const inboxPath = field('Путь к входящим', { readOnly: true });
+  inboxPath.label.classList.add('intake-path');
+  const folderFeedback = feedback('intake-status');
+  const inboxFeedback = feedback('intake-status');
+  const folder = button('Папка…', () => perform('folder', {}, folderFeedback));
+  const inbox = button('Открыть входящие', () => perform('inbox', {}, inboxFeedback));
+  const detach = button('Отключить папку', () => perform('detach', {}, folderFeedback, 'Папка отключена. Файлы остались на диске.'));
+  const copyPath = button('Скопировать путь', async () => {
+    const value = inboxPath.input.value;
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      folderFeedback.textContent = 'Путь скопирован.';
+    } catch {
+      inboxPath.input.focus(); inboxPath.input.select();
+      folderFeedback.textContent = 'Нажмите Ctrl+C, чтобы скопировать выделенный путь.';
+    }
+  });
   const targetName = el('strong', '', 'Адрес сайта не настроен');
   const targetDetail = el('p', 'intake-target');
   const target = el('div', 'intake-destination');
@@ -63,7 +78,7 @@ export function createIntakeView({ api, el }) {
   const reportButton = button('Отчёт', () => showPane('report'));
   const sideReportButton = button('Отчёт', () => showPane('report'));
   target.append(targetName, targetDetail);
-  main.append(card('Папка обработки', path, actionRow(folder, inbox)), target);
+  main.append(card('Входящие', actionRow(inbox), inboxFeedback), target);
 
   const mainFeedback = feedback('intake-feedback');
   const statusText = feedback('intake-status');
@@ -84,10 +99,9 @@ export function createIntakeView({ api, el }) {
     return [key, value];
   });
   const run = button('Разобрать', () => perform('analyze', {}, mainFeedback), 'primary act-go');
-  const resume = button('Возобновить', () => perform('analyze', {}, mainFeedback), 'primary act-go');
   const stop = button('Остановить', () => perform('stop', {}, mainFeedback), 'ghost danger');
   const prepare = button('Отправить готовые…', () => delivery('prepare'));
-  main.append(card('Ход разбора', statList, statusText, progress, preparation, current, activity, actionRow(run, resume, stop, reportButton, prepare), mainFeedback));
+  main.append(card('Ход разбора', statList, statusText, progress, preparation, current, activity, actionRow(run, stop, reportButton, prepare), mainFeedback));
 
   const apiBase = field('Адрес сайта', { type: 'url', required: true, maxLength: 1200, spellcheck: false, placeholder: production });
   const modelBase = field('Адрес LM Studio', { type: 'url', required: true, maxLength: 1200, spellcheck: false });
@@ -96,14 +110,17 @@ export function createIntakeView({ api, el }) {
   const useDevelopment = button('Тестовая копия на этом ПК', () => { apiBase.input.value = 'http://127.0.0.1:3102/api'; apiBase.input.focus(); });
   const save = el('button', 'primary', 'Сохранить настройки');
   const settingsFeedback = feedback('intake-feedback');
+  const modelFeedback = feedback('intake-status');
+  const checkModel = button('Проверить LM Studio', () => perform('modelprobe', { modelBase: modelBase.input.value, model: model.input.value }, modelFeedback, 'LM Studio ответила. Модель готова.'));
   const settingsForm = el('form', 'intake-form');
-  settingsForm.append(apiBase.label, actionRow(useProduction, useDevelopment), modelBase.label, model.label, actionRow(save), settingsFeedback);
+  settingsForm.append(apiBase.label, actionRow(useProduction, useDevelopment), modelBase.label, model.label, actionRow(checkModel, save), modelFeedback, settingsFeedback);
+  for (const control of [modelBase.input, model.input]) control.addEventListener('input', () => { modelFeedback.textContent = ''; modelFeedback.classList.remove('intake-model-ready'); });
   settingsForm.onsubmit = (event) => {
     event.preventDefault();
     perform('settings', { apiBase: apiBase.input.value, modelBase: modelBase.input.value, model: model.input.value }, settingsFeedback, 'Настройки сохранены.');
   };
 
-  const username = field('Логин', { required: true, maxLength: 64, autocomplete: 'username' });
+  const username = field('Логин', { value: 'admin', required: true, maxLength: 64, autocomplete: 'username' });
   const password = field('Пароль', { type: 'password', required: true, maxLength: 128, autocomplete: 'off' });
   const login = el('button', 'primary', 'Войти');
   const logout = button('Выйти', () => perform('logout', {}, loginFeedback));
@@ -118,7 +135,8 @@ export function createIntakeView({ api, el }) {
     perform('login', { username: username.input.value, password: secret }, loginFeedback);
   };
   const sideSettings = el('section', 'intake-pane');
-  sideSettings.append(card('Подключение', settingsForm), card('Учётная запись менеджера', loginInfo, loginForm, actionRow(logout), loginFeedback));
+  sideSettings.append(card('Папка разбора', inboxPath.label, actionRow(folder, copyPath, detach), folderFeedback),
+    card('Подключение', settingsForm), card('Вход в DataCore', loginInfo, loginForm, actionRow(logout), loginFeedback));
 
   const reportTime = el('p', 'intake-updated');
   const reportStatus = feedback('intake-feedback');
@@ -163,19 +181,22 @@ export function createIntakeView({ api, el }) {
     const stalled = view?.progress?.state === 'stopped';
     const canResume = stalled || !!view?.reviewCounts?.processing;
     folder.disabled = !view || busy || running;
-    inbox.disabled = !settings?.root || !!pending;
+    inbox.disabled = !view || !!pending;
+    detach.hidden = !settings?.root;
+    detach.disabled = busy || running;
+    copyPath.disabled = !view?.inboxPath;
+    const nextPath = view?.inboxPath || '';
+    if (inboxPath.input.value !== nextPath) inboxPath.input.value = nextPath;
+    inboxPath.input.title = nextPath;
     prepare.disabled = !canStart || !(view?.reviewCounts?.checked || view?.reviewCounts?.sending);
     run.disabled = !canStart;
-    run.className = canResume || running ? 'ghost' : 'primary act-go';
-    resume.disabled = !canStart || !canResume;
-    resume.className = canResume && !running ? 'primary act-go' : 'ghost';
+    run.hidden = running;
+    run.textContent = canResume ? 'Возобновить' : 'Разобрать';
     stop.hidden = !running;
     stop.disabled = !!pending || !view?.canStop;
     for (const control of draftButtons) control.disabled = busy || running || !view?.signedIn;
-    for (const control of [apiBase.input, modelBase.input, model.input, useProduction, useDevelopment, save, username.input, password.input, login, logout]) control.disabled = !view || busy || running;
+    for (const control of [apiBase.input, modelBase.input, model.input, useProduction, useDevelopment, checkModel, save, username.input, password.input, login, logout]) control.disabled = !view || busy || running;
     login.disabled ||= !settings?.apiBase;
-    path.textContent = settings?.root || (view ? 'Выберите папку, в которой будут храниться документы.' : 'Загружаем настройки…');
-    path.title = settings?.root || '';
     targetName.textContent = settings?.apiBase === production ? 'Рабочий сайт' : settings?.apiBase ? 'Локальная копия' : 'Адрес сайта не настроен';
     targetDetail.textContent = settings?.apiBase || 'Укажите адрес сайта и модель в настройках.';
     target.classList.toggle('production', settings?.apiBase === production);
@@ -187,9 +208,9 @@ export function createIntakeView({ api, el }) {
     else if (running) statusText.textContent = job?.total ? `Проверено ${job.processed} из ${job.total}` : 'Готовим документы к проверке…';
     else if (stalled) statusText.textContent = job.message;
     else if (view?.reviewCounts?.processing) statusText.textContent = 'Есть локальные черновики. Нажмите «Возобновить», чтобы повторить проверку.';
-    else if (!settings?.root) statusText.textContent = view ? 'Начните с выбора папки.' : '';
+    else if (!settings?.root) statusText.textContent = view ? 'Откройте входящие и сложите туда PDF.' : '';
     else if (!settings.apiBase || !settings.model) statusText.textContent = 'Сохраните адрес сайта и параметры своей локальной модели.';
-    else if (!view.signedIn) statusText.textContent = 'Войдите в учётную запись менеджера в настройках.';
+    else if (!view.signedIn) statusText.textContent = 'Войдите в DataCore через «Настройки».';
     else if (job?.state === 'finished') statusText.textContent = job.total ? `Проверка завершена. Проверено ${job.processed} из ${job.total}.` : 'Проверка завершена. Результаты доступны в отчёте.';
     else statusText.textContent = 'Положите файлы во входящие. Перед разбором запустите выбранную модель в LM Studio.';
     progress.hidden = !running;
@@ -237,7 +258,7 @@ export function createIntakeView({ api, el }) {
         modelBase.input.value = settings.modelBase;
         model.input.value = settings.model || defaultModel;
       }
-      loginInfo.textContent = view.signedIn ? 'Вход выполнен. После перезапуска пульта войдите снова.' : 'Войдите с логином и паролем менеджера выбранного сайта.';
+      loginInfo.textContent = view.signedIn ? 'Вход выполнен. После перезапуска пульта войдите снова.' : 'Войдите с паролем администратора выбранного сайта.';
       loginForm.hidden = view.signedIn;
       logout.hidden = !view.signedIn;
     }
@@ -280,7 +301,7 @@ export function createIntakeView({ api, el }) {
       lastReportKey = '';
       reportTime.textContent = '';
       reportStatus.textContent = '';
-      reportItems.replaceChildren(el('p', 'intake-updated', !view.settings.root ? 'Выберите папку, чтобы открыть её отчёт.' : 'Войдите в учётную запись менеджера в настройках, чтобы открыть локальные черновики.'));
+      reportItems.replaceChildren(el('p', 'intake-updated', !view.settings.root ? 'Выберите папку, чтобы открыть её отчёт.' : 'Войдите в DataCore в настройках, чтобы открыть локальные черновики.'));
       return;
     }
     const key = reportKey();
@@ -450,18 +471,21 @@ export function createIntakeView({ api, el }) {
   async function perform(action, body, message, success = '') {
     if (pending) return;
     pending = action;
-    message.textContent = '';
+    message.textContent = action === 'modelprobe' ? 'Проверяем ответ модели…' : '';
+    message.classList.remove('intake-model-ready');
     update();
     try {
       const result = await call(action, { ...body, revision: view?.revision });
       message.textContent = success;
+      if (action === 'modelprobe' && result.ready) message.classList.add('intake-model-ready');
+      if (action === 'inbox') message.textContent = result.focused ? 'Входящие открыты. Положите туда PDF.' : 'Проверьте Проводник на панели задач. Путь к входящим виден в настройках.';
       if (result.cancelled) message.textContent = 'Папка осталась прежней.';
       if (action === 'analyze') showPane('report');
     } catch (error) {
       message.textContent = error.message;
     } finally {
       pending = '';
-      await refresh(action === 'folder');
+      await refresh(['folder', 'detach', 'inbox'].includes(action));
       update();
     }
   }

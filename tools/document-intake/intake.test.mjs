@@ -55,6 +55,21 @@ async function setup(t) {
   return { ...conf, drop, options: { root, apiBase: target, token: bareToken, modelBase: 'http://localhost:1235/v1', model: 'test-local-ai' } };
 }
 
+test('фоновая проверка не создаёт очередь, а включённая очередь сохраняет своё расположение', async t => {
+  const box = await setup(t);
+  const root = path.join(box.root, 'Отдельная очередь');
+  assert.equal((await status({ root })).counts.inbox, 0);
+  assert.equal(await fs.stat(root).catch(error => error.code), 'ENOENT');
+  const selected = await configure({ root, localized: true });
+  assert.equal(path.basename(selected.folders.inbox), 'Входящие');
+  assert.equal(path.basename(selected.folders.question), 'Сомнительные');
+  await fs.rmdir(selected.folders.ready);
+  assert.equal((await status({ root })).folders.inbox, selected.folders.inbox);
+  await report({ root });
+  assert.equal(await fs.stat(selected.folders.ready).catch(error => error.code), 'ENOENT');
+  assert.equal((await configure({ root: box.root, localized: true })).folders.inbox, box.folders.inbox);
+});
+
 function fakeApi({ lose, invoice = false, missingBuyer = false } = {}) {
   const uid = `c169-${sha256(bytes)}`;
   const storageUrl = '/uploads/c169/source.pdf';

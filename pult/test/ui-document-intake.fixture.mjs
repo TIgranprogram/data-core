@@ -40,9 +40,10 @@ const componentSteps = [
   { id: 'datacore', title: 'Контур DataCore и права' },
 ];
 const access = `${Buffer.from('{"alg":"test"}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: owner, exp: Math.floor(Date.now() / 1000) + 3600, role: 'manager', version: 1 })).toString('base64url')}.test`;
+const inboxFor = root => path.join(root, root.endsWith('default-intake') ? 'Входящие' : 'Inbox');
 const engine = {
-  async configure({ root }) { return { root, folders: {} }; },
-  async status() { return { counts: { inbox: 3, processing: 0, ready: 0, question: 0 }, running: false }; },
+  async configure({ root }) { return { root, folders: { inbox: inboxFor(root) } }; },
+  async status({ root }) { return { counts: { inbox: 3, processing: 0, ready: 0, question: 0 }, folders: { inbox: inboxFor(root) }, running: false }; },
   async report() { return { counts: {}, items: [] }; },
   async reviewStatus(binding) { assert.equal(binding.owner, owner); assert.equal(binding.target, target); return review; },
   async getDraft({ arrivalId: selected }) { assert.equal(selected, arrivalId); drafts++; return { owner, target, arrivalId, name, version: 2, state: 'question', pages, raw, issues: [issue] }; },
@@ -67,6 +68,8 @@ const engine = {
 const pult = createPult({
   root: path.resolve(), stateDir: temporary, machine: {}, statusFn: async () => ({ gateFiles: [], branch: 'UI C171', docker: false }),
   documentIntake: {
+    defaultRoot: path.join(temporary, 'default-intake'),
+    probeModel: async ({ model }) => { if (model !== 'учебная-модель') throw new Error('Offline'); },
     engine: async () => engine,
     prepare: async ({ onStep }) => {
       preparations++;
@@ -100,18 +103,40 @@ try {
   const control = name => page.getByRole('main').getByRole('button', { name, exact: true });
   const aside = page.getByRole('complementary', { name: 'Настройки и отчёт разбора документов' });
   const sideButton = name => aside.getByRole('button', { name, exact: true });
-  await page.getByText('Начните с выбора папки.').waitFor();
-  for (const name of ['Разобрать', 'Возобновить', 'Открыть входящие']) assert.ok(await control(name).isDisabled());
+  await page.getByText('Откройте входящие и сложите туда PDF.').waitFor();
+  assert.ok(await control('Разобрать').isDisabled());
+  assert.equal(await control('Возобновить').count(), 0);
   await control('Отчёт').click(); await aside.getByText('Выберите папку, чтобы открыть её отчёт.').waitFor();
-  await control('Папка…').click(); await page.getByText('Папка осталась прежней.').waitFor();
-  picked = true; await control('Папка…').click(); await page.getByText(documents, { exact: true }).waitFor();
-  await Promise.all([page.waitForResponse('**/api/document-intake/inbox'), control('Открыть входящие').click()]);
-  assert.deepEqual(opened, [path.join(documents, 'Inbox')]);
+  const inboxCard = page.getByRole('main').locator('.intake-card').filter({ has: page.getByRole('heading', { name: 'Входящие', exact: true }) });
+  assert.deepEqual(await inboxCard.getByRole('button').allTextContents(), ['Открыть входящие']);
+  await sideButton('Настройки').click();
+  await sideButton('Папка…').click(); await page.getByText('Папка осталась прежней.').waitFor();
+  const address = page.getByRole('textbox', { name: 'Путь к входящим' });
+  await control('Открыть входящие').click();
+  await page.getByText('Входящие открыты. Положите туда PDF.').waitFor();
+  assert.equal(await address.inputValue(), path.join(temporary, 'default-intake', 'Входящие'));
+  await sideButton('Отключить папку').click();
+  await page.getByText('Папка отключена. Файлы остались на диске.').waitFor();
+  picked = true; await sideButton('Папка…').click();
+  await page.waitForFunction(expected => document.querySelector('.intake-path input').value === expected, path.join(documents, 'Inbox'));
+  for (let i = 0; i < 2; i++) {
+    await Promise.all([page.waitForResponse('**/api/document-intake/inbox'), control('Открыть входящие').click()]);
+  }
+  assert.deepEqual(opened, [path.join(temporary, 'default-intake', 'Входящие'), path.join(documents, 'Inbox'), path.join(documents, 'Inbox')]);
   await sideButton('Настройки').click();
   await aside.getByLabel('Адрес сайта', { exact: true }).fill('https://fixture-outside.invalid/api');
   await sideButton('Сохранить настройки').click(); await aside.getByText('Укажите рабочий сайт или адрес локальной копии', { exact: false }).waitFor();
   await sideButton('Тестовая копия на этом ПК').click();
   await sideButton('Сохранить настройки').click(); await aside.getByText('Настройки сохранены.').waitFor();
+  assert.equal(await aside.getByLabel('Логин', { exact: true }).inputValue(), 'admin');
+  await sideButton('Проверить LM Studio').click();
+  await aside.getByText('Выбранная модель не ответила.', { exact: false }).waitFor();
+  await aside.getByLabel('Название модели').fill('учебная-модель');
+  await sideButton('Проверить LM Studio').click();
+  const modelReady = aside.getByText('LM Studio ответила. Модель готова.', { exact: true });
+  await modelReady.waitFor();
+  assert.match(await modelReady.getAttribute('class'), /intake-model-ready/);
+  await page.screenshot({ path: path.join(output, 'ui-settings-ready-1440.png') });
   await aside.getByLabel('Логин', { exact: true }).fill('учебный-менеджер');
   await aside.getByLabel('Пароль', { exact: true }).fill('fixture-c171-password');
   await sideButton('Войти').click(); await aside.getByText('Вход выполнен.', { exact: false }).waitFor();
@@ -134,7 +159,7 @@ try {
   assert.equal(await page.getByRole('main').getByText('Проверено', { exact: true }).count(), 5);
   await aside.getByText('На проверку · 1', { exact: true }).waitFor();
   await screenshot('ui-progress-1440-light.png');
-  assert.ok(await control('Разобрать').isDisabled());
+  assert.equal(await control('Разобрать').count(), 0);
   await page.reload(); await page.getByText('Проверено 1 из 3', { exact: true }).waitFor();
   await control('Остановить').click(); await page.getByText('Разбор остановлен.', { exact: false }).waitFor();
   await control('Возобновить').click(); await page.getByText('Проверка завершена.', { exact: false }).waitFor();
@@ -178,7 +203,7 @@ try {
   await sideButton('Настройки').click(); await sideButton('Выйти').click();
   await sideButton('Войти').waitFor();
   await sideButton('Отчёт').click();
-  await aside.getByText('Войдите в учётную запись менеджера в настройках, чтобы открыть локальные черновики.').waitFor();
+  await aside.getByText('Войдите в DataCore в настройках, чтобы открыть локальные черновики.').waitFor();
   assert.equal((await aside.textContent()).includes(name), false);
   assert.ok(drafts >= 1); assert.deepEqual(errors, []);
   console.log('PASS C171: подготовка, сверка, отмена и подтверждение отправки, отчёт. Синтетический обработчик.');

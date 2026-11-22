@@ -9,8 +9,8 @@ import { checkPages, EXTRACTOR_VERSION, extractDocument, propose, question, RULE
 export { analyze, getDraft, reviseDraft, reviewStatus } from './analysis.mjs';
 export { prepareBatch, sendBatch } from './delivery.mjs';
 
-export async function configure({ root }) {
-  const store = await openRoot(root);
+export async function configure({ root, localized = false }) {
+  const store = await openRoot(root, { localized });
   return { root: store.root, folders: store.folders };
 }
 
@@ -28,14 +28,14 @@ async function snapshot(store) {
 }
 
 export async function status({ root }) {
-  const store = await openRoot(root);
+  const store = await openRoot(root, { create: false });
   const [data, running] = await Promise.all([snapshot(store), isRunning(store.root)]);
   const current = running ? data.items.filter((entry) => entry.state === 'processing').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.name : null;
   return { root: store.root, folders: store.folders, running, counts: data.counts, current: current ?? null };
 }
 
 export async function report({ root }) {
-  return snapshot(await openRoot(root));
+  return snapshot(await openRoot(root, { create: false }));
 }
 
 function relatedDocument() {

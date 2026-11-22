@@ -1,11 +1,14 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { preflight } from '../tools/document-intake/preflight.mjs';
+import { preflight, probeLocalModel } from '../tools/document-intake/preflight.mjs';
+import { FOLDERS, RUSSIAN_FOLDERS, openRoot } from '../tools/document-intake/store.mjs';
 
 const exec = promisify(execFile);
+const standardFolder = path.join(process.env.LOCALAPPDATA || homedir(), 'DataCore', 'Разбор документов');
 const folderScript = fileURLToPath(new URL('./document-intake-folder.ps1', import.meta.url));
 const production = 'https://kppdf-crm.ru/db/api';
 const defaults = { root: '', apiBase: '', modelBase: 'http://127.0.0.1:1235/v1', model: '' };
@@ -41,6 +44,7 @@ async function nativeFolder(mode, initialPath) {
   if (initialPath) args.push('-InitialPath', initialPath);
   const { stdout } = await exec('powershell.exe', args, { windowsHide: true, timeout: mode === 'Pick' ? 10 * 60_000 : 15_000 });
   const value = stdout.trim();
+  if (mode === 'Open') return value === 'foreground';
   return value ? Buffer.from(value, 'base64').toString('utf8') : '';
 }
 
@@ -70,14 +74,14 @@ function refreshCookie(response, access) {
 }
 
 const errors = {
-  AUTH: 'Войдите в учётную запись менеджера, затем нажмите «Возобновить».',
+  AUTH: 'Войдите в DataCore, затем нажмите «Возобновить».',
   ACTOR: 'Войдите под учётной записью, которой начали разбор, и нажмите «Возобновить».',
   MODEL_UNAVAILABLE: 'Запустите локальную модель в LM Studio, затем нажмите «Возобновить».',
   BUSY: 'Эту папку уже разбирает другой процесс. Дождитесь его завершения.',
   ABORTED: 'Разбор остановлен. Чтобы продолжить, нажмите «Возобновить».',
 };
 
-export function createDocumentIntake({ stateDir, changed, engine = () => import('../tools/document-intake/index.mjs'), prepare = preflight, fetchFn = fetch, now = Date.now, pickFolder = (root) => nativeFolder('Pick', root), openFolder = (root) => nativeFolder('Open', root) }) {
+export function createDocumentIntake({ stateDir, changed, engine = () => import('../tools/document-intake/index.mjs'), prepare = preflight, probeModel = probeLocalModel, fetchFn = fetch, now = Date.now, pickFolder = (root) => nativeFolder('Pick', root), openFolder = (root) => nativeFolder('Open', root), defaultRoot = standardFolder }) {
   const file = path.join(stateDir, 'document-intake.json');
   const initialized = fs.readFile(file, 'utf8').then((raw) => {
     const saved = JSON.parse(raw);
@@ -145,7 +149,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     const review = root && loggedIn() && auth.claims ? await (await engine()).reviewStatus?.({ root, owner: auth.claims.sub, target: settings.apiBase }).catch(() => null) : null;
     const running = !!active || !!snapshot?.running;
     return {
-      settings, revision, signedIn: loggedIn(), busy: pending, running, canStop: !!active && !active.signal.aborted,
+      settings, inboxPath: root ? snapshot?.folders?.inbox || path.join(root, FOLDERS.inbox) : path.join(defaultRoot, RUSSIAN_FOLDERS.inbox), revision, signedIn: loggedIn(), busy: pending, running, canStop: !!active && !active.signal.aborted,
       counts: counts(snapshot?.counts),
       reviewCounts: review ? { inbox: asCount(snapshot?.counts?.inbox), processing: asCount(review.counts.pending), checked: asCount(review.counts.checked), question: asCount(review.counts.question), uploaded: asCount(review.counts.uploaded), ...(review.counts.sending ? { sending: review.counts.sending } : {}) } : null,
       preparation,
@@ -178,7 +182,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
   async function login({ username, password } = {}) {
     if (!settings.apiBase) return fail(409, 'Сначала сохраните адрес сайта или локальной копии.');
     if (typeof username !== 'string' || !username.trim() || username.length > 64 || typeof password !== 'string' || !password || password.length > 128) {
-      return fail(400, 'Введите логин и пароль менеджера.');
+      return fail(400, 'Введите логин и пароль DataCore.');
     }
     clearAuth();
     let response;
@@ -189,7 +193,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
       });
     } catch { return fail(502, 'Сайт не отвечает по сохранённому адресу. Проверьте подключение и адрес.'); }
     if (response.status === 429) return fail(429, 'Слишком много попыток входа. Подождите минуту.');
-    if (response.status === 401 || response.status === 403) return fail(401, 'Проверьте логин и пароль менеджера.');
+    if (response.status === 401 || response.status === 403) return fail(401, 'Проверьте логин и пароль DataCore.');
     if (!response.ok) return fail(502, 'Сайт не подтвердил вход. Проверьте адрес в настройках.');
     const result = await response.json().catch(() => null);
     if (!result?.access || typeof result.access !== 'string') return fail(502, 'Сайт не подтвердил вход. Проверьте адрес в настройках.');
@@ -317,9 +321,20 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     }
     // Проводник доступен и во время разбора. Путь берётся только из выбранной папки.
     if (action === 'inbox' || action === 'question') {
-      if (!settings.root) return fail(409, 'Сначала выберите папку документов.');
-      await openFolder(path.join(settings.root, action === 'inbox' ? 'Inbox' : 'Question'));
-      return ok({ opened: true });
+      let folders;
+      if (!settings.root && action === 'inbox') {
+        if (busy()) return fail(409, 'Дождитесь завершения текущего действия с документами.');
+        pending = true;
+        try {
+          const configured = await (await engine()).configure({ root: defaultRoot, localized: true });
+          folders = configured.folders;
+          await save({ ...settings, root: configured.root });
+        } finally { pending = false; notify(); }
+      }
+      if (!settings.root) return fail(409, 'Сначала откройте входящие.');
+      folders ||= (await openRoot(settings.root, { create: false })).folders;
+      const focused = await openFolder(folders?.[action] || path.join(settings.root, FOLDERS[action]));
+      return ok({ opened: true, focused: focused !== false });
     }
     if (busy()) return fail(409, 'Дождитесь завершения текущего действия с документами.');
     pending = true;
@@ -328,15 +343,28 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         const selected = await pickFolder(settings.root);
         if (!selected) return ok({ cancelled: true });
         if (!path.isAbsolute(selected)) return fail(400, 'Выберите папку на компьютере.');
-        const configured = await (await engine()).configure({ root: selected });
+        const configured = await (await engine()).configure({ root: selected, localized: true });
         await save({ ...settings, root: configured.root });
         progress = null;
         return ok({ selected: true });
       }
+      if (action === 'detach') {
+        if (!settings.root) return ok({ detached: true });
+        const body = await readBody();
+        if (body?.revision !== revision) return fail(409, 'Папка уже изменена в другом окне.');
+        await save({ ...settings, root: '' });
+        progress = null;
+        return ok({ detached: true });
+      }
       if (action === 'logout') { clearAuth(); return ok({ signedIn: false }); }
-      if (!['settings', 'login', 'run', 'resume', 'retry', 'analyze', 'draft', 'prepare', 'send'].includes(action)) return fail(404, 'Нет такого действия.');
+      if (!['settings', 'login', 'run', 'resume', 'retry', 'analyze', 'draft', 'prepare', 'send', 'modelprobe'].includes(action)) return fail(404, 'Нет такого действия.');
       const body = await readBody();
       if (body?.revision !== revision) return fail(409, 'Настройки изменились в другом окне. Проверьте показанный адрес и повторите действие.');
+      if (action === 'modelprobe') {
+        try { await probeModel({ modelBase: body.modelBase, model: body.model }); }
+        catch { return fail(409, 'Выбранная модель не ответила. Проверьте адрес и имя модели в LM Studio.'); }
+        return ok({ ready: true });
+      }
       if (action === 'settings') {
         const validated = serviceSettings(body);
         if (validated.status !== 200) return validated;

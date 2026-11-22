@@ -218,8 +218,8 @@ dialog label[hidden] { display: none; }
 .intake-side .intake-card { box-shadow: none; }
 .intake-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .intake-main button:disabled, .intake-side button:disabled { opacity: .55; cursor: not-allowed; }
-.intake-main .intake-root, .intake-target, .intake-current, .intake-report-list { overflow-wrap: anywhere; }
-.intake-main .intake-root { color: var(--text); }
+.intake-target, .intake-current, .intake-report-list { overflow-wrap: anywhere; }
+.intake-path { display: grid; gap: 4px; min-width: 0; }
 .intake-destination { padding: 8px 12px; color: var(--muted); border-left: 3px solid var(--line); }
 .intake-destination strong { color: var(--text); }
 .intake-destination.production { border-color: var(--warn); background: var(--warn-soft); }
@@ -230,10 +230,11 @@ dialog label[hidden] { display: none; }
 .intake-counts dd { margin: 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .intake-progress { width: 100%; accent-color: var(--accent); }
 .intake-card .intake-status { color: var(--text); font-weight: 600; }
+.intake-card .intake-status.intake-model-ready { color: var(--ok); }
 .intake-card .intake-status.warn, .intake-card .intake-feedback, .intake-feedback { color: var(--warn); }
 .intake-status:empty, .intake-feedback:empty { display: none; }
 .intake-form > .ghost { justify-self: start; }
-.intake-form input { width: 100%; min-width: 0; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); }
+.intake-form input, .intake-path input { width: 100%; min-width: 0; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); }
 .intake-report-items { display: grid; gap: 16px; }
 .intake-report-group h3 { margin: 0; font-size: 14px; }
 .intake-report-list { padding: 0; margin: 4px 0 0; list-style: none; }

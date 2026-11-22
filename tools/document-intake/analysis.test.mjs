@@ -91,13 +91,13 @@ test('анализ сохраняет локальный черновик и д�
   const draft = await getDraft({ root: box.root, arrivalId: item.arrivalId });
   assert.equal(draft.version, 1); assert.deepEqual(draft.raw, fake.fixture.raw); assert.deepEqual(draft.pages, fake.fixture.pages);
   assert.equal(draft.hash, sha256(bytes)); assert.equal(draft.parties.supplierId, supplier.id);
-  assert.deepEqual(await fs.readFile(path.join(box.store.folders.processing, item.arrivalId, item.name)), bytes);
+  assert.deepEqual(await fs.readFile(path.join(box.store.folders.ready, item.arrivalId, item.name)), bytes);
   assert.equal(fake.calls.some(call => call.method === 'POST'), false);
   assert.doesNotMatch(JSON.stringify(draft), /memory-only-test-token/);
   assert.deepEqual((await legacyReport({ root: box.root })).items, []);
   await box.drop('Ещё сохраняется.pdf');
   const deferred = await analyze(box.options, { ...fake.dependencies, stableMs: 60_000 });
-  assert.equal(deferred.processed, 1); assert.equal(deferred.total, 2);
+  assert.equal(deferred.processed, 0); assert.equal(deferred.total, 1);
   assert.equal((await legacyReport({ root: box.root })).counts.inbox, 1, 'непрочитанный файл не считается проверенным');
 });
 
@@ -189,13 +189,13 @@ test('правка создаёт следующую локальную верс
 test('подмена оригинала блокирует чтение и правку черновика', async t => {
   const box = await setup(t); const fake = runtime(); await box.drop('Счёт.pdf');
   const result = await analyze(box.options, fake.dependencies); const item = result.items[0];
-  await fs.writeFile(path.join(box.store.folders.processing, item.arrivalId, item.name), pdf('подмена'));
+  await fs.writeFile(path.join(box.store.folders.ready, item.arrivalId, item.name), pdf('подмена'));
   await assert.rejects(getDraft({ root: box.root, arrivalId: item.arrivalId }), { code: 'ORIGINAL' });
   await assert.rejects(reviseDraft({ ...box.options, arrivalId: item.arrivalId, version: 1, raw: fake.fixture.raw }, fake.dependencies), { code: 'ORIGINAL' });
   await box.drop('Следующий.pdf');
   const again = await analyze(box.options, fake.dependencies);
-  assert.equal(again.stopped, undefined); assert.equal(again.counts.question, 1); assert.equal(again.counts.checked, 1);
-  assert.equal(again.items.find(row => row.arrivalId === item.arrivalId).issues[0].code, 'ORIGINAL');
+  assert.equal(again.stopped, undefined); assert.equal(again.processed, 1);
+  await assert.rejects(getDraft({ root: box.root, arrivalId: item.arrivalId }), { code: 'ORIGINAL' });
 });
 
 test('повторные поступления одинакового хеша используют один черновик без повторного вызова модели', async t => {
@@ -262,7 +262,7 @@ test('сбой claiming после захвата оригинала восст�
   captured.phase = 'claiming'; await saveArrival(box.store, captured);
   const result = await analyze(box.options, fake.dependencies);
   assert.equal(result.stopped, undefined); assert.equal(result.counts.checked, 1); assert.equal(result.items[0].arrivalId, captured.arrivalId);
-  assert.equal((await arrivalsOf(box.store)).find(row => row.arrivalId === captured.arrivalId).phase, 'claimed');
+  assert.equal((await arrivalsOf(box.store)).find(row => row.arrivalId === captured.arrivalId).state, 'ready');
 });
 
 test('сводка фильтрует черновики по владельцу и контуру, включая pending без готового черновика', async t => {
