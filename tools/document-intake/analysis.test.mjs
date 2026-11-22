@@ -120,6 +120,31 @@ test('цитата стороны восстанавливается тольк�
   assert.equal(ambiguous.items[0].state, 'question');
 });
 
+test('сторона на соседних строках и явный НДС сверяются по дословным строкам PDF', async t => {
+  const box = await setup(t);
+  const { pages, raw } = invoice();
+  const sellerLines = 'Поставщик ' + raw.seller.name + '\nИНН/КПП: ' + raw.seller.inn + ' / 770701001';
+  const tax = 'В том числе НДС 20% — 16,67 руб.';
+  pages[0] = pages[0].replace(raw.seller.quote, sellerLines).replace(raw.vat.quote, tax);
+  raw.seller.quote = 'Поставщик ' + raw.seller.name + ', ИНН ' + raw.seller.inn;
+  raw.vat = { page: 1, quote: 'НДС включён 20% 16,67 руб.', mode: 'included', rate: 20, amount: 16.67 };
+  const fake = runtime({ extract: async () => pages, propose: async () => raw });
+  await box.drop('Счёт с раздельными реквизитами.pdf');
+  const result = await analyze(box.options, fake.dependencies);
+  const draft = await getDraft({ root: box.root, arrivalId: result.items[0].arrivalId });
+  assert.equal(draft.state, 'checked');
+  assert.equal(draft.evidence.seller.quote, sellerLines);
+  assert.equal(draft.evidence.vat.quote, tax);
+  assert.notEqual(draft.raw.vat.quote, tax);
+
+  const strict = await setup(t);
+  await strict.drop('Счёт с неправильной суммой НДС.pdf');
+  const wrong = { ...raw, vat: { ...raw.vat, amount: 17.16 } };
+  const rejected = await analyze(strict.options, { ...fake.dependencies, propose: async () => wrong });
+  assert.equal(rejected.counts.question, 1);
+  assert.match(rejected.items[0].issues[0].message, /НДС/);
+});
+
 test('ошибочный кандидат остаётся вместе с исходными страницами и причиной', async t => {
   const box = await setup(t); const bad = invoice().raw; bad.gross.value = 101;
   const fake = runtime({ propose: async () => bad }); await box.drop('Спорный.pdf');

@@ -4,7 +4,7 @@ const defaultModel = 'google/gemma-4-12b-qat';
 const folderLabels = { inbox: 'Входящие', processing: 'Разбираются', checked: 'Проверено локально', question: 'На проверку', uploaded: 'Загруженные' };
 const kinds = { supplier_invoice: 'Счёт поставщика', customer_invoice: 'Счёт покупателю', contract: 'Договор заказчика', order: 'Заказ покупателя', offer: 'Коммерческое предложение', acceptance: 'Акт' };
 const destination = { supplier_invoice: 'Снабжение → Счета', contract: 'Заказы → Договоры заказчиков', offer: 'КП', order: 'Комплект договора заказчика', customer_invoice: 'Комплект договора заказчика', acceptance: 'Комплект договора заказчика' };
-const stageLabels = { preparing: 'Подготовка', extracting: 'Чтение PDF', proposing: 'Ответ локальной модели', validating: 'Проверка реквизитов', checked: 'Проверено локально', question: 'Нужна сверка' };
+const fileStages = [['extracting', 'Чтение PDF'], ['proposing', 'Ожидаем ответ LM Studio'], ['validating', 'Проверка и сохранение']];
 
 export function createIntakeView({ api, el }) {
   const call = (action, body) => api(endpoint + action, body);
@@ -50,6 +50,7 @@ export function createIntakeView({ api, el }) {
   let draftRoot = '';
   let draftButtons = [];
   let preparationKey = '';
+  let activityTimer = null;
 
   const main = el('div', 'intake-main');
   const side = el('div', 'intake-side-content');
@@ -83,7 +84,14 @@ export function createIntakeView({ api, el }) {
   const mainFeedback = feedback('intake-feedback');
   const statusText = feedback('intake-status');
   const current = el('p', 'intake-current');
-  const activity = el('p', 'intake-updated');
+  const stages = el('ol', 'intake-file-stages');
+  stages.setAttribute('aria-label', 'Этапы разбора файла');
+  const stageRows = fileStages.map(([, title]) => el('li', '', title));
+  stages.append(...stageRows);
+  const elapsed = el('span', 'intake-stage-time');
+  const connection = el('span', 'intake-connection');
+  const activity = el('div', 'intake-updated intake-activity');
+  activity.append(connection, elapsed);
   const progress = el('progress', 'intake-progress');
   progress.setAttribute('aria-label', 'Ход разбора документов');
   const preparation = el('section', 'intake-preparation');
@@ -101,7 +109,7 @@ export function createIntakeView({ api, el }) {
   const run = button('Разобрать', () => perform('analyze', {}, mainFeedback), 'primary act-go');
   const stop = button('Остановить', () => perform('stop', {}, mainFeedback), 'ghost danger');
   const prepare = button('Отправить готовые…', () => delivery('prepare'));
-  main.append(card('Ход разбора', statList, statusText, progress, preparation, current, activity, actionRow(run, stop, reportButton, prepare), mainFeedback));
+  main.append(card('Ход разбора', statusText, progress, current, stages, activity, preparation, statList, actionRow(run, stop, reportButton, prepare), mainFeedback));
 
   const apiBase = field('Адрес сайта', { type: 'url', required: true, maxLength: 1200, spellcheck: false, placeholder: production });
   const modelBase = field('Адрес LM Studio', { type: 'url', required: true, maxLength: 1200, spellcheck: false });
@@ -173,6 +181,21 @@ export function createIntakeView({ api, el }) {
     if (next === 'report') loadReport(true);
   }
 
+  function updateClock() {
+    const job = view?.progress;
+    const now = Date.now();
+    const heartbeat = Date.parse(job?.heartbeatAt || job?.lastEventAt);
+    const stale = Number.isFinite(heartbeat) && now - heartbeat > 18_000;
+    connection.classList.toggle('is-live', Number.isFinite(heartbeat) && !stale);
+    connection.classList.toggle('is-delayed', stale);
+    connection.textContent = stale ? 'Пульт давно не обновлялся' : Number.isFinite(heartbeat) ? 'Пульт на связи' : 'Устанавливаем связь';
+    const began = Date.parse(job?.lastEventAt);
+    const seconds = Math.max(0, Math.floor((now - began) / 1000));
+    const clock = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+    elapsed.textContent = !stages.hidden && Number.isFinite(began) ? 'На этапе ' + clock : '';
+    elapsed.hidden = !elapsed.textContent;
+  }
+
   function update() {
     const settings = view?.settings;
     const running = !!view?.running;
@@ -205,22 +228,22 @@ export function createIntakeView({ api, el }) {
     statusText.classList.toggle('warn', stalled);
     if (pending === 'folder') statusText.textContent = 'Выберите папку в открывшемся окне Windows.';
     else if (running && job?.state === 'stopping') statusText.textContent = job.message;
-    else if (running) statusText.textContent = job?.total ? `Проверено ${job.processed} из ${job.total}` : 'Готовим документы к проверке…';
+    else if (running) statusText.textContent = job?.total ? `Обработано ${job.processed} из ${job.total}` : 'Готовим документы к проверке…';
     else if (stalled) statusText.textContent = job.message;
     else if (view?.reviewCounts?.processing) statusText.textContent = 'Есть локальные черновики. Нажмите «Возобновить», чтобы повторить проверку.';
     else if (!settings?.root) statusText.textContent = view ? 'Откройте входящие и сложите туда PDF.' : '';
     else if (!settings.apiBase || !settings.model) statusText.textContent = 'Сохраните адрес сайта и параметры своей локальной модели.';
     else if (!view.signedIn) statusText.textContent = 'Войдите в DataCore через «Настройки».';
-    else if (job?.state === 'finished') statusText.textContent = job.total ? `Проверка завершена. Проверено ${job.processed} из ${job.total}.` : 'Проверка завершена. Результаты доступны в отчёте.';
+    else if (job?.state === 'finished') statusText.textContent = job.total ? `Разбор завершён. Обработано ${job.processed} из ${job.total}.` : 'Разбор завершён. Результаты доступны в отчёте.';
     else statusText.textContent = 'Положите файлы во входящие. Перед разбором запустите выбранную модель в LM Studio.';
     progress.hidden = !running;
     if (job?.total) { progress.max = job.total; progress.value = job.processed; }
     else progress.removeAttribute('value');
     const steps = Array.isArray(view?.preparation?.steps) ? view.preparation.steps : [];
+    preparation.hidden = !steps.length || view?.preparation?.ready === true;
     const nextPreparationKey = JSON.stringify(steps);
     if (preparationKey !== nextPreparationKey) {
       preparationKey = nextPreparationKey;
-      preparation.hidden = !steps.length;
       preparationSteps.replaceChildren(...steps.map(step => {
         const row = el('li');
         const status = ['ready', 'checking', 'blocked'].includes(step.status) ? step.status : 'checking';
@@ -232,12 +255,19 @@ export function createIntakeView({ api, el }) {
         return row;
       }));
     }
-    current.textContent = running && job?.current ? job.current : '';
+    const stageIndex = fileStages.findIndex(([key]) => key === job?.stage);
+    stages.hidden = !running || job?.state === 'stopping' || !job?.current || stageIndex < 0;
+    current.textContent = stages.hidden ? '' : (job.total ? `Файл ${Math.min(job.processed + 1, job.total)} из ${job.total} · ` : '') + job.current;
     current.hidden = !current.textContent;
-    const eventTime = job?.lastEventAt ? new Date(job.lastEventAt) : null;
-    const heartbeatTime = job?.heartbeatAt ? new Date(job.heartbeatAt) : null;
-    activity.textContent = job ? [stageLabels[job.stage] || '', eventTime && !Number.isNaN(eventTime.valueOf()) ? `Последнее событие: ${eventTime.toLocaleTimeString('ru-RU')}` : '', running && heartbeatTime && !Number.isNaN(heartbeatTime.valueOf()) ? `Связь с процессом: ${heartbeatTime.toLocaleTimeString('ru-RU')}` : ''].filter(Boolean).join(' · ') : '';
-    activity.hidden = !activity.textContent;
+    stageRows.forEach((row, index) => {
+      row.classList.toggle('is-done', index < stageIndex);
+      if (index === stageIndex) row.setAttribute('aria-current', 'step');
+      else row.removeAttribute('aria-current');
+    });
+    activity.hidden = !running;
+    updateClock();
+    if (visible && running && !activityTimer) activityTimer = setInterval(updateClock, 1000);
+    if (!running && activityTimer) { clearInterval(activityTimer); activityTimer = null; };
     if (settings) {
       const binding = JSON.stringify([settings.root, settings.apiBase, view.signedIn]);
       if (draftRoot !== binding) {
@@ -423,6 +453,12 @@ export function createIntakeView({ api, el }) {
       }
       lines.append(list);
     } else lines.append(el('p', 'intake-updated', 'Позиции не извлечены. Откройте оригинал для сверки.'));
+    const doubts = (Array.isArray(raw?.doubts) ? raw.doubts : []).filter(value => typeof value === 'string' && value.trim()).slice(0, 30);
+    if (draft.state === 'question' && doubts.length) {
+      const list = el('ul', 'intake-model-doubts');
+      list.append(...doubts.map(value => el('li', '', value.slice(0, 500))));
+      issues.append(el('h3', '', 'Что заметила модель'), list);
+    }
     draftContent.replaceChildren(note, issues, fields, lines, evidence);
   }
 
@@ -497,7 +533,11 @@ export function createIntakeView({ api, el }) {
       if (aside.firstChild !== side) aside.replaceChildren(side);
       if (!visible) { visible = true; refresh(true); }
     },
-    hide() { visible = false; password.input.value = ''; },
+    hide() {
+      visible = false;
+      clearInterval(activityTimer); activityTimer = null;
+      password.input.value = '';
+    },
     refresh,
   };
 }

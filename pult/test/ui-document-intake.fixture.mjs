@@ -24,6 +24,7 @@ const raw = {
   currency: { value: 'RUB', page: 1, quote: 'руб.' }, gross: { value: 101, page: 1, quote: 'Всего 100,00 руб.' },
   vat: { mode: 'none', rate: null, amount: null, page: 1, quote: 'Без НДС' },
   lines: [{ title: 'Урна', qty: 2, unit: 'шт', unitPrice: 50, amount: 100, page: 1, quote: 'Урна 2 шт 50,00 100,00' }],
+  doubts: ['Модель нашла два итога, проверьте сумму к оплате.', suspicious],
 };
 const review = { counts: { pending: 0, checked: 1, question: 1, uploaded: 0 }, items: [
   { arrivalId, name, state: 'question', version: 2, hash: 'a'.repeat(64), issues: [issue] },
@@ -155,23 +156,40 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await page.emulateMedia({ colorScheme: 'light' }); await page.setViewportSize({ width: 1440, height: 1000 });
   await control('Возобновить').click();
-  await page.getByText('Проверено 1 из 3', { exact: true }).waitFor();
-  assert.equal(await page.getByRole('main').getByText('Проверено', { exact: true }).count(), 5);
+  await page.getByText('Обработано 1 из 3', { exact: true }).waitFor();
+  await page.getByText('Файл 2 из 3 · ' + name, { exact: true }).waitFor();
+  await page.getByRole('list', { name: 'Этапы разбора файла' }).locator('[aria-current=step]').getByText('Ожидаем ответ LM Studio', { exact: true }).waitFor();
+  await page.getByText('Пульт на связи', { exact: true }).waitFor();
+  const timer = page.getByText(/^На этапе \d+:\d+$/);
+  await timer.waitFor();
+  const before = await timer.innerText();
+  await page.waitForFunction(previous => document.querySelector('.intake-stage-time')?.textContent !== previous, before);
+  await screenshot('ui-model-live-1440-light.png', true);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.setViewportSize({ width: 1024, height: 1000 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  await screenshot('ui-model-live-1024-dark.png', true);
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  assert.equal(await page.getByRole('main').getByRole('heading', { name: 'Подготовка ПК' }).count(), 0);
   await aside.getByText('На проверку · 1', { exact: true }).waitFor();
   await screenshot('ui-progress-1440-light.png');
   assert.equal(await control('Разобрать').count(), 0);
-  await page.reload(); await page.getByText('Проверено 1 из 3', { exact: true }).waitFor();
+  await page.reload(); await page.getByText('Обработано 1 из 3', { exact: true }).waitFor();
   await control('Остановить').click(); await page.getByText('Разбор остановлен.', { exact: false }).waitFor();
-  await control('Возобновить').click(); await page.getByText('Проверка завершена.', { exact: false }).waitFor();
+  await control('Возобновить').click(); await page.getByText('Разбор завершён.', { exact: false }).waitFor();
   assert.equal(analyses, 2);
   await aside.getByRole('button', { name: `Сверить: ${name}`, exact: true }).click();
   await aside.getByText('Версия 2.', { exact: false }).waitFor();
-  await screenshot('ui-draft-top-1440-light.png');
+  await aside.getByRole('heading', { name: 'Что заметила модель' }).waitFor();
+  await aside.getByText('Модель нашла два итога, проверьте сумму к оплате.', { exact: true }).waitFor();
+  assert.equal(await aside.locator('.intake-model-doubts img').count(), 0);
+  await screenshot('ui-draft-top-1440-light.png', true);
   const number = aside.getByRole('button', { name: /Источник поля «Номер»/ });
   await number.focus(); await page.keyboard.press('Enter');
   await aside.getByText('Страница 1', { exact: true }).waitFor();
   await aside.getByText('Текст исходной страницы', { exact: true }).click();
-  await aside.getByText(suspicious, { exact: false }).waitFor();
+  await aside.locator('pre').filter({ hasText: suspicious }).waitFor();
   assert.equal(await page.evaluate(() => !!window.c171Injected), false); assert.equal(await aside.locator('img').count(), 0);
   await screenshot('ui-draft-1440-light.png');
   await page.emulateMedia({ colorScheme: 'dark' }); await page.setViewportSize({ width: 1024, height: 1000 });

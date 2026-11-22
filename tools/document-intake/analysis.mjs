@@ -5,7 +5,7 @@ import {
   openRoot, readJson, readOriginal, reconcileArrival, reconcileRetry, saveArrival, sha256, startRetry, uid,
 } from './store.mjs';
 import { apiAddress, authorize, connectApi, decideInvoice, findOrderContract, resolveSalesParties } from './api.mjs';
-import { checkPages, EXTRACTOR_VERSION, extractDocument, evidencedKind, propose, referencedContract, RULES_VERSION, validateProposal, verifyPartyCitations } from './proposal.mjs';
+import { checkPages, EXTRACTOR_VERSION, extractDocument, evidencedKind, propose, referencedContract, RULES_VERSION, validateProposal, verifyCitations } from './proposal.mjs';
 
 const interrupted = new Set(['AUTH', 'ACTOR', 'CONTOUR', 'API_UNAVAILABLE', 'MODEL_UNAVAILABLE', 'EXTRACTOR', 'ABORTED']);
 export const draftFile = (store, hash) => path.join(store.documents, `c171-${hash}.json`);
@@ -49,9 +49,9 @@ async function validate(draft, api) {
       throw new IntakeError('QUESTION', 'Акт нужно привязать к договору.', 'Найдите договор заказчика по реквизитам оригинала и добавьте PDF в комплект документов.');
     }
     const reference = draft.kind === 'order' ? referencedContract(draft.pages) : null;
-    const evidence = verifyPartyCitations(draft.raw, draft.pages);
-    const proposal = validateProposal(evidence, draft.pages);
+    const evidence = verifyCitations(draft.raw, draft.pages);
     if (evidence !== draft.raw) draft.evidence = evidence;
+    const proposal = validateProposal(evidence, draft.pages);
     if (['contract', 'offer', 'order'].includes(proposal.kind)) {
       if (proposal.revision) throw new IntakeError('QUESTION', 'В документе указана редакция.', 'Сверьте редакцию в карточке существующего документа.');
       draft.parties = await resolveSalesParties(api, proposal);

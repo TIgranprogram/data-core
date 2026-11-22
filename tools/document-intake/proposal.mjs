@@ -146,7 +146,7 @@ const buyerRole = /покупатель|заказчик|получатель|п
 
 function party(item, pages, role, oppositeRole, label) {
   const quote = quoteOf(item, pages, label, ['name', 'inn']);
-  const inns = [...quote.matchAll(/ИНН\s*[:№]?\s*(\d{12}|\d{10})(?!\d)/giu)];
+  const inns = [...quote.matchAll(/(?<!\p{L})ИНН\s*(?:(?:[/\\]|и)\s*КПП\s*)?[:№]?\s*(\d{12}|\d{10})(?!\d)/giu)];
   requireEvidence(quote.length <= 650 && length(item.name, 300) && validInn(item.inn) && role.test(quote)
     && !oppositeRole.test(quote) && inns.length === 1 && inns[0][1] === item.inn
     && token(quote, item.name), label);
@@ -204,23 +204,44 @@ export function evidencedKind(raw, pages) {
   return raw.kind;
 }
 
-export function verifyPartyCitations(raw, pages) {
+function recoverCitation(item, pages, plausible, validate) {
+  const page = Number.isInteger(item?.page) && pages[item.page - 1];
+  if (!page) return item;
+  const valid = candidate => {
+    try { validate(candidate); return true; }
+    catch (error) { if (!(error instanceof IntakeError)) throw error; return false; }
+  };
+  if (valid(item)) return item;
+  const lines = page.split(/\r?\n/);
+  for (const size of [1, 2, 3]) {
+    const matches = [];
+    for (let index = 0; index + size <= lines.length; index++) {
+      if (!lines[index].trim() || !lines[index + size - 1].trim()) continue;
+      const quote = lines.slice(index, index + size).join('\n');
+      if (!plausible(quote)) continue;
+      const candidate = { ...item, quote };
+      if (valid(candidate)) matches.push(candidate);
+    }
+    if (matches.length) return matches.length === 1 ? matches[0] : item;
+  }
+  return item;
+}
+
+export function verifyCitations(raw, pages) {
   let result = raw;
   for (const [key, role, opposite, label] of [
     ['seller', sellerRole, buyerRole, 'поставщик или исполнитель'],
     ['buyer', buyerRole, sellerRole, 'покупатель или заказчик'],
   ]) {
     const item = raw[key];
-    const page = Number.isInteger(item?.page) && pages[item.page - 1];
-    if (!page) continue;
-    const literal = candidate => {
-      try { party(candidate, pages, role, opposite, label); return true; }
-      catch (error) { if (!(error instanceof IntakeError)) throw error; return false; }
-    };
-    if (literal(item)) continue;
-    const matches = page.split(/\r?\n/).map(quote => ({ ...item, quote })).filter(literal);
-    // Подставляем целую строку оригинала только при единственном совпадении роли, ИНН и названия.
-    if (matches.length === 1) result = { ...result, [key]: matches[0] };
+    const recovered = recoverCitation(item, pages, quote => role.test(quote) && quote.includes(item?.inn),
+      candidate => party(candidate, pages, role, opposite, label));
+    if (recovered !== item) result = { ...result, [key]: recovered };
+  }
+  const gross = raw.gross?.value;
+  if (raw.vat && amount(gross)) {
+    const recovered = recoverCitation(raw.vat, pages, quote => /НДС/iu.test(quote), candidate => validateVat(candidate, pages, gross));
+    if (recovered !== raw.vat) result = { ...result, vat: recovered };
   }
   return result;
 }
@@ -249,7 +270,7 @@ function validateVat(item, pages, gross) {
     return { mode, rate, amount: tax };
   }
   const numbers = numericEvidence(quote);
-  requireEvidence(mode === 'included' ? /в\s*т\.?\s*ч\.?|включ|из\s+них/iu.test(quote) : /сверх|не\s+включ|начисля/iu.test(quote), label);
+  requireEvidence(mode === 'included' ? /в\s*т\.?\s*ч\.?|в\s+том\s+числе|включ|из\s+них/iu.test(quote) : /сверх|не\s+включ|начисля/iu.test(quote), label);
   // C164 сохраняет проверенный НДС. Не переносим незаконченный расчёт из текста.
   requireEvidence((rate === null || (amount(rate) && rate <= 100 && numbers.includes(rate)))
     && (tax === null || (amount(tax) && tax <= gross && numbers.includes(tax))), label);
@@ -274,7 +295,6 @@ export function validateProposal(raw, pages) {
     throw question('Ответ модели не соответствует структуре документа.', 'Проверьте исходный документ и внесите неподтверждённые реквизиты вручную.');
   }
   if (raw.kind === 'unknown') throw question('Тип документа не удалось подтвердить.', 'Уточните тип и назначение документа по оригиналу.');
-  if (raw.doubts.length) throw question('В документе есть неоднозначные реквизиты или строки.', 'Сверьте дату, стороны, номер, валюту и строки по оригиналу.');
   evidencedKind(raw, pages);
   const date = valueOf(raw.date, pages, 'дата', validDate);
   const number = raw.number === null && raw.kind === 'offer' ? null : valueOf(raw.number, pages, 'номер документа',
@@ -317,5 +337,6 @@ export function validateProposal(raw, pages) {
       requireEvidence(cents(gross * vat.rate / (100 + vat.rate)) === cents(vat.amount), 'сумма НДС');
     }
   }
+  if (raw.doubts.length) throw question('В документе есть неоднозначные реквизиты или строки.', 'Откройте «Сверить», чтобы увидеть, что отметила модель.');
   return { kind: raw.kind, date, number: number?.replace(/\u00ad/g, '-') ?? null, seller, buyer, currency, gross, revision, vat, lines };
 }

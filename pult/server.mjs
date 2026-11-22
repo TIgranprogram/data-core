@@ -23,15 +23,20 @@ import { KINDS, SAFE_RISKS, WEEKDAYS, cleanRule, isDue, lastSlot, mergeRules, ne
 import { ROOT, ROUTE_LABEL, adviceFor, buildRun, childEnv, cleanLine, detectMachine, listProdScripts, missingNeeds, validateParams } from './dispatch.mjs';
 
 const UI_DIR = path.join(ROOT, 'pult', 'ui');
+const INTAKE_DIR = path.join(ROOT, 'tools', 'document-intake');
 
 /** Отпечаток кода пульта. Изменился — пульт перезапускается сам. */
 export function codeStamp() {
-  const dirs = [path.join(ROOT, 'pult'), UI_DIR];
+  const dirs = [path.join(ROOT, 'pult'), UI_DIR, INTAKE_DIR];
   const parts = [];
   for (const d of dirs) {
     for (const f of fs.readdirSync(d).sort()) {
-      if (d !== UI_DIR && !f.endsWith('.mjs') && f !== 'document-intake-folder.ps1') continue;
-      const st = fs.statSync(path.join(d, f)); if (st.isFile()) parts.push(`${f}:${st.mtimeMs}`);
+      if (d === INTAKE_DIR) {
+        if (!/\.(mjs|ps1|py)$/.test(f) || /\.(test|fixture)\.mjs$/.test(f)) continue;
+      } else if (d !== UI_DIR && !f.endsWith('.mjs') && f !== 'document-intake-folder.ps1') continue;
+      const full = path.join(d, f);
+      const st = fs.statSync(full);
+      if (st.isFile()) parts.push(path.relative(ROOT, full) + ':' + st.mtimeMs);
     }
   }
   return crypto.createHash('sha1').update(parts.join('|')).digest('hex').slice(0, 12);

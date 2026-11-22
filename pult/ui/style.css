@@ -229,6 +229,22 @@ dialog label[hidden] { display: none; }
 .intake-counts dt { color: var(--muted); font-size: 12.5px; }
 .intake-counts dd { margin: 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .intake-progress { width: 100%; accent-color: var(--accent); }
+.intake-current { color: var(--text); font-weight: 600; }
+.intake-file-stages { display: flex; gap: 6px; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+.intake-file-stages[hidden], .intake-activity[hidden] { display: none; }
+.intake-file-stages li { display: flex; gap: 6px; align-items: center; padding: 4px 8px; color: var(--muted); border: 1px solid var(--line); border-radius: 7px; }
+.intake-file-stages li::before, .intake-connection::before { content: ''; width: 7px; height: 7px; flex: none; border-radius: 50%; background: currentColor; }
+.intake-file-stages li.is-done { color: var(--ok); }
+.intake-file-stages li[aria-current='step'] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+.intake-file-stages li[aria-current='step']::before { background: var(--accent); animation: intake-pulse 1.8s ease-in-out infinite; }
+@keyframes intake-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .intake-file-stages li[aria-current='step']::before { animation: none; } }
+.intake-activity { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; }
+.intake-connection { display: inline-flex; align-items: center; gap: 6px; }
+.intake-connection.is-live { color: var(--ok); }
+.intake-connection.is-delayed { color: var(--warn); }
+.intake-stage-time { font-variant-numeric: tabular-nums; }
+.intake-model-doubts { margin: 4px 0 0; padding-inline-start: 20px; overflow-wrap: anywhere; }
 .intake-card .intake-status { color: var(--text); font-weight: 600; }
 .intake-card .intake-status.intake-model-ready { color: var(--ok); }
 .intake-card .intake-status.warn, .intake-card .intake-feedback, .intake-feedback { color: var(--warn); }
