@@ -35,7 +35,9 @@ button.gt-n:focus-visible { outline-offset: -2px; }
 .k-pl-period { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); }
 .k-pl-period-title { margin: 0; }
 .k-pl-period .k-pl-date { width: auto; }
-.gt-cal-day .gt-months { display: none; }
+.gt-n.is-picked { background: var(--info-soft); color: var(--text); font-weight: 600; }
+.gt-discrete .gt-body .gt-track { background-image: linear-gradient(to right, var(--border) 1px, transparent 1px), var(--gt-shown-weekends); background-size: var(--gt-line) 100%, 100% 100%; background-position: 0 0; }
+.gt-gap { position: absolute; inset-block: 0; border-left: var(--s1) double var(--border-strong); z-index: 5; pointer-events: none; }
 .gt-bar { position: absolute; top: 8px; height: 28px; box-sizing: border-box; display: flex; align-items: center; padding: 0 var(--s2); border-radius: var(--radius-sm); border: 1px solid var(--info); background: var(--info); color: var(--on-primary); font: inherit; font-size: var(--fs-sm); cursor: pointer; overflow: hidden; touch-action: manipulation; }
 .gt-bar:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 .gt-bt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

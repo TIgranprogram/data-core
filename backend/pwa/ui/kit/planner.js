@@ -1,6 +1,7 @@
 import { h } from '../../core/dom.js';
 import { mark } from './mark.js';
 import { plannerBar } from './planner-bar.js';
+import { plannerAxis } from './planner-axis.js';
 import { buildTree, visible } from './planner-tree.js';
 
 const PX = { day: 36, week: 18, month: 6 };
@@ -45,52 +46,74 @@ function lanes(items) {
  *   load  { [rowId]: { 'ГГГГ-ММ-ДД': часы } } — занятость по дням (видна и на свёрнутой строке человека)
  *   expanded — раскрытые узлы (по умолчанию всё свёрнуто); панель над лентой появляется, если есть onScale/onShift/дерево/legend
  * Перетаскивание (мышь; палец — после долгого нажатия): по горизонтали — сдвиг дат (длительность сохраняется), по вертикали — другая строка.
- * calendar задаёт дневные ячейки внутри выбранного периода. period отображает даты, onPickDate открывает день.
+ * segments задаёт видимые отрезки дней. calendar включает дневные ячейки. period отображает даты, onPickDate выбирает дату.
  * onResize(bar, { start, end }) меняет правый край. Клавиши: ←/→ сдвиг, Shift + ←/→ конец, Enter открыть.
  * → { el, scroller, scrollToDate(date), scrollToToday(flash?), expandAll(), collapseAll() }
  */
 const KINDS = ['info', 'ok', 'warn', 'danger', 'dim'];
 const STATUSES = { plan: 'запланировано', work: 'в работе', done: 'сделано' };
 
-export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, autoScroll = true, canEdit = false, rowsMovable = false, onOpen, onMove, onResize, empty, expanded, onToggle, legend = [], onScale, onShift, onToday, calendar = false, period, onPickDate } = {}) {
+export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, autoScroll = true, canEdit = false, rowsMovable = false, onOpen, onMove, onResize, empty, expanded, onToggle, legend = [], onScale, onShift, onToday, calendar = false, period, onPickDate, segments } = {}) {
   const min = dayNum(from), max = dayNum(to) + 1;
-  const days = Math.max(1, max - min);
-  // Широкий экран растягивает загруженные дни, не добавляя новых дат к периоду.
-  const px = scale === 'fit'
-    ? fitPx(fitWidth || 720, from, to)
-    : Math.max((calendar ? CALENDAR_PX : PX)[scale] || PX.week, (fitWidth || 0) / days);
+  const axis = plannerAxis(min, max, segments);
+  const days = Math.max(1, axis.dates.length);
+  const px = segments ? Math.max(3, (fitWidth || 720) / days)
+    : scale === 'fit' ? fitPx(fitWidth || 720, from, to)
+      : Math.max((calendar ? CALENDAR_PX : PX)[scale] || PX.week, (fitWidth || 0) / days);
   const W = days * px;
   const dayCols = scale === 'day' || (calendar && scale !== 'fit');
   const coarse = touch(), LANE = coarse ? 44 : 40;
   const today = todayNum();
-  const xOf = (n) => (n - min) * px;
-  const rangeWidth = (s, e) => Math.max(0, Math.min(e + 1, max) - Math.max(s, min)) * px;
+  const xOf = (n) => axis.column(n) * px;
+  const rangeWidth = (s, e) => Math.max(0, xOf(e + 1) - xOf(s));
   const todayX = xOf(today) + px / 2;
-  const track = (t) => { t.style.width = W + 'px'; t.style.setProperty('--gt-line', (dayCols ? px : px * 7) + 'px'); t.style.setProperty('--gt-off', xOf(dayCols ? min : min + ((8 - dow(min)) % 7)) + 'px'); t.style.setProperty('--gt-day', px + 'px'); t.style.setProperty('--gt-we', xOf(min + ((13 - dow(min)) % 7)) + 'px'); return t; }; // --gt-we — первая суббота: выходные полосой и в строках
+  const dailyGrid = dayCols || !!segments;
+  const track = (t) => {
+    t.style.width = W + 'px';
+    t.style.setProperty('--gt-line', (dailyGrid ? px : px * 7) + 'px');
+    t.style.setProperty('--gt-off', xOf(dailyGrid ? min : min + ((8 - dow(min)) % 7)) + 'px');
+    t.style.setProperty('--gt-day', px + 'px');
+    t.style.setProperty('--gt-we', xOf(min + ((13 - dow(min)) % 7)) + 'px');
+    return t;
+  };
 
   // шапка: месяцы и числа
-  const months = []; const nums = [];
-  for (let n = min; n < max; n++) {
-    const d = new Date(n * 864e5), wd = dow(n);
-    if (!months.length || months[months.length - 1].m !== d.getUTCMonth()) months.push({ m: d.getUTCMonth(), y: d.getUTCFullYear(), from: n, to: n + 1 }); else months[months.length - 1].to = n + 1;
+  const headers = [], nums = [];
+  const weekly = segments && scale === 'week';
+  for (const n of axis.dates) {
+    const d = new Date(n * 864e5), wd = dow(n), gap = axis.gapBefore.get(n) || 0;
+    const key = weekly ? n - ((wd + 6) % 7) : d.getUTCFullYear() * 12 + d.getUTCMonth();
+    if (headers.at(-1)?.key !== key || gap) headers.push({ key, date: d, from: n, to: n });
+    else headers.at(-1).to = n;
     if (dayCols) {
-      const control = onPickDate ? { type: 'button', dataset: { date: isoOf(n) }, title: 'Открыть день ' + dmy(n),
-        'aria-label': 'Открыть день ' + dmy(n), onclick: () => onPickDate(isoOf(n)) } : {};
-      nums.push(h(onPickDate ? 'button' : 'i', { ...control,
-        class: 'gt-n' + (wd === 0 || wd === 6 ? ' we' : '') + (n === today ? ' today' : ''),
-        style: { left: xOf(n) + 'px', width: px + 'px' } }, String(d.getUTCDate()), h('small', null, WD[wd])));
-    } else if (wd === 1 && px * 7 >= 28) nums.push(h('i', { class: 'gt-n', style: { left: xOf(n) + 'px', width: Math.min(7, max - n) * px + 'px' } }, String(d.getUTCDate())));
+      const date = isoOf(n), picked = period?.date === date, name = 'Выбрать дату ' + dmy(n);
+      const control = onPickDate ? { type: 'button', 'aria-label': name, 'aria-pressed': String(picked), onclick: () => onPickDate(date) } : {};
+      const label = !segments || px >= 15 || picked || gap || wd === 1 ? String(d.getUTCDate()) : '';
+      const title = gap ? `${name}. Пропущено дней: ${gap}` : name;
+      nums.push(h(onPickDate ? 'button' : 'i', { ...control, dataset: { date }, title,
+        class: 'gt-n' + (wd === 0 || wd === 6 ? ' we' : '') + (n === today ? ' today' : '') + (picked ? ' is-picked' : ''),
+        style: { left: xOf(n) + 'px', width: px + 'px' } }, label, px >= 23 ? h('small', null, WD[wd]) : null));
+    } else if ((wd === 1 || gap) && px * 7 >= 28) {
+      const width = rangeWidth(n, Math.min(n + 6, max - 1));
+      nums.push(h('i', { class: 'gt-n', dataset: { date: isoOf(n) }, style: { left: xOf(n) + 'px', width: width + 'px' } }, String(d.getUTCDate())));
+    }
   }
+  const headerNode = ({ date, from, to }) => {
+    const width = rangeWidth(from, to), month = MONTHS[date.getUTCMonth()];
+    const label = weekly ? dmy(from).slice(0, 5) + ' — ' + dmy(to).slice(0, 5)
+      : width > 70 ? month + ' ' + date.getUTCFullYear() : month.slice(0, 3);
+    return h('i', { class: 'gt-mo', style: { left: xOf(from) + 'px', width: width + 'px' } }, label);
+  };
   const head = h('div', { class: 'gt-row gt-head' }, h('div', { class: 'gt-label' }, rowsTitle || 'Строки'),
     track(h('div', { class: 'gt-track gt-head-track' },
-      h('div', { class: 'gt-months' }, ...months.map((x) => h('i', { class: 'gt-mo', style: { left: xOf(x.from) + 'px', width: (x.to - x.from) * px + 'px' } }, (x.to - x.from) * px > 70 ? MONTHS[x.m] + ' ' + x.y : MONTHS[x.m].slice(0, 3)))),
+      h('div', { class: 'gt-months' }, ...headers.map(headerNode)),
       h('div', { class: 'gt-nums' }, ...nums))));
 
   // полосы по строкам и дерево
   const byRow = new Map(rows.map((r) => [String(r.id), []]));
   for (const b of bars) {
     const s = dayNum(b.start), e = dayNum(b.end) ?? s;
-    if (s === null || s >= max || Math.max(s, e) < min || !byRow.has(String(b.rowId))) continue;
+    if (s === null || !rangeWidth(s, Math.max(s, e)) || !byRow.has(String(b.rowId))) continue;
     byRow.get(String(b.rowId)).push({ b, s, e: Math.max(s, e), dl: dayNum(b.deadline), over: !!b.overdue });
   }
   const tree = buildTree(rows, byRow);
@@ -101,7 +124,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   let hl = '';
 
   const diamond = (dl, late, tr, seen) => {
-    if (dl == null || dl < min || dl >= max || seen.has(dl)) return;
+    if (!axis.has(dl) || seen.has(dl)) return;
     seen.add(dl);
     const d = h('i', { class: 'k-pl-dl' + (late ? ' over' : ''), title: 'Срок: ' + dmy(dl) + (late ? ' — работы заходят за срок' : '') });
     d.style.left = xOf(dl) + px / 2 + 'px'; tr.append(d);
@@ -112,7 +135,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     const width = rangeWidth(s, e);
     const st = b.status === 'done' || b.status === 'work' || b.status === 'plan' ? b.status : '';
     const editable = canEdit && !b.locked && st !== 'done';
-    const resizable = editable && !!onResize && e < max;
+    const resizable = editable && !!onResize && axis.has(e);
     const state = [STATUSES[st], b.overdue && 'просрочено'].filter(Boolean).join(', ');
     const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', editable ? 'drag' : '', resizable ? 'resizable' : '', width < Math.max(72, String(b.title).length * 7 + 16) ? 'narrow' : ''].filter(Boolean).join(' ');
     const node = h('button', { type: 'button', class: cls, 'data-bar': String(b.id), 'data-wt': b.wt == null ? null : String(b.wt),
@@ -160,7 +183,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
       handle.setPointerCapture(event.pointerId);
       node.classList.add('resizing');
       const preview = (move) => {
-        end = Math.max(start, originalEnd + Math.round((move.clientX - x) / px));
+        end = Math.max(start, axis.shift(originalEnd, Math.round((move.clientX - x) / px)));
         node.style.width = rangeWidth(start, end) + 'px';
         node.dataset.hint = dmy(end);
       };
@@ -201,8 +224,9 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
         dragging = true; node.classList.add('dragging');
         const hit = rowsMovable ? rowAt(m.clientX, m.clientY) || rowEl : rowEl;
         if (hit !== target) { target?.classList.remove('drop'); target = hit; }
-        dx = target === rowEl ? Math.round(ddx / px) : 0;
-        node.style.left = left0 + dx * px + 'px';
+        const slots = target === rowEl ? Math.round(ddx / px) : 0;
+        dx = axis.shift(s, slots) - s;
+        node.style.left = left0 + slots * px + 'px';
         if (rowsMovable) { target?.classList.toggle('drop', target !== rowEl); node.style.transform = `translateY(${target.getBoundingClientRect().top - rowEl.getBoundingClientRect().top}px)`; }
         node.dataset.hint = dmy(s + dx) + (target !== rowEl ? ' · ' + (target.dataset.label || '') : '');
       };
@@ -227,7 +251,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     const own = lanes(byRow.get(String(r.id)));
     const sum = node ? tree.range(r.id) : null;
     const nLanes = node ? 1 : Math.max(1, ...own.map((i) => i.lane + 1));
-    const ld = load[r.id] || {};
+    const ld = Object.fromEntries(Object.entries(load[r.id] || {}).filter(([date]) => axis.has(dayNum(date))));
     const over = r.cap ? Object.values(ld).filter((v) => v > r.cap).length : 0;
     const full = r.cap ? Object.values(ld).filter((v) => v <= r.cap && v >= r.cap * 0.8).length : 0;
     const text = [h('b', null, r.label), r.sub || over || full ? h('small', { class: 'gt-ttitle' + (over ? ' over' : '') }, over ? `перегрузка: ${over} дн.` : full ? `почти полно: ${full} дн.` : r.sub) : null];
@@ -237,7 +261,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     label.style.setProperty('--gt-d', String(Math.min(depth, coarse ? 3 : 5)));
     const tr = track(h('div', { class: 'gt-track' }));
     if (r.cap) for (const [iso, hrs] of Object.entries(ld)) {
-      const n = dayNum(iso); if (n === null || n < min || n >= max || !(hrs > 0)) continue;
+      const n = dayNum(iso); if (!(hrs > 0)) continue;
       const tone = hrs > r.cap ? 'over' : hrs >= r.cap * 0.8 ? 'full' : '';
       if (!tone) continue;
       const cell = h('i', { class: 'k-pl-load ' + tone, title: `${iso.split('-').reverse().join('.')}: ${Math.round(hrs * 10) / 10} из ${r.cap} ч` });
@@ -248,8 +272,10 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     rowEl.style.minHeight = 8 + nLanes * LANE + 'px';
     const seen = new Set();
     if (sum) {
-      const bar = h('div', { class: 'gt-bar sum k-pl-sum lv' + Math.min(depth, 2) + (sum.over ? ' over' : ''), title: `${r.label}: ${dmy(sum.s)} — ${dmy(sum.e)} · шагов: ${sum.n}` });
-      bar.style.left = xOf(Math.max(sum.s, min)) + 'px'; bar.style.width = rangeWidth(sum.s, sum.e) + 'px'; tr.append(bar);
+      for (const [start, end] of axis.pieces(sum.s, sum.e)) {
+        const bar = h('div', { class: 'gt-bar sum k-pl-sum lv' + Math.min(depth, 2) + (sum.over ? ' over' : ''), title: `${r.label}: ${dmy(sum.s)} — ${dmy(sum.e)} · шагов: ${sum.n}` });
+        bar.style.left = xOf(start) + 'px'; bar.style.width = rangeWidth(start, end) + 'px'; tr.append(bar);
+      }
       diamond(sum.dl, sum.dl != null && (sum.e > sum.dl || sum.over), tr, seen);
     } else for (const it of own) { tr.append(barNode(it, rowEl, nLanes)); if (!r.parentId) diamond(it.dl, it.over || (it.dl != null && it.e > it.dl), tr, seen); } // в дереве срок — ромбом только на строке-узле (не дублировать)
     return rowEl;
@@ -273,11 +299,17 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   }
   renderRows();
   grid.style.width = `calc(var(--gt-label) + ${W}px)`;
+  if (axis.weekend) grid.style.setProperty('--gt-shown-weekends', axis.weekend);
+  for (const [n, gap] of axis.gapBefore) {
+    const marker = h('div', { class: 'gt-gap', dataset: { gapDays: String(gap) }, 'aria-hidden': 'true' });
+    marker.style.left = `calc(var(--gt-label) + ${xOf(n)}px)`;
+    grid.append(marker);
+  }
   let line = null;
-  if (!(calendar && scale === 'day') && today >= min && today < max) { line = h('div', { class: 'gt-today', 'aria-hidden': 'true', title: 'Сегодня, ' + dmy(today) }); line.style.left = `calc(var(--gt-label) + ${todayX}px)`; grid.append(line); }
+  if (axis.has(today)) { line = h('div', { class: 'gt-today', 'aria-hidden': 'true', title: 'Сегодня, ' + dmy(today) }); line.style.left = `calc(var(--gt-label) + ${todayX}px)`; grid.append(line); }
 
   const scroller = h('div', { class: 'gt-scroll', tabindex: '-1' }, grid);
-  const wrap = h('div', { class: 'gt-wrap k-planner' + (tree.hasKids ? ' tree' : '') + (calendar && scale === 'day' ? ' gt-cal-day' : '') });
+  const wrap = h('div', { class: 'gt-wrap k-planner' + (tree.hasKids ? ' tree' : '') + (axis.weekend ? ' gt-discrete' : '') });
   const scrollToDay = (n, flash) => requestAnimationFrame(() => {
     const labelWidth = scroller.querySelector('.gt-label')?.offsetWidth || 0;
     scroller.scrollLeft = Math.max(0, xOf(n) + px / 2 - (scroller.clientWidth - labelWidth) / 2);
@@ -286,7 +318,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   const scrollToToday = (flash) => scrollToDay(today, flash);
   const scrollToDate = (date) => {
     const n = dayNum(date);
-    if (n != null) scrollToDay(Math.min(max - 1, Math.max(min, n)));
+    if (n != null) scrollToDay(axis.dates[Math.min(days - 1, axis.column(n))]);
   };
   const toToday = () => { if (!calendar && rows.length && today >= min && today < max) scrollToToday(true); else onToday?.(); };
   const paintBar = () => {

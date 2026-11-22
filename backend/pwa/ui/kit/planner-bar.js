@@ -19,6 +19,7 @@ export function plannerBar({ lead, scale, onScale, onShift, onToday, period, tre
   if (!parts.length && !lg && !period) return null;
   const dates = period ? h('div', { class: 'k-pl-period' }, h('h2', { class: 'k-pl-period-title' }, period.label),
     h('input', { type: 'date', class: 'k-pl-date', 'aria-label': 'Дата в Ганте', value: period.date,
-      onchange: (event) => period.onChange(event.target.value) })) : null;
+      onchange: (event) => period.onChange(event.target.value) }),
+    period.date ? button({ label: 'К работам', title: 'Сбросить выбор даты', kind: 'ghost', size: 'S', onClick: () => period.onChange('') }) : null) : null;
   return h('div', { class: 'k-pl-bar-top' }, parts.length ? h('div', { class: 'k-pl-tools' }, ...parts) : null, dates, lg);
 }
