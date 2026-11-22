@@ -225,7 +225,7 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
       legend: legendFor(bars, data.legend),
       onScale: (k) => { if (k !== scaleK) set({ scale: k }); },
       onShift: overview || !periods.length ? undefined : (dir) => {
-        const pick = shiftWorkFocus(scaleK, date, periods, dir);
+        const pick = shiftWorkFocus(scaleK, date, periods, range.segments, dir);
         if (pick) setDate(pick);
       },
       onToday: () => setDate(today()),

@@ -290,11 +290,11 @@ test('C214: календарные режимы оставляют все опе
     await open('#workschedule?from=2026-11-18');
     const chart = page.locator('.k-planner');
     const picker = datePicker(page);
-    assert.equal(await pressedScale(chart, 'Обзор работ'), 'true');
+    assert.equal(await pressedScale(chart, 'Занятые дни'), 'true');
     await chart.locator('.k-pl-period-title').waitFor();
     await chooseScale(chart, 'Раскрыть всё');
     assert.deepEqual(await visibleBars(chart), expectedBars);
-    assert.deepEqual(await axisGaps(chart), [79, 9]);
+    await expectSegments(chart, [['2026-09-06', '2026-09-11'], ['2026-11-30', '2026-12-06'], ['2026-12-16', '2026-12-18']]);
     const loaded = requests.length;
 
     await chooseScale(chart, 'День');
@@ -306,7 +306,7 @@ test('C214: календарные режимы оставляют все опе
     assert.equal(await picker.inputValue(), '2026-11-30');
 
     await chooseScale(chart, 'Неделя');
-    await expectSegments(chart, [['2026-08-31', '2026-09-13'], ['2026-11-30', '2026-12-06'], ['2026-12-14', '2026-12-20']]);
+    await expectSegments(chart, [['2026-09-05', '2026-09-13'], ['2026-11-29', '2026-12-06'], ['2026-12-15', '2026-12-20']]);
     assert.deepEqual(await visibleBars(chart), expectedBars);
     await screenshot(page, 'c214-week-soft.png');
     await chart.locator('.gt-head-track .gt-n[data-date="2026-09-09"]').click();
@@ -317,7 +317,7 @@ test('C214: календарные режимы оставляют все опе
     assert.deepEqual(await visibleBars(chart), expectedBars);
 
     await chooseScale(chart, 'Месяц');
-    await expectSegments(chart, [['2026-09-01', '2026-09-30'], ['2026-11-01', '2026-12-31']]);
+    await expectSegments(chart, [['2026-09-05', '2026-09-30'], ['2026-11-29', '2026-12-31']]);
     assert.deepEqual(await visibleBars(chart), expectedBars);
     await screenshot(page, 'c214-month-soft.png');
     await picker.fill('2026-09-09');
@@ -331,7 +331,7 @@ test('C214: календарные режимы оставляют все опе
     assert.equal(await picker.inputValue(), '2026-10-21');
     assert.match(page.url(), /[?&]date=2026-10-21/);
     assert.equal(await pressedScale(chart, 'Месяц'), 'true');
-    await expectSegments(chart, [['2026-09-01', '2026-09-30'], ['2026-11-01', '2026-12-31']]);
+    await expectSegments(chart, [['2026-09-05', '2026-09-30'], ['2026-11-29', '2026-12-31']]);
     assert.deepEqual(await visibleBars(chart), expectedBars);
     await chooseScale(chart, 'К работам');
     assert.equal(await picker.inputValue(), '');
@@ -386,7 +386,7 @@ test('C214: високосный месяц и перенос правого к�
     const chart = page.locator('.k-planner');
     const picker = datePicker(page);
     assert.equal(await picker.inputValue(), '2028-02-28');
-    await expectSegments(chart, [['2028-02-01', '2028-03-31']]);
+    await expectSegments(chart, [['2028-02-27', '2028-03-31']]);
     await chooseScale(chart, 'Раскрыть всё');
     assert.deepEqual(await visibleBars(chart), ['step1', 'step2']);
 
@@ -414,6 +414,48 @@ test('C214: високосный месяц и перенос правого к�
     await gap.waitFor();
     await expectSegments(chart, compact);
     await screenshot(page, 'c214-gap-dark.png');
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
+test('C215: один день контекста для работы на границе октября и ноября', async () => {
+  const { browser, page, bars, open, errors } = await fixture(undefined, { theme: 'soft' });
+  try {
+    bars.splice(1);
+    Object.assign(bars[0], { start: '2026-10-31', end: '2026-11-06' });
+    await open('#workschedule?scale=month');
+    const chart = page.locator('.k-planner');
+    const expectCellWidth = async (oldDays, growth) => {
+      const sizes = await chart.locator('.gt-head-track').evaluate((head) => ({
+        track: head.getBoundingClientRect().width,
+        day: head.querySelector('.gt-n[data-date="2026-11-02"]').getBoundingClientRect().width,
+      }));
+      assert.ok(sizes.day > (sizes.track / oldDays) * growth, 'Обрезка пустых дат увеличивает дневные ячейки');
+    };
+    await expectSegments(chart, [['2026-10-30', '2026-11-30']]);
+    assert.equal(await chart.locator('.k-pl-period-title').textContent(), '30.10.2026 — 30.11.2026');
+    assert.deepEqual(await visibleBars(chart), ['step1']);
+    await expectCellWidth(61, 1.8);
+    const octoberFits = await chart.locator('.gt-mo[title="Октябрь 2026"]').evaluate((el) =>
+      !!el.textContent.trim() && el.scrollWidth <= el.clientWidth);
+    assert.equal(octoberFits, true, 'Название короткого октября не обрезано');
+    await screenshot(page, 'c215-month-soft.png');
+
+    await chooseScale(chart, 'Неделя');
+    await expectSegments(chart, [['2026-10-30', '2026-11-08']]);
+    assert.equal(await chart.locator('.k-pl-period-title').textContent(), '30.10.2026 — 08.11.2026');
+    await expectCellWidth(14, 1.3);
+    await chooseScale(chart, '→');
+    assert.equal(await datePicker(page).inputValue(), '2026-10-30');
+    await chooseScale(chart, '→');
+    assert.equal(await datePicker(page).inputValue(), '2026-11-02');
+
+    await chooseScale(chart, 'День');
+    await expectSegments(chart, [['2026-10-30', '2026-11-07']]);
+    await chooseScale(chart, 'Занятые дни');
+    await expectSegments(chart, [['2026-10-31', '2026-11-06']]);
+    assert.deepEqual(await visibleBars(chart), ['step1']);
+    assert.equal(await chart.getByRole('button', { name: 'Обзор работ', exact: true }).count(), 0);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
@@ -620,7 +662,7 @@ test('C214: границы календарной шкалы совпадают 
     await button('Раскрыть всё').click();
     for (const width of [1920, 2560, 3440]) {
       await page.setViewportSize({ width, height: 1080 });
-      for (const scale of ['День', 'Неделя', 'Месяц', 'Обзор работ']) {
+      for (const scale of ['День', 'Неделя', 'Месяц', 'Занятые дни']) {
         await button(scale).click();
         await button('Раскрыть всё').click();
         await page.waitForFunction(() => {
@@ -637,7 +679,7 @@ test('C214: границы календарной шкалы совпадают 
             cellsEnd: Math.max(...cells.map((cell) => rect(cell).right)) - rect(header).left,
             y: Math.abs((rect(el).top + rect(el).bottom) / 2 - (rect(row).top + rect(row).bottom - 1) / 2) };
         });
-        const startOffset = { День: 2, Неделя: 3, Месяц: 18, 'Обзор работ': 1 }[scale];
+        const startOffset = scale === 'Занятые дни' ? 1 : 2;
         assert.ok(Math.abs(metrics.offset - startOffset * metrics.px) < 0.08, `${width} ${scale}: начало`);
         assert.ok(Math.abs(metrics.width - 2 * metrics.px) < 0.08, `${width} ${scale}: ширина полосы`);
         assert.ok(Math.abs(metrics.track - metrics.header) < 0.08, `${width} ${scale}: общая шкала`);

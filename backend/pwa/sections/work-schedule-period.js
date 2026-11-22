@@ -27,6 +27,19 @@ function merge(ranges) {
   return result;
 }
 
+/** Соседние занятые периоды идут вместе. До первой работы блока оставляем один день. */
+function trimCalendarBands(scale, active) {
+  const bands = [];
+  for (const [start, end] of active) {
+    const [first] = calendarPeriod(scale, start);
+    const [, last] = calendarPeriod(scale, end);
+    const previous = bands.at(-1);
+    if (previous && first <= previous[1] + DAY) previous[1] = Math.max(previous[1], last);
+    else bands.push([start - DAY, last]);
+  }
+  return bands;
+}
+
 /** Шкала состоит из отрезков с работами. Даты задач входят целиком в пределах загруженного набора. */
 export function workFocus(scale, bars, window, fallback) {
   const min = Date.parse(window.from), max = Date.parse(window.to);
@@ -34,8 +47,9 @@ export function workFocus(scale, bars, window, fallback) {
     Math.max(min, Date.parse(day(bar.start))),
     Math.min(max, Date.parse(day(bar.end))),
   ]).filter(([start, end]) => start <= end));
-  const bands = scale === 'day' ? active.map(([start, end]) => [start - DAY, end + DAY])
-    : active.map(([start, end]) => [calendarPeriod(scale, start)[0], calendarPeriod(scale, end)[1]]);
+  let bands = active;
+  if (scale === 'day') bands = active.map(([start, end]) => [start - DAY, end + DAY]);
+  if (scale === 'week' || scale === 'month') bands = trimCalendarBands(scale, active);
   const segments = merge(bands).map(([start, end]) => ({ from: iso(start), to: iso(end) }));
   const periods = [];
   for (const [start, end] of active) {
@@ -48,10 +62,14 @@ export function workFocus(scale, bars, window, fallback) {
   return { segments, periods, from: segments[0]?.from || fallback, to: segments.at(-1)?.to || fallback };
 }
 
-export function shiftWorkFocus(scale, selection, periods, direction) {
-  if (!selection) return direction > 0 ? periods[0] : periods.at(-1);
-  const pivot = iso(calendarPeriod(scale, Date.parse(selection))[0]);
-  return direction > 0 ? periods.find((date) => date > pivot) : periods.findLast((date) => date < pivot);
+export function shiftWorkFocus(scale, selection, periods, segments, direction) {
+  const pivot = selection ? iso(calendarPeriod(scale, Date.parse(selection))[0]) : '';
+  const target = pivot
+    ? (direction > 0 ? periods.find((date) => date > pivot) : periods.findLast((date) => date < pivot))
+    : (direction > 0 ? periods[0] : periods.at(-1));
+  if (!target) return undefined;
+  const segment = segments.find(({ to }) => to >= target);
+  return segment && segment.from > target ? segment.from : target;
 }
 
 export function workFocusTitle(range) {
