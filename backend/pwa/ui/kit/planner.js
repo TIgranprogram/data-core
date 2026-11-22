@@ -140,10 +140,10 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
         if (!armed) { if (Math.abs(ddx) > 8 || Math.abs(ddy) > 8) { clearTimeout(tmr); tmr = null; } return; }
         if (!dragging && Math.abs(ddx) < 4 && Math.abs(ddy) < 4) return;
         dragging = true; node.classList.add('dragging');
-        dx = Math.round(ddx / px);
-        node.style.left = left0 + dx * px + 'px';
         const hit = rowsMovable ? rowAt(m.clientX, m.clientY) || rowEl : rowEl;
         if (hit !== target) { target?.classList.remove('drop'); target = hit; }
+        dx = target === rowEl ? Math.round(ddx / px) : 0;
+        node.style.left = left0 + dx * px + 'px';
         if (rowsMovable) { target?.classList.toggle('drop', target !== rowEl); node.style.transform = `translateY(${target.getBoundingClientRect().top - rowEl.getBoundingClientRect().top}px)`; }
         node.dataset.hint = dmy(s + dx) + (target !== rowEl ? ' · ' + (target.dataset.label || '') : '');
       };
