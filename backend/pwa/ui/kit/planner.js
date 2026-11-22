@@ -4,6 +4,7 @@ import { plannerBar } from './planner-bar.js';
 import { buildTree, visible } from './planner-tree.js';
 
 const PX = { day: 36, week: 18, month: 6 };
+const CALENDAR_PX = { day: 36, week: 36, month: 24 };
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 const touch = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -44,21 +45,22 @@ function lanes(items) {
  *   load  { [rowId]: { 'ГГГГ-ММ-ДД': часы } } — занятость по дням (видна и на свёрнутой строке человека)
  *   expanded — раскрытые узлы (по умолчанию всё свёрнуто); панель над лентой появляется, если есть onScale/onShift/дерево/legend
  * Перетаскивание (мышь; палец — после долгого нажатия): по горизонтали — сдвиг дат (длительность сохраняется), по вертикали — другая строка.
+ * calendar задаёт дневные ячейки внутри выбранного периода. period отображает даты, onPickDate открывает день.
  * onResize(bar, { start, end }) меняет правый край. Клавиши: ←/→ сдвиг, Shift + ←/→ конец, Enter открыть.
  * → { el, scroller, scrollToDate(date), scrollToToday(flash?), expandAll(), collapseAll() }
  */
 const KINDS = ['info', 'ok', 'warn', 'danger', 'dim'];
 const STATUSES = { plan: 'запланировано', work: 'в работе', done: 'сделано' };
 
-export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, autoScroll = true, canEdit = false, rowsMovable = false, onOpen, onMove, onResize, empty, expanded, onToggle, legend = [], onScale, onShift, onToday } = {}) {
+export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, autoScroll = true, canEdit = false, rowsMovable = false, onOpen, onMove, onResize, empty, expanded, onToggle, legend = [], onScale, onShift, onToday, calendar = false, period, onPickDate } = {}) {
   const min = dayNum(from), max = dayNum(to) + 1;
   const days = Math.max(1, max - min);
   // Широкий экран растягивает загруженные дни, не добавляя новых дат к периоду.
   const px = scale === 'fit'
     ? fitPx(fitWidth || 720, from, to)
-    : Math.max(PX[scale] || PX.week, (fitWidth || 0) / days);
+    : Math.max((calendar ? CALENDAR_PX : PX)[scale] || PX.week, (fitWidth || 0) / days);
   const W = days * px;
-  const dayCols = scale === 'day';
+  const dayCols = scale === 'day' || (calendar && scale !== 'fit');
   const coarse = touch(), LANE = coarse ? 44 : 40;
   const today = todayNum();
   const xOf = (n) => (n - min) * px;
@@ -71,8 +73,13 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   for (let n = min; n < max; n++) {
     const d = new Date(n * 864e5), wd = dow(n);
     if (!months.length || months[months.length - 1].m !== d.getUTCMonth()) months.push({ m: d.getUTCMonth(), y: d.getUTCFullYear(), from: n, to: n + 1 }); else months[months.length - 1].to = n + 1;
-    if (dayCols) nums.push(h('i', { class: 'gt-n' + (wd === 0 || wd === 6 ? ' we' : '') + (n === today ? ' today' : ''), style: { left: xOf(n) + 'px', width: px + 'px' } }, String(d.getUTCDate()), h('small', null, WD[wd])));
-    else if (wd === 1 && px * 7 >= 28) nums.push(h('i', { class: 'gt-n', style: { left: xOf(n) + 'px', width: Math.min(7, max - n) * px + 'px' } }, String(d.getUTCDate())));
+    if (dayCols) {
+      const control = onPickDate ? { type: 'button', dataset: { date: isoOf(n) }, title: 'Открыть день ' + dmy(n),
+        'aria-label': 'Открыть день ' + dmy(n), onclick: () => onPickDate(isoOf(n)) } : {};
+      nums.push(h(onPickDate ? 'button' : 'i', { ...control,
+        class: 'gt-n' + (wd === 0 || wd === 6 ? ' we' : '') + (n === today ? ' today' : ''),
+        style: { left: xOf(n) + 'px', width: px + 'px' } }, String(d.getUTCDate()), h('small', null, WD[wd])));
+    } else if (wd === 1 && px * 7 >= 28) nums.push(h('i', { class: 'gt-n', style: { left: xOf(n) + 'px', width: Math.min(7, max - n) * px + 'px' } }, String(d.getUTCDate())));
   }
   const head = h('div', { class: 'gt-row gt-head' }, h('div', { class: 'gt-label' }, rowsTitle || 'Строки'),
     track(h('div', { class: 'gt-track gt-head-track' },
@@ -267,10 +274,10 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   renderRows();
   grid.style.width = `calc(var(--gt-label) + ${W}px)`;
   let line = null;
-  if (today >= min && today < max) { line = h('div', { class: 'gt-today', 'aria-hidden': 'true', title: 'Сегодня, ' + dmy(today) }); line.style.left = `calc(var(--gt-label) + ${todayX}px)`; grid.append(line); }
+  if (!(calendar && scale === 'day') && today >= min && today < max) { line = h('div', { class: 'gt-today', 'aria-hidden': 'true', title: 'Сегодня, ' + dmy(today) }); line.style.left = `calc(var(--gt-label) + ${todayX}px)`; grid.append(line); }
 
   const scroller = h('div', { class: 'gt-scroll', tabindex: '-1' }, grid);
-  const wrap = h('div', { class: 'gt-wrap k-planner' + (tree.hasKids ? ' tree' : '') });
+  const wrap = h('div', { class: 'gt-wrap k-planner' + (tree.hasKids ? ' tree' : '') + (calendar && scale === 'day' ? ' gt-cal-day' : '') });
   const scrollToDay = (n, flash) => requestAnimationFrame(() => {
     const labelWidth = scroller.querySelector('.gt-label')?.offsetWidth || 0;
     scroller.scrollLeft = Math.max(0, xOf(n) + px / 2 - (scroller.clientWidth - labelWidth) / 2);
@@ -281,9 +288,9 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     const n = dayNum(date);
     if (n != null) scrollToDay(Math.min(max - 1, Math.max(min, n)));
   };
-  const toToday = () => { if (rows.length && today >= min && today < max) scrollToToday(true); else onToday?.(); };
+  const toToday = () => { if (!calendar && rows.length && today >= min && today < max) scrollToToday(true); else onToday?.(); };
   const paintBar = () => {
-    const bar = plannerBar({ lead, scale, onScale, onShift, onToday: toToday, tree: tree.hasKids, onAll: setAll, legend, hl, onHl: (id) => { hl = id; paintBar(); applyHl(); } });
+    const bar = plannerBar({ lead, scale, onScale, onShift, onToday: toToday, period, tree: tree.hasKids, onAll: setAll, legend, hl, onHl: (id) => { hl = id; paintBar(); applyHl(); } });
     wrap.replaceChildren(...[bar, rows.length && canEdit && coarse ? h('p', { class: 'k-pl-hint' }, 'Удерживайте полосу, чтобы переставить.') : null, rows.length ? scroller : empty || null].filter(Boolean));
   };
   function applyHl() {

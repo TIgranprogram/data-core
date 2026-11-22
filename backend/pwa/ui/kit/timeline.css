@@ -29,6 +29,13 @@ button.gt-label:hover { background: var(--row-hover); }
 .gt-n.we { background: var(--weekend-head); }
 .gt-body .gt-track { background-image: linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to right, var(--weekend) calc(2 * var(--gt-day)), transparent 0); background-size: var(--gt-line) 100%, calc(7 * var(--gt-day)) 100%; background-position: var(--gt-off) 0, var(--gt-we) 0; } /* выходные — полосой во всех строках, как в шапке */
 .gt-n.today { background: var(--danger-soft); color: var(--danger); font-weight: 600; }
+button.gt-n { border: 0; border-left: 1px solid var(--border); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+button.gt-n:hover { background: var(--row-hover); }
+button.gt-n:focus-visible { outline-offset: -2px; }
+.k-pl-period { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); }
+.k-pl-period-title { margin: 0; }
+.k-pl-period .k-pl-date { width: auto; }
+.gt-cal-day .gt-months { display: none; }
 .gt-bar { position: absolute; top: 8px; height: 28px; box-sizing: border-box; display: flex; align-items: center; padding: 0 var(--s2); border-radius: var(--radius-sm); border: 1px solid var(--info); background: var(--info); color: var(--on-primary); font: inherit; font-size: var(--fs-sm); cursor: pointer; overflow: hidden; touch-action: manipulation; }
 .gt-bar:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 .gt-bt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
