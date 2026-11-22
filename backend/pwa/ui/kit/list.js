@@ -241,10 +241,11 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   let seq = 0; let destroyed = false;
   let loaded = false;
   /** Параметры запроса из адреса: поиск, свои параметры раздела, фильтры. */
-  function currentQuery(isBoard = false) {
-    const query = { search: P.q, ...(L.query ? L.query(P) : {}) };
+  async function currentQuery(isBoard = false) {
+    const params = P;
+    const query = { search: params.q, ...(await L.query?.(params)) };
     for (const f of L.filters || []) {
-      const v = P[f.key] !== undefined ? P[f.key] : (f.defaultValue || '');
+      const v = params[f.key] !== undefined ? params[f.key] : (f.defaultValue || '');
       if (v && v !== 'all' && !(isBoard && f.key === 'status')) query[f.key] = v;
     }
     // доска заказов сама режет по stage колонки; filter=active обнуляет «Отгружен» и тяжелит 5× list
@@ -262,10 +263,17 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   async function load(opt = {}) {
     if (destroyed || (opt.append && !canMore())) return;
     const my = ++seq, loadT0 = performance.now();
-    if (!opt.append) loadingMore = false;
+    loadingMore = !!opt.append;
     let { limit, page, sort, board: isBoard, gallery: isGallery, gantt: isGantt } = st();
     if (isGallery) { limit = Number(P.limit) || L.gallery.limit || 100; sort = P.sort || L.gallery.sort || sort; }
-    const query = currentQuery(isBoard);
+    let query;
+    try { query = await currentQuery(isBoard); } catch (e) {
+      if (my !== seq || destroyed) return;
+      panel.classList.remove('loading'); loadingMore = false;
+      stateRow(() => failBlock(e, () => load()));
+      return;
+    }
+    if (my !== seq || destroyed) return;
     const per = L.periods ? L.periods(P) : null;
     if (per && !isBoard) { limit = 2000; page = 1; }
     if (isGantt) {
@@ -286,7 +294,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (infinite) page = 1;
     if (isGallery && L.landing && !picked.size && L.landing.when(P)) { // галочки видны всегда — стартовые плитки показываем, пока ничего не отмечено
       countEl.textContent = ''; foot.replaceChildren(); panel.classList.remove('loading');
-      const node = await L.landing.render({ pick: (v) => patch({ [L.tiles?.key || 'groupId']: v, page: undefined }) });
+      let node;
+      try { node = await L.landing.render({ pick: (v) => patch({ [L.tiles?.key || 'groupId']: v, page: undefined }) }); }
+      catch (e) { node = failBlock(e, () => load()); }
       if (my !== seq) return;
       loaded = true; rows = []; galleryBox.replaceChildren(node); firstDrawn();
       return;

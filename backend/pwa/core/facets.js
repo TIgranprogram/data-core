@@ -1,3 +1,5 @@
+import { stockPositionName } from './stock-display.js';
+
 /* Поиск и фильтры склада «как в магазине» (без сервера, по уже загруженному списку).
  * Нормализация — как на сервере (backend/src/common/text/search-norm.ts): «м10» = «M10», х/x/× — размер.
  * Фильтры берутся из наименований: «Болт с шестигр. головкой, M10х100, DIN 933» →
@@ -59,7 +61,12 @@ export function facetsOf(name) {
   };
 }
 
-export const FACETS = [['wash', 'Мойка'], ['pipe', 'Труба'], ['section', 'Сечение'], ['grade', 'Марка'], ['thick', 'Толщина, мм'], ['type', 'Тип'], ['thread', 'Резьба'], ['length', 'Длина, мм'], ['std', 'Стандарт']];
+export const FACETS = [['wash', 'Мойка'], ['pipe', 'Профиль и размер трубы'], ['section', 'Сечение'], ['grade', 'Марка'], ['thick', 'Толщина, мм'], ['type', 'Тип'], ['thread', 'Резьба'], ['diameter', 'Диаметр, мм'], ['length', 'Длина, мм'], ['std', 'Стандарт']];
+const facetSeparator = new RegExp(`\\|(?=(?:${FACETS.map(([key]) => key).join('|')}):)`);
+export const parseFt = (s) => Object.fromEntries(String(s || '').split(facetSeparator).filter((x) => x.includes(':')).map((x) => {
+  const i = x.indexOf(':');
+  return [x.slice(0, i), x.slice(i + 1)];
+}));
 /** Признаки металла (СМ.1) — из полей позиции, а не из названия; в «Остатках» уходят на сервер отдельными фильтрами. */
 /** Вид трубы для кнопки и цвета: профильная, круглая, нержавеющая. */
 export const PIPE_KINDS = [['rect', 'Профильная'], ['round', 'Круглая'], ['steel', 'Нержавейка']];
@@ -84,8 +91,32 @@ export const facetLabel = (key, v) => {
 const sizes = (v) => (String(v).match(/\d+(?:[.,]\d+)?/g) || []).map((x) => Number(x.replace(',', '.')));
 const bySize = (a, b) => { const x = sizes(a), y = sizes(b); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0); return 0; };
 
+export function stockPipeProfile(it) {
+  const assortment = String(it.assortment ?? '').trim();
+  // В старых записях с категорией труб встречаются заглушки. В поле нужен именно размер профиля.
+  if (it.metal !== 'pipe' || ['fastener', 'purchased'].includes(it.materialKind)) return null;
+  const size = /^(?:труб[аы][\s,].*?)?(?:[Øø]\s*\d|\d\s*[×xх*]\s*\d)/iu.test(assortment);
+  return size ? pipeKey(it) : null;
+}
+
+function heldFacets(it, grade) {
+  const manual = it.typeName?.trim();
+  const kind = ['fastener', 'purchased'].includes(it.materialKind) ? null : it.metal;
+  const dims = it.dims || {};
+  const pipe = stockPipeProfile(it);
+  if (pipe) return { pipe, wash: it.washed == null ? null : it.washed ? 'Мытая' : 'Не мытая', type: manual };
+  if (kind === 'sheet') return { grade: grade(it.materialGrade), thick: dims.thickness ? String(dims.thickness) : null, type: manual };
+  const title = stockPositionName(it);
+  return {
+    type: manual || (/[а-яё]{2,}|[a-z]{2,}\s/i.test(title) ? facetsOf(title).type : null),
+    diameter: dims.diameter ? String(dims.diameter) : null,
+    length: dims.length ? String(dims.length) : null,
+    std: it.standardRef?.trim(),
+  };
+}
+
 /** Подготовить позиции: признаки + строка для поиска (один раз после загрузки). */
-export function index(items) {
+export function index(items, { stockSearch = false } = {}) {
   // марка и сечение — одно написание на вариант (регистр, ё, лишние пробелы не различаем; берём самое частое), иначе в фильтре дубли (SPR-1)
   const one = (field) => {
     const clean = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
@@ -100,7 +131,9 @@ export function index(items) {
     const isPipe = it.metal === 'pipe' && !!it.assortment;
     // ручной тип важнее вычисленного (C043): typeName правит пользователь в «Изменить выбранные»
     const manual = it.typeName ? { type: String(it.typeName).trim() } : {};
-    if (isPipe) {
+    if (stockSearch) {
+      it._f = heldFacets(it, grade);
+    } else if (isPipe) {
       it._f = { pipe: pipeKey(it), wash: it.washed == null ? null : it.washed ? 'Мытая' : 'Не мытая', ...manual };
     } else {
       // C009 / СКФ.7: заполненные dimensions[] важнее разбора имени; имя — запасной источник
@@ -115,7 +148,9 @@ export function index(items) {
         thick: it.dims?.thickness != null ? String(it.dims.thickness) : null,
       };
     }
-    it._s = normSearch([it.name, it.article, it.sku, it.categoryName, it.assortment, it.materialGrade].filter(Boolean).join(' '));
+    const base = [it.name, it.article, it.sku, it.assortment, it.materialGrade];
+    const extra = stockSearch ? [it.fullName, it.invoiceName, it.notes, it.internalCode, it.pdmCode, ...(it.pdmAliases ?? [])] : [it.categoryName];
+    it._s = normSearch([...base, ...extra].filter(Boolean).join(' '));
   }
   return items;
 }

@@ -1,11 +1,10 @@
-import { stockList } from '../../core/stock-list.js';
+import { heldStockList } from '../../core/stock-list.js';
 import { h } from '../../core/dom.js';
 import { patch } from '../../core/router.js';
 import { PREFIX } from '../../core/api.js';
-import { facetValues, FACETS, index, pick, facetLabel, PIPE_KINDS, pipeParts } from '../../core/facets.js';
+import { facetValues, FACETS, index, pick, facetLabel, parseFt, PIPE_KINDS, pipeParts } from '../../core/facets.js';
 import { mark } from './mark.js';
 import { busyBlock } from './busy.js';
-import { zoneCats } from '../../core/zone.js';
 import { searchBox } from './searchbox.js';
 import { makeResizable } from '../resizer.js';
 import { button } from './index.js';
@@ -40,7 +39,7 @@ export function chipsFilter({ items, value, multi = false, onChange, label, cls 
   };
 }
 
-export const parseFt = (s) => Object.fromEntries(String(s || '').split('|').filter(Boolean).map((x) => { const i = x.indexOf(':'); return [x.slice(0, i), x.slice(i + 1)]; }));
+export { parseFt };
 const fmtFt = (sel) => Object.entries(sel).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`).join('|') || undefined;
 /** Слова поиска из выбранного: длина — «х40» (как в «M8х40»), чтобы не цеплять любые «40». */
 export function ftQuery(s) {
@@ -63,8 +62,7 @@ export function ftParams(s) {
 /** Воронка признаков: только позиции, которые сейчас в списке — склад, строка поиска, вкладка состояния; дальше pick по категории и выбранным признакам. */
 const inState = (it, st) => { if (!st) return true; const w = new Set(String(st).split(',')); return w.has(it.status) || (w.has('reserved') && it.reservedQty > 0) || (w.has('ordered') && it.ordered > 0); };
 function scope(items, P, categoryKey, sel) {
-  const zc = P[categoryKey] ? null : zoneCats();
-  return pick(items.filter((it) => (!zc || zc.has(it.categoryId)) && inState(it, P.status)), { q: P.q || '', cat: P[categoryKey] || '', sel });
+  return pick(items.filter((it) => inState(it, P.status)), { q: P.q || '', cat: P[categoryKey] || '', sel });
 }
 
 const OPEN_MAX = 6; // группа до 6 значений раскрыта, длиннее — свёрнута
@@ -85,7 +83,7 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
   makeResizable(pop, { prefKey: 'filterW', edge: 'right', label: 'Ширина панели фильтров' }); // ШП
   const shade = h('div', { class: 'ff-shade', hidden: true, onclick: () => close() });
   const el = mark(h('div', { class: 'ff' }, btn, tags, shade, pop), 'filter');
-  const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };
+  const load = async () => { const list = await heldStockList(); if (list !== src) { src = list; items = index(list, { stockSearch: true }); } return items; };
   const onKey = (e) => { if (e.key === 'Escape' && !pop.hidden) close(); }; // с непустым поиском Esc сначала очищает его (searchBox гасит событие)
   let watch = null; // следит: открылась правая панель или экран ушёл — фильтр закрываем, слушатель снимаем
   const watchStart = () => {
@@ -163,7 +161,7 @@ function inlineFilter(categoryKey) {
   const crumbs = h('div', { class: 'ff-crumbs', hidden: true });
   const body = h('div', { class: 'ff-body' });
   const el = mark(h('div', { class: 'ff ff-inline' }, h('div', { class: 'ls-h' }, 'Уточнить'), crumbs, body), 'filter');
-  const load = async () => { const list = await stockList(); if (list !== src) { src = list; items = index(list); } return items; };
+  const load = async () => { const list = await heldStockList(); if (list !== src) { src = list; items = index(list, { stockSearch: true }); } return items; };
   const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };
   async function render() {
     const my = ++seq;

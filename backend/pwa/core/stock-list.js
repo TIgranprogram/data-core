@@ -1,4 +1,5 @@
-import { api, writeHooks } from './api.js';
+import { api, session, writeHooks } from './api.js';
+import { loadZones, zoneNow } from './zone.js';
 
 /**
  * Склад целиком (все позиции) — один общий список на всё приложение (ПР-1): один запрос, а не по запросу на каждый экран.
@@ -18,6 +19,32 @@ export function stockList() {
   return cached;
 }
 
+export const heldStockQuery = (zoneId) => ({ held: '1', ...(zoneId ? { zoneId } : {}) });
+const heldLists = new Map();
+export const resetHeldStock = () => heldLists.clear();
+
+/** Та же выборка, что в «Остатках». Отдельный кэш для признаков и плиток каждой зоны. */
+export async function heldStockList(zoneId) {
+  if (zoneId === undefined) {
+    await loadZones().catch(() => []);
+    zoneId = zoneNow();
+  }
+  const key = JSON.stringify([session.user?.id, session.user?.role, zoneId]);
+  const cached = heldLists.get(key);
+  if (cached && Date.now() - cached.at <= TTL) return cached.promise;
+  const promise = (async () => {
+    const items = [];
+    for (let page = 1; ; page++) {
+      const r = await api('/stock/items', { query: { ...heldStockQuery(zoneId), limit: 10000, sort: 'name', page } });
+      items.push(...r.items);
+      if (items.length >= r.total || !r.items.length) return items;
+    }
+  })();
+  heldLists.set(key, { at: Date.now(), promise });
+  promise.catch(() => { if (heldLists.get(key)?.promise === promise) heldLists.delete(key); });
+  return promise;
+}
+
 /**
  * SK-8d: короткий список склада для поиска позиции из других разделов (заявка, состав изделия, «уже заказано»):
  * GET /stock/lookup — только id, materialId, name, article, unit, categoryName, quantity, free; открыт и для «Заявок», «Каталога».
@@ -35,8 +62,9 @@ export function stockLookup() {
 }
 
 /** Сбросить кэш (после правок склада из других мест). */
-export const resetStock = () => { cached = null; cachedLookup = null; };
+export const resetStock = () => { cached = null; cachedLookup = null; resetHeldStock(); };
 
 writeHooks.push((path) => { if (/^\/(stock|supply)\//.test(path)) resetStock(); });
+writeHooks.push((path) => { if (/^\/(materials|stockzones|categories)(\/|$)/.test(path)) resetHeldStock(); });
 // C022: data-changed больше не сбрасывает кэш — иначе ftLoad и смена склада снова качают 10 000 позиций.
 // Свежесть после записи — writeHooks выше; принудительно: resetStock().

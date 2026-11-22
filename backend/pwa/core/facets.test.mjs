@@ -1,15 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('./facets.js',import.meta.url),'utf8');
-const {facetLabel,pipeParts,pipeKey}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+import { facetLabel, facetsOf, familyOf, index, isTypeAdjective, parseFt, pick, pipeParts, pipeKey, typeGroups, typeValues, TYPE_ALL } from './facets.js';
+import { stockPositionCode, stockPositionName } from './stock-display.js';
 test('валидные ключи трубы сохраняют вид, сечение и длину',()=>{const value=pipeKey({name:'Труба профильная',assortment:'Труба 80×80×3',dims:{length:6000}});assert.deepEqual(pipeParts(value),{kind:'rect',section:'Труба 80×80×3',len:6000});assert.equal(facetLabel('pipe',value),'80×80×3 6м');assert.equal(facetLabel('pipe','steel|Труба Ø57×3,5 (нерж.)|12000'),'Ø57×3,5 12м');});
 test('старое выбранное сечение без разделителей не вызывает replace у undefined',()=>{assert.equal(facetLabel('pipe','Труба 80×80×3'),'80×80×3 куски');assert.deepEqual(pipeParts('Труба 80×80×3'),{kind:'rect',section:'Труба 80×80×3',len:0});});
 test('пустые и неполные значения не роняют хлебную крошку',()=>{for(const v of [undefined,null,'','rect|','rect|Труба 40×20×2|не число'])assert.doesNotThrow(()=>facetLabel('pipe',v));assert.equal(facetLabel('pipe',undefined),'Сечение не указано');assert.equal(facetLabel('pipe','rect|Труба 40×20×2|не число'),'40×20×2 куски');});
 test('остальные подписи фильтров не меняются',()=>{assert.equal(facetLabel('section','Труба 80×80×3'),'80×80×3');assert.equal(facetLabel('grade','Ст3'),'Ст3');});
 {
-  const src=readFileSync(new URL('./facets.js',import.meta.url),'utf8');
-  const {index,facetsOf}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
   test('длина из dimensions важнее разбора имени',()=>{
     const [it]=index([{name:'Болт M8х40',dims:{length:100}}]);
     assert.equal(it._f.length,'100');
@@ -17,8 +14,6 @@ test('остальные подписи фильтров не меняются',
   });
 }
 {
-  const src=readFileSync(new URL('./facets.js',import.meta.url),'utf8');
-  const {typeGroups,typeValues,familyOf,TYPE_ALL}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
   const items=['Болт мебельный, M8х40','Болт с шестигр. головкой, M10х100','Болт с шестигр. головкой, M10х60','Шайба плоская, 8','Шайба гроверная, 8','Гайка шестигр, M8','Шуруп, 5х40','Нечто, 1'].map((name)=>({name,categoryId:'c'}));
   test('typeGroups: семейство по первому слову, полки по числу позиций, одиночные после, «Прочее» последним',()=>{
     const g=typeGroups(items);
@@ -36,8 +31,6 @@ test('остальные подписи фильтров не меняются',
   });
 }
 {
-  const src=readFileSync(new URL('./facets.js',import.meta.url),'utf8');
-  const {facetsOf,isTypeAdjective}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
   test('тип — существительное, а не прилагательное/материал (C043)',()=>{
     // «Прочее» из C039: «Алюминиевый», «Сменная» — это прилагательные, тип внутри: соединитель, насадка
     assert.equal(facetsOf('Алюминиевый, соединитель 20х20').type,'Соединитель');
@@ -56,8 +49,6 @@ test('остальные подписи фильтров не меняются',
   });
 }
 {
-  const src=readFileSync(new URL('./facets.js',import.meta.url),'utf8');
-  const {index}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
   test('ручной тип typeName важнее вычисленного — в обеих ветках (C043)',()=>{
     const [bolt,pipe,plain,plainPipe]=index([
       {name:'Болт мебельный, M8х40',typeName:'Соединитель'},
@@ -72,3 +63,31 @@ test('остальные подписи фильтров не меняются',
     assert.equal(plainPipe._f.type,undefined); // труба без ручного типа: прежнее поведение
   });
 }
+
+test('C191: название PDM отдельно от кода, сечения и резьбы из названия метиза нет', () => {
+  const [screw, washer, plug] = index([
+    { name: 'SK06.070.PRSH', article: 'SK06.070.PRSH', pdmCode: 'SK06.070.PRSH', materialKind: 'fastener', assortment: 'Саморез констр. с прессшайбой, 6х70, Torx 30' },
+    { name: 'SHP10.D125', article: 'SHP10.D125', pdmCode: 'SHP10.D125', materialKind: 'fastener', assortment: 'Шайба плоская, M10, DIN 125', standardRef: 'DIN 125', dims: { diameter: 10 } },
+    { name: 'Заглушка 40х40', metal: 'pipe', assortment: 'Заглушка для трубы 40×40', dims: { thickness: 3 } },
+  ], { stockSearch: true });
+  assert.equal(stockPositionName(screw), screw.assortment);
+  assert.equal(stockPositionCode(screw), screw.article);
+  assert.equal(stockPositionName(plug), plug.name);
+  for (const it of [screw, washer, plug]) {
+    for (const key of ['section', 'thread', 'pipe', 'thick']) assert.equal(it._f[key], undefined);
+  }
+  assert.equal(washer._f.diameter, '10');
+  assert.equal(washer._f.std, 'DIN 125');
+  assert.deepEqual(pick([screw, washer, plug], { q: 'torx 30', sel: { type: screw._f.type } }), [screw]);
+});
+
+test('C191: фильтр трубы сохраняет составной ключ, лист фильтруется по толщине из размеров', () => {
+  const [pipe, sheet] = index([
+    { name: 'Труба профильная', metal: 'pipe', assortment: 'Труба 80×80×3', dims: { length: 6000 } },
+    { name: 'Лист', metal: 'sheet', assortment: 'Лист, 99 мм, временное имя', dims: { thickness: 2 } },
+  ], { stockSearch: true });
+  assert.deepEqual(parseFt(`pipe:${pipe._f.pipe}|thick:2`), { pipe: pipe._f.pipe, thick: '2' });
+  assert.deepEqual(pick([pipe, sheet], { sel: parseFt(`pipe:${pipe._f.pipe}`) }), [pipe]);
+  assert.equal(sheet._f.section, undefined);
+  assert.equal(sheet._f.thick, '2');
+});
