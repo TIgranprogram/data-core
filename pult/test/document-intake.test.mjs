@@ -18,7 +18,7 @@ test('C171: подготовка блокирует анализ, просмот
   const actor = '111111111111111111111111';
   const jwt = `${Buffer.from('{}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: actor, exp: Math.floor(Date.now() / 1000) + 600 })).toString('base64url')}.signature`;
   let prepared = false, analyzed = 0, inbox = 0, draftOwner = actor, draftTarget = `${services.apiBase}/`;
-  const intake = createDocumentIntake({ stateDir: path.join(root, 'settings'), pickFolder: async () => root,
+  const intake = createDocumentIntake({ secureSession: null, stateDir: path.join(root, 'settings'), pickFolder: async () => root,
     prepare: async ({ onStep }) => { onStep({ title: 'Проверяем модель' }); return { ready: prepared, steps: [{ status: prepared ? 'ready' : 'blocked', recovery: 'Запустите модель.' }] }; },
     fetchFn: async () => Response.json({ access: jwt, user: { id: actor, baseRole: 'manager', canMoney: true } }),
     engine: async () => ({
@@ -61,6 +61,76 @@ test('C171: подготовка блокирует анализ, просмот
   assert.equal((await call('draft', { arrivalId: '../other' })).status, 400);
 });
 
+test('вход в локальную копию сохраняется в Windows и восстанавливается после перезапуска', {
+  skip: process.platform !== 'win32',
+}, async (t) => {
+  const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pult-local-session-test-'));
+  const file = path.join(stateDir, 'document-intake-session.json');
+  const target = 'http://127.0.0.1:3102/api';
+  const actor = 'synthetic-qa';
+  const requests = [];
+  let current = Date.UTC(2026, 10, 22);
+  let available = true, revoked = false;
+  const jwt = fields => 'eyJhbGciOiJIUzI1NiJ9.' + Buffer.from(JSON.stringify(fields)).toString('base64url') + '.fixture';
+  let refreshFixture;
+  const fetchFn = async (url, request) => {
+    const login = url.endsWith('/auth/login');
+    requests.push({ url, body: JSON.parse(request.body) });
+    if (!login) assert.equal(request.headers.Authorization, 'Bearer ' + refreshFixture);
+    if (!available) throw new Error('Учебный API недоступен');
+    if (!login && revoked) return new Response('', { status: 401 });
+    const exp = Math.floor(current / 1000);
+    const access = jwt({ sub: actor, version: 5, exp: exp + 900, role: 'admin', orgId: null });
+    refreshFixture = jwt({ sub: actor, version: 5, exp: exp + 90 * 86400, rem: url.startsWith(target) });
+    return Response.json({ access, user: { id: actor, role: 'admin' } }, {
+      headers: { 'Set-Cookie': 'refreshToken=' + refreshFixture + '; Path=/api/auth; HttpOnly; Secure' },
+    });
+  };
+  const start = () => createDocumentIntake({ stateDir, now: () => current, fetchFn });
+  let intake = start();
+  t.after(async () => { await intake.stop(); await fs.rm(stateDir, { recursive: true, force: true }); });
+  const status = async () => (await intake.route('GET', 'status')).body;
+  const post = async (action, body = {}) => intake.route('POST', action, async () => ({ ...body, revision: (await status()).revision }));
+  const login = () => post('login', { username: actor, password });
+  const restart = async () => { await intake.stop(); intake = start(); };
+
+  await post('settings', { ...services, apiBase: target });
+  assert.equal((await login()).status, 200);
+  assert.equal(requests[0].body.remember, true);
+  assert.equal((await status()).remembered, true);
+  const before = refreshFixture;
+  const stored = await fs.readFile(file, 'utf8');
+  assert.match(JSON.parse(stored).sealed, /^[A-Za-z\d+/]+={0,2}$/);
+  assert.ok(!stored.includes(before) && !stored.includes(password));
+
+  await restart();
+  available = false;
+  assert.equal((await status()).signedIn, false);
+  assert.equal((await status()).remembered, true);
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[1], { url: target + '/auth/refresh', body: {} });
+  available = true;
+  current += 16_000;
+  assert.equal((await status()).signedIn, true);
+  assert.notEqual(refreshFixture, before);
+  assert.equal((await post('logout')).status, 200);
+  await assert.rejects(fs.access(file), { code: 'ENOENT' });
+  await restart();
+  assert.equal((await status()).signedIn, false);
+  assert.equal(requests.length, 3);
+
+  assert.equal((await login()).status, 200);
+  revoked = true;
+  await restart();
+  assert.equal((await status()).signedIn, false);
+  await assert.rejects(fs.access(file), { code: 'ENOENT' });
+
+  await post('settings', { ...services, apiBase: 'https://kppdf-crm.ru/db/api' });
+  assert.equal((await login()).status, 200);
+  assert.equal(requests.at(-1).body.remember, false);
+  await assert.rejects(fs.access(file), { code: 'ENOENT' });
+});
+
 test('разбор документов: границы запросов, сессия, один процесс, остановка, отчёт и восстановление', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pult-intake-api-'));
   const stateDir = path.join(root, 'settings');
@@ -94,6 +164,7 @@ test('разбор документов: границы запросов, сес
   const options = {
     root, stateDir, machine: {}, statusFn: async () => ({ gateFiles: [] }), onIdle: () => { idleCalls++; }, idleDelayMs: 40,
     documentIntake: {
+      secureSession: null,
       engine: async () => fakeEngine,
       fetchFn: async (url, init) => {
         calls.push({ url, init });
@@ -261,7 +332,7 @@ async function refreshFixture(t) {
     if (answer !== 'no-cookie') headers.append('Set-Cookie', `refreshToken=${cookie}; Path=/api/auth; HttpOnly; Secure; SameSite=Strict`);
     return Response.json({ access, refresh: 'json-refresh-is-not-the-cookie', user }, { headers });
   };
-  const intake = createDocumentIntake({ stateDir, engine: async () => engine, now: () => time, pickFolder: async () => documents, fetchFn });
+  const intake = createDocumentIntake({ secureSession: null, stateDir, engine: async () => engine, now: () => time, pickFolder: async () => documents, fetchFn });
   t.after(async () => { await intake.stop(); await fs.rm(stateDir, { recursive: true, force: true }); });
   const view = async () => (await intake.route('GET', 'status')).body;
   const post = async (action, body = {}) => intake.route('POST', action, async () => ({ ...body, revision: (await view()).revision }));

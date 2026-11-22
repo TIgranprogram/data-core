@@ -299,7 +299,12 @@ export function createIntakeView({ api, el }) {
         modelBase.input.value = settings.modelBase;
         model.input.value = settings.model || defaultModel;
       }
-      loginInfo.textContent = view.signedIn ? 'Вход выполнен. После перезапуска пульта войдите снова.' : 'Войдите с паролем администратора выбранного сайта.';
+      if (view.signedIn) loginInfo.textContent = view.remembered
+        ? 'Вход выполнен. Пульт запомнил вход в тестовую копию на этом ПК.'
+        : 'Вход выполнен.';
+      else loginInfo.textContent = view.remembered
+        ? 'Восстановим вход, когда тестовая копия ответит.'
+        : 'Войдите с паролем администратора выбранного сайта.';
       loginForm.hidden = view.signedIn;
       logout.hidden = !view.signedIn;
     }

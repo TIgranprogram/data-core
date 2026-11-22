@@ -225,7 +225,7 @@ C164: `common/legal/` — общие typed DTO/subschemas, проверка ис
 
 ### C169 — локальный разбор документов
 
-Пульт: `pult/document-intake.mjs`, `pult/ui/document-intake.js`, локальные `/api/document-intake/*` (это API пульта, не сайта). Engine: `tools/document-intake/index.mjs`, `proposal.mjs`, `api.mjs`, `store.mjs`; журнал и оригиналы в выбранной папке, пароль/сессия только в памяти. Предметные ограничения — [C169](crew/C169-local-document-intake/IMPLEMENTATION.md), [контракты](crew/C169-local-document-intake/IMPORT-CONTRACTS.md).
+Пульт: `pult/document-intake.mjs`, `pult/ui/document-intake.js`, локальные `/api/document-intake/*` (это API пульта, не сайта). Engine: `tools/document-intake/index.mjs`, `proposal.mjs`, `api.mjs`, `store.mjs`; журнал и оригиналы в выбранной папке. Сессия локальной копии в Пульте на Windows восстанавливается из зашифрованного ключа продления. Предметные ограничения — [C169](crew/C169-local-document-intake/IMPLEMENTATION.md), [контракты](crew/C169-local-document-intake/IMPORT-CONTRACTS.md).
 
 Сайт: `POST /api/photos/intake/:uid?sha256=…` (multipart PDF ≤20 МиБ) и `GET /api/photos/intake/:uid` → `{uid,sha256,fileId,storageUrl}`. `photo-intake.controller/service/storage.ts`, модель Photo, собственная физическая сверка SHA и аккаунта. `POST /api/supply/invoices/intake` и `GET /api/supply/invoices/intake/:uid` → `{uid,sourceSha256,invoiceId,requestIds,payloadHash}`; typed `dto-invoice-intake.ts`, `supply-invoice-intake*.ts`. RUB-счёт сохраняется вместе со строками одной транзакцией; оплаты/склад не создаются. Права раздела, денег и целого счёта обязательны. Схемы общей SupplyRequest не меняются. Квитанции не используют общий асинхронный response-cache IdempotencyMiddleware.
 ### C172 — атомарный импорт Inventor

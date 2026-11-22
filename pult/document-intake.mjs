@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { preflight, probeLocalModel } from '../tools/document-intake/preflight.mjs';
-import { FOLDERS, RUSSIAN_FOLDERS, openRoot } from '../tools/document-intake/store.mjs';
+import { FOLDERS, RUSSIAN_FOLDERS, jsonAtomic, openRoot } from '../tools/document-intake/store.mjs';
 
 const exec = promisify(execFile);
 const standardFolder = path.join(process.env.LOCALAPPDATA || homedir(), 'DataCore', 'Разбор документов');
@@ -15,6 +15,7 @@ const defaults = { root: '', apiBase: '', modelBase: 'http://127.0.0.1:1235/v1',
 const emptyCounts = { inbox: 0, processing: 0, ready: 0, question: 0 };
 const importRoles = new Set(['manager', 'accountant', 'director', 'admin']);
 const refreshAheadMs = 60_000;
+const restoreRetryMs = 15_000;
 const fail = (status, error) => ({ status, body: { error } });
 const ok = (body, status = 200) => ({ status, body });
 const asText = (value, limit = 1200) => typeof value === 'string' ? value.slice(0, limit) : '';
@@ -48,6 +49,23 @@ async function nativeFolder(mode, initialPath) {
   return value ? Buffer.from(value, 'base64').toString('utf8') : '';
 }
 
+const protectSession = process.platform === 'win32' ? (mode, value) => new Promise((resolve, reject) => {
+  const operation = mode === 'protect' ? 'Protect' : 'Unprotect';
+  const script = "$ErrorActionPreference = 'Stop'; [void][Reflection.Assembly]::LoadWithPartialName('System.Security'); "
+    + '$data = [Convert]::FromBase64String([Console]::In.ReadToEnd()); '
+    + '$result = [Security.Cryptography.ProtectedData]::' + operation
+    + '($data, $null, [Security.Cryptography.DataProtectionScope]::CurrentUser); '
+    + '[Console]::Out.Write([Convert]::ToBase64String($result))';
+  const child = execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    windowsHide: true, timeout: 10_000, maxBuffer: 64_000,
+  }, (error, output) => {
+    if (error) reject(new Error('Хранилище входа Windows недоступно.'));
+    else resolve(mode === 'protect' ? output.trim() : Buffer.from(output.trim(), 'base64').toString('utf8'));
+  });
+  child.stdin.on('error', () => {});
+  child.stdin.end(mode === 'protect' ? Buffer.from(value, 'utf8').toString('base64') : value, 'utf8');
+}) : null;
+
 function counts(value) {
   return Object.fromEntries(Object.keys(emptyCounts).map((key) => [key, asCount(value?.[key])]));
 }
@@ -65,12 +83,12 @@ function sameAccount(left, right) {
   return !!left && !!right && left.sub === right.sub && left.version === right.version;
 }
 
-function refreshCookie(response, access) {
+function refreshCookie(response, access, remember) {
   const matches = response.headers.getSetCookie().map((value) => /^refreshToken=([^;]+)(?:;|$)/.exec(value)).filter(Boolean);
   if (matches.length !== 1) return null;
   const value = matches[0][1];
   const claims = jwtClaims(value);
-  return sameAccount(claims, access) && claims.rem === false ? { value, expiresAt: claims.exp * 1000 } : null;
+  return sameAccount(claims, access) && claims.rem === remember ? { value, expiresAt: claims.exp * 1000 } : null;
 }
 
 const errors = {
@@ -81,23 +99,28 @@ const errors = {
   ABORTED: 'Разбор остановлен. Чтобы продолжить, нажмите «Возобновить».',
 };
 
-export function createDocumentIntake({ stateDir, changed, engine = () => import('../tools/document-intake/index.mjs'), prepare = preflight, probeModel = probeLocalModel, fetchFn = fetch, now = Date.now, pickFolder = (root) => nativeFolder('Pick', root), openFolder = (root) => nativeFolder('Open', root), defaultRoot = standardFolder }) {
+export function createDocumentIntake({ stateDir, changed, engine = () => import('../tools/document-intake/index.mjs'), prepare = preflight, probeModel = probeLocalModel, fetchFn = fetch, now = Date.now, pickFolder = (root) => nativeFolder('Pick', root), openFolder = (root) => nativeFolder('Open', root), defaultRoot = standardFolder, secureSession = protectSession }) {
   const file = path.join(stateDir, 'document-intake.json');
+  const sessionFile = path.join(stateDir, 'document-intake-session.json');
   const initialized = fs.readFile(file, 'utf8').then((raw) => {
     const saved = JSON.parse(raw);
     const services = serviceSettings(saved);
     settings = { ...defaults, ...(services.status === 200 ? services.body : {}), root: asText(saved.root, 32767) };
-  }).catch(() => {});
+  }).catch(() => {}).then(loadSavedSession);
   let settings = { ...defaults };
   let revision = 0;
   let auth = null;
+  let savedSession = null;
+  let rememberedOnDisk = false;
+  let restoreAfter = 0;
+  let restoring = null;
   let active = null;
   let task = null;
   let pending = false;
   let progress = null;
   let preparation = null;
 
-  const busy = () => !!active || pending;
+  const busy = () => !!active || pending || !!restoring;
   const loggedIn = () => !!auth && (auth.expiresAt > now() || auth.refresh?.expiresAt > now());
   const notify = () => changed?.();
 
@@ -109,12 +132,101 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     session.refresh = null;
   }
 
+  function canRemember(apiBase) {
+    return Boolean(secureSession && localBase(apiBase, '/api'));
+  }
+
+  async function eraseSavedSession() {
+    savedSession = null;
+    rememberedOnDisk = false;
+    restoreAfter = 0;
+    return fs.rm(sessionFile, { force: true }).then(() => true, () => false);
+  }
+
+  async function forgetAuth(session = auth) {
+    if (auth !== session) return;
+    clearAuth(session);
+    return eraseSavedSession();
+  }
+
+  async function loadSavedSession() {
+    if (!canRemember(settings.apiBase)) return;
+    try {
+      const { sealed } = JSON.parse(await fs.readFile(sessionFile, 'utf8'));
+      if (typeof sealed !== 'string' || !sealed || sealed.length > 64_000) throw authError();
+      const { apiBase, claims, value } = JSON.parse(await secureSession('unprotect', sealed));
+      const refresh = jwtClaims(value);
+      if (apiBase !== settings.apiBase || !sameAccount(refresh, claims) || refresh.rem !== true || refresh.exp * 1000 <= now()) throw authError();
+      savedSession = { apiBase, claims, refresh: { value, expiresAt: refresh.exp * 1000 }, remember: true };
+      rememberedOnDisk = true;
+    } catch (error) {
+      if (error.code !== 'ENOENT') await eraseSavedSession();
+    }
+  }
+
+  async function saveSession(session) {
+    if (!session?.remember || !session.refresh || session.refresh.expiresAt <= now() || !canRemember(session.apiBase)) return;
+    const { apiBase, claims, refresh } = session;
+    const binding = { sub: claims.sub, version: claims.version, role: claims.role, orgId: claims.orgId };
+    savedSession = { apiBase, claims: binding, refresh, remember: true };
+    try {
+      const sealed = await secureSession('protect', JSON.stringify({ apiBase, claims: binding, value: refresh.value }));
+      await fs.mkdir(stateDir, { recursive: true });
+      await jsonAtomic(sessionFile, { sealed });
+      rememberedOnDisk = true;
+    } catch { /* вход в текущем окне остаётся доступен */ }
+  }
+
+  function authError() {
+    return Object.assign(new Error(errors.AUTH), { code: 'AUTH' });
+  }
+
+  async function renew(session, signal, verifyBinding = () => {}) {
+    const response = await fetchFn(session.apiBase + '/auth/refresh', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + session.refresh.value, 'Content-Type': 'application/json' },
+      body: '{}', redirect: 'error', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10_000)]) : AbortSignal.timeout(10_000),
+    });
+    verifyBinding();
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
+      if (response.status === 401 || response.status === 403) throw authError();
+      throw new Error('Не удалось продлить вход в DataCore.');
+    }
+    const { access } = await response.json();
+    verifyBinding();
+    const claims = jwtClaims(access);
+    const refresh = refreshCookie(response, claims, session.remember);
+    if (!sameAccount(claims, session.claims) || claims.role !== session.claims.role || claims.orgId !== session.claims.orgId
+      || claims.exp * 1000 <= now() || !refresh || refresh.expiresAt <= now()) throw authError();
+    return { access, claims, expiresAt: claims.exp * 1000, refresh };
+  }
+
+  async function reconnect() {
+    if (loggedIn() || !savedSession || restoreAfter > now()) return;
+    if (!restoring) {
+      restoring = (async () => {
+        const candidate = savedSession;
+        try {
+          if (candidate.apiBase !== settings.apiBase || candidate.refresh.expiresAt <= now()) throw authError();
+          const updated = await renew(candidate);
+          auth = { ...candidate, ...updated, refreshing: null };
+          await saveSession(auth);
+          restoreAfter = 0;
+        } catch (error) {
+          if (error.code === 'AUTH') await eraseSavedSession();
+          else restoreAfter = now() + restoreRetryMs;
+        }
+      })().finally(() => { restoring = null; });
+    }
+    await restoring;
+  }
+
   async function save(next) {
     await fs.mkdir(stateDir, { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
     await fs.writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
     await fs.rename(tmp, file);
-    if (settings.apiBase !== next.apiBase) clearAuth();
+    if (settings.apiBase !== next.apiBase) await forgetAuth();
     settings = next;
     preparation = null;
     revision++;
@@ -149,7 +261,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     const review = root && loggedIn() && auth.claims ? await (await engine()).reviewStatus?.({ root, owner: auth.claims.sub, target: settings.apiBase }).catch(() => null) : null;
     const running = !!active || !!snapshot?.running;
     return {
-      settings, inboxPath: root ? snapshot?.folders?.inbox || path.join(root, FOLDERS.inbox) : path.join(defaultRoot, RUSSIAN_FOLDERS.inbox), revision, signedIn: loggedIn(), busy: pending, running, canStop: !!active && !active.signal.aborted,
+      settings, inboxPath: root ? snapshot?.folders?.inbox || path.join(root, FOLDERS.inbox) : path.join(defaultRoot, RUSSIAN_FOLDERS.inbox), revision, signedIn: loggedIn(), remembered: rememberedOnDisk, busy: pending, running, canStop: !!active && !active.signal.aborted,
       counts: counts(snapshot?.counts),
       reviewCounts: review ? { inbox: asCount(snapshot?.counts?.inbox), processing: asCount(review.counts.pending), checked: asCount(review.counts.checked), question: asCount(review.counts.question), uploaded: asCount(review.counts.uploaded), ...(review.counts.sending ? { sending: review.counts.sending } : {}) } : null,
       preparation,
@@ -184,12 +296,13 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     if (typeof username !== 'string' || !username.trim() || username.length > 64 || typeof password !== 'string' || !password || password.length > 128) {
       return fail(400, 'Введите логин и пароль DataCore.');
     }
-    clearAuth();
+    await forgetAuth();
+    const remember = canRemember(settings.apiBase);
     let response;
     try {
       response = await fetchFn(`${settings.apiBase}/auth/login`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password, remember: false }), redirect: 'error', signal: AbortSignal.timeout(10_000),
+        body: JSON.stringify({ username: username.trim(), password, remember }), redirect: 'error', signal: AbortSignal.timeout(10_000),
       });
     } catch { return fail(502, 'Сайт не отвечает по сохранённому адресу. Проверьте подключение и адрес.'); }
     if (response.status === 429) return fail(429, 'Слишком много попыток входа. Подождите минуту.');
@@ -206,37 +319,29 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     if (claims && user.id && claims.sub !== user.id) return fail(502, 'Сайт не подтвердил учётную запись. Войдите снова.');
     auth = {
       access: result.access, claims, expiresAt: claims ? claims.exp * 1000 : now() + 15 * 60_000,
-      refresh: refreshCookie(response, claims), apiBase: settings.apiBase, refreshing: null,
+      refresh: refreshCookie(response, claims, remember), apiBase: settings.apiBase, remember, refreshing: null,
     };
+    await saveSession(auth);
     return ok({ signedIn: loggedIn() });
   }
 
   function tokenProvider(session, { root, apiBase }, controller) {
     const { signal } = controller;
-    const authError = () => Object.assign(new Error(errors.AUTH), { code: 'AUTH' });
     function checkBinding() {
       signal.throwIfAborted();
       if (auth !== session || session.apiBase !== apiBase || settings.apiBase !== apiBase || settings.root !== root || active !== controller) throw authError();
     }
     async function refreshAccess() {
       try {
-        // Штатный JwtRefreshStrategy принимает значение refresh-cookie через Bearer. Сохраняем только в памяти пульта.
-        const response = await fetchFn(`${apiBase}/auth/refresh`, {
-          method: 'POST', headers: { Authorization: `Bearer ${session.refresh.value}`, 'Content-Type': 'application/json' },
-          body: '{}', redirect: 'error', signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
-        });
-        checkBinding();
-        if (!response.ok) { await response.body?.cancel().catch(() => {}); throw authError(); }
-        const { access } = await response.json();
-        checkBinding();
-        const claims = jwtClaims(access);
-        const nextRefresh = refreshCookie(response, claims);
-        if (!sameAccount(claims, session.claims) || claims.role !== session.claims.role || claims.orgId !== session.claims.orgId
-          || claims.exp * 1000 <= now() || !nextRefresh || nextRefresh.expiresAt <= now()) throw authError();
-        Object.assign(session, { access, claims, expiresAt: claims.exp * 1000, refresh: nextRefresh });
-      } catch {
+        Object.assign(session, await renew(session, signal, checkBinding));
+        await saveSession(session);
+      } catch (error) {
         signal.throwIfAborted();
-        clearAuth(session);
+        if (error.code === 'AUTH' || !session.remember) await forgetAuth(session);
+        else {
+          clearAuth(session);
+          restoreAfter = now() + restoreRetryMs;
+        }
         throw authError();
       }
     }
@@ -244,7 +349,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
       checkBinding();
       const remaining = session.expiresAt - now();
       if (remaining > refreshAheadMs || (remaining > 0 && !session.refresh)) return session.access;
-      if (!session.refresh || session.refresh.expiresAt <= now()) { clearAuth(session); throw authError(); }
+      if (!session.refresh || session.refresh.expiresAt <= now()) { await forgetAuth(session); throw authError(); }
       session.refreshing ??= refreshAccess().finally(() => { session.refreshing = null; });
       await session.refreshing;
       checkBinding();
@@ -288,15 +393,15 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
       }
       return intake[mode]({ root, apiBase, token, modelBase, model, onProgress, signal: controller.signal, ...(arrivalIds ? { arrivalIds } : {}), ...(scope ? { scope } : {}) });
     })
-      .then((result) => {
-        if (result?.stopped?.code === 'AUTH' && !controller.signal.aborted) clearAuth(session);
+      .then(async (result) => {
+        if (result?.stopped?.code === 'AUTH' && !controller.signal.aborted) await forgetAuth(session);
         const message = safeStopped(result?.stopped);
         progress = publicProgress({ ...progress,
           ...(Number.isSafeInteger(result?.processed) ? { processed: result.processed } : {}),
           ...(Number.isSafeInteger(result?.total) ? { total: result.total } : {}),
           state: message || controller.signal.aborted ? 'stopped' : 'finished', current: '', message: message || (controller.signal.aborted ? errors.ABORTED : '') });
-      }).catch((err) => {
-        if (err.code === 'AUTH' && !controller.signal.aborted) clearAuth(session);
+      }).catch(async (err) => {
+        if (err.code === 'AUTH' && !controller.signal.aborted) await forgetAuth(session);
         const message = controller.signal.aborted ? errors.ABORTED : errors[err.code] || 'Не удалось продолжить разбор. Проверьте доступ к папке, сайту и локальной модели.';
         progress = publicProgress({ ...progress, state: 'stopped', message });
       }).finally(() => { if (heartbeat) clearInterval(heartbeat); active = null; task = null; notify(); });
@@ -305,6 +410,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
 
   async function route(method, action, readBody) {
     await initialized;
+    if (action !== 'logout') await reconnect();
     if (method === 'GET' && action === 'status') return ok(await view());
     if (method === 'GET' && action === 'report') return ok(await report());
     if (method === 'GET' && action === 'reviewreport') {
@@ -356,7 +462,10 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         progress = null;
         return ok({ detached: true });
       }
-      if (action === 'logout') { clearAuth(); return ok({ signedIn: false }); }
+      if (action === 'logout') {
+        if (!await forgetAuth()) return fail(409, 'Вход закрыт в этом окне. Пульт не смог удалить сохранённый вход с диска. Повторите выход.');
+        return ok({ signedIn: false });
+      }
       if (!['settings', 'login', 'run', 'resume', 'retry', 'analyze', 'draft', 'prepare', 'send', 'modelprobe'].includes(action)) return fail(404, 'Нет такого действия.');
       const body = await readBody();
       if (body?.revision !== revision) return fail(409, 'Настройки изменились в другом окне. Проверьте показанный адрес и повторите действие.');
@@ -416,5 +525,5 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     } finally { pending = false; notify(); }
   }
 
-  return { route, busy, async stop() { active?.abort(); await task; clearAuth(); } };
+  return { route, busy, async stop() { active?.abort(); await task; await restoring; clearAuth(); } };
 }
