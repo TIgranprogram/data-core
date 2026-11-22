@@ -7,7 +7,15 @@ import { button, segmented } from './index.js';
  */
 export function plannerBar({ lead, scale, onScale, onShift, onToday, period, tree, onAll, legend = [], hl = '', onHl } = {}) {
   const parts = lead ? [lead] : []; // lead — элемент экрана в начале панели (переключатель «По заказам / По людям»): одна строка инструментов
-  if (onScale) parts.push(segmented({ items: [{ key: 'fit', label: 'Обзор работ' }, { key: 'day', label: 'День' }, { key: 'week', label: 'Неделя' }, { key: 'month', label: 'Месяц' }], value: scale, label: period ? 'Период Ганта' : 'Масштаб ленты', onChange: onScale }).el);
+  if (onScale) {
+    const scaleControl = segmented({
+      items: [{ key: 'fit', label: period ? 'Занятые дни' : 'Обзор работ' }, { key: 'day', label: 'День' },
+        { key: 'week', label: 'Неделя' }, { key: 'month', label: 'Месяц' }],
+      value: scale, label: period ? 'Период Ганта' : 'Масштаб ленты', onChange: onScale,
+    });
+    if (period) scaleControl.buttons[0].title = 'Только даты, на которые есть работы';
+    parts.push(scaleControl.el);
+  }
   if (onShift) parts.push(button({ label: '←', size: 'S', title: 'Раньше', onClick: () => onShift(-1) }));
   if (onShift || onScale) parts.push(button({ label: 'Сегодня', size: 'S', title: 'Перейти к сегодняшней дате', onClick: onToday }));
   if (onShift) parts.push(button({ label: '→', size: 'S', title: 'Позже', onClick: () => onShift(1) }));

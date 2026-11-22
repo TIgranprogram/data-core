@@ -61,7 +61,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     : scale === 'fit' ? fitPx(fitWidth || 720, from, to)
       : Math.max((calendar ? CALENDAR_PX : PX)[scale] || PX.week, (fitWidth || 0) / days);
   const W = days * px;
-  const dayCols = scale === 'day' || (calendar && scale !== 'fit');
+  const dayCols = scale === 'day' || calendar;
   const coarse = touch(), LANE = coarse ? 44 : 40;
   const today = todayNum();
   const xOf = (n) => axis.column(n) * px;
@@ -99,10 +99,16 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     }
   }
   const headerNode = ({ date, from, to }) => {
-    const width = rangeWidth(from, to), month = MONTHS[date.getUTCMonth()];
-    const label = weekly ? dmy(from).slice(0, 5) + ' — ' + dmy(to).slice(0, 5)
-      : width > 70 ? month + ' ' + date.getUTCFullYear() : month.slice(0, 3);
-    return h('i', { class: 'gt-mo', style: { left: xOf(from) + 'px', width: width + 'px' } }, label);
+    const width = rangeWidth(from, to), month = MONTHS[date.getUTCMonth()], year = date.getUTCFullYear();
+    const title = weekly ? dmy(from) + ' — ' + dmy(to) : month + ' ' + year;
+    let label = title;
+    if (weekly) {
+      const shortStart = dmy(from).slice(0, 5);
+      label = width >= 96 ? shortStart + ' — ' + dmy(to).slice(0, 5) : shortStart;
+    } else if (width < 112) {
+      label = month.slice(0, 3) + (width >= 66 ? ' ' + year : '');
+    }
+    return h('i', { class: 'gt-mo', title, style: { left: xOf(from) + 'px', width: width + 'px' } }, label);
   };
   const head = h('div', { class: 'gt-row gt-head' }, h('div', { class: 'gt-label' }, rowsTitle || 'Строки'),
     track(h('div', { class: 'gt-track gt-head-track' },
