@@ -153,28 +153,28 @@
   --sec-money-side: var(--sec-money);
 }
 
-/* Средняя тема: матовая серая канва, светлые панели и графитовое меню. */
+/* Средняя тема: матовые холодно-серые поверхности и нейтральное графитовое меню. */
 :root[data-theme='soft'] {
   --fs: 15px;
   --fs-sm: 14px;
   --fs-table: 14px;
   --fs-label: 12px;
-  --bg: #e1e4df;
-  --surface: #f5f6f1;
-  --surface-2: #eceee9;
-  --surface-3: #dfe4de;
-  --col-bg: #d8dfd8;
-  --col-border: #b8c2b9;
-  --photo-bg: #e6eae4;
-  --border: #bac4bc;
-  --border-strong: #65706e;
-  --text: #1e2321;
-  --muted: #3c4541;
-  --heading: #233e35;
-  --side: #353c39;
-  --side-2: #47514b;
-  --side-text: #e9ece7;
-  --side-text-hi: #ffffff;
+  --bg: #b9bfc5;
+  --surface: #cfd3d7;
+  --surface-2: #c5cbd1;
+  --surface-3: #b0b8c0;
+  --col-bg: #aab3bb;
+  --col-border: #87929d;
+  --photo-bg: #c5cbd1;
+  --border: #909ba5;
+  --border-strong: #505d68;
+  --text: #20252b;
+  --muted: #35404a;
+  --heading: #24343a;
+  --side: #30343a;
+  --side-2: #505861;
+  --side-text: #e0e4e8;
+  --side-text-hi: #f5f6f7;
   --side-head: #e1ca91;
   --side-brand-note: var(--side-head);
   --primary: #335c4e;
@@ -196,7 +196,7 @@
   --info-soft: #dce7ea;
   --violet: #4f3685;
   --violet-soft: #e8e2ef;
-  --neutral-soft: #e0e3e1;
+  --neutral-soft: #c0c8d0;
   --sec-products: #275646;
   --sec-products-soft: #dbe4da;
   --sec-products-side: #b2cfb7;
@@ -206,12 +206,12 @@
   --sec-stock: #24515b; --sec-stock-soft: #dbe7e7;
   --sec-money: #6d344b; --sec-money-soft: #eadfe3;
   --topbar-bg: var(--surface-2);
-  --row-hover: #e5e8e4;
-  --row-selected: #d9e4db;
-  --hint-bg: #e4ebe4;
-  --shadow: 0 1px 2px rgba(28, 34, 32, .08);
-  --shadow-sm: 0 1px 2px rgba(28, 34, 32, .12);
-  --shadow-lg: 0 14px 36px rgba(25, 30, 28, .20);
+  --row-hover: #bec7cf;
+  --row-selected: #b9cec2;
+  --hint-bg: #c7ced5;
+  --shadow: 0 1px 2px rgba(30, 36, 42, .08);
+  --shadow-sm: 0 1px 2px rgba(30, 36, 42, .12);
+  --shadow-lg: 0 14px 36px rgba(27, 32, 38, .20);
 }
 
 @media (min-width: 1101px) { :root[data-theme='soft'] { --gutter: var(--s5); } }
