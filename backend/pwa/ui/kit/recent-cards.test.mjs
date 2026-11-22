@@ -111,6 +111,19 @@ test('неизвестные типы образуют собственные г
  assert.equal(f.menu.groups[0].title,'Тип 7');assert.equal(f.menu.groups[7].title,'Тип 0');
 });
 
+test('старые записи архива и технические типы получают русские подписи', async () => {
+ const f = await fixture();
+ const cache = createRecentCards(f.storage, 'dc-recent-cards:/db:a');
+ cache.remember({ section: 'docs', of: 'passarchive', id: '1'.padStart(24,'0'), title: 'Паспорт № 616' });
+ cache.remember({ section: 'custom', of: 'legacy', id: '2'.padStart(24,'0'), title: 'Карточка', kind: 'legacy' });
+ f.button(() => true).attrs.onclick();
+ const [archive, other] = f.menu.groups.filter(group => group && !group.sep);
+ assert.equal(archive.title, 'Архив паспортов');
+ assert.match(archive.items[0].href, /of=passarchive/);
+ assert.equal(other.title, 'Прочие карточки');
+ assert.equal(other.items[0].label.textContent, 'Карточка');
+});
+
 
 test('Паспорта заказа отделены от изделий, финансовые позиции — от производственных заказов', async()=>{
  const f=await fixture();const cache=createRecentCards(f.storage,'dc-recent-cards:/db:a');

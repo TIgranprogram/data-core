@@ -42,29 +42,31 @@ function thumbnail(entry) {
   return box;
 }
 /** Раздел записи → цвет раздела бокового меню (--sec-*): рамка карточки и подпись вида (пользователь 2026-11-13: «каша»). */
-const AREA = { products: 'products', offers: 'products', docs: 'products', doctpl: 'products', passports: 'products',
+const AREA = { products: 'products', offers: 'products', docs: 'products', doctpl: 'products', passports: 'products', passarchive: 'products',
   salesorders: 'orders', salesorder: 'orders', design: 'orders', designtasks: 'orders', work: 'orders', matching: 'orders',
   requests: 'supply', suppliercatalog: 'supply', contracts: 'supply', partners: 'supply',
   stock: 'stock', 'stock-mobile': 'stock', movements: 'stock', orders: 'money', money: 'money', expenses: 'money', payroll: 'money' };
 const areaOf = (e) => AREA[e.of] || AREA[e.section] || '';
+const kindLabel = (kind) => /[а-яё]/iu.test(kind || '') ? kind : '';
 /** Строка записи: вид (цветом раздела) отдельной строкой, название — до двух строк. */
 function entryLabel(e) {
-  const kind = e.kind || '';
+  const kind = kindLabel(e.kind);
   const title = (kind && e.title.startsWith(kind) ? e.title.slice(kind.length).replace(/^\s*·?\s*/, '') : e.title) || e.title;
   return h('span', { class: 'pm-rc' }, kind ? h('small', { class: 'pm-rc-kind' }, kind) : null, h('span', { class: 'pm-rc-title', title }, title));
 }
 /** Тип сущности задаёт отдельную подписанную группу; порядок карточек остаётся по давности. */
-const TYPE_LABELS = { salesorders: 'Заказы', salesorder: 'Договоры с заказчиками', products: 'Изделия', passports: 'Паспорта',
+const TYPE_LABELS = { salesorders: 'Заказы', salesorder: 'Договоры с заказчиками', products: 'Изделия', passports: 'Паспорта', passarchive: 'Архив паспортов',
   requests: 'Заявки', partners: 'Контрагенты', stock: 'Склад', orders: 'Позиции заказов', offers: 'Коммерческие предложения',
   contracts: 'Договоры', expenses: 'Расходы', money: 'Деньги', work: 'Работы', designtasks: 'Проектирование', docs: 'Документы' };
 function recentGroups(entries) {
   const groups = new Map();
   for (const e of entries) {
-    const key = ({ orderpass: 'passports' })[e.of] || e.of;
-    if (!groups.has(key)) groups.set(key, { title: TYPE_LABELS[key] || e.kind || key, items: [] });
-    groups.get(key).items.push({ label: entryLabel(e), lead: thumbnail(e), href: recentHref(e), cls: areaOf(e) ? 'rc-' + areaOf(e) : '' });
+    const type = e.of === 'orderpass' ? 'passports' : e.of;
+    const title = Object.hasOwn(TYPE_LABELS, type) ? TYPE_LABELS[type] : kindLabel(e.kind) || 'Прочие карточки';
+    if (!groups.has(title)) groups.set(title, { title, items: [] });
+    groups.get(title).items.push({ label: entryLabel(e), lead: thumbnail(e), href: recentHref(e), cls: areaOf(e) ? 'rc-' + areaOf(e) : '' });
   }
-  const priority = ['Заказы', 'Изделия', 'Паспорта'];
+  const priority = ['Заказы', 'Изделия', 'Паспорта', 'Архив паспортов'];
   return [...groups.values()].sort((a, b) => {
     const rank = (g) => { const i = priority.indexOf(g.title); return i < 0 ? priority.length : i; };
     return rank(a) - rank(b);
