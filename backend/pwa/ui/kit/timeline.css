@@ -25,6 +25,20 @@ button.gt-label:hover { background: var(--row-hover); }
 .gt-months, .gt-nums { position: relative; height: 26px; }
 .gt-mo, .gt-n { position: absolute; top: 0; box-sizing: border-box; padding: 2px 4px; font-style: normal; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; border-left: 1px solid var(--border); }
 .gt-mo { font-weight: 600; }
+.k-planner .gt-months { height: calc(var(--s6) + var(--s1)); }
+.k-planner .gt-mo {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 0 var(--s1);
+  border-color: var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  line-height: 1.15;
+}
+.k-planner .gt-mo:nth-child(even) { background: color-mix(in srgb, var(--surface-3) 88%, var(--info)); }
+.k-planner .gt-n { display: flex; flex-direction: column; justify-content: center; height: 100%; line-height: 1.15; }
 .gt-n small { display: block; font-size: var(--fs-label); color: var(--muted); }
 .gt-n.we { background: var(--weekend-head); }
 .gt-body .gt-track { background-image: linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to right, var(--weekend) calc(2 * var(--gt-day)), transparent 0); background-size: var(--gt-line) 100%, calc(7 * var(--gt-day)) 100%; background-position: var(--gt-off) 0, var(--gt-we) 0; } /* выходные — полосой во всех строках, как в шапке */

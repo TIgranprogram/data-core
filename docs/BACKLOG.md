@@ -6,6 +6,7 @@
 
 ## ▶ Приоритет 22.11.2026 — приёмка локального выпуска
 
+- [x] C216: [шапка шкалы Ганта](crew/C216-gantt-month-header/UI-REVIEW.md).
 - [x] C215: [пустые дни слева на шкале Ганта](crew/C215-gantt-leading-context/UI-REVIEW.md).
 - [x] C214: [фокус Ганта по работам](crew/C214-gantt-work-focus/UI-REVIEW.md).
 - [x] C213: [календарные периоды Ганта](crew/C213-gantt-calendar/UI-REVIEW.md).

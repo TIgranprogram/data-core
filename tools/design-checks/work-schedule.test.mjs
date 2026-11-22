@@ -439,6 +439,18 @@ test('C215: один день контекста для работы на гра
     const octoberFits = await chart.locator('.gt-mo[title="Октябрь 2026"]').evaluate((el) =>
       !!el.textContent.trim() && el.scrollWidth <= el.clientWidth);
     assert.equal(octoberFits, true, 'Название короткого октября не обрезано');
+    const header = await chart.locator('.gt-head-track').evaluate((el) => {
+      const [october, november] = el.querySelectorAll('.gt-mo');
+      const firstNovemberDay = el.querySelector('.gt-n[data-date="2026-11-01"]');
+      const styles = [october, november].map((month) => getComputedStyle(month));
+      return {
+        monthHeight: october.offsetHeight,
+        centered: styles.every((style) => style.placeItems === 'center'),
+        differentBackgrounds: styles[0].backgroundColor !== styles[1].backgroundColor,
+        borderAlignsWithDate: Math.abs(november.getBoundingClientRect().left - firstNovemberDay.getBoundingClientRect().left) < 0.6,
+      };
+    });
+    assert.deepEqual(header, { monthHeight: 36, centered: true, differentBackgrounds: true, borderAlignsWithDate: true });
     await screenshot(page, 'c215-month-soft.png');
 
     await chooseScale(chart, 'Неделя');
