@@ -1,0 +1,22 @@
+/* Каркас книжного редактора паспорта, рабочая область под портретный A4. */
+.offer-editor .bk-toc { width: clamp(12rem, 18vw, 19rem); }
+.offer-editor .bk-side { width: clamp(15rem, 22vw, 23rem); overflow: auto; }
+.offer-editor .offer-stage { padding: var(--s3); overflow: auto; }
+.offer-editor .offer-paper { width: var(--offer-paper-width); height: auto; display: block; margin: 0 auto; box-shadow: var(--shadow); max-width: none; }
+.offer-editor .bk-side .field { flex: 0 0 auto; margin: 0; }
+.offer-editor .bk-side .bk-panel { gap: var(--s2); }
+.offer-editor .bk-side .bk-panel .k-form { display: flex; flex-direction: column; }
+.offer-editor .bk-side .field input, .offer-editor .bk-side .field select { min-width: 0; }
+.offer-editor .bk-toc-i { display: grid; grid-template-columns: minmax(0, 1fr); text-align: left; }
+.offer-editor .bk-toc-i { height: auto; }
+.offer-editor .bk-toc-i .bk-toc-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; }
+.offer-editor .bk-toc-i small { font-variant-numeric: tabular-nums; }
+.offer-editor .bk-sku { white-space: normal; }
+.offer-editor .bk-stat { white-space: normal; }
+@media (max-width: 1100px) {
+  .offer-editor .bk-head { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .offer-editor .bk-sku { font-size: var(--fs-sm); }
+}
+.offer-editor .offer-sort { display: grid; grid-template-columns: var(--s5) minmax(0, 1fr); align-items: center; }
+.offer-editor .offer-grip { cursor: grab; color: var(--muted); text-align: center; user-select: none; }
+.offer-editor .offer-sort.drop { outline: 2px solid var(--primary); border-radius: var(--radius-sm); }

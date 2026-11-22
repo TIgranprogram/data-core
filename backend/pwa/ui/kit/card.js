@@ -42,6 +42,8 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
   let disposed = false;
   const inlineEdits = new WeakMap(); // счётчик редакторов для конкретной кнопки текущего просмотра
   let openTab = null; // T9 (C052): card.tabs — переключение вкладок панели (ctx.openTab)
+  let refreshHistory = null;
+  let historyRequest = 0;
   const titleEl = h('h2');
   // тип записи над заголовком: в панели открываются и изделие, и задача, и заказ — по названию их не различить
   const kindOf = (r) => (typeof section.kind === 'function' ? section.kind(r) : section.kind) || ''; // kind — строка или (row) → строка (позиция / предложение)
@@ -162,21 +164,18 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
       const nothingAbove = () => [...body.children].every((c) => c.contains(tb) || !c.textContent.trim());
       if (bar && !solo) setTimeout(() => { if (bar.isConnected && nothingAbove()) body.before(bar); }, 0);
     }
-    // noHistory — у записи нет своей истории (пункт текста паспорта: история — у версии шаблона)
     const histUl = section.card.noHistory ? null : h('ul', { class: 'timeline' }, busyBlock('историю', { tag: 'li', cls: 'muted' }));
     const histWrap = histUl ? h('details', { class: 'db-blk', hidden: true }, h('summary', null, 'История изменений'), histUl) : null; // история — внизу, всегда свёрнута (ПМ-1)
     put(histWrap, 'history');
     body.replaceChildren(...arrange(content, hasTabs));
     ctx.viewed?.(row, titleEl.textContent, kindOf(row));
-    if (histUl) loadHistory(histUl, histWrap);
+    const historyRow = row;
+    refreshHistory = histUl ? () => loadHistory(histUl, histWrap, historyRow) : null;
+    refreshHistory?.();
 
     if (canEditSection(section) && section.form && (!section.card.editable || section.card.editable(row))) foot.append(h('button', { class: 'btn btn-primary', type: 'button', onclick: () => showForm('edit') }, section.card.editLabel || 'Изменить'));
     buildMenu(rare, hasTabs);
   }
-  /**
-   * one — плоско; two/wide — поток `.dz-flow` в две колонки (balance), история/wide снизу на всю ширину.
-   * Раньше main|side оставляли все группы слева, а справа только фото. Панель с вкладками — всегда один столбец (forceOne).
-   */
   function arrange(content, forceOne = false) {
     const mode = forceOne ? 'one' : layoutNow();
     if (mode === 'one') return content.map(([el]) => el);
@@ -190,26 +189,28 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
       flow.length ? h('div', { class: 'dz-flow', 'data-layout': mode }, ...flow) : null,
       bottom.length ? h('div', { class: 'dz-flow-wide' }, ...bottom) : null)];
   }
-  /** Единственное «⋯» шапки — fillCardMenu (card-menu.js). */
   const buildMenu = (rare, hasTabs = false) => fillCardMenu({
     menuBox, rare, hasTabs, layouts: LAYOUTS, layoutNow, section, row, body, showView, showForm, doRemove, runAction,
   });
 
-  async function loadHistory(ul, wrap) {
-    if (!section.entityType || !row?.id) { ul.replaceChildren(); return; }
+  async function loadHistory(ul, wrap, record) {
+    if (!section.entityType || !record?.id) { ul.replaceChildren(); return; }
+    const request = ++historyRequest;
     try {
-      const r = await api('/audit-logs/record', { query: { entityType: section.entityType, entityId: row.id } });
-      if (!r.items.length) { ul.replaceChildren(); return; } // истории нет — секция скрыта, «Загружаю…» не висит (обход ждал его до упора)
+      const r = await api('/audit-logs/record', { query: { entityType: section.entityType, entityId: record.id } });
+      const rows = section.card.historyItems ? await section.card.historyItems(record, r.items) : r.items;
+      if (request !== historyRequest) return;
+      if (!rows.length) { ul.replaceChildren(); wrap.hidden = true; return; }
       const label = section.historyLabels || {};
-      // подписи полей — из формы раздела (И.1: «Поле: было → стало»)
       let names = {}; let flds = [];
-      try { flds = (section.form?.fields ? await section.form.fields(row) : []).filter((f) => f.key); names = Object.fromEntries(flds.map((f) => [f.key, f.label])); } catch { /* без подписей */ }
+      try { flds = (section.form?.fields ? await section.form.fields(record) : []).filter((f) => f.key); names = Object.fromEntries(flds.map((f) => [f.key, f.label])); } catch { /* без подписей */ }
       // И.3 «Вернуть как было»: поля этого изменения, которые есть в форме, — прежние значения в форму правки; сохраняет человек
       const byKey = new Map(flds.map((f) => [f.key, f]));
       const revertOf = (x) => (x.first || !canEditSection(section) || section.form?.build ? [] : (x.changes || []).filter((c) => byKey.has(c.field) && byKey.get(c.field).type !== 'widget' && byKey.get(c.field).type !== 'photos'));
-      const items = r.items.filter((x) => usefulEntry(x, names));
-      if (!items.length) { ul.replaceChildren(); return; }
-      ul.replaceChildren(...items.map((x) => h('li', null, h('span', { class: 'when' }, dateTime(x.createdAt)), h('span', null, label[x.action] || actionLabel(x.action)), h('span', { class: 'muted' }, x.userName || ''),
+      const items = rows.filter((x) => usefulEntry(x, names));
+      if (request !== historyRequest) return;
+      if (!items.length) { ul.replaceChildren(); wrap.hidden = true; return; }
+      ul.replaceChildren(...items.map((x) => h('li', null, h('span', { class: 'when' }, dateTime(x.createdAt)), h('span', null, x.label || label[x.action] || actionLabel(x.action)), h('span', { class: 'muted' }, x.userName || ''),
         changeList(x.changes, names, x.first),
         String(x.action || '').endsWith('deleted') && session.canEdit ? h('a', { href: '#trash', class: 'btn btn-ghost btn-sm', title: 'Открыть корзину: там запись можно вернуть', onclick: (e) => { e.preventDefault(); go('trash'); } }, 'В корзине — восстановить') : null,
         revertOf(x).length ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Открыть правку с прежними значениями этих полей — проверьте и сохраните', onclick: () => {
@@ -218,7 +219,7 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
           showForm('edit', null, { values, note: `Как было до изменения от ${dateTime(x.createdAt)}: ${back.map((c) => names[c.field] || c.field).join(', ')}. Проверьте и нажмите «Сохранить».` });
         } }, 'Вернуть как было') : null)));
       if (wrap) wrap.hidden = false;
-    } catch { ul.replaceChildren(h('li', { class: 'muted' }, 'История недоступна')); if (wrap) wrap.hidden = false; }
+    } catch { if (request === historyRequest) { ul.replaceChildren(h('li', { class: 'muted' }, 'История недоступна')); wrap.hidden = false; } }
   }
 
   function actx() {
@@ -232,6 +233,7 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
       edit: async (draft) => { if (await canLeave()) return showForm('edit', draft); },
       reload: async () => { if (await canLeave()) return showView(); },
       setRow: (r) => { if (!disposed) { const shown = showView(r); ctx.changed(); return shown; } }, changed: ctx.changed, close: tryClose,
+      refreshHistory: () => { if (!disposed) return refreshHistory?.(); },
       openTab: (key) => { openTab?.(key); },
       run: async (fn) => { if (!(await canLeave())) return false; saving = true; try { await fn(); return true; } finally { saving = false; } },
     };
