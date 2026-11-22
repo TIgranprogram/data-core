@@ -8,6 +8,7 @@
 .atlas-canvas-page .am-viewport { border: 0; border-radius: 0; }
 
 .atlas-map {
+  --am-pin: color-mix(in srgb, var(--gold) 78%, var(--gold-deep));
   --am-grid: color-mix(in srgb, var(--border-strong) 22%, transparent);
   --am-input-wire: color-mix(in srgb, var(--status-new) 74%, var(--info));
   --am-output-wire: color-mix(in srgb, var(--ok) 74%, var(--primary));
@@ -30,7 +31,7 @@
 .am-search > .sb > input::placeholder { color: var(--muted); opacity: 1; }
 .am-search-options, .am-search-empty {
   position: absolute;
-  inset: calc(100% + var(--s1)) 0 auto;
+  inset: calc(42px + var(--s1)) 0 auto;
   margin: 0;
   padding: var(--s1);
   border: 1px solid var(--border);
@@ -38,6 +39,21 @@
   background: var(--surface);
   box-shadow: var(--shadow);
 }
+.am-search-pin {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  gap: var(--s2);
+  margin-block-start: var(--s2);
+  padding-inline-start: var(--s3);
+  border: 1px solid var(--am-pin);
+  border-radius: var(--radius-sm);
+  background: var(--gold-soft);
+  color: var(--text);
+}
+.am-search-pin[hidden] { display: none; }
+.am-search-pin-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .am-search-options { max-height: min(56vh, 410px); overflow: auto; }
 .am-search-empty { padding: var(--s3); color: var(--muted); }
 .am-search-option {
@@ -215,6 +231,11 @@
   background: color-mix(in srgb, var(--am-flow-soft, var(--am-soft)) 57%, var(--surface));
 }
 .am-station.btn[data-trace='active']:hover { background: var(--am-flow-soft, var(--am-soft)); }
+.am-station.btn[data-pinned] {
+  outline: 2px solid var(--am-pin);
+  outline-offset: 1px;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--gold) 48%, transparent);
+}
 .am-wire, .am-port { transition: opacity .15s ease, stroke-width .15s ease; }
 .am-wire-group[data-trace='active'] > .am-wire { opacity: 1; stroke-width: 2.7; }
 .am-wire-group[data-trace='muted'] > :is(.am-wire, .am-port),

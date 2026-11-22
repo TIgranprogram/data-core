@@ -4,6 +4,7 @@ import { icon } from '../icons.js';
 import { button } from './index.js';
 import { atlasHierarchy, atlasScene } from '../atlas-map/layout.js';
 import { svg, place, interpolate, span, wireGeometry, applyView, panInto, bindAtlasDrag } from '../atlas-map/geometry.js';
+import { atlasPinnedNodes } from '../atlas-map/pinned.js';
 import { atlasSearch } from '../atlas-map/search.js';
 
 const MOTION = 360;
@@ -40,7 +41,11 @@ export function atlasMap({ model, trace: walk, onSelect }) {
   const stations = h('div', { class: 'am-stations' });
   const frame = h('div', { class: 'am-frame', hidden: true, 'aria-hidden': 'true' });
   const live = h('span', { class: 'am-live', role: 'status' });
+  let pinned = new Set();
   const search = atlasSearch(data, prefix, id => {
+    pinned = atlasPinnedNodes(data, id);
+    for (const control of controls.values()) markPin(control);
+    if (!id) return;
     enter(id, null, true);
     viewport.focus({ preventScroll: true });
   });
@@ -96,6 +101,8 @@ export function atlasMap({ model, trace: walk, onSelect }) {
     return control;
   }
 
+  function markPin(control) { control.toggleAttribute('data-pinned', pinned.has(control.dataset.node)); }
+
   function syncCard(key, card) {
     const control = controls.get(key) || buildCard(key, card);
     const note = control.querySelector('.am-card-note');
@@ -104,6 +111,7 @@ export function atlasMap({ model, trace: walk, onSelect }) {
     control.dataset.role = card.role;
     control.toggleAttribute('data-context', Boolean(card.context));
     control.dataset.atlasNode = card.node.id;
+    markPin(control);
     control.title = [card.node.title, card.relationTitle || card.note, card.node.planned ? 'В планах' : null].filter(Boolean).join(' · ');
     control.setAttribute('aria-current', card.role === 'anchor' ? 'true' : 'false');
     return control;
@@ -316,7 +324,7 @@ export function atlasMap({ model, trace: walk, onSelect }) {
     if (!node) return false;
     if (anchor() !== nodeId) return enter(nodeId, opener, true);
     const child = node.kind === 'area'
-      ? PRIMARY[node.band] || data.sectionsByBand.get(node.band)?.[0]?.id
+      ? (data.nodes.has(PRIMARY[node.band]) ? PRIMARY[node.band] : data.sectionsByBand.get(node.band)?.[0]?.id)
       : node.id === 'products' ? 'products.sostav' : data.children.get(node.id)?.[0]?.id;
     return child ? enter(child, controls.get(child) || opener, true) : false;
   }

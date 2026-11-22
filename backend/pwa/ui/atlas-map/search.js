@@ -15,7 +15,11 @@ export function atlasSearch(data, prefix, onSelect) {
   input.setAttribute('role', 'combobox');
   input.setAttribute('aria-autocomplete', 'list');
   input.setAttribute('aria-controls', list.id);
-  const el = h('div', { class: 'am-search' }, search.el, list, empty);
+  const pinText = h('span', { class: 'am-search-pin-label' });
+  const clearPin = h('button', { class: 'btn btn-ghost btn-icon btn-sm', type: 'button',
+    'aria-label': 'Снять закрепление на карте', title: 'Снять закрепление', onclick: () => setPin(null) }, '×');
+  const pin = h('div', { class: 'am-search-pin', hidden: true }, pinText, clearPin);
+  const el = h('div', { class: 'am-search' }, search.el, pin, list, empty);
 
   function display(show) {
     list.hidden = !show || !results.length;
@@ -29,7 +33,15 @@ export function atlasSearch(data, prefix, onSelect) {
     const item = results[i];
     if (!item) return;
     search.clear();
-    onSelect(item.node.id);
+    setPin(item.node);
+  }
+
+  function setPin(node) {
+    pin.hidden = !node;
+    pinText.textContent = node?.title || '';
+    pinText.title = node?.title || '';
+    onSelect(node?.id || null);
+    if (!node) input.focus({ preventScroll: true });
   }
 
   function update(value) {
