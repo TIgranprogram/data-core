@@ -88,7 +88,11 @@ async function fixture(viewport = { width: 1920, height: 1080 }, { theme = 'ligh
     if (path.startsWith('/orderline-plans/by-income/')) reply = { productId: behavior.withoutProduct ? null : 'product1' };
     if (path.endsWith('/apply')) reply = { applied: 2 };
     if (path === '/work-schedule') {
-      requests.push({ from: url.searchParams.get('from'), to: url.searchParams.get('to') });
+      const from = url.searchParams.get('from'), to = url.searchParams.get('to');
+      requests.push({ from, to });
+      if ((Date.parse(to) - Date.parse(from)) / day > 366) {
+        return route.fulfill({ status: 400, json: { message: 'Период не длиннее года' } });
+      }
       if (behavior.failSchedule) return route.fulfill({ status: 503, json: { message: 'Условный отказ' } });
       reply = {
         bars: bars.filter((b) => b.end >= url.searchParams.get('from') && b.start <= url.searchParams.get('to') && (!url.searchParams.has('personId') || b.assigneeId === url.searchParams.get('personId')) && (!url.searchParams.has('orderId') || b.orderId === url.searchParams.get('orderId')))
@@ -270,6 +274,40 @@ test('Гант: фильтры, правая панель шага, перено
     assert.equal(bars[0].start, original);
     await bar('task:old:0').click();
     await drawer.getByText(/W-9.*Кронштейн/).first().waitFor();
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
+test('Гант ограничивает период на широком мониторе и заполняет шкалу загруженными днями', async () => {
+  const { browser, page, open, requests, errors } = await fixture({ width: 3440, height: 1440 });
+  try {
+    await open();
+    const chart = page.locator('.k-planner');
+    const month = chart.getByRole('button', { name: 'Месяц', exact: true });
+    await month.click();
+    await month.waitFor();
+    assert.equal(await month.getAttribute('aria-pressed'), 'true');
+    await chart.getByRole('button', { name: 'Раскрыть всё' }).click();
+    assert.equal(await chart.locator('[data-bar]').count(), 5);
+    await screenshot(page, '3440-month.png');
+
+    await open('#workschedule');
+    assert.equal(await month.getAttribute('aria-pressed'), 'true');
+    const { from, to } = requests.at(-1);
+    const days = (Date.parse(to) - Date.parse(from)) / day + 1;
+    assert.equal(days, 366);
+    const timeline = await chart.locator('.gt-scroll').evaluate(el => {
+      const track = el.querySelector('.gt-head-track');
+      const dayWidth = parseFloat(track.style.getPropertyValue('--gt-day'));
+      return { days: track.getBoundingClientRect().width / dayWidth, occupied: track.offsetWidth + el.querySelector('.gt-head .gt-label').offsetWidth, available: el.clientWidth };
+    });
+    assert.ok(Math.abs(timeline.days - days) < 0.01, 'на шкале ровно загруженный период');
+    assert.ok(timeline.occupied >= timeline.available, 'даты занимают всю ширину');
+    await chart.getByRole('button', { name: '→', exact: true }).click();
+    await month.waitFor();
+    const next = requests.at(-1);
+    assert.ok(next.from > from);
+    assert.equal((Date.parse(next.to) - Date.parse(next.from)) / day + 1, 366);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });

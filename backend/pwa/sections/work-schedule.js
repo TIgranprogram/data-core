@@ -16,7 +16,10 @@ export { wsStep } from './work-schedule-step.js';
  */
 const LENSES = ['orders', 'people'];
 const SCALES = ['day', 'week', 'month', 'fit'];
-const SPAN = { day: 27, week: 55, fit: 55, month: 181 };
+const DAY_WIDTH = { day: 36, week: 18, month: 6 }; // Ширина дня в эталоне planner.
+const SPAN_DAYS = { day: 28, week: 56, fit: 56, month: 182 };
+// GET /work-schedule принимает период не длиннее года.
+const MAX_RANGE_DAYS = 366;
 const SHIFT = { day: 7, week: 14, fit: 14, month: 30 };
 const OPEN_MAX = 400;
 const FILTERS = ['order', 'incomeId', 'part', 'person', 'work'];
@@ -85,7 +88,11 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     return Number.isFinite(parsed) && iso(parsed) === P.from ? P.from : iso(startOfWeek() - (scaleK === 'month' ? 28 : 7) * DAY);
   };
   const fitW = () => Math.max(320, (chartBox.clientWidth || document.querySelector('main')?.clientWidth || innerWidth) - (narrow() ? 148 : 232)); // до первой отрисовки chartBox ещё вне страницы
-  const to = () => iso(Date.parse(from() + 'T00:00:00Z') + Math.max(SPAN[scaleK], scaleK === 'fit' ? 0 : Math.ceil(fitW() / ({ day: 36, week: 18, month: 6 }[scaleK] || 18)) - 1) * DAY); // период — не короче окна (ширина дня как в planner PX)
+  const to = () => {
+    const fitDays = scaleK === 'fit' ? 0 : Math.ceil(fitW() / DAY_WIDTH[scaleK]);
+    const days = Math.min(MAX_RANGE_DAYS, Math.max(SPAN_DAYS[scaleK], fitDays));
+    return iso(Date.parse(from()) + (days - 1) * DAY);
+  };
   const barsForSearch = () => {
     const words = norm(P.q).trim().split(/\s+/).filter(Boolean);
     if (!words.length) return data.bars;
