@@ -1,3 +1,4 @@
+import type { OfferLayoutDto } from './dto';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { LegalBundleSchema, SourceLineSchema, LegalReceiptSchema, LegalHistorySchema } from '../../common/legal/legal.schema';
@@ -60,7 +61,7 @@ const OfferVersionSchema = SchemaFactory.createForClass(OfferVersion);
  */
 @Schema({ timestamps: true, collection: 'commercialoffers' })
 export class CommercialOffer {
-  @Prop({ type: Object }) layout?: { blocks: string[] };
+  @Prop({ type: Object }) layout?: OfferLayoutDto;
   /** Внутренний журнал возобновления явной конверсии; наружу не выдаётся. */
   @Prop({ type: Object }) orderConversion?: Record<string, unknown>;
   @Prop({ type: String, maxlength: 100 }) sourceNumber?: string | null;

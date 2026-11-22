@@ -28,8 +28,9 @@ export function buildModel({ bars: raw, people, lens, allBars = raw }) {
   const byPeople = lens === 'people';
 
   if (byPeople) {
-    const list = people.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ru'));
-    if (bars.some((b) => !b.assigneeId)) node({ id: NONE, kind: 'person', label: 'Без исполнителя' });
+    const assigned = new Set(bars.map(personId));
+    const list = people.filter((x) => assigned.has(String(x.id))).sort((a, b) => String(a.name).localeCompare(String(b.name), 'ru'));
+    if (assigned.has(NONE)) node({ id: NONE, kind: 'person', label: 'Без исполнителя' });
     for (const x of list) node({ id: String(x.id), kind: 'person', label: x.name, cap: Number(x.capacityHours) || 0, sub: x.capacityHours ? round(x.capacityHours) + ' ч в день' : '' });
   }
 

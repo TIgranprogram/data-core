@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Matches, MaxLength, Min, Max, ValidateNested, Length } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Matches, ValidateBy, MaxLength, Min, Max, ValidateNested, Length } from 'class-validator';
 import { IsObjectId } from '../../common/decorators/is-object-id.decorator';
 import { LegalBundleDto, SourceLineDto } from '../../common/legal/legal.dto';
 import { OFFER_STATUSES } from './offer.schema';
@@ -13,7 +13,16 @@ export class OfferBlockPositionDto {
   @ApiPropertyOptional({ description: 'Отступ перед блоком, мм' }) @IsOptional() @IsInt() @Min(0) @Max(40) gapMm?: number;
 }
 
+export class OfferFreeTextDto extends OfferBlockPositionDto {
+  @ApiProperty({ description: 'Постоянный идентификатор текстового блока' })
+  @IsString() @Matches(/^[A-Za-z0-9_-]{1,36}$/) id!: string;
+  @ApiProperty() @IsString() @MaxLength(2000) @Matches(/\S/, { message: 'Введите текст блока' }) text!: string;
+}
+
 export class OfferLayoutDto {
+  @ApiPropertyOptional({ type: [OfferFreeTextDto] })
+  @IsOptional() @IsArray() @ArrayMaxSize(12) @ArrayUnique((t: OfferFreeTextDto) => t?.id)
+  @ValidateNested({ each: true }) @Type(() => OfferFreeTextDto) texts?: OfferFreeTextDto[];
   @ApiPropertyOptional({ description: 'Ширина таблицы, мм', minimum: 160, maximum: 181 }) @IsOptional() @IsInt() @Min(160) @Max(181)
   tableWidthMm?: number;
   @ApiPropertyOptional({ type: OfferBlockPositionDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferBlockPositionDto) header?: OfferBlockPositionDto;
@@ -21,9 +30,18 @@ export class OfferLayoutDto {
   @ApiPropertyOptional({ type: OfferBlockPositionDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferBlockPositionDto) info?: OfferBlockPositionDto;
   @ApiPropertyOptional({ type: OfferBlockPositionDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferBlockPositionDto) terms?: OfferBlockPositionDto;
   @ApiPropertyOptional({ type: OfferBlockPositionDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferBlockPositionDto) notes?: OfferBlockPositionDto;
-  @ApiProperty({ enum: OFFER_BLOCKS, isArray: true })
-  @IsArray() @ArrayMinSize(4) @ArrayMaxSize(4) @ArrayUnique() @IsIn(OFFER_BLOCKS, { each: true })
-  blocks!: OfferBlock[];
+  @ApiProperty({ type: [String], description: 'Порядок четырёх штатных блоков и всех добавленных text:<id>' })
+  @IsArray() @ArrayMinSize(4) @ArrayMaxSize(16) @ArrayUnique()
+  @ValidateBy({ name: 'offerBlockOrder', validator: {
+    validate(value, args) {
+      const texts = (args?.object as OfferLayoutDto).texts ?? [];
+      if (!Array.isArray(value) || !Array.isArray(texts)) return false;
+      const expected = [...OFFER_BLOCKS, ...texts.map((t) => 'text:' + t?.id)];
+      return expected.length === value.length && expected.every((key) => value.includes(key));
+    },
+    defaultMessage: () => 'В порядке печати укажите каждый штатный и добавленный блок один раз',
+  } })
+  blocks!: (OfferBlock | `text:${string}`)[];
 }
 
 export class OfferItemDto {

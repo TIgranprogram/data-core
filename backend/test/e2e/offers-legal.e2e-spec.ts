@@ -42,6 +42,9 @@ describe('C164: исходное КП и договор', () => {
   expect(a.body.legalVersion).toBe(1);
   const again=await http().patch(`/api/offers/${id}/legal`).set(auth()).send(payload).expect(200);expect(again.body.legalVersion).toBe(1);
   await http().patch(`/api/offers/${id}/legal`).set(auth()).send({...payload,clientUid:'stale'}).expect(409);
+  await http().post(`/api/offers/${id}/preview`).set(auth()).send({version:1,date:'2026-11-18'}).expect(409);
+  await http().patch(`/api/offers/${id}`).set(auth()).send({version:1,date:null}).expect(409);
+  await http().patch(`/api/offers/${id}`).set(auth()).send({version:1,date:'2026-11-18'}).expect(409);
   await http().patch(`/api/offers/${id}`).set(auth()).send({version:1,items:items().slice(0,1)}).expect(409);
  });
  it('связь с существующим договором сохраняет состав/деньги и проверяет покупателя',async()=>{

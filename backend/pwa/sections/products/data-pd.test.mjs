@@ -23,3 +23,11 @@ test('без выбора своя категория не пишется', asyn
   await f.mod.savePd('p1', { category: '', choices: {}, over: { warrantyMonths: 12 }, derived: '', prev: {} });
   assert.equal('passportCategory' in f.puts[0][1], false);
 });
+
+test('изменение гарантии сохраняет глубину установки изделия', async () => {
+  const f = await fixture();
+  await f.mod.savePd('p1', { category: '', choices: {}, over: { warrantyMonths: 24 }, derived: '',
+    prev: { warrantyMonths: 18, foundationDepth: 300 } });
+  assert.equal(f.puts[0][1].warrantyMonths, 24);
+  assert.equal(f.puts[0][1].foundationDepth, 300);
+});

@@ -8,9 +8,10 @@ export const group = (title, ...body) => h('section', { class: 'bk-panel' },
   h('header', { class: 'bk-panel-h' }, h('h3', { class: 'bk-toc-h' }, title)), ...body);
 const field = (label, input) => h('label', { class: 'field' }, h('span', null, label), input);
 
-export function editorControls({ draft, saved, view, backgrounds, parties, changed, selectView, paintNav, removeRow, newRows }) {
+export function editorControls({ draft, saved, view, backgrounds, parties, changed, selectView, paintNav, removeRow, newRows, removeText }) {
   const rowIndex = typeof view === 'number' ? view : -1;
-  const target = rowIndex < 0 ? draft : draft.items[rowIndex];
+  const text = draft.layout.texts?.find((entry) => 'text:' + entry.id === view);
+  const target = text || (rowIndex < 0 ? draft : draft.items[rowIndex]);
   function input(key, label, opts = {}) {
     const { area, type = 'text', min, max, length, step, locked, after } = opts;
     const control = area
@@ -46,8 +47,12 @@ export function editorControls({ draft, saved, view, backgrounds, parties, chang
       });
       return control.el;
     };
-    return section({ title: 'Положение на листе', plain: true,
+    return section({ title: 'Точные отступы', plain: true, open: false,
       body: [make('xMm', 'Сдвиг вправо, мм', -10, 10), make('gapMm', 'Отступ сверху, мм', 0, 40)] });
+  }
+  if (text) {
+    return group('Текст на листе', input('text', 'Текст', { area: true, length: 2000 }),
+      button({ label: 'Удалить текст', kind: 'danger', size: 'S', onClick: () => removeText(view) }));
   }
   if (view === 'document') {
     const customer = input('customer', 'Заказчик', { length: 300, after: () => { draft.counterpartyId = null; } });
@@ -62,7 +67,8 @@ export function editorControls({ draft, saved, view, backgrounds, parties, chang
       if (saved[key] && !options.some(([id]) => id === saved[key])) options.push([saved[key], 'Прежний бланк КП']);
       return choice(key, page === 1 ? 'Бланк первой страницы' : 'Бланк следующих страниц', options);
     };
-    return group('Документ', customer, input('objectName', 'Объект', { length: 500 }), background(1), background(2), position('header'));
+    return group('Документ', input('date', 'Дата КП', { type: 'date', locked: !!saved.legal }), customer,
+      input('objectName', 'Объект', { length: 500 }), background(1), background(2), position('header'));
   }
   if (rowIndex >= 0) {
     const source = !!(target.sourceLine || target.sourceRowKey);
@@ -91,9 +97,10 @@ export function editorControls({ draft, saved, view, backgrounds, parties, chang
       input('quantity', 'Количество', { type: 'number', min: 0.001, step: 'any', locked: source }),
       input('unit', 'Единица измерения', { length: 20, locked: source }),
       input('unitPrice', 'Цена за единицу, ₽', { type: 'number', min: 0, step: 'any', locked: source }),
-      input('photoMm', 'Размер фотографии, мм', { type: 'number', min: 8, max: 42, step: 1 }),
-      input('rowMm', 'Минимальная высота, мм', { type: 'number', min: 7, max: 65, step: 1 }),
-      page, source ? null : button({ label: 'Удалить позицию', kind: 'danger', size: 'S', onClick: () => removeRow(target) }));
+      section({ title: 'Параметры строки', plain: true, open: false,
+        body: [input('photoMm', 'Размер фотографии, мм', { type: 'number', min: 8, max: 42, step: 1 }),
+          input('rowMm', 'Минимальная высота, мм', { type: 'number', min: 7, max: 65, step: 1 }), page] }),
+      source ? null : button({ label: 'Удалить позицию', kind: 'danger', size: 'S', onClick: () => removeRow(target) }));
   }
   const order = draft.layout.blocks;
   const at = order.indexOf(view);
@@ -126,7 +133,8 @@ export function editorControls({ draft, saved, view, backgrounds, parties, chang
       else draft.layout.tableWidthMm = width.input.valueAsNumber;
       changed();
     });
-    content = stack(width.el, amount.el, button({ label: 'Применить наценку', size: 'S', onClick: apply }), note);
+    content = stack(amount.el, button({ label: 'Применить наценку', size: 'S', onClick: apply }), note,
+      section({ title: 'Точная ширина', plain: true, open: false, body: [width.el] }));
   } else if (view === 'info') {
     content = stack(choice('delivery', 'Доставка до объекта', [['', 'Не указывать'], ['included', 'Входит в стоимость'], ['excluded', 'Оплачивается отдельно']]),
       choice('vatMode', 'НДС', [['', 'По фирме'], ['with', 'С НДС'], ['without', 'Без НДС']]),

@@ -125,13 +125,12 @@ export class OffersController {
 
   @Post(':id/preview')
   @HttpCode(200)
+  @ApiQuery({ name: 'geometryPage', required: false, type: Number, description: 'Номер листа с 1 для выборочной карты объектов PDF' })
   @Roles('admin', 'manager')
-  async previewEdited(@Param('id') id: string, @Body() dto: UpdateOfferDto, @Res({ passthrough: true }) res: Response, @CurrentUser() user: AuthenticatedUser) {
+  async previewEdited(@Param('id') id: string, @Body() dto: UpdateOfferDto, @Res({ passthrough: true }) res: Response, @CurrentUser() user: AuthenticatedUser, @Query('geometryPage') geometryPage?: string) {
     if (!canSeeMoney(user)) throw new ForbiddenException('Недостаточно прав для просмотра денежного документа');
     const r = await this.offers.previewEdited(id, dto);
-    res.set('X-Offer-Pages', JSON.stringify(r.pageMap));
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="offer.pdf"; filename*=UTF-8''${encodeURIComponent(r.filename)}` });
-    return new StreamableFile(r.buf);
+    return this.editorPdfResponse(r, geometryPage, res);
   }
 
   @Get(':id')
@@ -254,11 +253,18 @@ export class OffersController {
   }
 
   @Get(':id/pdf')
+  @ApiQuery({ name: 'geometryPage', required: false, type: Number, description: 'Номер листа с 1 для выборочной карты объектов PDF' })
   @Roles('admin', 'director', 'manager', 'user')
-  async pdf(@Param('id') id: string, @Res({ passthrough: true }) res: Response, @CurrentUser() user: AuthenticatedUser) {
+  async pdf(@Param('id') id: string, @Res({ passthrough: true }) res: Response, @CurrentUser() user: AuthenticatedUser, @Query('geometryPage') geometryPage?: string) {
     if (!canSeeMoney(user)) throw new ForbiddenException('Недостаточно прав для просмотра денежного документа');
     const r = await this.offers.pdf(id);
-    res.set('X-Offer-Pages', JSON.stringify(r.pageMap));
+    return this.editorPdfResponse(r, geometryPage, res);
+  }
+
+  private editorPdfResponse(r: Awaited<ReturnType<OffersService['pdf']>>, geometryPage: string | undefined, res: Response) {
+    const pages = JSON.stringify(r.pageMap);
+    res.set('X-Offer-Pages', pages);
+    res.set('X-Offer-Geometry', r.geometry.header(Buffer.byteLength(pages), geometryPage));
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="offer.pdf"; filename*=UTF-8''${encodeURIComponent(r.filename)}` });
     return new StreamableFile(r.buf);
   }

@@ -15,6 +15,7 @@ const people = [
   { id: 'anna', name: 'Анна Соколова', capacityHours: 8, workTypeIds: ['weld', 'cut'] },
   { id: 'boris', name: 'Борис Карпов', capacityHours: 8, workTypeIds: ['cut'] },
   { id: 'vera', name: 'Вера Мирова', capacityHours: 8, workTypeIds: ['weld'] },
+  { id: 'office', name: 'Офисный сотрудник', capacityHours: 8, workTypeIds: [] },
 ];
 const workTypes = [{ workTypeId: 'weld', name: 'Сварка', hue: 1 }, { workTypeId: 'cut', name: 'Резка', hue: 3 }];
 const plus = (n) => date(Date.now() + n * day);
@@ -47,7 +48,7 @@ async function fixture(viewport = { width: 1920, height: 1080 }, { theme = 'ligh
   const browser = await chromium.launch({ executablePath: findBrowser(), headless: true });
   const page = await browser.newPage({ viewport, serviceWorkers: 'block' });
   page.setDefaultTimeout(5000);
-  const bars = initialBars(), requests = [], writes = [], errors = [];
+  const bars = initialBars(), requests = [], writes = [], errors = [], peopleQueries = [];
   const versions = new Map();
   const behavior = { failSchedule: false, withoutProduct: false, rejectNextMove: false };
   page.on('pageerror', (e) => errors.push(e.message));
@@ -69,8 +70,10 @@ async function fixture(viewport = { width: 1920, height: 1080 }, { theme = 'ligh
     const path = url.pathname.slice(4), method = req.method();
     let reply = { items: [], total: 0, page: 1, limit: 50 };
     if (path === '/auth/me') reply = account;
+    if (path === '/salesorders/lookup') reply = { items: [...new Map(bars.map((b) => [b.orderId, { id: b.orderId, orderNo: b.orderNo, productionNo: b.productionNo }])).values()] };
     if (path === '/work-tasks/people') {
       const type = url.searchParams.get('workTypeId');
+      peopleQueries.push(type);
       reply = { items: people.filter((p) => !type || p.workTypeIds.includes(type)) };
     }
     if (path === '/work-tasks/old' || path === '/work-tasks/old/plan') {
@@ -126,7 +129,7 @@ async function fixture(viewport = { width: 1920, height: 1080 }, { theme = 'ligh
     await page.goto(origin + '/app/' + hash);
     await page.locator('.k-planner').waitFor();
   };
-  return { browser, page, bars, requests, writes, errors, behavior, open };
+  return { browser, page, bars, requests, writes, errors, behavior, open, peopleQueries };
 }
 
 async function screenshot(page, name) {
@@ -207,8 +210,9 @@ test('Гант: период, масштаб, дерево, легенда и п
 });
 
 test('Гант: фильтры, правая панель шага, перенос и отмена', async () => {
-  const { browser, page, bars, writes, behavior, open, errors } = await fixture();
+  const { browser, page, bars, writes, behavior, open, errors, peopleQueries } = await fixture();
   try {
+    bars[0].assigneeId = 'boris'; // прежний исполнитель без текущего вида работ
     await open('#workschedule');
     const drawer = page.locator('.drawer');
     const graph = page.locator('.k-planner');
@@ -237,9 +241,9 @@ test('Гант: фильтры, правая панель шага, перено
     await drawer.locator('select[name="assigneeId"]').waitFor();
     await screenshot(page, '1920-step-light.png');
     const assignee = drawer.locator('select').first();
-    assert.equal(await assignee.locator('option[value="boris"]').count(), 0);
-    await assignee.selectOption('__all');
-    assert.equal(await assignee.locator('option[value="boris"]').count(), 1);
+    assert.deepEqual(await assignee.locator('option').evaluateAll((options) => options.map((option) => option.value)), ['', 'boris', 'anna', 'vera']);
+    assert.equal(await assignee.inputValue(), 'boris');
+    assert.deepEqual(peopleQueries, ['weld']);
     await drawer.getByRole('button', { name: 'Начал', exact: true }).click();
     await drawer.getByRole('button', { name: 'Закончил', exact: true }).click();
     await drawer.getByText(/Закончен:.*:/).waitFor();
@@ -428,6 +432,7 @@ test('Перенос сохраняет даты при назначении, с
     const old = bars.find((b) => b.taskId === 'old');
     old.locked = false;
     old.status = 'work';
+    bars.push({ ...bars[0], stepId: 'vera-step', assigneeId: 'vera' });
     await open();
     const chart = page.locator('.k-planner');
     await chart.getByRole('button', { name: 'По людям' }).click();
@@ -473,6 +478,136 @@ test('Перенос сохраняет даты при назначении, с
     await page.getByText(/Шаг начнётся/).waitFor();
     assert.deepEqual(writes.slice(beforeShift), [{ method: 'PATCH', path: '/work-tasks/old/plan', body: { stepIndex: 0, start: date(Date.parse(start) + day), days: 1 } }]);
     assert.equal(old.assigneeId, 'anna');
+    old.workTypeId = 'weld';
+    old.workTypeName = 'Сварка';
+    await page.setViewportSize({ width: 2560, height: 1440 });
+    await page.reload();
+    await chart.locator('[data-row="pi:anna:item4"] button.gt-label').waitFor();
+    await chart.getByRole('button', { name: 'Раскрыть всё' }).click();
+    const typed = chart.locator('[data-bar="task:old:0"][title^="Сварка"]');
+    await typed.waitFor();
+    const beforeWrongType = writes.length;
+    await dragTo('boris', typed);
+    await page.getByText('У сотрудника нет вида работ «Сварка»', { exact: true }).waitFor();
+    assert.equal(writes.length, beforeWrongType);
+    assert.equal(old.assigneeId, 'anna');
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
+test('C211: у каждого входа один набор фильтров, в дереве только видимая работа', async () => {
+  const { browser, page, bars, open, errors } = await fixture();
+  try {
+    bars[2].orderNo = bars[0].orderNo;
+    bars[2].productionNo = '24-21';
+    await open('#workschedule?order=24-17');
+    const chart = page.locator('.k-planner');
+    const side = page.locator('.list-side');
+    await chart.locator('[data-row="o:order1"]').waitFor();
+    await chart.locator('[data-row="o:order2"]').waitFor();
+    await page.getByRole('button', { name: /^Фильтры/ }).click();
+    await page.getByRole('button', { name: 'Сбросить фильтры', exact: true }).click();
+    await side.getByRole('tab', { name: /пр\. № 24-21/ }).click();
+    await chart.locator('[data-row="o:order1"]').waitFor({ state: 'hidden' });
+    await chart.locator('[data-row="o:order2"]').waitFor();
+    assert.match(page.url(), /order=order2/);
+    await screenshot(page, 'c211-standalone-filters.png');
+
+    await open('#work?view=gantt&status=done');
+    const embedded = page.locator('.list-screen').filter({ has: chart });
+    await embedded.waitFor();
+    const filters = embedded.locator('.list-side');
+    const toggle = embedded.getByRole('button', { name: /^Фильтры/ });
+    if (!(await filters.isVisible())) await toggle.click();
+    assert.equal(await filters.locator('select[aria-label="Все исполнители"]').count(), 1);
+    assert.equal(await filters.locator('select[aria-label="Все заказы"]').count(), 1);
+    assert.equal(await filters.getByRole('tablist', { name: 'Заказ', exact: true }).count(), 0);
+    assert.equal(await filters.getByRole('tablist', { name: 'Исполнитель', exact: true }).count(), 0);
+    assert.equal(await filters.getByRole('tablist', { name: 'Часть', exact: true }).count(), 1);
+    await screenshot(page, 'c211-work-filters.png');
+    await open('#work?view=gantt&status=done&orderId=order1&assigneeId=anna');
+    await chart.getByRole('button', { name: 'По людям', exact: true }).click();
+    await chart.locator('[data-row="anna"]').waitFor();
+    for (const hidden of ['vera', 'office', 'boris', '_none']) assert.equal(await chart.locator(`[data-row="${hidden}"]`).count(), 0);
+    await page.getByRole('button', { name: 'Список', exact: true }).click();
+    assert.match(page.url(), /[?&]status=done/);
+    assert.match(page.url(), /[?&]orderId=order1/);
+    assert.match(page.url(), /[?&]assigneeId=anna/);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
+test('C211: границы шкалы и полос совпадают, завершение меняется отдельно от переноса', async () => {
+  const { browser, page, bars, open, requests, writes, errors } = await fixture(undefined, { theme: 'soft' });
+  try {
+    const friday = (5 - new Date().getUTCDay() + 7) % 7;
+    const [first] = bars;
+    const legacy = bars.find((bar) => bar.taskId === 'old');
+    Object.assign(first, { start: plus(friday - 1), end: plus(friday) });
+    Object.assign(legacy, { start: first.start, end: first.end, status: 'work', locked: false });
+    await open('#workschedule');
+    const chart = page.locator('.k-planner');
+    const button = (name) => chart.getByRole('button', { name, exact: true });
+    const bar = (id) => chart.locator(`[data-bar="${id}"]`);
+    await button('Раскрыть всё').click();
+    for (const width of [1920, 2560, 3440]) {
+      await page.setViewportSize({ width, height: 1080 });
+      for (const scale of ['День', 'Неделя', 'Месяц', 'Обзор работ']) {
+        await button(scale).click();
+        await page.waitForFunction(() => {
+          const header = document.querySelector('.gt-head-track'), scroller = document.querySelector('.gt-scroll');
+          return header?.getBoundingClientRect().width + document.querySelector('.gt-head .gt-label').offsetWidth >= scroller?.clientWidth - 1;
+        });
+        const period = requests.at(-1);
+        const metrics = await bar('step1').evaluate((el) => {
+          const track = el.closest('.gt-track'), row = track.parentElement;
+          const header = document.querySelector('.gt-head-track');
+          const rect = (node) => node.getBoundingClientRect();
+          const cells = [...header.querySelectorAll('.gt-n, .gt-mo')];
+          return { px: parseFloat(track.style.getPropertyValue('--gt-day')), offset: rect(el).left - rect(track).left,
+            width: rect(el).width, track: rect(track).width, header: rect(header).width,
+            cellsEnd: Math.max(...cells.map((cell) => rect(cell).right)) - rect(header).left,
+            y: Math.abs((rect(el).top + rect(el).bottom) / 2 - (rect(row).top + rect(row).bottom - 1) / 2) };
+        });
+        const start = (Date.parse(first.start) - Date.parse(period.from)) / day;
+        if (scale !== 'Обзор работ') assert.ok(Math.abs(metrics.offset - start * metrics.px) < 0.08, `${width} ${scale}: начало`);
+        assert.ok(Math.abs(metrics.width - 2 * metrics.px) < 0.08, `${width} ${scale}: ширина двух дней`);
+        assert.ok(Math.abs(metrics.track - metrics.header) < 0.08, `${width} ${scale}: общая шкала`);
+        assert.ok(Math.abs(metrics.cellsEnd - metrics.header) < 0.08, `${width} ${scale}: край шкалы`);
+        assert.ok(metrics.y < 1, `${width} ${scale}: строка и полоса на одной середине`);
+      }
+    }
+    const handle = bar('step1').locator('.gt-h');
+    const detailsFit = await bar('step2').evaluate((el) => {
+      const sub = el.querySelector('.k-pl-sub');
+      return sub && getComputedStyle(sub).display !== 'none'
+        && sub.getBoundingClientRect().bottom <= el.getBoundingClientRect().bottom - 3;
+    });
+    assert.equal(detailsFit, true, 'подпись заканчивается до нижней отметки просрочки');
+    await handle.scrollIntoViewIfNeeded();
+    const rect = await handle.boundingBox();
+    const px = await handle.evaluate((el) => parseFloat(el.closest('.gt-track').style.getPropertyValue('--gt-day')));
+    await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    await screenshot(page, 'c211-resize-handle.png');
+    await page.mouse.down();
+    await page.mouse.move(rect.x + rect.width / 2 + px, rect.y + rect.height / 2 + 40, { steps: 6 });
+    await page.mouse.up();
+    await page.getByText(/Шаг закончится/).waitFor();
+    assert.deepEqual(writes.at(-1).body, { start: plus(friday - 1), end: plus(friday + 3), rev: 1 });
+    assert.equal(await page.locator('.drawer').count(), 0);
+    await page.getByRole('button', { name: 'Отменить', exact: true }).click();
+    await page.getByText('Перенос отменён').waitFor();
+    assert.equal(first.end, plus(friday));
+    await bar('task:old:0').press('Shift+ArrowRight');
+    const newEnd = plus(friday + 3).split('-').reverse().join('.');
+    await chart.locator(`[data-bar="task:old:0"][title*="${newEnd}"]`).waitFor();
+    assert.deepEqual(writes.at(-1), { method: 'PATCH', path: '/work-tasks/old/plan', body: { stepIndex: 0, start: plus(friday - 1), days: 5 } });
+    assert.equal(await bar('step4').locator('.gt-h').count(), 0);
+    assert.equal(await bar('step4').evaluate((el) => el.classList.contains('drag')), false);
+    await bar('step4').press('Enter');
+    const finished = page.locator('.drawer');
+    await finished.getByText('Конец по плану', { exact: true }).waitFor();
+    assert.equal(await finished.getByRole('button', { name: /Изменить|Сохранить/ }).count(), 0);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });

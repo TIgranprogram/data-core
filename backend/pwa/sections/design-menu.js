@@ -2,7 +2,7 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
 import { enhanceSelect, modal, confirmDlg, toast, toastError, ORDER_PRIORITY, DESIGN_STATUS, uploadPhoto } from '../ui/kit/index.js';
-import { askAssignee, changed, clean } from './design-data.js';
+import { askAssignee, changed, clean, openDesignCard } from './design-data.js';
 
 /** Пункты меню «⋯» на доске «Проектирования»: исполнитель, срок, фото, перенос, ссылка, удаление. */
 export async function copyLink(url) {
@@ -57,7 +57,7 @@ export function taskMenu(t, { people, moveTask }) {
     can && { label: 'Изменить срок и приоритет…', run: () => askDue(t) },
     can && { label: 'Добавить фото…', run: () => pickPhoto(t) },
     SEP,
-    t.orderId && { label: 'Открыть заказ', run: () => { go('design', { of: 'designorder', open: t.orderId }, { kind: 'card' }); return false; } },
+    t.orderId && { label: 'Открыть заказ', run: () => { openDesignCard(t.orderId, 'designorder'); return false; } },
     t.orderId && { label: 'Открыть в «Заказах»', run: () => { go('salesorders', { open: t.orderId }, { kind: 'card' }); return false; } },
     { label: 'Копировать ссылку', run: async () => { await copyLink(url); return false; } },
     can && SEP,

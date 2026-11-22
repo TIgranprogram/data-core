@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import { OFFER_BLOCKS, type OfferLayoutDto } from './dto';
+import { OfferGeometry } from './offer-geometry';
+import { OFFER_BLOCKS, type OfferBlock, type OfferLayoutDto } from './dto';
 import { guardDoc } from '../../common/print/safe-doc';
 import { existsSync } from 'fs';
 import { join } from 'path';
@@ -27,6 +28,7 @@ export const newOfferPageMap = (): OfferPageMap => ({ count: 1, blocks: { docume
 
 export interface OfferPdfInput {
   pageMap?: OfferPageMap;
+  geometry?: OfferGeometry;
   number: string;
   date: Date | string;
   validUntil?: Date | string | null;
@@ -55,6 +57,13 @@ export interface OfferPdfInput {
   /** Фото строк (JPEG) по индексу строки; нет — без фото. */
   photos: Map<number, Buffer>;
 }
+
+// PDFKit принимает уже открытое изображение, его публичные TypeScript-типы описывают только Buffer/путь.
+interface OpenImage { width: number; height: number }
+type ImageDoc = PDFKit.PDFDocument & {
+  openImage(src: Buffer): OpenImage;
+  image(src: OpenImage, x: number, y: number, options: PDFKit.Mixins.ImageOption): void;
+};
 
 const ML = 40, CW = W - ML * 2;
 /** Фото строки: до 4 строк — крупнее (80 pt), больше — 48 pt. */
@@ -105,14 +114,21 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   const INK = '#111';
 
   const map = i.pageMap;
+  const geo = i.geometry;
   let page = 0;
   const drawBg = (p: number) => { const bg = p === 0 ? i.bg1 : i.bg2; if (bg) d.image(bg, 0, 0, { width: W, height: H }); };
-  const goto = (p: number) => { while (page < p) { d.addPage(); page += 1; if (map) map.count = page + 1; drawBg(page); } };
+  const goto = (p: number) => { while (page < p) { d.addPage(); page += 1; if (map) map.count = page + 1; if (geo) geo.pages[page] = []; drawBg(page); } };
   drawBg(0);
 
   let dx = pt(i.layout?.header?.xMm || 0);
   const text = (s: string, x: number, y: number, o: { size?: number; width?: number; align?: 'left' | 'center' | 'right'; bold?: boolean; color?: string } = {}) =>
     d.font(o.bold ? 'gostb' : 'gost').fontSize(o.size ?? 10).fillColor(o.color ?? INK).text(s, x + dx, y, { width: o.width ?? CW, align: o.align ?? 'left' });
+  function hitText(key: string, value: string, x: number, top: number, width = CW, right = false) {
+    if (!geo) return;
+    const height = d.y - top;
+    const measured = Math.min(width, Math.max(...value.split('\n').map((line) => d.widthOfString(line))));
+    geo.span(page, key, dx + x + (right ? width - measured : 0), top, measured, height);
+  }
   const hOf = (s: string, width: number, size: number, bold = false) => d.font(bold ? 'gostb' : 'gost').fontSize(size).heightOfString(s, { width });
 
   const nameText = (it: OfferPdfInput['items'][number]) => {
@@ -130,11 +146,19 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
   const z0 = zoneOf(0, zones);
   let y = z0.top + pt(i.layout?.header?.gapMm || 0);
   text(i.draft ? i.number : `№ ${i.number}`, ML, y, { size: 13, width: CW / 2 });
-  text(`Дата: ${ruDate(i.date)}`, ML + CW / 2, y, { size: 11, width: CW / 2, align: 'right' });
+  const date = `Дата: ${ruDate(i.date)}`;
+  text(date, ML + CW / 2, y, { size: 11, width: CW / 2, align: 'right' });
+  hitText('date', date, ML + CW / 2, y, CW / 2, true);
   y += 20;
   text(`Заказчик: ${i.customer}`, ML, y, { size: 10.5 });
+  hitText('customer', `Заказчик: ${i.customer}`, ML, y);
   y = d.y + 3;
-  if (i.objectName?.trim()) { text(`Объект: ${i.objectName.trim()}`, ML, y, { size: 10.5, bold: true }); y = d.y + 3; }
+  if (i.objectName?.trim()) {
+    const object = `Объект: ${i.objectName.trim()}`;
+    text(object, ML, y, { size: 10.5, bold: true });
+    hitText('objectName', object, ML, y);
+    y = d.y + 3;
+  }
   y += 8;
 
   // блоки после таблицы
@@ -166,6 +190,7 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
       goto(startPage + p);
       if (map && map.blocks.table == null) map.blocks.table = page + 1;
       let yy = p === 0 ? y : zoneOf(page, zones).top;
+      geo?.add(page, 'table', tableLeft + dx, yy, tableWidth, HEAD_H + idxs.reduce((sum, k) => sum + heights[k], 0));
       HEAD.forEach((c, k) => text(c, xs[k] + 3, yy + 6, { size: 8.5, width: widths[k] - 6, align: 'center' }));
       lineAt(yy, HEAD_H);
       yy += HEAD_H;
@@ -173,18 +198,38 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
         if (map) map.rows[k] = page + 1;
         if (yy + heights[k] > zoneOf(page, zones).bottom + 0.01) throw new BadRequestException('Строка ' + (k + 1) + ' не помещается на бланке. Уменьшите высоту, фотографию или описание.');
         const it = i.items[k], h = heights[k], n = nameText(it);
+        geo?.add(page, 'row', tableLeft + dx, yy, tableWidth, h, k);
         let c = 0;
         text(String(k + 1), xs[c] + 3, yy + 5, { size: 9, width: widths[c] - 6, align: 'center' });
         if (hasPhoto) {
           c += 1;
           const ph = i.photos.get(k);
-          if (ph) d.image(ph, dx + xs[c] + (widths[c] - imageSizes[k]) / 2, yy + (h - imageSizes[k]) / 2, { fit: [imageSizes[k], imageSizes[k]], align: 'center', valign: 'center' });
+          if (ph) {
+            const doc = d as ImageDoc;
+            const image = doc.openImage(ph);
+            const scale = imageSizes[k] / Math.max(image.width, image.height);
+            const width = image.width * scale, height = image.height * scale;
+            const x = dx + xs[c] + (widths[c] - width) / 2, top = yy + (h - height) / 2;
+            doc.image(image, x, top, { width, height });
+            geo?.add(page, 'photo', x, top, width, height, k);
+          }
         }
         c += 1;
         text(n.title, xs[c] + 3, yy + 4, { size: 9.5, width: widths[c] - 6 });
-        if (n.sub) text(n.sub, xs[c] + 3, d.y + 1, { size: 8, width: widths[c] - 6 });
+        const subTop = d.y + 1;
+        geo?.add(page, 'productName', dx + xs[c], yy, widths[c], n.sub ? subTop - yy : h, k);
+        if (n.sub) {
+          text(n.sub, xs[c] + 3, subTop, { size: 8, width: widths[c] - 6 });
+          if (geo && it.description) {
+            const bottom = d.y;
+            const meta = n.sub.slice(0, n.sub.length - it.description.length).trimEnd();
+            const top = subTop + (meta ? hOf(meta, widths[c] - 6, 8) : 0);
+            geo.add(page, 'description', dx + xs[c], top, widths[c], bottom - top, k);
+          }
+        }
         const right = [qty(it.quantity), it.unit || 'шт', it.unitPrice === null || it.unitPrice === undefined ? '—' : money(it.unitPrice), money(it.total)];
         right.forEach((s, j) => text(s, xs[c + 1 + j] + 3, yy + 5, { size: 9, width: widths[c + 1 + j] - 6, align: j === 2 || j === 3 ? 'right' : 'center' }));
+        ['quantity', 'unit', 'unitPrice', 'total'].forEach((key, j) => geo?.add(page, key, dx + xs[c + 1 + j], yy, widths[c + 1 + j], h, k));
         lineAt(yy, h);
         yy += h;
       }
@@ -195,11 +240,12 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
     goto(at.page);
     text(`Итого: ${rub(i.total)}`, tableLeft, at.y + 8, { width: tableWidth, size: 13, bold: true, align: 'right' });
     text(i.vatMode === 'with' ? `в том числе НДС ${qty(i.vatRate)} %: ${rub(vatAmount(i.total, i.vatRate))}` : 'Без НДС', tableLeft, d.y + 3, { width: tableWidth, size: 9.5, align: 'right' });
+    geo?.add(page, 'total', tableLeft + dx, at.y + 8, tableWidth, d.y - at.y - 8);
     y = at.y + TAIL_H + 6;
   }
 
   // Делим длинные абзацы по реально измеренным строкам, в том числе на узком бланке.
-  function paragraph(value: string, size: number, color?: string) {
+  function paragraph(key: string, value: string, size: number, color?: string) {
     let rest = value;
     while (rest) {
       const where = placeBlock(page, y, hOf('Я', CW, size), zones);
@@ -219,6 +265,8 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
         end = word > 0 ? word : lo;
       }
       text(rest.slice(0, end), ML, y, { size, color });
+      hitText(key, rest.slice(0, end), ML, y);
+      if (map && map.blocks[key] == null) map.blocks[key] = page + 1;
       y = d.y + 2;
       rest = rest.slice(end).trimStart();
       if (rest) { goto(page + 1); y = zoneOf(page, zones).top; }
@@ -227,12 +275,19 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
 
   for (const block of i.layout?.blocks || OFFER_BLOCKS) {
     if ((block === 'terms' && !cond.length) || (block === 'notes' && !i.notes?.trim())) continue;
-    dx = pt(i.layout?.[block]?.xMm || 0);
-    y += pt(i.layout?.[block]?.gapMm || 0);
+    const free = i.layout?.texts?.find((t) => block === 'text:' + t.id);
+    const position = free || i.layout?.[block as OfferBlock];
+    dx = pt(position?.xMm || 0);
+    y += pt(position?.gapMm || 0);
+    if (free) {
+      paragraph(block, free.text.trim(), 10);
+      y += 6;
+      continue;
+    }
     if (block === 'table') { drawTable(); continue; }
     if (block === 'info') {
       if (map) map.blocks.info = placeBlock(page, y, hOf('Я', CW, 9), zones).page + 1;
-      info.forEach((line) => paragraph(line, 9, '#555'));
+      info.forEach((line) => paragraph(block, line, 9, '#555'));
       y += 4;
       continue;
     }
@@ -243,8 +298,9 @@ export function renderOfferPdf(i: OfferPdfInput): Promise<Buffer> {
     goto(at.page);
     if (map) map.blocks[block] = page + 1;
     text(heading, ML, at.y, { size: 10 });
+    hitText(block, heading, ML, at.y);
     y = d.y + 2;
-    body.split('\n').forEach((line) => paragraph(line, 9.5));
+    body.split('\n').forEach((line) => paragraph(block, line, 9.5));
     y += 6;
   }
   d.end();

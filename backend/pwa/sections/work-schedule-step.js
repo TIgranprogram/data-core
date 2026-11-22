@@ -48,25 +48,17 @@ function factWidget(r) {
   return { el: stack(info, btns), value: '' };
 }
 
-const ALL = '__all';
-/** Список исполнителей шага: с видом работ шага (+ уже назначенный) и пункт «Показать всех». */
-function assigneeOptions(r, all) {
+function assigneeOptions(r) {
   const cur = r.bar.assigneeId ? String(r.bar.assigneeId) : '';
-  const list = r.people.filter((x) => all || !r.able || r.able.has(String(x.id)) || String(x.id) === cur).map((x) => ({ value: String(x.id), label: x.name }));
-  if (cur && !list.some((p) => p.value === cur)) list.unshift({ value: cur, label: 'Текущий исполнитель' });
-  return [...list, ...(r.able && !all ? [{ value: ALL, label: 'Показать всех…' }] : [])];
+  const list = r.eligible.map((x) => ({ value: String(x.id), label: x.name }));
+  if (cur && !list.some((p) => p.value === cur)) {
+    list.unshift({ value: cur, label: r.people.find((p) => String(p.id) === cur)?.name || 'Текущий исполнитель' });
+  }
+  return list;
 }
-function assigneeMount(r, fapi) {
+function assigneeMount(fapi) {
   const sel = fapi.input('assigneeId');
-  if (!sel) return;
-  const blank = sel.options[0];
-  blank.textContent = 'Не назначен';
-  if (!r.able) return;
-  sel.addEventListener('change', () => {
-    if (sel.value !== ALL) return;
-    sel.replaceChildren(blank, ...assigneeOptions(r, true).map((o) => h('option', { value: o.value }, o.label)));
-    sel.value = r.bar.assigneeId ? String(r.bar.assigneeId) : '';
-  });
+  if (sel?.options[0]) sel.options[0].textContent = 'Не назначен';
 }
 
 export const wsStep = sideForm({
@@ -75,12 +67,14 @@ export const wsStep = sideForm({
   saveLabel: 'Сохранить',
   get: async (stepId) => {
     const rec = await stepRec(stepId);
-    // кто умеет эту работу: сотрудники с видом работ шага (нет вида работ у шага или сбой — показываем всех)
-    let able = null;
+    let eligible = [], assigneeHint = 'Не указан вид работ шага.';
     if (rec.bar.workTypeId) {
-      try { able = new Set(((await api('/work-tasks/people', { query: { workTypeId: rec.bar.workTypeId } })).items || []).map((p) => String(p.id))); } catch { able = null; }
+      try {
+        eligible = (await api('/work-tasks/people', { query: { workTypeId: rec.bar.workTypeId } })).items || [];
+        assigneeHint = eligible.length ? 'Сотрудники с видом работ этого шага.' : 'Нет сотрудников с видом работ этого шага.';
+      } catch { assigneeHint = 'Список исполнителей недоступен. Откройте шаг повторно.'; }
     }
-    return { stepId, ...rec, able };
+    return { stepId, ...rec, eligible, assigneeHint };
   },
   heading: (r) => titleOf(r.bar),
   editTitle: (r) => titleOf(r.bar),
@@ -91,8 +85,7 @@ export const wsStep = sideForm({
       { section: 'Исполнитель и сроки', tone: 'main', fixed: true },
       { key: '_info', type: 'widget', label: '', wide: true, widget: () => ({ el: sideNote(`Часов по плану: ${round(b.hours)}. Работа: ${b.workTypeName || '—'}. Часть: ${partOf(b)}.`), value: '' }) },
       { key: '_fact', type: 'widget', label: 'Факт', wide: true, widget: () => factWidget(r) },
-      { key: 'assigneeId', label: 'Исполнитель', type: 'select', wide: true, options: assigneeOptions(r, false), mount: (fapi) => assigneeMount(r, fapi),
-        hint: r.able ? 'Только сотрудники с видом работ этого шага. «Показать всех» — весь список.' : undefined },
+      { key: 'assigneeId', label: 'Исполнитель', type: 'select', wide: true, options: assigneeOptions(r), mount: assigneeMount, hint: r.assigneeHint },
       { key: 'start', label: 'Начало', type: 'date', span: 1, required: true },
       { key: 'end', label: 'Конец', type: 'date', span: 1, required: true },
       { key: '_norm', type: 'widget', label: 'Норма', wide: true, widget: () => ({
@@ -131,4 +124,5 @@ wsStep.card.view = ({ bar, people }) => [
   ['Начат', stamp(bar.startedAt) || 'Не отмечено'], ['Закончен', stamp(bar.finishedAt) || 'Не отмечено'],
 ];
 wsStep.card.editSub = wsStep.card.subheading;
+wsStep.card.startEdit = wsStep.card.editable = ({ bar }) => bar.status !== 'done' && !bar.locked;
 

@@ -17,6 +17,7 @@ import { agreedOfferTotal, assertOfferOrderMatch, cents, validateSourceItems } f
 import type { OfferLinkOrderDto, CreateOfferDto, OfferCopiesDto, OfferPackDto, OfferCopyDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
 import { OfferBackgroundsService } from './offer-backgrounds.service';
 import { offerProblems, packProblems } from './offer-ready';
+import { OfferGeometry } from './offer-geometry';
 import { renderOfferPdf, newOfferPageMap, type OfferPageMap } from './offer-pdf';
 import { calcTotals, checkEditable, checkMove, markedLinePrice, offerLineKind, resolveVat } from './offer-rules';
 import { customerNameRegex, offerCustomerKey, pickLastOffer, presentLastOffer, type LastOfferRow } from './offer-last';
@@ -353,7 +354,7 @@ export class OffersService {
       if (dto.version === undefined || dto.version !== (cur.legalVersion || 0)) throw new ConflictException('КП изменилось — откройте актуальную версию');
       if (dto.sourceNumber !== undefined && dto.sourceNumber !== cur.sourceNumber) throw new ConflictException('Исходный номер КП неизменяем');
       if (dto.companyId !== undefined && dto.companyId !== String(cur.companyId)) throw new ConflictException('Исходная компания КП неизменяема');
-      if (dto.date !== undefined && dto.date.slice(0, 10) !== String(cur.legal.sourceDate)) throw new ConflictException('Исходная дата КП неизменяема');
+      if (dto.date !== undefined && dto.date?.slice(0, 10) !== String(cur.legal.sourceDate)) throw new ConflictException('Исходная дата КП неизменяема');
       if (dto.items) validateSourceItems(dto.items, cur.items);
     }
     const set: Doc = {};
@@ -380,7 +381,8 @@ export class OffersService {
     const cur = await this.find(id);
     const set = await this.editedFields(cur, dto, true);
     const pageMap = newOfferPageMap();
-    return { buf: await this.render({ ...cur, ...set }, false, pageMap), pageMap, filename: this.pdfName(cur.number) };
+    const geometry = new OfferGeometry();
+    return { buf: await this.render({ ...cur, ...set }, false, pageMap, geometry), geometry, pageMap, filename: this.pdfName(cur.number) };
   }
 
   async update(id: string, dto: UpdateOfferDto, user?: AuthenticatedUser) {
@@ -496,7 +498,7 @@ export class OffersService {
   }
 
   /** Общая сборка PDF для сохранённого КП и предпросмотра (`draft` — без номера). */
-  private async render(o: Doc, draft = false, pageMap?: OfferPageMap): Promise<Buffer> {
+  private async render(o: Doc, draft = false, pageMap?: OfferPageMap, geometry?: OfferGeometry): Promise<Buffer> {
     const pages = o.packId
       ? [this.bgs.resolveForPack(1, o.bg1Id, o.companyId), this.bgs.resolveForPack(2, o.bg2Id, o.companyId)] as const
       : [this.bgs.resolve(1, o.bg1Id, o.companyId), this.bgs.resolve(2, o.bg2Id, o.companyId)] as const;
@@ -506,7 +508,7 @@ export class OffersService {
     ]);
     const vat = resolveVat(o.vatMode, o.vatRate, orgVat);
     return renderOfferPdf({
-      pageMap, layout: o.layout, number: o.number, draft, date: o.date, validUntil: o.validUntil, customer: o.customer, objectName: o.objectName, companyName: companyName ?? undefined,
+      pageMap, geometry, layout: o.layout, number: o.number, draft, date: o.date, validUntil: o.validUntil, customer: o.customer, objectName: o.objectName, companyName: companyName ?? undefined,
       items: o.legal ? o.items.map((row: Doc) => row.scopeState === 'excluded' ? { ...row, productName: `Исключено: ${row.productName}`, description: [row.description, row.exclusionReason].filter(Boolean).join(' · ') } : row) : o.items, total: o.total ?? 0, prepaymentPercent: o.prepaymentPercent, productionDays: o.productionDays, deliveryDays: o.deliveryDays,
       ...vat, delivery: o.delivery, terms: o.terms, notes: o.legal ? [o.notes, `История предложения: исходная сумма ${Number(o.total || 0).toFixed(2)}; согласованный состав ${agreedOfferTotal(o.items || []).toFixed(2)}. Исключённые позиции не входят в согласованный состав. Оригинал документа сохранён отдельно.`].filter(Boolean).join('\n') : o.notes, bg1: bg1.jpeg, bg2: bg2.jpeg, zones: { first: bg1, next: bg2 },
       photos: new Map(photos.flatMap((b, k) => (b ? [[k, b] as [number, Buffer]] : []))),
@@ -520,7 +522,8 @@ export class OffersService {
   async pdf(id: string) {
     const o = await this.find(id);
     const pageMap = newOfferPageMap();
-    return { buf: await this.render(o, false, pageMap), pageMap, filename: this.pdfName(o.number) };
+    const geometry = new OfferGeometry();
+    return { buf: await this.render(o, false, pageMap, geometry), geometry, pageMap, filename: this.pdfName(o.number) };
   }
 
   /** Предпросмотр до сохранения: тот же PDF, без записи в базу и без номера («КП-черновик»). */

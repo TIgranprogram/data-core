@@ -1,6 +1,7 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { plural } from '../core/format.js';
+import { current, go } from '../core/router.js';
 import { actions, button, confirmDlg, modal, enhanceSelect, toast, toastError } from '../ui/kit/index.js';
 
 /**
@@ -10,6 +11,13 @@ import { actions, button, confirmDlg, modal, enhanceSelect, toast, toastError } 
  * DELETE /design-board/:orderId, POST /design-tasks {incomeId, status, assigneeId?, pauseReason?}.
  */
 export const COL_LABEL = { queue: 'Распределение', work: 'В работе', paused: 'Приостановлены', done: 'Завершены', cancelled: 'Отменены' };
+/** Из соседней карточки переходим в той же панели, поэтому крестик возвращает к доске за один шаг. */
+export function openDesignCard(id, of) {
+  const route = current();
+  const params = route.section === 'design' ? route.params : {};
+  go('design', { ...params, of, open: id, new: undefined, fill: undefined, dstatus: undefined },
+    { replace: !!(params.open || params.new), kind: 'card' });
+}
 /** Пустое значение (null, undefined, пустая строка, случайное слово «null») — ''. Такое на экране не печатаем. */
 export const clean = (v) => { const s = v === null || v === undefined || v === false ? '' : String(v).trim(); return s === 'null' || s === 'undefined' || /^-{2,}$/.test(s) ? '' : s; };
 // ---------- общие окна (их же использует sections/design.js) ----------
@@ -82,7 +90,7 @@ const idOf = (x) => String(x?.orderId ?? x?.id ?? '');
 export function normOrder(o) {
   const c = o.counts || {};
   return { orderId: idOf(o), orderNo: clean(o.orderNo), productionNo: clean(o.productionNo), customer: clean(o.customer), deadline: o.deadline ?? null, priority: o.priority || 'normal', stage: o.stage || '',
-    note: o.note || '', addedAt: o.addedAt || null, counts: { queue: c.queue || 0, work: c.work || 0, paused: c.paused || 0, done: c.done || 0, free: c.free ?? null }, lines: o.lines };
+    note: o.note || '', addedAt: o.addedAt || null, counts: { queue: c.queue || 0, work: c.work || 0, paused: c.paused || 0, done: c.done || 0, cancelled: c.cancelled || 0, free: c.free ?? null }, linesCount: o.linesCount ?? o.lines?.length, lines: o.lines };
 }
 /** Позиция заказа (с задачей или без) → единый вид. */
 export function normLine(l, order) {

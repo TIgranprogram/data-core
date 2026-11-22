@@ -105,7 +105,14 @@ export function productForm({ onSimilar, usePending = true } = {}) {
   return {
     // ФИ: раздел, группа, серия, цвета, размеры — списки из того, что уже есть (одно написание); своё вписать можно
     fields: async (r) => {
-      const [fv, md, staff] = await Promise.all([formValues(), loadMaterialDicts(), staffOptions()]);
+      const [fv, md, staff, catalogSections] = await Promise.all([
+        formValues(), loadMaterialDicts(), staffOptions(), dictRows('productSections'),
+      ]);
+      const sections = new Map(fv.sections.filter(({ n }) => n > 0).map((entry) => [entry.value.trim().toLowerCase(), entry]));
+      for (const { name } of catalogSections) {
+        const key = name.trim().toLowerCase();
+        if (!sections.has(key)) sections.set(key, { value: name });
+      }
       // ПП: «Кто проектировал» — из «Сотрудников», выбор с поиском; пусто — можно
       const people = staff.filter((p) => !p.fired); // в выборе — работающие; уже указанный уволенный остаётся (сопоставление — по всем)
       designerIds = new Map(staff.map((p) => [p.label, p.value]));
@@ -121,10 +128,11 @@ export function productForm({ onSimilar, usePending = true } = {}) {
         { key: 'name', label: 'Короткое название', required: true, max: 256, span: 3, hint: 'Для списков, фильтров, поиска и паспорта' },
         { key: '_similar', type: 'widget', wide: true, summary: () => '', widget: () => ({ el: sim.el, value: '' }),
           mount: (api) => { const run = () => sim.check(api.get('name'), r?.id); api.on('name', run); run(); } },
-        // только существующие разделы (n > 0) и только из списка: «своё» название молча создавало новый раздел, а в списке были ещё и названия типов паспорта
-        { key: 'type', label: 'Раздел', type: 'combo', required: true, max: 100, options: fv.sections.filter((x) => x.n > 0).map(opt), strict: true, strictText: 'Выберите раздел из списка', extra: () => [{ label: 'Открыть справочник групп изделий', run: () => go('dicts', { d: 'productGroups' }) }], hint: 'Тот же раздел, что в отборе слева; серым — сколько в нём изделий. Новый раздел заводят в справочнике групп' },
-        { key: 'group', label: 'Группа', type: 'combo', max: 100, options: groupsOf(fv), hint: 'Только группы выбранного раздела; раздел не выбран — все' },
-        { key: 'series', label: 'Название серии', type: 'combo', max: 100, options: fv.series.map(opt), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике. Справочник серий не привязан к группам' },
+        { key: 'type', label: 'Раздел', type: 'combo', required: true, max: 100, placeholder: 'Выберите раздел', options: [...sections.values()].map(opt), strict: true,
+          strictText: 'Выберите раздел из списка', extra: () => [{ label: 'Открыть «Разделы изделий»', run: () => go('dicts', { d: 'productSections' }) }],
+          hint: 'Выберите раздел каталога. Новый можно добавить в «Разделах изделий».' },
+        { key: 'group', label: 'Группа', type: 'combo', max: 100, options: groupsOf(fv), hint: 'Сначала группы выбранного раздела, ниже остальные. Можно вписать новую.' },
+        { key: 'series', label: 'Название серии', type: 'combo', max: 100, placeholder: 'Выберите серию', options: fv.series.map(opt), strict: true, strictText: 'Выберите серию из справочника', extra: () => [{ label: 'Открыть справочник серий', run: () => go('dicts', { d: 'productSeries' }) }], hint: 'Нет нужной — добавьте в справочнике. Справочник серий не привязан к группам' },
         { key: 'sku', label: 'Артикул', max: 64, span: 1, warn: skuTaken(r), hint: 'Оставьте пустым — присвоится по номеру группы (временный «ПС-…» заменится)', mount: skuButton(r) },
         { key: 'status', label: 'Статус', type: 'segment', options: [{ value: 'draft', label: 'Черновик' }, { value: 'active', label: 'В продаже', tone: 'ok' }, { value: 'archived', label: 'Архив' }],
           hint: 'С ценой черновик сам становится «в продаже»' },

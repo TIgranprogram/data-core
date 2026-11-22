@@ -12,7 +12,7 @@ export { wsStep } from './work-schedule-step.js';
  * Дерево: «По заказам» — заказ › позиция › часть › шаги; «По людям» — человек › позиция › шаги. По умолчанию всё свёрнуто.
  * Линза, масштаб и раскрытое запоминаются (localStorage dc-gantt-lens / -scale / -open). Воронка фильтров (заказ → позиция → часть → рабочий → вид работ)
  * считается по загруженным полосам; перетаскивание полосы = даты, на строку другого человека = другой исполнитель (PATCH /orderline-plans/:id/steps/:stepId);
- * клик по полосе — правая панель шага (of=wsstep, work-schedule-step.js). Параметры адреса: from, order, incomeId, part, person, work (mode/scale — старые ссылки).
+ * Правый край меняет конец, клик открывает шаг (of=wsstep).
  */
 const LENSES = ['orders', 'people'];
 const SCALES = ['day', 'week', 'month', 'fit'];
@@ -24,6 +24,7 @@ const OPEN_MAX = 400;
 const FILTERS = ['order', 'incomeId', 'part', 'person', 'work'];
 const clearFilters = Object.fromEntries(FILTERS.map((key) => [key, undefined]));
 const norm = (v) => String(v ?? '').toLowerCase().replaceAll('ё', 'е');
+const orderKey = (b) => String(b.orderId || b.orderNo || '');
 
 /** На выходных продолжаем сдвиг в выбранную сторону до рабочего дня. */
 function movedStart(previous, next) {
@@ -48,7 +49,7 @@ function legendFor(bars, known) {
 
 /** Фильтр по значениям воронки; skip — какой шаг не применять (для вариантов этого шага). */
 function pass(b, F, skip) {
-  return (skip === 'order' || !F.order || String(b.orderNo) === F.order) && (skip === 'line' || !F.line || String(b.incomeId) === F.line)
+  return (skip === 'order' || !F.order || orderKey(b) === F.order || String(b.orderNo) === F.order) && (skip === 'line' || !F.line || String(b.incomeId) === F.line)
     && (skip === 'part' || !F.part || partOf(b) === F.part) && (skip === 'person' || !F.person || String(b.assigneeId || NONE) === F.person)
     && (skip === 'work' || !F.work || (b.workTypeName || '') === F.work);
 }
@@ -88,7 +89,8 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     const parsed = /^\d{4}-\d{2}-\d{2}$/.test(P.from) ? Date.parse(P.from) : NaN;
     return Number.isFinite(parsed) && iso(parsed) === P.from ? P.from : iso(startOfWeek() - 84 * DAY);
   };
-  const fitW = () => Math.max(320, (chartBox.clientWidth || document.querySelector('main')?.clientWidth || innerWidth) - (narrow() ? 148 : 232)); // до первой отрисовки chartBox ещё вне страницы
+  const fitW = () => Math.max(320, (chart?.scroller.isConnected ? chart.scroller.clientWidth
+    : (chartBox.clientWidth || document.querySelector('main')?.clientWidth || innerWidth) - 2) - (narrow() ? 148 : 232));
 
   const barsForSearch = () => {
     const words = norm(P.q).trim().split(/\s+/).filter(Boolean);
@@ -169,12 +171,10 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   }
 
   function paintTop() {
-    // переключатель «По заказам / По людям» — в одной строке с масштабом (planner lead), здесь — только «Сбросить фильтры»
     if (host.filterFields) return;
     top.replaceChildren(...(Object.values(F()).some(Boolean) ? [button({ label: 'Сбросить фильтры', kind: 'ghost', size: 'S', onClick: () => set(clearFilters) })] : []));
   }
 
-  /** «Что горит»: раскрыть путь к полосе и показать её на шкале. */
   function reveal(toLens, hit, personIds = []) {
     lens = toLens; savePref('lens', lens); touched = true;
     const model = modelFor(barsForSearch().filter((b) => pass(b, F())));
@@ -224,12 +224,12 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     const f = F();
     const label = (b) => b.productName || b.title || 'Позиция';
     const steps2 = [
-      { key: 'order', label: 'Заказ', ask: 'выберите заказ', optional: true, value: f.order, values: countBy(bars.filter((b) => pass(b, f, 'order')), (b) => b.orderNo, (b) => 'Заказ № ' + b.orderNo) },
+      { key: 'order', label: 'Заказ', ask: 'выберите заказ', optional: true, value: f.order, values: countBy(bars.filter((b) => pass(b, f, 'order')), orderKey, (b) => 'Заказ № ' + (b.orderNo || '—') + (b.productionNo ? ' · пр. № ' + b.productionNo : '')) },
       { key: 'line', label: 'Позиция', ask: 'выберите позицию', optional: true, value: f.line, values: countBy(bars.filter((b) => pass(b, f, 'line')), (b) => b.incomeId, label) },
       { key: 'part', label: 'Часть', ask: 'выберите часть', optional: true, value: f.part, values: countBy(bars.filter((b) => pass(b, f, 'part')), partOf, partOf) },
       { key: 'person', label: 'Исполнитель', ask: 'выберите исполнителя', optional: true, value: f.person, values: countBy(bars.filter((b) => pass(b, f, 'person')), (b) => b.assigneeId || NONE, (b) => (b.assigneeId ? data.people.find((x) => String(x.id) === String(b.assigneeId))?.name || 'Исполнитель' : 'Без исполнителя')) },
       { key: 'work', label: 'Вид работ', ask: 'выберите вид работ', optional: true, value: f.work, values: countBy(bars.filter((b) => pass(b, f, 'work')), (b) => b.workTypeName, workLabel) },
-    ].filter((s) => s.values.length || s.value);
+    ].filter((s) => (s.values.length || s.value) && (!host.filterFields || !['order', 'person'].includes(s.key)));
     const fn = funnel({ steps: steps2, onChange: (key, v) => set({ [key === 'line' ? 'incomeId' : key]: v || undefined }) });
     const n = Object.values(f).filter(Boolean).length;
     if (drawer) drawer.setCount(n); else host.onFilterCount?.(n);
@@ -237,12 +237,7 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   }
 
   function saveOpen() { savePref('open', [...open].slice(-OPEN_MAX)); }
-
-  function modelFor(bars) {
-    const { person } = F();
-    const people = lens === 'people' && person ? data.people.filter((x) => String(x.id) === person) : data.people;
-    return buildModel({ bars, people, lens, allBars: data.bars });
-  }
+  const modelFor = (bars) => buildModel({ bars, people: data.people, lens, allBars: data.bars });
 
   function paintChart(bars) {
     rememberViewport();
@@ -256,6 +251,7 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     shownBars = bars;
     const defaultOpen = !savedOpen && !touched && bars.length <= 12
       ? new Set(model.rows.filter((row) => !row.parentId).map((row) => row.id)) : open;
+    if (chart) resize.unobserve(chart.scroller);
     chart = planner({
       lead: lensSeg.el,
       rowsTitle: lens === 'people' ? 'Исполнитель и операции' : 'Заказы и операции',
@@ -278,9 +274,11 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
       },
       onToday: focusToday,
       empty: empty({ title: filtersOn ? 'По этим фильтрам работ нет' : 'В этом периоде работ нет', hint: `${dmy(windowDates.from)} — ${dmy(windowDates.to)}. ${filtersOn ? 'Измените фильтры или поиск.' : 'Стрелки над шкалой показывают более ранние или поздние даты.'}` }),
-      onOpen: (b) => (b.taskId ? patch({ of: 'work', open: b.taskId }, { replace: false }) : openSide('wsstep', b.id)), onMove: (b, dest) => move(b.id, dest), // задание без плана — его карточка
+      onOpen: (b) => (b.taskId ? patch({ of: 'work', open: b.taskId }, { replace: false }) : openSide('wsstep', b.id)),
+      onMove: (b, dest) => move(b.id, dest), onResize: (b, dest) => move(b.id, dest, true),
     });
     chartBox.replaceChildren(chart.el);
+    resize.observe(chart.scroller);
     if (chart.scroller.isConnected) {
       chart.scroller.scrollTop = viewport?.top ?? 0;
       const activity = P.from && !focusWork ? windowDates.from : firstWork(bars);
@@ -290,54 +288,64 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     focusWork = false;
   }
 
-  async function move(stepId, dest) {
+  async function move(stepId, dest, resizeEnd = false) {
     const rec = steps.get(String(stepId)); if (!rec) return;
+    if (resizeEnd) {
+      const previous = day(rec.bar.end);
+      const end = movedStart(previous, dest.end);
+      if (end === previous || end < dest.start) return;
+      dest = { ...dest, end, rowId: String(rec.bar.assigneeId || NONE), resizeEnd };
+    }
     if (rec.bar.taskId) return moveTask(rec.bar, dest);
     const previousStart = day(rec.bar.start);
     const owner = rec.bar.assigneeId ? String(rec.bar.assigneeId) : NONE;
     const reassigned = lens === 'people' && String(dest.rowId) !== owner;
     const shifted = !reassigned && dest.start !== previousStart;
-    if (!shifted && !reassigned) return;
-    // Длительность при сдвиге пересчитывает сервер, а назначение оставляет прежние даты.
-    const body = shifted ? { start: movedStart(previousStart, dest.start) } : { assigneeId: dest.rowId === NONE ? null : dest.rowId };
+    if (!shifted && !reassigned && !resizeEnd) return;
+    const body = resizeEnd ? { start: previousStart, end: dest.end }
+      : shifted ? { start: movedStart(previousStart, dest.start) } : { assigneeId: dest.rowId === NONE ? null : dest.rowId };
     if (rec.bar.rev != null) body.rev = rec.bar.rev;
     try {
       const res = await api(`/orderline-plans/${rec.bar.planId}/steps/${stepId}`, { method: 'PATCH', body });
-      const back = shifted ? { start: day(rec.bar.start), end: day(rec.bar.end) } : {};
+      const back = shifted || resizeEnd ? { start: previousStart, end: day(rec.bar.end) } : {};
       if (body.assigneeId !== undefined) back.assigneeId = rec.bar.assigneeId ? String(rec.bar.assigneeId) : null;
       if (res.rev != null) back.rev = res.rev;
-      toast(body.assigneeId !== undefined ? 'Шаг передан другому исполнителю' : `Шаг начнётся ${dmy(res.bar?.start || body.start)}`, { undo: () => undoMove(() => api(`/orderline-plans/${rec.bar.planId}/steps/${stepId}`, { method: 'PATCH', body: back })) }); // случайный перенос — вернуть одной кнопкой
+      const message = resizeEnd ? `Шаг закончится ${dmy(res.bar?.end || body.end)}`
+        : body.assigneeId !== undefined ? 'Шаг передан другому исполнителю' : `Шаг начнётся ${dmy(res.bar?.start || body.start)}`;
+      toast(message, { undo: () => undoMove(() => api(`/orderline-plans/${rec.bar.planId}/steps/${stepId}`, { method: 'PATCH', body: back })) });
       window.dispatchEvent(new Event('data-changed'));
       await load();
     } catch (e) {
       if (e.status === 409) toast('План изменил другой человек — Гант обновлён');
-      else toastError(e, 'переставить шаг'); // 400 «нет вида работ» — текст сервера, полоса возвращается (load ниже)
+      else toastError(e, resizeEnd ? 'изменить срок' : 'переставить шаг');
       await load();
       throw e;
     }
   }
 
-  /** Задание без плана позиции (запущено по маршруту изделия): срок шага — PATCH /work-tasks/:id/plan, исполнитель — PATCH /work-tasks/:id. */
   async function moveTask(bar, dest) {
     const owner = bar.assigneeId ? String(bar.assigneeId) : NONE;
     const who = lens === 'people' && String(dest.rowId) !== owner ? (dest.rowId === NONE ? null : dest.rowId) : undefined;
+    if (who && bar.workTypeId && !data.people.find((p) => String(p.id) === who)?.workTypeIds?.map(String).includes(String(bar.workTypeId))) {
+      const message = `У сотрудника нет вида работ «${workLabel(bar)}»`;
+      toast(message);
+      throw new Error(message);
+    }
     const days = Math.round((Date.parse(dest.end) - Date.parse(dest.start)) / DAY) + 1;
     try {
-      // У старого задания отдельные запросы для сроков и исполнителя. Перенос на другую строку меняет только исполнителя.
-      const shifted = who === undefined && dest.start !== day(bar.start);
+      const shifted = who === undefined && (dest.resizeEnd || dest.start !== day(bar.start));
       if (shifted) await api(`/work-tasks/${bar.taskId}/plan`, { method: 'PATCH', body: { stepIndex: bar.stepIndex, start: dest.start, days } });
       if (who !== undefined) await api(`/work-tasks/${bar.taskId}`, { method: 'PATCH', body: { assigneeId: who } });
       const oldDays = Math.round((Date.parse(day(bar.end)) - Date.parse(day(bar.start))) / DAY) + 1;
-      toast(who !== undefined ? 'Задание передано другому исполнителю' : `Шаг начнётся ${dmy(dest.start)}`, { undo: () => undoMove(async () => {
+      const message = dest.resizeEnd ? `Шаг закончится ${dmy(dest.end)}` : who !== undefined ? 'Задание передано другому исполнителю' : `Шаг начнётся ${dmy(dest.start)}`;
+      toast(message, { undo: () => undoMove(async () => {
         if (shifted) await api(`/work-tasks/${bar.taskId}/plan`, { method: 'PATCH', body: { stepIndex: bar.stepIndex, start: day(bar.start), days: oldDays } });
         if (who !== undefined) await api(`/work-tasks/${bar.taskId}`, { method: 'PATCH', body: { assigneeId: bar.assigneeId ? String(bar.assigneeId) : null } });
       }) });
       window.dispatchEvent(new Event('data-changed'));
       await load();
-    } catch (e) { toastError(e, 'переставить шаг'); await load(); throw e; }
+    } catch (e) { toastError(e, dest.resizeEnd ? 'изменить срок' : 'переставить шаг'); await load(); throw e; }
   }
-
-  /** «Отменить» в сообщении о переносе: вернуть как было и перерисовать. */
   async function undoMove(revert) {
     try { await revert(); toast('Перенос отменён'); window.dispatchEvent(new Event('data-changed')); } catch (e) { toastError(e, 'отменить перенос'); }
     await load();
@@ -349,7 +357,7 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     paintTop(); paintBanner(bars); paintFilters(matches); paintChart(bars);
   }
   const resize = new ResizeObserver(() => {
-    if (scaleK === 'fit' && chart?.scroller.isConnected && fitW() !== chartWidth) paintChart(shownBars);
+    if (chart?.scroller.isConnected && fitW() !== chartWidth) paintChart(shownBars);
   });
   resize.observe(chartBox);
   paintTop();
@@ -358,7 +366,6 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     update(np, query = extra) {
       const refetch = np.from !== P.from || query.personId !== extra.personId || query.orderId !== extra.orderId;
       const changedFilter = [...FILTERS, 'q'].some((key) => np[key] !== P[key]);
-
       P = np;
       extra = query;
       if (changedFilter || refetch) {
@@ -383,7 +390,6 @@ export const workSchedule = {
   },
 };
 
-/** Вид «Гант» списка «В работе» (list.gantt.mount): тот же экран; фильтры адреса держит у себя, исполнитель и заказ списка передаёт серверу. */
 export function mountScheduleView(_cfg, _path, query = {}, host = {}) {
   const el = h('div');
   const pick = (q) => ({ ...(q?.assigneeId ? { personId: q.assigneeId } : {}), ...(q?.orderId ? { orderId: q.orderId } : {}) });

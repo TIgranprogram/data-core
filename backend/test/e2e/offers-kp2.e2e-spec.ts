@@ -1,3 +1,4 @@
+import { gunzipSync } from 'node:zlib';
 import { promises as fs } from 'fs';
 import { join, basename } from 'path';
 import { Types } from 'mongoose';
@@ -138,18 +139,31 @@ describe('Offers KP-2 (шаблоны, предпросмотр, копия)', (
     const url = '/api/offers/' + created.body.id;
     await http().post(url + '/status').set(auth()).send({ status: 'sent' }).expect(200);
     const before = (await http().get(url).set(auth()).expect(200)).body;
-    const changes = { expectedUpdatedAt: before.updatedAt, notes: 'Положение проверено',
-      layout: { blocks: ['notes', 'table', 'info', 'terms'], table: { gapMm: 3, xMm: 2 }, tableWidthMm: 163 },
+    const changes = { expectedUpdatedAt: before.updatedAt, date: '2026-11-09', notes: 'Положение проверено',
+      layout: { blocks: ['notes', 'text:intro', 'table', 'info', 'terms'], texts: [{ id: 'intro', text: 'Гарантия на изделие', xMm: 6, gapMm: 4 }], table: { gapMm: 3, xMm: 2 }, tableWidthMm: 163 },
       items: [{ ...body().items[0], rowMm: 32, photoMm: 21, pageBreakBefore: true }] };
     const preview = await http().post(url + '/preview').set(auth()).send(changes).buffer(true).parse(pdf).expect(200);
     expect(preview.body.subarray(0, 4).toString()).toBe('%PDF');
     expect(JSON.parse(preview.headers['x-offer-pages'])).toMatchObject({ count: 2, blocks: { document: 1, table: 2 }, rows: [2] });
+    const unpack = (encoded: string) => JSON.parse(gunzipSync(Buffer.from(encoded, 'base64')).toString());
+    const g = unpack(preview.headers['x-offer-geometry']);
+    expect(g.pages[0]).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'text:intro', x: 57 })]));
+    expect(g.pages[1]).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'row', row: 0 })]));
     expect((await http().get(url).set(auth()).expect(200)).body.updatedAt).toBe(before.updatedAt);
     const saved = (await http().patch(url).set(auth()).send(changes).expect(200)).body;
     expect(saved).toMatchObject({ layout: changes.layout, number: before.number, versionCount: 1 });
     expect(saved.versions[0].snapshot.items[0].rowMm).toBeUndefined();
+    expect(saved.date.slice(0, 10)).toBe(changes.date);
+    const output = await http().get(url + '/pdf?geometryPage=2').set(auth()).buffer(true).parse(pdf).expect(200);
+    expect(unpack(output.headers['x-offer-geometry'])).toMatchObject({ page: 2, pages: [g.pages[1]] });
+    await http().get(url + '/pdf?geometryPage=99').set(auth()).expect(400);
+    await http().post(url + '/preview').set(auth()).send({ layout: { ...changes.layout, texts: [] } }).expect(400);
+    await http().post(url + '/preview').set(auth()).send({ layout: { ...changes.layout, texts: [{ id: 'intro', text: '  ' }] } }).expect(400);
+    const cleared = await http().patch(url).set(auth()).send({ expectedUpdatedAt: saved.updatedAt,
+      layout: { blocks: ['table', 'info', 'terms', 'notes'], texts: [] } }).expect(200);
+    expect(cleared.body.layout.texts).toEqual([]);
     await http().patch(url).set(auth()).send(changes).expect(409);
-    await http().post(url + '/preview').set(auth()).send({ expectedUpdatedAt: saved.updatedAt,
+    await http().post(url + '/preview').set(auth()).send({ expectedUpdatedAt: cleared.body.updatedAt,
       layout: { blocks: ['table', 'table', 'info', 'terms'] } }).expect(400);
   });
 

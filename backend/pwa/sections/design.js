@@ -2,11 +2,11 @@ import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { badge, board as mountBoard, button, sku as kitSku, layout, section, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
-import { designSide } from './design-side.js';
+import { badge, button, sku as kitSku, section, toast, toastError, DESIGN_STATUS, ORDER_PRIORITY } from '../ui/kit/index.js';
+import { mountDesignBoard } from './design-board-view.js';
 import { staffOptions } from './passports/common.js';
 import { taskMenu } from './design-menu.js';
-import { askAssignee, askReason, batchMoveTasks } from './design-data.js';
+import { askAssignee, askReason, batchMoveTasks, openDesignCard } from './design-data.js';
 import { designTaskCard } from './design-card.js';
 import { designComposition } from './design-composition.js';
 import { boardCard } from '../ui/kit/screens/blocks.js';
@@ -128,11 +128,12 @@ export const design = {
     viewKey: 'design', path: '/design-tasks',
     sortDefault: 'seq',
     createLabel: 'Задача',
-    headActions: () => (session.role === 'admin' || session.user?.isOwner === true ? [button({ label: 'Настройки доски', title: 'Какие стикеры показывать на карточках', onClick: () => { const P = current().params; go('design', { ...P, of: 'designsettings', open: 'board', new: undefined }, { replace: !!P.open, kind: 'card' }); } })] : []),
+    headActions: () => (session.role === 'admin' || session.user?.isOwner === true ? [button({ label: 'Настройки доски', title: 'Какие стикеры показывать на карточках', onClick: () => openDesignCard('board', 'designsettings') })] : []),
     export: false,
     searchPlaceholder: 'Поиск: D-12, название, № заказа, заказчик, артикул…',
     emptyText: 'Задач проектирования пока нет.', emptyHint: 'В карточке заказа нажмите «Передать в проектирование» — задачи появятся здесь.',
-    query: (P) => ({ status: P.status || 'queue,work' }),
+    query: (P) => ({ status: P.status || 'queue,work', orderId: P.designOrder }),
+    extraKeys: ['designOrder'],
     filters: [
       { key: 'status', label: 'Статус', type: 'chips', noAll: true, defaultValue: 'queue,work',
         options: () => [{ value: 'queue,work', label: 'Открытые' }, ...STATUS_OPTS.map((o) => ({ value: o.value, label: o.label })), { value: 'queue,work,done,paused', label: 'Без отменённых' }],
@@ -161,15 +162,9 @@ export const design = {
     board: {
       default: true,
       mount: withRequestsTab((b, path, q, o) => {
-        const inner = mountBoard(b, path, q, o);
+        const inner = mountDesignBoard(b, path, q, o);
         if (!stk.length) visibleStickers().then((l) => { if (l.length) { stk = l; inner.reload(); } });
-        const side = designSide({ query: q, env: { people: b.env.people }, onBoard: () => inner.reload() });
-        return {
-          ...inner, el: layout.split({ side: side.el, main: inner.el, sideLabel: 'Заказы в проектировании' }),
-          reload: () => { inner.reload(); side.reload(); },
-          reloadFor: (row) => { inner.reloadFor?.(row); side.reload(); },
-          setQuery: (qq) => { inner.setQuery(qq); side.setQuery(qq); },
-        };
+        return inner;
       }),
       env: { people },
       headCount: true,
@@ -184,7 +179,7 @@ export const design = {
         { key: 'done', label: STATUS.done.label, tone: 'ok', compact: true, portion: true, per: 20, query: { status: 'done', sort: '-completedAt' } },
         { key: 'cancelled', label: STATUS.cancelled.label, tone: 'dim', compact: true, portion: true, per: 20, emptyText: 'Пусто. Сюда — снятые задачи (расторжение договора и т. п.)', query: { status: 'cancelled', sort: '-createdAt' } },
       ],
-      card: (r, c) => ({ body: boardBody(r, c), orderKey: r.orderId || '' }),
+      card: (r, c) => ({ title: title(r), body: boardBody(r, c), orderKey: r.orderId || '' }),
       move: async (r, to) => !!(await moveTask(r, to)),
       addLabel: '+ Задача',
       add: (key) => go('design', { ...current().params, new: '1', dstatus: key, open: undefined }, { replace: true }),
@@ -260,5 +255,5 @@ export const design = {
   },
 
   searchRow: (r) => ({ title: `${r.code} · ${title(r)}`, sub: [clean(r.productionNo) && 'заказ № ' + clean(r.productionNo), r.orderNo && 'договор ' + r.orderNo, r.customer].filter(Boolean).join(' · '), side: badge(STATUS, r.status) }),
-  open: (id) => go('design', { open: id }),
+  open: (id) => openDesignCard(id),
 };

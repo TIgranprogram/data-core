@@ -913,7 +913,7 @@ C132: `textSnapshot.refs` хранит устойчивую запись ист�
 
 Только data-core (CRM-овские `quotations` не трогаем). `number` («КП-год-n»), `date`, `validUntil?`, `companyId` (наша компания), `customer` + `counterpartyId?`, `title?`, `status` (`draft|sent|accepted|paid|rejected|cancelled`), `items[]` {`productId?`, `productName`, `productSku?`, `description?`, `color?`, `size?`, `photoUrl?`, `quantity`, `unit`, `unitPrice?`, `total`}, `total`, `prepaymentPercent?`, `productionDays?`, `deliveryDays?`, `terms?`, `notes?`, `bg1Id?`/`bg2Id?`, `orderId?` (этап 2), `statusHistory[]` {status, at, by}, `deletedAt`.
 
-Редактор C208 сохраняет порядок и положение блоков в `layout`, ширину таблицы в `layout.tableWidthMm`, тип строки в `lineKind`, размеры фото и строки в `photoMm` и `rowMm`, явный разрыв страницы в `pageBreakBefore`. Все поля необязательны.
+Редактор сохраняет порядок и положение блоков в `layout`, ширину таблицы в `layout.tableWidthMm`, тип строки в `lineKind`, размеры фото и строки в `photoMm` и `rowMm`, явный разрыв страницы в `pageBreakBefore`. C209 добавляет до 12 свободных текстов в `layout.texts`: `{id,text,xMm?,gapMm?}`. Связанный элемент `text:<id>` хранит положение каждого текста среди остальных блоков. Все новые поля необязательны.
 
 ### `OfferBackground` (Фон КП) — коллекция `offerbackgrounds`
 

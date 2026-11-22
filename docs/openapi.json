@@ -12454,6 +12454,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "geometryPage",
+            "required": false,
+            "in": "query",
+            "description": "Номер листа с 1 для выборочной карты объектов PDF",
+            "schema": {
+              "type": "number"
+            }
           }
         ],
         "requestBody": {
@@ -12875,6 +12884,15 @@
             "in": "path",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "geometryPage",
+            "required": false,
+            "in": "query",
+            "description": "Номер листа с 1 для выборочной карты объектов PDF",
+            "schema": {
+              "type": "number"
             }
           }
         ],
@@ -25037,9 +25055,39 @@
           }
         }
       },
+      "OfferFreeTextDto": {
+        "type": "object",
+        "properties": {
+          "xMm": {
+            "type": "number",
+            "description": "Сдвиг вправо, мм"
+          },
+          "gapMm": {
+            "type": "number",
+            "description": "Отступ перед блоком, мм"
+          },
+          "id": {
+            "type": "string",
+            "description": "Постоянный идентификатор текстового блока"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ]
+      },
       "OfferLayoutDto": {
         "type": "object",
         "properties": {
+          "texts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferFreeTextDto"
+            }
+          },
           "tableWidthMm": {
             "type": "number",
             "description": "Ширина таблицы, мм",
@@ -25062,15 +25110,10 @@
             "$ref": "#/components/schemas/OfferBlockPositionDto"
           },
           "blocks": {
+            "description": "Порядок четырёх штатных блоков и всех добавленных text:<id>",
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "table",
-                "info",
-                "terms",
-                "notes"
-              ]
+              "type": "string"
             }
           }
         },
