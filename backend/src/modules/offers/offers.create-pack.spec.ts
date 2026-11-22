@@ -8,8 +8,9 @@ describe('OffersService: createPack (воронка «Новое КП»)', () =>
   const b = new Types.ObjectId();
   const c = new Types.ObjectId();
   let blanks: Types.ObjectId[];
-  let model: { create: jest.Mock; collection: { deleteMany: jest.Mock } };
+  let model: { create: jest.Mock };
   let svc: OffersService;
+  const session = {};
   const user = { id: 'u', username: 'm', role: 'manager' } as never;
   const items = [{ productName: 'Мостик', quantity: 2, unit: 'шт', unitPrice: 1000 }];
   const base = { customer: 'ООО Заказчик', items };
@@ -24,28 +25,32 @@ describe('OffersService: createPack (воронка «Новое КП»)', () =>
     };
     let n = 0;
     model = {
-      create: jest.fn(async (d: Record<string, unknown>) => { const _id = new Types.ObjectId(); return { _id, toObject: () => ({ _id, ...d }) }; }),
-      collection: { deleteMany: jest.fn(async () => ({})) },
+      create: jest.fn(async ([d]: Array<Record<string, unknown>>) => {
+        const _id = new Types.ObjectId();
+        return [{ _id, toObject: () => ({ _id, ...d }) }];
+      }),
     };
     const counters = { next: jest.fn(async () => `КП-${++n}`) };
     const bgs = { defaultTerms: jest.fn(async () => 'Текст фирмы.') };
-    svc = new OffersService({ db: { collection: coll } } as never, model as never, counters as never, bgs as never, {} as never, {} as never);
+    const transaction = (run: (s: object) => Promise<unknown>) => run(session);
+    svc = new OffersService({ db: { collection: coll }, transaction } as never, model as never, counters as never, bgs as never, {} as never, {} as never);
   });
 
   it('три фирмы: три КП, общий packId, наценка по каждой', async () => {
     const r = await svc.createPack({ ...base, companies: [{ companyId: String(a) }, { companyId: String(b), markupPercent: 3 }, { companyId: String(c), markupPercent: 5 }] }, user);
     expect(model.create).toHaveBeenCalledTimes(3);
-    expect(model.create.mock.calls.map((x) => x[0].total)).toEqual([2000, 2060, 2100]);
+    expect(model.create.mock.calls.map(([fields]) => fields[0].total)).toEqual([2000, 2060, 2100]);
     expect(r.packId).toMatch(/^[a-f0-9]{24}$/);
-    expect(new Set(model.create.mock.calls.map((x) => x[0].packId))).toEqual(new Set([r.packId]));
+    expect(new Set(model.create.mock.calls.map(([fields]) => fields[0].packId))).toEqual(new Set([r.packId]));
+    expect(model.create.mock.calls.every(([, opts]) => opts.session === session)).toBe(true);
     expect(r.items).toHaveLength(3);
-    expect(model.create.mock.calls[0][0].terms).toBe('Текст фирмы.');
+    expect(model.create.mock.calls[0][0][0].terms).toBe('Текст фирмы.');
   });
 
   it('одна фирма: одно КП без packId', async () => {
     const r = await svc.createPack({ ...base, companies: [{ companyId: String(a) }] }, user);
     expect(r.packId).toBeNull();
-    expect(model.create.mock.calls[0][0].packId).toBeUndefined();
+    expect(model.create.mock.calls[0][0][0].packId).toBeUndefined();
   });
 
   it('нет бланка у второй фирмы — 400, ничего не записано', async () => {
@@ -60,12 +65,10 @@ describe('OffersService: createPack (воронка «Новое КП»)', () =>
     expect(model.create).not.toHaveBeenCalled();
   });
 
-  it('сбой на втором КП: созданное первое удаляется, ошибка уходит наружу', async () => {
+  it('сбой на втором КП останавливает записи транзакции и уходит наружу', async () => {
     const real = model.create.getMockImplementation()!;
     model.create.mockImplementationOnce(real).mockRejectedValueOnce(new Error('сбой записи'));
-    await expect(svc.createPack({ ...base, companies: [{ companyId: String(a) }, { companyId: String(b) }] }, user)).rejects.toThrow('сбой записи');
-    expect(model.collection.deleteMany).toHaveBeenCalledTimes(1);
-    const arg = model.collection.deleteMany.mock.calls[0] as unknown as [{ _id: { $in: unknown[] } }];
-    expect(arg[0]._id.$in).toHaveLength(1);
+    await expect(svc.createPack({ ...base, companies: [{ companyId: String(a) }, { companyId: String(b) }, { companyId: String(c) }] }, user)).rejects.toThrow('сбой записи');
+    expect(model.create).toHaveBeenCalledTimes(2);
   });
 });

@@ -13,14 +13,16 @@ describe('OffersService: пакет КП (copyMany)', () => {
     terms: 'Аванс 80 %.', status: 'sent', total: 680000, packId: undefined as string | undefined,
     items: [{ productName: 'Мостик', quantity: 1, unit: 'шт', unitPrice: 680000, total: 680000 }],
   };
-  let model: { findOne: jest.Mock; create: jest.Mock; updateOne: jest.Mock; countDocuments: jest.Mock; aggregate: jest.Mock };
+  let model: { findOne: jest.Mock; find: jest.Mock; create: jest.Mock; updateOne: jest.Mock; aggregate: jest.Mock };
   let counters: { next: jest.Mock };
   let bgs: { resolve: jest.Mock; defaultTerms: jest.Mock };
   let svc: OffersService;
+  const session = {};
   let blanks: Types.ObjectId[];
   let orgs: Array<{ _id: Types.ObjectId; name: string; isOurCompany?: boolean; vatRate?: number; deletedAt: null }>;
 
   beforeEach(() => {
+    cur.packId = undefined;
     blanks = [other, third];
     orgs = [
       { _id: company, name: 'СпортИН-ЮГ', isOurCompany: true, vatRate: 22, deletedAt: null },
@@ -40,16 +42,21 @@ describe('OffersService: пакет КП (copyMany)', () => {
         find: () => ({ toArray: async () => orgs }),
       };
     };
+    const query = (read: () => unknown) => {
+      const chain = { session: () => chain, sort: () => chain, lean: () => chain, exec: async () => read() };
+      return chain;
+    };
     model = {
-      findOne: jest.fn(() => ({ lean: () => ({ exec: async () => ({ ...cur }) }) })),
-      create: jest.fn(async (d: Record<string, unknown>) => ({ toObject: () => ({ _id: new Types.ObjectId(), ...d }) })),
+      findOne: jest.fn(() => query(() => ({ ...cur }))),
+      find: jest.fn(() => query(() => [{ ...cur }])),
+      create: jest.fn(async ([d]: Array<Record<string, unknown>>) => [{ toObject: () => ({ _id: new Types.ObjectId(), ...d }) }]),
       updateOne: jest.fn(() => ({ exec: async () => ({ matchedCount: 1 }) })),
-      countDocuments: jest.fn(() => ({ exec: async () => 3 })),
       aggregate: jest.fn(() => ({ exec: async () => [{ _id: 'pack1', n: 3 }] })),
     };
     counters = { next: jest.fn(async () => 'КП-2') };
     bgs = { resolve: jest.fn(), defaultTerms: jest.fn(async () => 'Текст новой фирмы.') };
-    svc = new OffersService( { db: { collection: coll } } as never, model as never, counters as never, bgs as never, {} as never, {} as never);
+    const transaction = (run: (s: object) => Promise<unknown>) => run(session);
+    svc = new OffersService({ db: { collection: coll }, transaction } as never, model as never, counters as never, bgs as never, {} as never, {} as never);
   });
 
   const user = { id: 'u', username: 'm', role: 'manager' } as never;
@@ -62,13 +69,13 @@ describe('OffersService: пакет КП (copyMany)', () => {
       ],
     }, user);
     expect(r.packId).toMatch(/^[a-f0-9]{24}$/);
-    expect(model.updateOne).toHaveBeenCalledWith({ _id: cur._id }, { $set: { packId: r.packId } });
+    expect(model.updateOne).toHaveBeenCalledWith({ _id: cur._id, deletedAt: null }, { $set: { packId: r.packId }, $inc: { __v: 1 } }, { session });
     expect(model.create).toHaveBeenCalledTimes(2);
-    expect(model.create.mock.calls[0][0].total).toBe(700400);
-    expect(model.create.mock.calls[1][0].total).toBe(714000);
-    expect(model.create.mock.calls[0][0].packId).toBe(r.packId);
-    expect(model.create.mock.calls[1][0].packId).toBe(r.packId);
-    expect(model.create.mock.calls[0][0].terms).toBe('Текст новой фирмы.');
+    expect(model.create.mock.calls[0][0][0].total).toBe(700400);
+    expect(model.create.mock.calls[1][0][0].total).toBe(714000);
+    expect(model.create.mock.calls[0][0][0].packId).toBe(r.packId);
+    expect(model.create.mock.calls[1][0][0].packId).toBe(r.packId);
+    expect(model.create.mock.calls[0][0][0].terms).toBe('Текст новой фирмы.');
     expect(r.items).toHaveLength(2);
   });
 
@@ -76,7 +83,7 @@ describe('OffersService: пакет КП (copyMany)', () => {
     cur.packId = 'existingpackid0000000001';
     const r = await svc.copyMany(String(cur._id), { companies: [{ companyId: String(other), markupPercent: 0 }] }, user);
     expect(r.packId).toBe('existingpackid0000000001');
-    expect(model.updateOne).not.toHaveBeenCalled();
+    expect(model.updateOne).toHaveBeenCalledTimes(1);
   });
 
   it('та же фирма — 400', async () => {

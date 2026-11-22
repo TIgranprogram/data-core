@@ -1,6 +1,7 @@
 import request from 'supertest';
 import sharp from 'sharp';
 import type { INestApplication } from '@nestjs/common';
+import { CommercialOffer, type OfferDocument } from '../../src/modules/offers/offer.schema';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
 
@@ -13,7 +14,26 @@ describe('Offers pack (C071)', () => {
   const http = () => request(app.getHttpServer());
   const auth = () => authHeader(token.access);
   let siy = '', privat = '', ssyu = '', offerId = '';
-  const blanks = new Map<string, { id: string; jpeg: Buffer }>();
+  const blanks = new Map<string, { id: string; url: string; jpeg: Buffer }>();
+  const offers = () => db().collection('commercialoffers');
+  const offerWrites = () => ctx!.connection.model<OfferDocument>(CommercialOffer.name).collection;
+  const packInput = (customer: string) => ({
+    customer,
+    items: [{ productName: 'Мостик', quantity: 1, unitPrice: 100, photoUrl: blanks.get(siy)!.url }],
+    companies: [{ companyId: siy }, { companyId: privat, markupPercent: 3 }, { companyId: ssyu, markupPercent: 5 }],
+  });
+  const createPack = (customer: string) => http().post('/api/offers/pack').set(auth()).send(packInput(customer));
+  const sendPack = (packId: string) => http().post(`/api/offers/packs/${packId}/send`).set(auth());
+
+  async function expectPackHistory(packId: string, status: 'draft' | 'sent') {
+    const rows = await offers().find({ packId }).toArray();
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(row.status).toBe(status);
+      expect(row.statusHistory.map((entry: { status: string }) => entry.status))
+        .toEqual(status === 'sent' ? ['draft', 'sent'] : ['draft']);
+    }
+  }
   const getPdf = async (id: string): Promise<Buffer> => (await http().get('/api/offers/' + id + '/pdf').set(auth()).buffer(true).parse((res, cb) => {
     const chunks: Buffer[] = [];
     res.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -39,7 +59,7 @@ describe('Offers pack (C071)', () => {
       const { body } = await http().post('/api/offers/backgrounds').set(auth()).field('name', name).field('page', '1').field('companyId', companyId)
         .attach('file', png, { filename: 'b.png', contentType: 'image/png' }).expect(201);
       const jpeg = await sharp(png).flatten({ background: '#ffffff' }).resize({ width: 1654, withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer();
-      blanks.set(companyId, { id: body.id, jpeg });
+      blanks.set(companyId, { id: body.id, url: body.url, jpeg });
     }
     const first = (await http().post('/api/offers').set(auth()).send({
       companyId: siy, customer: 'ООО ИнжПроектСтрой', objectName: 'Мостик 5×2 м', date: '2026-11-06', validUntil: '2026-11-16',
@@ -102,5 +122,101 @@ describe('Offers pack (C071)', () => {
     const noBlank = String((await db().collection('organizations').insertOne({ name: 'Без бланка', isOurCompany: true, deletedAt: null })).insertedId);
     const err = await http().post(`/api/offers/${offerId}/copies`).set(auth()).send({ companies: [{ companyId: noBlank }] }).expect(400);
     expect(String(err.body.message || err.body.error || '')).toMatch(/нет бланка/);
+  });
+
+  it('pack: сбой второй записи скрывает весь пакет, повтор создаёт ровно три КП', async () => {
+    const customer = 'Заказчик для проверки создания';
+    const collection = offerWrites();
+    const insertOne = collection.insertOne.bind(collection);
+    let visibleBeforeFailure: number | undefined;
+    const insert = jest.spyOn(collection, 'insertOne')
+      .mockImplementationOnce(insertOne)
+      .mockImplementationOnce(async () => {
+        visibleBeforeFailure = await offers().countDocuments({ customer });
+        throw new Error('Тестовый сбой второй записи КП');
+      });
+    try {
+      await createPack(customer).expect(500);
+      expect(insert).toHaveBeenCalledTimes(2);
+      expect(visibleBeforeFailure).toBe(0);
+    } finally {
+      insert.mockRestore();
+    }
+    expect(await offers().countDocuments({ customer })).toBe(0);
+
+    const { body } = await createPack(customer).expect(201);
+    expect(body.packId).toBeTruthy();
+    expect(body.items).toHaveLength(3);
+    expect(await offers().countDocuments({ customer })).toBe(3);
+    await expectPackHistory(body.packId, 'draft');
+  });
+
+  it('copies: сбой второй копии сохраняет исходное КП, повтор не дублирует фирмы', async () => {
+    const customer = 'Заказчик для проверки копий';
+    const { items } = packInput(customer);
+    const { body: source } = await http().post('/api/offers').set(auth())
+      .send({ companyId: siy, customer, items }).expect(201);
+    const requested = [{ companyId: privat, markupPercent: 3 }, { companyId: ssyu, markupPercent: 5 }];
+    const copies = (companies = requested) => http().post(`/api/offers/${source.id}/copies`).set(auth()).send({ companies });
+
+    const collection = offerWrites();
+    const insertOne = collection.insertOne.bind(collection);
+    const insert = jest.spyOn(collection, 'insertOne')
+      .mockImplementationOnce(insertOne)
+      .mockRejectedValueOnce(new Error('Тестовый сбой записи второй копии КП'));
+    try {
+      await copies().expect(500);
+      expect(insert).toHaveBeenCalledTimes(2);
+    } finally {
+      insert.mockRestore();
+    }
+    const { body: unchanged } = await http().get(`/api/offers/${source.id}`).set(auth()).expect(200);
+    expect(unchanged.packId).toBeNull();
+    expect(await offers().countDocuments({ customer })).toBe(1);
+
+    const { body: first } = await copies(requested.slice(0, 1)).expect(201);
+    expect(first.packId).toBeTruthy();
+    expect(first.items).toHaveLength(1);
+    const { body: extended } = await copies().expect(201);
+    expect(extended.packId).toBe(first.packId);
+    expect(extended.items).toHaveLength(2);
+    expect(extended.items[0].id).toBe(first.items[0].id);
+    const { body: repeated } = await copies().expect(201);
+    expect(repeated.packId).toBe(first.packId);
+    expect(repeated.items.map((offer: { id: string }) => offer.id)).toEqual(extended.items.map((offer: { id: string }) => offer.id));
+    expect(await offers().countDocuments({ customer })).toBe(3);
+    await expectPackHistory(first.packId, 'draft');
+  });
+
+  it('send: сбой второго обновления сохраняет черновики, повтор переводит все КП в «Отправлено» один раз', async () => {
+    const { body } = await createPack('Заказчик для проверки повтора').expect(201);
+    const { packId } = body;
+    const collection = offerWrites();
+    const updateOne = collection.updateOne.bind(collection);
+    const update = jest.spyOn(collection, 'updateOne')
+      .mockImplementationOnce(updateOne)
+      .mockRejectedValueOnce(new Error('Тестовый сбой второго обновления КП'));
+    try {
+      await sendPack(packId).expect(500);
+      expect(update).toHaveBeenCalledTimes(2);
+    } finally {
+      update.mockRestore();
+    }
+    await expectPackHistory(packId, 'draft');
+
+    const { body: sent } = await sendPack(packId).expect(200);
+    expect(sent).toMatchObject({ packId, sent: 3 });
+    expect(sent.ids.sort()).toEqual(body.items.map((offer: { id: string }) => offer.id).sort());
+    await sendPack(packId).expect(200, { packId, sent: 0, ids: [] });
+    await expectPackHistory(packId, 'sent');
+  });
+
+  it('send: две одновременные отправки меняют статус каждого КП один раз', async () => {
+    const { body } = await createPack('Заказчик для параллельной отправки').expect(201);
+    const { packId } = body;
+    const responses = await Promise.all([sendPack(packId).expect(200), sendPack(packId).expect(200)]);
+    expect(responses.map(({ body }) => body.sent).sort()).toEqual([0, 3]);
+    expect(responses.flatMap(({ body }) => body.ids).sort()).toEqual(body.items.map((offer: { id: string }) => offer.id).sort());
+    await expectPackHistory(packId, 'sent');
   });
 });

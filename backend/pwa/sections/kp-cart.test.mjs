@@ -10,6 +10,15 @@ const edits = { qty: 2.5, price: 1234.5, unit: 'компл.', color: 'Синий
 const firms = [0, 3, 5].map((pct, i) => ({ id: `firm-${i}`, name: `Фирма ${i + 1}`, pct }));
 const saved = { items: firms.map((f) => ({ id: `offer-${f.id}` })) };
 
+test('предварительная сумма сохраняет копейки при 0% и исключает доставку из наценки', () => {
+  const source = readFileSync(new URL('./offers/funnel/api.js', import.meta.url), 'utf8')
+    .replace(/^import .*\r?\n/gm, '').replace(/^export /gm, '');
+  const sumOf = vm.runInNewContext(source + '\nsumOf;');
+  const lines = [{ qty: 1.5, price: 10.25 }, { qty: 1, price: 7.45, lineKind: 'delivery' }];
+  assert.equal(sumOf(lines, 0), 22.83);
+  assert.equal(sumOf(lines, 5), 23.95);
+});
+
 function fixture(post) {
   const storage = new Map();
   const requests = [];

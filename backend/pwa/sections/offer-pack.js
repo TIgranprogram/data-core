@@ -9,6 +9,7 @@ import { go, patch } from '../core/router.js';
 import { button, badge, stack, section, tagPick, textInput, row } from '../ui/kit/index.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { confirmDlg } from '../ui/kit/dialog.js';
+import { sumOf } from './offers/funnel/api.js';
 
 const PREF_KEY = 'dc-offer-pack-prefs';
 const STATUS = {
@@ -22,7 +23,6 @@ const STATUS = {
 
 const readPrefs = () => { try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch { return {}; } };
 const writePrefs = (o) => { try { localStorage.setItem(PREF_KEY, JSON.stringify(o)); } catch { /* приватный режим */ } };
-const marked = (price, pct) => Math.round((Number(price) * (100 + Number(pct || 0))) / 100);
 
 /** zip «stored» без сжатия — как в xlsx-write.js. */
 function zipStored(files) {
@@ -110,11 +110,12 @@ async function buildPackForm(row) {
     setSave(n > 0 && withBlank.length > 0, n ? `Создать ${n} КП` : 'Создать КП');
   };
 
+  const lines = (r.items || []).map((item) => ({ price: item.unitPrice, qty: item.quantity, lineKind: item.lineKind }));
   const updateSumText = (id) => {
     const rowRef = rowsById.get(id);
     if (!rowRef) return;
     const pct = Number(markups.get(id) ?? 0);
-    rowRef.sumEl.textContent = `+${pct} % · ${money(marked(Number(r.total) || 0, pct))}`;
+    rowRef.sumEl.textContent = `${pct > 0 ? '+' : ''}${pct} % · ${money(sumOf(lines, pct))}`;
   };
 
   /** Строки фирм — только при смене выбора (не при каждой цифре). */
@@ -266,23 +267,23 @@ export function packBlock(r) {
       ]);
       const items = list.items || [];
       const hasDraft = items.some((o) => o.status === 'draft');
-      const checkBox = chk?.pack ? stack(
+      const checkBox = chk?.pack && hasDraft ? stack(
         readyLines(chk.pack.problems || []),
-        hasDraft ? button({
+        button({
           label: 'Отправить пакет', size: 'S', kind: 'primary', disabled: !chk.pack.ready,
           onClick: async () => {
             const n = items.filter((o) => o.status === 'draft').length;
             if (!(await confirmDlg('Отправить пакет', `Отправить ${n} КП?`, { okText: 'Отправить' }))) return;
             try {
               const res = await api(`/offers/packs/${r.packId}/send`, { method: 'POST', body: {} });
-              toast(`Отправлено КП: ${res.sent}`);
+              toast(res.sent ? `Отмечено отправленными: ${res.sent}` : 'Пакет уже отмечен отправленным');
               await load();
             } catch (e) { toastError(e, 'отправить пакет'); }
           },
-        }) : null,
+        }),
       ) : null;
       const zipBtn = button({
-        label: `Скачать все PDF (${items.length})`, size: 'S',
+        label: `Скачать ZIP (${items.length} PDF)`, size: 'S',
         onClick: async () => {
           try {
             await downloadPackZip(items, r.number || r.packId.slice(0, 8));

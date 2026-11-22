@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Types, type Connection, type Model } from 'mongoose';
+import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid, parseList } from '../../common/list-query';
 import { offerPhotos } from './offer-photos';
@@ -283,8 +283,10 @@ export class OffersService {
     };
   }
 
-  private async find(id: string): Promise<Doc> {
-    const o = await this.model.findOne({ _id: oid(id, 'КП') }).lean().exec() as unknown as Doc | null;
+  private async find(id: string, session?: ClientSession): Promise<Doc> {
+    const query = this.model.findOne({ _id: oid(id, 'КП') });
+    if (session) query.session(session);
+    const o = await query.lean().exec() as unknown as Doc | null;
     if (!o) throw new NotFoundException('КП не найдено');
     return o;
   }
@@ -420,30 +422,48 @@ export class OffersService {
     if (!(OFFER_STATUSES as readonly string[]).includes(to)) throw new BadRequestException('Неизвестный статус');
     const bypass = checkMove(cur.status, to as OfferStatus, cur.items, { admin: isAdminActor(user), hasOrder: !!cur.orderId });
     const reason = bypass ? overrideReason(reasonText) : ''; // ЗЯ-1: недопустимый переход — только администратор и с причиной
-    const changed = await this.model.updateOne({ _id: cur._id, ...(cur.legal ? { legalVersion: cur.legalVersion || 0, 'orderConversion.status': { $ne: 'pending' } } : {}) }, { $set: { status: to }, ...(cur.legal ? { $inc: { legalVersion: 1 } } : {}), $push: { statusHistory: { status: to, at: new Date(), by: user?.username } } }).exec();
-    if (cur.legal && !changed.matchedCount) throw new ConflictException('КП изменилось — обновите карточку');
+    await this.writeStatus(cur, to, user, new Date());
     if (bypass) await adminOverride(this.audit, { rule: 'offer.status_jump', entityType: 'CommercialOffer', entityId: cur._id, before: { status: cur.status }, after: { status: to }, reason, actor: user });
     return this.get(id);
   }
 
-  /** C080: проверка перед отправкой — КП и (если есть) весь его пакет. Только чтение. */
-  async check(id: string) {
-    const cur = await this.find(id);
-    const packId = cur.packId ? String(cur.packId) : '';
-    const rows: Doc[] = packId
-      ? await this.model.find({ packId, deletedAt: null }).lean().exec() as unknown as Doc[]
-      : [cur];
+  private async writeStatus(cur: Doc, to: string, user: AuthenticatedUser, at: Date, session?: ClientSession) {
+    const query = this.model.updateOne(
+      { _id: cur._id, deletedAt: null, status: cur.status,
+        ...(cur.legal ? { legalVersion: cur.legalVersion || 0, 'orderConversion.status': { $ne: 'pending' } } : {}) },
+      { $set: { status: to }, ...(cur.legal ? { $inc: { legalVersion: 1 } } : {}), $push: { statusHistory: { status: to, at, by: user?.username } } },
+    );
+    if (session) query.session(session);
+    const changed = await query.exec();
+    if (!changed.matchedCount) throw new ConflictException('КП изменилось — обновите карточку');
+  }
+
+  private async packRows(packId: string, session?: ClientSession): Promise<Doc[]> {
+    const query = this.model.find({ packId, deletedAt: null });
+    if (session) query.session(session);
+    return query.sort({ _id: 1 }).lean().exec() as unknown as Promise<Doc[]>;
+  }
+
+  private async checkedOffers(rows: Doc[]) {
     const [names, companies, images] = await Promise.all([this.companyNames(rows.map((r) => r.companyId)), this.companies(),
       offerPhotos(this.db(), rows.flatMap((r) => r.items || []))]);
     let photoIndex = 0;
     const blank = new Map(companies.items.map((c) => [c.id, c.hasBlank]));
     const today = day();
-    const offers = rows.map((r) => ({
+    return rows.map((r) => ({
       id: String(r._id), number: r.number as string, status: r.status as string, customer: r.customer as string,
       companyName: names.get(String(r.companyId)) ?? null,
       problems: offerProblems(r as never, { hasBlank: !!blank.get(String(r.companyId)), photos: (r.items || []).map(() => !!images[photoIndex++]), today }),
     }));
-    const own = offers.find((o) => o.id === String(cur._id))!;
+  }
+
+  /** C080: проверка перед отправкой — КП и (если есть) весь его пакет. Только чтение. */
+  async check(id: string) {
+    const cur = await this.find(id);
+    const packId = clean(cur.packId);
+    const offers = await this.checkedOffers(packId ? await this.packRows(packId) : [cur]);
+    const own = offers.find((o) => o.id === String(cur._id));
+    if (!own) throw new ConflictException('Состав пакета изменился — обновите карточку');
     const pack = packId ? packProblems(offers) : own.problems;
     return {
       offer: { problems: own.problems, ready: !own.problems.length },
@@ -451,18 +471,22 @@ export class OffersService {
     };
   }
 
-  /** C080: «Отправить пакет» — все черновики пакета → «Отправлено»; есть замечания — 400 со списком, ничего не меняем. */
+  /** Все черновики получают отметку одним действием. Повтор после фиксации ничего не меняет. */
   async sendPack(packId: string, user: AuthenticatedUser) {
-    const first = await this.model.findOne({ packId: clean(packId), deletedAt: null }).lean().exec() as unknown as Doc | null;
-    if (!first) throw new NotFoundException('Пакет не найден');
-    const { pack } = await this.check(String(first._id));
-    if (!pack!.ready) throw new BadRequestException(`Пакет отправить нельзя: ${pack!.problems.join('; ')}`);
-    const sent: string[] = [];
-    for (const o of pack!.offers.filter((x) => x.status === 'draft')) {
-      await this.setStatus(o.id, 'sent', user);
-      sent.push(o.id);
-    }
-    return { packId, sent: sent.length, ids: sent };
+    return this.connection.transaction(async (session) => {
+      const rows = await this.packRows(clean(packId), session);
+      if (!rows.length) throw new NotFoundException('Пакет не найден');
+      const drafts = rows.filter((row) => row.status === 'draft');
+      if (!drafts.length) return { packId, sent: 0, ids: [] as string[] };
+      const problems = packProblems(await this.checkedOffers(rows));
+      if (problems.length) throw new BadRequestException(`Пакет отправить нельзя: ${problems.join('; ')}`);
+      const at = new Date();
+      for (const row of drafts) {
+        this.assertNoConversion(row);
+        await this.writeStatus(row, 'sent', user, at, session);
+      }
+      return { packId, sent: drafts.length, ids: drafts.map((row) => String(row._id)) };
+    });
   }
 
   /** Ставка НДС нашей фирмы (organizations.vatRate); только чтение. */
@@ -575,28 +599,34 @@ export class OffersService {
       }
       resolved.push({ companyId, pct: Number(row.markupPercent ?? 0), name });
     }
-    let packId = cur.packId ? String(cur.packId) : '';
-    if (!packId) {
-      packId = randomBytes(12).toString('hex');
-      await this.model.updateOne({ _id: cur._id }, { $set: { packId } }).exec();
-      cur.packId = packId;
-    }
-    const created: Array<{ doc: { toObject: () => Doc }; companyId: Types.ObjectId }> = [];
-    for (const row of resolved) {
-      const doc = await this.createCopyDoc(cur, row.companyId, row.pct, user, packId, true);
-      created.push({ doc, companyId: row.companyId });
-    }
-    const packSize = await this.packSizeOf(packId);
-    const items = [];
-    for (const c of created) {
-      items.push(this.present(c.doc.toObject() as Doc, await this.companyName(c.companyId), packSize));
-    }
-    return { packId, items };
+    return this.connection.transaction(async (session) => {
+      const fresh = await this.find(id, session);
+      if (fresh.legal) throw new BadRequestException('Историческое КП сохраняется с исходной компанией; подготовьте отдельное новое предложение');
+      if (String(fresh.companyId) !== String(cur.companyId)) throw new ConflictException('Компания исходного КП изменилась — обновите карточку');
+      const packId = clean(fresh.packId) || randomBytes(12).toString('hex');
+      const group = fresh.packId ? await this.packRows(packId, session) : [fresh];
+      const byCompany = new Map(group.map((doc) => [String(doc.companyId), doc]));
+      const missing = resolved.filter((row) => !byCompany.has(String(row.companyId)));
+      if (missing.length) {
+        // Один участник занимает пакет при добавлении фирм даже из разных карточек.
+        const claimed = await this.model.updateOne({ _id: group[0]._id, deletedAt: null },
+          { $set: { packId }, $inc: { __v: 1 } }, { session }).exec();
+        if (!claimed.matchedCount) throw new ConflictException('Состав пакета изменился — обновите карточку');
+        for (const row of missing) {
+          const doc = await this.createCopyDoc(fresh, row.companyId, row.pct, user, packId, true, session);
+          byCompany.set(String(row.companyId), doc.toObject() as unknown as Doc);
+        }
+      }
+      const packSize = group.length + missing.length;
+      return {
+        packId,
+        items: resolved.map((row) => this.present(byCompany.get(String(row.companyId))!, row.name, packSize)),
+      };
+    });
   }
 
   /**
-   * C081: воронка «Новое КП» — по одному КП на фирму. Все проверки до записи; сбой на k-м КП —
-   * удаляем созданные этим вызовом (Mongo 4.4, без транзакций) и отдаём ошибку.
+   * C081: воронка «Новое КП» — по одному КП на фирму. Номера и черновики фиксируются одной транзакцией.
    */
   async createPack(dto: OfferPackDto, user: AuthenticatedUser) {
     if (dto.items.some((i) => i.sourceLine)) throw new BadRequestException('Исторический источник сохраняется отдельным КП с юридическим комплектом');
@@ -607,7 +637,7 @@ export class OffersService {
     if (!dto.items?.length) throw new BadRequestException('Добавьте хотя бы одну строку в КП');
     const base = this.mapItems(dto.items);
     const seen = new Set<string>();
-    const firms: Array<{ companyId: Types.ObjectId; pct: number }> = [];
+    const firms: Array<{ companyId: Types.ObjectId; pct: number; name: string; defaults: Awaited<ReturnType<OffersService['defaults']>> }> = [];
     for (const row of rows) {
       const cid = String(row.companyId);
       if (seen.has(cid)) throw new BadRequestException('Одна фирма указана дважды — уберите повтор');
@@ -617,34 +647,28 @@ export class OffersService {
       if (!(await this.companyHasBlank(companyId))) {
         throw new BadRequestException(`У фирмы «${name}» нет бланка КП. Загрузите бланк: Контрагенты → Наши компании`);
       }
-      firms.push({ companyId, pct: Number(row.markupPercent ?? 0) });
+      firms.push({ companyId, pct: Number(row.markupPercent ?? 0), name, defaults: await this.defaults(cid) });
     }
     const packId = firms.length > 1 ? randomBytes(12).toString('hex') : null;
     const date = day(dto.date);
-    const created: Types.ObjectId[] = [];
-    try {
+    return this.connection.transaction(async (session) => {
       const out = [];
       for (const f of firms) {
         const { items, total } = calcTotals(base.items.map((i) => ({ ...i, unitPrice: markedLinePrice(i, f.pct) })));
-        const defs = await this.defaults(String(f.companyId));
-        const number = await this.counters.next('CommercialOffer', 'КП');
-        const doc = await this.model.create({
+        const number = await this.counters.next('CommercialOffer', 'КП', undefined, session);
+        const [doc] = await this.model.create([{
           number, date, validUntil: dto.validUntil ? day(dto.validUntil) : undefined, companyId: f.companyId, customer: clean(dto.customer),
           counterpartyId: dto.counterpartyId ? oid(dto.counterpartyId, 'контрагента') : undefined, title: clean(dto.title) || undefined,
           status: 'draft', items, total, prepaymentPercent: dto.prepaymentPercent, productionDays: dto.productionDays, deliveryDays: dto.deliveryDays,
-          objectName: clean(dto.objectName) || undefined, delivery: dto.delivery, vatMode: defs.vatMode, vatRate: defs.vatRate,
-          terms: clean(dto.terms) || defs.terms || undefined, notes: clean(dto.notes) || undefined,
+          objectName: clean(dto.objectName) || undefined, delivery: dto.delivery, vatMode: f.defaults.vatMode, vatRate: f.defaults.vatRate,
+          terms: clean(dto.terms) || f.defaults.terms || undefined, notes: clean(dto.notes) || undefined,
           ...(packId ? { packId } : {}),
           statusHistory: [{ status: 'draft', at: new Date(), by: user?.username }],
-        });
-        created.push(doc._id as Types.ObjectId);
-        out.push(this.present(doc.toObject() as unknown as Doc, await this.companyName(f.companyId), packId ? firms.length : null));
+        }], { session });
+        out.push(this.present(doc.toObject() as unknown as Doc, f.name, packId ? firms.length : null));
       }
       return { packId, items: out };
-    } catch (e) {
-      if (created.length) await this.model.collection.deleteMany({ _id: { $in: created } }).catch(() => undefined);
-      throw e;
-    }
+    });
   }
 
   /**
@@ -652,14 +676,14 @@ export class OffersService {
    * одиночная копия оставляет terms исходного (как раньше).
    */
   private async createCopyDoc(
-    cur: Doc, companyId: Types.ObjectId, pct: number, user: AuthenticatedUser, packId: string | null, useDefaults: boolean,
+    cur: Doc, companyId: Types.ObjectId, pct: number, user: AuthenticatedUser, packId: string | null, useDefaults: boolean, session?: ClientSession,
   ) {
     const { items, total } = calcTotals((cur.items as Doc[]).map((i) => ({
       productId: i.productId, productName: i.productName, productSku: i.productSku, description: i.description, color: i.color, size: i.size, photoUrl: i.photoUrl,
       lineKind: i.lineKind, pageBreakBefore: i.pageBreakBefore, photoMm: i.photoMm, rowMm: i.rowMm,
       quantity: i.quantity, unit: i.unit || 'шт', unitPrice: markedLinePrice(i, pct),
     })));
-    const number = await this.counters.next('CommercialOffer', 'КП');
+    const number = await this.counters.next('CommercialOffer', 'КП', undefined, session);
     const date = day();
     const span = cur.validUntil ? Math.round((new Date(cur.validUntil).getTime() - new Date(cur.date).getTime()) / 86400000) : 0;
     let terms = cur.terms;
@@ -671,24 +695,21 @@ export class OffersService {
       vatMode = defs.vatMode;
       vatRate = defs.vatRate;
     }
-    return this.model.create({
+    const fields = {
       number, date, validUntil: span > 0 ? new Date(date.getTime() + span * 86400000) : undefined, companyId, customer: cur.customer,
       counterpartyId: cur.counterpartyId, title: cur.title, status: 'draft', items, total, prepaymentPercent: cur.prepaymentPercent,
       productionDays: cur.productionDays, deliveryDays: cur.deliveryDays, objectName: cur.objectName, delivery: cur.delivery,
       vatMode, vatRate, terms, layout: cur.layout, notes: cur.notes, copyOf: cur._id,
       ...(packId ? { packId } : {}),
       statusHistory: [{ status: 'draft', at: new Date(), by: user?.username }],
-    });
+    };
+    if (session) return (await this.model.create([fields], { session }))[0];
+    return this.model.create(fields);
   }
 
   private async companyHasBlank(companyId: Types.ObjectId): Promise<boolean> {
     const n = await this.db().collection('offerbackgrounds').countDocuments({ companyId, page: 1 });
     return n > 0;
-  }
-
-  private async packSizeOf(packId: string): Promise<number> {
-    if (!packId) return 0;
-    return this.model.countDocuments({ packId, deletedAt: null }).exec();
   }
 
   private async packSizes(packIds: Array<string | undefined | null>): Promise<Map<string, number>> {

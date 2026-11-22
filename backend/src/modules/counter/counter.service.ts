@@ -23,13 +23,14 @@ export class CounterService {
     entity: string,
     prefix: string,
     year: number = new Date().getFullYear(),
+    session?: ClientSession,
   ): Promise<string> {
-    const session: ClientSession = await this.connection.startSession();
+    const activeSession = session ?? await this.connection.startSession();
 
     try {
       let seq = 0;
 
-      await session.withTransaction(async () => {
+      const increment = async () => {
         const result = await this.connection
           .collection<CounterDocShape>('counters')
           .findOneAndUpdate(
@@ -38,14 +39,16 @@ export class CounterService {
             {
               upsert: true,
               returnDocument: 'after',
-              session,
+              session: activeSession,
             },
           );
 
         // With upsert + returnDocument:'after', result is always present
         // (either the upserted doc or the updated one).
         seq = result?.seq ?? 1;
-      });
+      };
+      if (session) await increment();
+      else await activeSession.withTransaction(increment);
 
       const formatted = `${prefix}-${year}-${String(seq).padStart(3, '0')}`;
       this.logger.debug(`Counter ${entity}/${prefix}/${year} → ${formatted}`);
@@ -56,7 +59,7 @@ export class CounterService {
       );
       throw err;
     } finally {
-      await session.endSession();
+      if (!session) await activeSession.endSession();
     }
   }
 

@@ -9,13 +9,12 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups } from './lookups.js';
 import { incomeLookups } from './orders.js';
 import { errText } from '../ui/kit/errors.js';
-import { go } from '../core/router.js';
+import { closeStep, go } from '../core/router.js';
 import { createOffer } from './offers.js';
 import { lastOfferBanner, loadOfferParties, partyOptions, rubWas } from './offer-memory.js';
 import { cartOfferItems, cartPack, fillCartDescriptions, kpAdd, loadCart as load, saveCart as save } from './kp-cart.js';
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const rub = (n) => esc(money(n));
-
 /** Страница КП для печати (в новой вкладке): данные экранируются, картинки — полными адресами. */
 function printKp(d) {
   const base = location.origin + PREFIX;
@@ -40,7 +39,6 @@ ${d.note ? `<div class="note">${esc(d.note)}</div>` : ''}</body></html>`;
 }
 
 const partyKey = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('ru-RU');
-
 async function buildKpForm() {
   const [lk, il, offerCos, loaded] = await Promise.all([
     lookups().catch(() => ({})),
@@ -264,13 +262,9 @@ async function buildKpForm() {
         prepaymentPercent: numOr(prepay), productionDays: numOr(prodDays), deliveryDays: numOr(delDays),
         items: cartOfferItems(lines),
       };
-      if (pack.active) {
-        const id = await pack.submit(body);
-        go('offers', { open: id });
-        return { id, stay: true };
-      }
+      if (pack.active) return { id: await pack.submit(body) };
       const offer = await createOffer({ ...body, companyId: company.value || undefined, vatMode: vatMode.value || undefined, vatRate: numOr(vatRate) });
-      if (offer) { save([]); go('offers', { open: offer.id }); return { id: offer.id, stay: true }; }
+      if (offer) { save([]); return { id: offer.id }; }
       const d = await api('/showcase/kp', { method: 'POST', body: { items: lines.map((l) => ({ id: l.id, qty: Number(l.qty) || 1, price: Number(l.price) || 0 })), companyId: company.value || undefined, customer: customer.value.trim() || undefined, note: note.value.trim() || undefined } });
       printKp(d);
       return { id: null, number: d.number };
@@ -384,10 +378,16 @@ export const fromPassports = {
   id: 'frompassports', title: 'Изделия из паспортов', newTitle: 'Изделия из паспортов', card: { heading: () => 'Из паспортов' }, get: async () => ({}),
   form: { build: buildFromPassportsForm, toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Создать изделия для остальных', closeAfterCreate: true },
 };
-
 export const kp = {
   id: 'kp', title: 'Коммерческое предложение', newTitle: 'Коммерческое предложение', card: { heading: () => 'КП' }, get: async () => ({}),
-  form: { build: buildKpForm, toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Создать КП', closeAfterCreate: true },
+  form: {
+    build: buildKpForm, toBody: (v) => v, create: (v) => v.save(), saveLabel: 'Создать КП',
+    afterSave: ({ id }) => {
+      if (id) go('offers', { open: id });
+      else closeStep({ of: undefined, open: undefined, new: undefined });
+      return true;
+    },
+  },
 };
 export const fromOrders = {
   id: 'fromorders', title: 'Изделия из заказов', newTitle: 'Изделия из заказов', card: { heading: () => 'Из заказов' }, get: async () => ({}),

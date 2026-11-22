@@ -10,9 +10,12 @@ export const findProducts = (q) => api('/showcase', { query: { search: q, limit:
 export const createPack = (body) => api('/offers/pack', { method: 'POST', body });
 
 /** Цена с наценкой — как на сервере (offer-rules markedUp). */
-export const marked = (price, pct) => Math.round((Number(price) * (100 + Number(pct || 0))) / 100);
+const marked = (price, pct) => pct ? Math.round(price * (100 + pct) / 100) : price;
 /** Сумма КП по строкам воронки с наценкой фирмы. */
-export const sumOf = (lines, pct) => lines.reduce((s, l) => s + (Number(l.qty) || 0) * marked(Number(l.price) || 0, pct), 0);
+export const sumOf = (lines, pct) => lines.reduce((cents, line) => {
+  const price = marked(Number(line.price) || 0, line.lineKind === 'delivery' ? 0 : Number(pct));
+  return cents + Math.round((Number(line.qty) || 0) * price * 100);
+}, 0) / 100;
 
 /** Тело POST /offers/pack из состояния воронки. */
 export function packBody(S, firms) {
