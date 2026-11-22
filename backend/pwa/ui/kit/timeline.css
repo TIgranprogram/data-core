@@ -80,25 +80,25 @@ button.gt-label:hover { background: var(--row-hover); }
 .k-pl-chev { flex: none; width: 8px; height: 8px; margin: 0 var(--s1); border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .12s; }
 .k-pl-node[aria-expanded='true'] .k-pl-chev { transform: rotate(45deg); }
 .wt-1 { --wt: var(--wt-1); } .wt-2 { --wt: var(--wt-2); } .wt-3 { --wt: var(--wt-3); } .wt-4 { --wt: var(--wt-4); } .wt-5 { --wt: var(--wt-5); } .wt-6 { --wt: var(--wt-6); } .wt-7 { --wt: var(--wt-7); }
-.k-pl-bar.hue { background: var(--wt); border-color: var(--wt); color: var(--on-wt); }
+.k-pl-bar.hue { background: color-mix(in srgb, var(--wt) 24%, var(--surface)); border-color: color-mix(in srgb, var(--wt) 45%, var(--border)); color: var(--text); }
 .k-pl-bar.st-work { font-weight: 600; }
 .k-pl-bar.st-plan { border: 1px dashed currentColor; }
-.k-pl-bar.st-work { box-shadow: inset 3px 0 0 var(--on-wt, var(--text)); } /* идёт — метка слева */
+.k-pl-bar.st-work { border-left-width: 3px; } /* идёт — метка слева */
 .k-pl-bar.st-done, .k-pl-bar.hue.st-done { background: var(--surface-3); border-color: var(--border-strong); color: var(--text-2, var(--muted)); } /* сделано — серая с ✓, читается */
-.k-pl-bar.late { outline: 2px solid var(--danger); outline-offset: 1px; }
+.k-pl-bar.late { box-shadow: inset 0 -3px 0 var(--danger); }
 .k-pl-bar.late:focus-visible { outline-color: var(--gold); }
 .k-planner.hl .k-pl-bar:not(.hl-on) { opacity: .3; }
-.gt-bar.k-pl-sum { background: var(--muted); top: 15px; height: 14px; border-radius: var(--radius-sm); } /* сводная полоса узла — заметнее */
+.gt-bar.k-pl-sum { background: var(--muted); top: 18px; height: 8px; border-radius: var(--radius-sm); } /* сводка отличается толщиной */
 .gt-bar.k-pl-sum.lv1 { opacity: .7; }
 .gt-bar.k-pl-sum.lv2 { opacity: .5; }
-.gt-bar.k-pl-sum.over { background: var(--danger); }
+.gt-bar.k-pl-sum.over { background: var(--muted); }
 .k-pl-dl { position: absolute; top: 2px; width: 10px; height: 10px; background: var(--gold-deep); transform: translateX(-50%) rotate(45deg); z-index: 1; pointer-events: none; }
 .k-pl-dl.over { background: var(--danger); }
 .k-pl-bar-top { display: flex; flex-direction: column; gap: var(--s2); margin-bottom: var(--s2); }
 .k-pl-tools, .k-pl-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .k-pl-lg { display: inline-flex; align-items: center; gap: var(--s1); min-height: 32px; padding: 0 var(--s2); border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
 .k-pl-lg.on { border-color: var(--border-strong); background: var(--row-hover); }
-.k-pl-lg i.hue { width: 12px; height: 12px; border-radius: var(--s1); background: var(--wt); }
+.k-pl-lg i.hue { width: 12px; height: 12px; border-radius: var(--s1); background: color-mix(in srgb, var(--wt) 45%, var(--surface)); }
 @media (pointer: coarse) { .k-pl-lg { min-height: 44px; } }
 @media (max-width: 720px) { .gt-wrap.tree { --gt-label: 148px; } }
 

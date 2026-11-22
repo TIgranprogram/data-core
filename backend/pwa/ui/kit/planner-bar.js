@@ -2,14 +2,14 @@ import { h } from '../../core/dom.js';
 import { button, segmented } from './index.js';
 
 /**
- * Панель над лентой planner: масштаб (День / Неделя / Месяц / Уместить), ← Сегодня →, «Раскрыть всё / Свернуть всё» и легенда видов работ.
+ * Панель над лентой planner: масштаб (Обзор работ / День / Неделя / Месяц), ← Сегодня →, «Раскрыть всё / Свернуть всё» и легенда видов работ.
  * plannerBar({ lead?, scale, onScale?, onShift?(±1), onToday, tree?, onAll?(open), legend?: [{ id, name, hue }], hl?, onHl?(id|'') }) → Element | null
  */
 export function plannerBar({ lead, scale, onScale, onShift, onToday, tree, onAll, legend = [], hl = '', onHl } = {}) {
   const parts = lead ? [lead] : []; // lead — элемент экрана в начале панели (переключатель «По заказам / По людям»): одна строка инструментов
-  if (onScale) parts.push(segmented({ items: [{ key: 'day', label: 'День' }, { key: 'week', label: 'Неделя' }, { key: 'month', label: 'Месяц' }, { key: 'fit', label: 'Уместить' }], value: scale, label: 'Масштаб ленты', onChange: onScale }).el);
+  if (onScale) parts.push(segmented({ items: [{ key: 'fit', label: 'Обзор работ' }, { key: 'day', label: 'День' }, { key: 'week', label: 'Неделя' }, { key: 'month', label: 'Месяц' }], value: scale, label: 'Масштаб ленты', onChange: onScale }).el);
   if (onShift) parts.push(button({ label: '←', size: 'S', title: 'Раньше', onClick: () => onShift(-1) }));
-  if (onShift || onScale) parts.push(button({ label: 'Сегодня', size: 'S', onClick: onToday }));
+  if (onShift || onScale) parts.push(button({ label: 'Сегодня', size: 'S', title: 'Перейти к сегодняшней дате', onClick: onToday }));
   if (onShift) parts.push(button({ label: '→', size: 'S', title: 'Позже', onClick: () => onShift(1) }));
   if (tree && onAll) parts.push(button({ label: 'Раскрыть всё', kind: 'ghost', size: 'S', onClick: () => onAll(true) }), button({ label: 'Свернуть всё', kind: 'ghost', size: 'S', onClick: () => onAll(false) }));
   const items = legend.filter((x) => x && x.name);

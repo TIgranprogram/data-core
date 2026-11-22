@@ -45,7 +45,7 @@ function lanes(items) {
  *   expanded — раскрытые узлы (по умолчанию всё свёрнуто); панель над лентой появляется, если есть onScale/onShift/дерево/legend
  * Перетаскивание (мышь; палец — после долгого нажатия): по горизонтали — сдвиг дат (длительность сохраняется), по вертикали — другая строка.
  * Клавиши на полосе: ←/→ сдвиг на день, Enter — открыть. Ошибка onMove — полоса возвращается на место.
- * → { el, scroller, scrollToToday(flash?), expandAll(), collapseAll() }
+ * → { el, scroller, scrollToDate(date), scrollToToday(flash?), expandAll(), collapseAll() }
  */
 const KINDS = ['info', 'ok', 'warn', 'danger', 'dim'];
 const STATUSES = { plan: 'запланировано', work: 'в работе', done: 'сделано' };
@@ -104,9 +104,9 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     const len = e - s + 1;
     const st = b.status === 'done' || b.status === 'work' || b.status === 'plan' ? b.status : '';
     const state = [STATUSES[st], b.overdue && 'просрочено'].filter(Boolean).join(', ');
-    const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', canEdit && !b.locked ? 'drag' : '', len * px < 72 ? 'narrow' : ''].filter(Boolean).join(' '); // narrow — подпись справа от полосы (как в kppdf), не «И…»
+    const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', canEdit && !b.locked ? 'drag' : '', len * px < Math.max(72, String(b.title).length * 7 + 16) ? 'narrow' : ''].filter(Boolean).join(' '); // narrow — подпись справа от полосы (как в kppdf), не «И…»
     const node = h('button', { type: 'button', class: cls, 'data-bar': String(b.id), 'data-wt': b.wt == null ? null : String(b.wt),
-      title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, state, b.hint, canEdit && !b.locked ? 'Потяните, чтобы переставить' : b.locked ? 'Задание без плана позиции — нажмите, чтобы открыть' : ''].filter(Boolean).join('\n'),
+      title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, state, b.overdue ? 'Просрочено' : '', b.hint, canEdit && !b.locked ? 'Потяните, чтобы переставить' : b.locked ? 'Задание без плана позиции — нажмите, чтобы открыть' : ''].filter(Boolean).join('\n'),
       'aria-label': `${b.title}, ${dmy(s)} — ${dmy(e)}${state ? ', ' + state : ''}. Открыть` },
       h('span', { class: 'gt-bt' }, (st === 'done' ? '✓ ' : '') + b.title), b.sub && len * px >= 120 ? h('small', { class: 'k-pl-sub' }, b.sub) : null); // узкая полоса — одна строка, подробности в подсказке
     node.style.left = xOf(s) + 'px'; node.style.width = Math.max(coarse ? 44 : 10, len * px - 2) + 'px'; node.style.top = 4 + lane * LANE + 'px';
@@ -139,7 +139,13 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
       if (!armed) { tmr = setTimeout(() => { armed = true; if (navigator.vibrate) navigator.vibrate(15); node.classList.add('armed'); }, 400); node.addEventListener('touchmove', hold, { passive: false }); }
       try { node.setPointerCapture(ev.pointerId); } catch { /* */ }
       const left0 = parseFloat(node.style.left);
-      const rowAt = (cx, cy) => { node.style.pointerEvents = 'none'; const t = document.elementFromPoint(cx, cy)?.closest('.k-pl-row'); node.style.pointerEvents = ''; return t && t.dataset.drop ? t : null; };
+      const rowAt = (cx, cy) => {
+        node.style.pointerEvents = 'none';
+        const hit = document.elementsFromPoint(cx, cy).find((el) => !el.closest('.toasts'));
+        node.style.pointerEvents = '';
+        const row = hit?.closest('.k-pl-row');
+        return row?.dataset.drop && rowEls.includes(row) ? row : null;
+      };
       const mv = (m) => {
         const ddx = m.clientX - x0, ddy = m.clientY - y0;
         if (!armed) { if (Math.abs(ddx) > 8 || Math.abs(ddy) > 8) { clearTimeout(tmr); tmr = null; } return; }
@@ -224,11 +230,16 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
 
   const scroller = h('div', { class: 'gt-scroll', tabindex: '-1' }, grid);
   const wrap = h('div', { class: 'gt-wrap k-planner' + (tree.hasKids ? ' tree' : '') });
-  const scrollToToday = (flash) => requestAnimationFrame(() => {
-    const lab = scroller.querySelector('.gt-label')?.offsetWidth || 0;
-    scroller.scrollLeft = Math.max(0, todayX - (scroller.clientWidth - lab) / 2);
+  const scrollToDay = (n, flash) => requestAnimationFrame(() => {
+    const labelWidth = scroller.querySelector('.gt-label')?.offsetWidth || 0;
+    scroller.scrollLeft = Math.max(0, xOf(n) + px / 2 - (scroller.clientWidth - labelWidth) / 2);
     if (flash && line) { line.classList.remove('flash'); void line.offsetWidth; line.classList.add('flash'); }
   });
+  const scrollToToday = (flash) => scrollToDay(today, flash);
+  const scrollToDate = (date) => {
+    const n = dayNum(date);
+    if (n != null) scrollToDay(Math.min(max - 1, Math.max(min, n)));
+  };
   const toToday = () => { if (rows.length && today >= min && today < max) scrollToToday(true); else onToday?.(); };
   const paintBar = () => {
     const bar = plannerBar({ lead, scale, onScale, onShift, onToday: toToday, tree: tree.hasKids, onAll: setAll, legend, hl, onHl: (id) => { hl = id; paintBar(); applyHl(); } });
@@ -241,5 +252,5 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   paintBar();
   const el = mark(wrap, 'planner');
   if (autoScroll) scrollToToday();
-  return { el, scroller, scrollToToday, expandAll: () => setAll(true), collapseAll: () => setAll(false) };
+  return { el, scroller, scrollToDate, scrollToToday, expandAll: () => setAll(true), collapseAll: () => setAll(false) };
 }
