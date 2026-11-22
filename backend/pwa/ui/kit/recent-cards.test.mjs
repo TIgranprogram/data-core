@@ -16,11 +16,11 @@ class Element {
  get textContent(){return this.children.map(x=>x.textContent??String(x)).join('');}
 }
 async function fixture({section='products',open='000000000000000000000001',tab,realMenu=false}={}){
- const values=new Map(),session={user:{id:'a'}},body=new Element('body');
+ const values=new Map(),session={user:{id:'a'}},body=new Element('body'),events=[];
  let route={section,params:{open,...(tab?{tab}:{})}},menu;
  const h=(tag,attrs,...kids)=>new Element(tag,attrs,...kids);
  const storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
- const context=createContext({localStorage:storage,String,setTimeout:()=>0,document:{body,addEventListener(){},removeEventListener(){}},window:{matchMedia:()=>({matches:true}),addEventListener(){},removeEventListener(){}}});
+ const context=createContext({localStorage:storage,String,Event,setTimeout:()=>0,document:{body,addEventListener(){},removeEventListener(){},dispatchEvent(event){events.push(event.type);}},window:{matchMedia:()=>({matches:true}),addEventListener(){},removeEventListener(){}}});
  const deps={
  '../../core/api.js':{session,PREFIX:'/db'}, '../../core/router.js':{current:()=>route},
  '../../core/dom.js':{h}, '../../core/recent-cards.js':{createRecentCards,recentHref,recentThumb,recentOrderNumber},
@@ -32,12 +32,14 @@ async function fixture({section='products',open='000000000000000000000001',tab,r
   if(linked.has(name))return linked.get(name);
   const mod=new SourceTextModule(readFileSync(new URL(name,import.meta.url),'utf8'),{context});linked.set(name,mod);
   await mod.link(key=>{
+   if(key==='../../core/recent-session.js')return load(key);
    if(realMenu&&key==='./pop-menu.js')return load(key);
-   const d=deps[key];return new SyntheticModule(Object.keys(d),function(){for(const [k,v]of Object.entries(d))this.setExport(k,v);},{context});
+   const dependency=name==='../../core/recent-session.js'?'../../core/'+key.slice(2):key;
+   const d=deps[dependency];return new SyntheticModule(Object.keys(d),function(){for(const [k,v]of Object.entries(d))this.setExport(k,v);},{context});
   });return mod;
  };
  const mod=await load('./recent-cards.js');await mod.evaluate();
- return {values,session,body,storage,record:mod.namespace.recentRecorder,button:mod.namespace.recentCardsButton,route:next=>{route=next;},get menu(){return menu;},entries:()=>createRecentCards(storage,'dc-recent-cards:/db:'+session.user.id).list()};
+ return {values,session,body,storage,events,record:mod.namespace.recentRecorder,button:mod.namespace.recentCardsButton,route:next=>{route=next;},get menu(){return menu;},entries:()=>createRecentCards(storage,'dc-recent-cards:/db:'+session.user.id).list()};
 }
 
 test('только текущая карточка и пользователь; поздние ответы и new пропускаются',async()=>{
@@ -47,6 +49,7 @@ test('только текущая карточка и пользователь; 
  const next=f.record('products');f.route({section:'products',params:{open:'000000000000000000000002'}});next(row,'Устаревший ответ','');assert.equal(f.values.size,1);
  f.route({section:'products',params:{open:row.id,new:'1'}});next(row,'Новая карточка','');assert.equal(f.values.size,1);
  f.route({section:'products',params:{open:row.id}});next(row,'Своя карточка','');assert.equal(f.values.size,2);
+ assert.deepEqual(f.events,['dc:recent-cards','dc:recent-cards']);
 });
 
 test('заказ с productionNo/key и legacy id сохраняется один раз с заказчиком',async()=>{
