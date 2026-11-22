@@ -450,6 +450,8 @@ table.k-stack-always td.num { justify-content: flex-start; }
 
 /* ����: ���� �����, inline, ���� �+� */
 .iw-screen { display: flex; flex-direction: column; gap: var(--s4); }
+.iw-screen table.list.k-pos-table td.k-col-wrap { min-width: 0; max-width: none; width: auto; overflow-wrap: anywhere; }
+.iw-screen table.list.k-pos-table td.k-col-wrap .badge { white-space: normal; }
 .iw-meta.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); margin-bottom: var(--s3); }
 .iw-meta .field.wide { grid-column: 1 / -1; }
 .iw-files { margin-top: var(--s2); }

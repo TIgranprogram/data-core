@@ -338,3 +338,61 @@ body > .drag-ghost:is(.desk-card, .desk-recent-row) { --drag-rotation: 0deg; box
   box-shadow: var(--shadow-lg);
 }
 .desk-archive-cards { display: grid; gap: var(--s2); padding: var(--s2); }
+
+.desk-boards {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(184px, 1fr);
+  overflow-x: auto;
+  align-items: stretch;
+}
+.desk-lane > .desk-area-head h2 { margin-inline-end: auto; overflow-wrap: anywhere; }
+.desk-archive-tabs { display: grid; justify-items: end; gap: var(--s1); }
+.desk-trash-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: var(--s1) var(--s2);
+}
+.desk-task-detail { display: grid; gap: var(--s3); min-width: 0; }
+.desk-task-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+.desk-task-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--border);
+}
+.desk-task-group-head h3 { margin: 0 auto 0 0; }
+.desk-task-group p { margin: var(--s2) var(--s3); }
+.desk-detail-list { margin: 0; padding: 0; list-style: none; }
+.desk-detail-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+}
+.desk-detail-list li + li { border-top: 1px solid var(--border); }
+.desk-detail-label { display: grid; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.desk-detail-label small { color: var(--muted); }
+.desk-removed-files { border-top: 1px solid var(--border); }
+.desk-removed-files > summary { padding: var(--s2) var(--s3); cursor: pointer; color: var(--muted); }
+@media (max-width: 640px) { .desk-boards { grid-auto-flow: row; grid-auto-columns: minmax(0, 1fr); } }
+
+.desk-archive[data-desk-panel='trash'] .desk-archive-panel {
+  inset-block-start: calc(4 * var(--control-height) + var(--s1));
+}
+@media (min-width: 951px) {
+  .detail-open .desk-layout { grid-template-columns: minmax(146px, 19%) minmax(0, 1fr); }
+  .detail-open .desk-agenda { grid-column: 2; }
+}
