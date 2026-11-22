@@ -120,6 +120,17 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
       await http().get('/api/audit-logs/record').query({ entityType: 'Material', entityId: itemId }).set(k).expect(200);
     });
 
+    it('история задачи проектирования доступна роли с разделом «Проектирование» и закрыта кладовщику', async () => {
+      const t = as(admin.access);
+      const task = (await http().post('/api/design-tasks').set(t).send({ title: 'Проверка истории чертежа' }).expect(201)).body;
+      await http().patch('/api/design-tasks/' + task.id).set(t).send({ status: 'done' }).expect(200);
+      await user('designHistory', (await role('Чтение проектирования', 'user', ['design'])).name);
+      const query = { entityType: 'DesignTask', entityId: task.id };
+      const history = (await http().get('/api/audit-logs/record').query(query).set(as(tok.designHistory)).expect(200)).body;
+      expect(history.items).toEqual(expect.arrayContaining([expect.objectContaining({ action: 'designtask.updated' })]));
+      closed(await http().get('/api/audit-logs/record').query(query).set(as(tok.keeper)));
+    });
+
     it('fill-audit — только группы Склада и Заявок; only=<закрытый> — пусто', async () => {
       const rep = (await http().get('/api/fill-audit').set(as(tok.keeper)).expect(200)).body;
       for (const g of rep.groups) expect(['stock', 'requests']).toContain(g.section);

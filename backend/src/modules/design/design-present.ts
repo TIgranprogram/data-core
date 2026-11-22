@@ -7,6 +7,33 @@ import { loadSeq } from '../../common/text/production-seq';
 type Doc = Record<string, unknown>;
 type Oid = Types.ObjectId;
 
+export interface DesignProduction {
+  state: 'standalone' | 'no-position' | 'contract-closed' | 'no-product' | 'in-work' | 'ready-for-review';
+  productId?: string;
+  workCode?: string;
+}
+
+/** Сведения для одной карточки. Изготовление использует изделие позиции, у задачи может быть своё изделие. */
+export async function designProduction(connection: Connection, task: Doc): Promise<DesignProduction> {
+  if (!task.incomeId) return { state: 'standalone' };
+  const db = connection.db!;
+  const line = await db.collection('incomes').findOne(
+    { _id: task.incomeId as Oid, deletedAt: null, cancelledAt: null },
+    { projection: { orderId: 1, productId: 1 } },
+  );
+  if (!line?.orderId || (task.orderId && String(line.orderId) !== String(task.orderId))) return { state: 'no-position' };
+  const [order, product, work] = await Promise.all([
+    db.collection('salesorders').findOne({ _id: line.orderId, deletedAt: null }, { projection: { activeArchiveVersion: 1 } }),
+    line.productId ? db.collection('products').findOne({ _id: line.productId, deletedAt: null }, { projection: { _id: 1 } }) : null,
+    db.collection('worktasks').findOne({ openIncomeId: line._id, deletedAt: null }, { projection: { seq: 1, _id: 0 } }),
+  ]);
+  if (!order) return { state: 'no-position' };
+  const fields = product ? { productId: String(product._id) } : {};
+  if (order.activeArchiveVersion != null) return { state: 'contract-closed', ...fields };
+  if (work) return { state: 'in-work', ...fields, ...(Number.isInteger(work.seq) ? { workCode: 'W-' + work.seq } : {}) };
+  return { state: product ? 'ready-for-review' : 'no-product', ...fields };
+}
+
 /** Исполнитель в карточке: имя «Фамилия Имя» и инициалы для аватара. */
 export function personView(p: Doc) {
   const last = String(p.lastName ?? '').trim(), first = String(p.firstName ?? '').trim();

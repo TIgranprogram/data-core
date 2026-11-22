@@ -1,6 +1,5 @@
 import { api, PREFIX, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { sku as kitSku, actions, busyBlock, button, section, sideNote, stack } from '../ui/kit/index.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { go } from '../core/router.js';
 import { badge, ORDER_PRIORITY } from '../ui/kit/badges.js';
@@ -8,9 +7,8 @@ import { mountBoard } from '../ui/board.js';
 import { mountScheduleView } from './work-schedule.js';
 import { failBlock } from '../ui/kit/busy.js';
 import { boardCard } from '../ui/kit/screens/blocks.js';
-import { enhanceSelect } from '../ui/kit/index.js';
-import { toast, toastError } from '../ui/kit/toast.js';
-import { markStep } from './work-facts.js';
+import { toast } from '../ui/kit/toast.js';
+import { workCard } from './work-card.js';
 import { activeOrders, orderLabel } from './salesorders.js';
 export { workPlan } from './work-composition.js'; // панель «Позиция заказа» (of=workplan)
 export { workLaunch } from './work-launch.js'; // панель «Запуск в работу» (of=worklaunch)
@@ -121,116 +119,6 @@ function mountWorkBoard(board, path, query, hooks) {
   return { el, reload: () => sync(), reloadFor: (row) => (inner ? inner.reloadFor(row) : sync()), setQuery: (nq) => { q = nq; sync(); } };
 }
 
-// ---------- карточка ----------
-function routeSteps(r) {
-  if (!(r.route || []).length) return h('p', { class: 'muted' }, 'Маршрут не задан.');
-  const mark = { done: '✓', current: '●', next: '○' };
-  return h('ol', { class: 'wk-steps' }, ...r.route.map((s) => {
-    const st = r.status === 'done' ? 'done' : r.status === 'waiting' ? 'next' : s.state;
-    return h('li', { class: 'wk-st ' + st }, h('span', { class: 'wk-mark', 'aria-hidden': 'true' }, mark[st]),
-      h('span', { class: 'wk-st-name' }, s.name, h('small', { class: 'muted' }, st === 'done' ? ' · сделано' : st === 'current' ? ' · сейчас' : ' · впереди', s.note ? ' · ' + s.note : '')));
-  }));
-}
-const pair = (k, v) => (v === null || v === undefined || v === '' ? [] : [h('dt', null, k), h('dd', null, v)]);
-
-function topBlock(r) {
-  const can = session.canEdit;
-  const znp = [clean(r.productionNo), r.seqNo ?? r.lineNo].filter((x) => x !== '' && x != null).join(' / ');
-  const grid = h('dl', { class: 'kv-grid' },
-    ...pair('Изготовить', r.qty ? h('span', { class: 'kv-qty' }, `${qty(r.qty)} ${clean(r.unit) || 'шт'}`) : ''),
-    ...pair('Артикул', kitSku(clean(r.sku))),
-    ...pair('Изделие', r.productId ? h('a', { href: '#products?open=' + r.productId }, clean(r.productName) || clean(r.sku) || 'Открыть изделие') : ''),
-    ...pair('Заказ / поз.', znp ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + encodeURIComponent(clean(r.productionNo) || r.orderId || '') }, '№ ' + znp) : ''),
-    ...pair('Заказчик', clean(r.customer)),
-    ...pair('Срок', dueNode(r)),
-    ...(can ? [] : pair('Исполнитель', r.assignee ? r.assignee.name : 'Без исполнителя')));
-  return h('div', { class: 'dc-top' },
-    h('div', { class: 'dc-chips' }, badge(STATUS, r.status), prioBadge(r)),
-    r.status === 'cancelled' && r.cancelReason ? h('div', { class: 'dc-pause' }, 'Отменена: ' + r.cancelReason) : null,
-    r.photo ? h('img', { class: 'wk-photo', src: PREFIX + r.photo, alt: '' }) : null,
-    grid,
-    section({ title: 'Маршрут', tone: 'main', count: (r.route || []).length, open: true, body: routeSteps(r) }));
-}
-
-/** Исполнитель (из тех, у кого есть вид работ текущего шага) и примечание — сохраняются одной кнопкой. */
-function assignBlock(r, ctx) {
-  const wt = r.status === 'work' ? r.route?.[r.stepIndex] : null;
-  const sel = h('select', { 'aria-label': 'Исполнитель' }, h('option', { value: '' }, '— не назначен —'));
-  const note = h('textarea', { rows: 3, maxlength: 500, 'aria-label': 'Примечание', placeholder: 'Примечание (необязательно)' });
-  note.value = r.note || '';
-  const hint = h('div', { class: 'hint' });
-  const all = button({ label: 'Показать всех сотрудников', kind: 'ghost', size: 'S', onClick: () => fill(true) }); all.hidden = true;
-  async function fill(everyone) {
-    let list;
-    try { list = everyone || !wt?.workTypeId ? await people() : (await api('/work-tasks/people', { query: { workTypeId: wt.workTypeId } })).items.map((p) => ({ value: p.id, label: p.name })); }
-    catch { list = []; }
-    if (r.assigneeId && !list.some((p) => p.value === r.assigneeId)) list = [{ value: r.assigneeId, label: r.assignee?.name || 'Исполнитель' }, ...list];
-    sel.replaceChildren(h('option', { value: '' }, '— не назначен —'), ...list.map((p) => h('option', { value: p.value }, p.label)));
-    sel.value = r.assigneeId || '';
-    enhanceSelect(sel, { force: true });
-    const limited = !everyone && !!wt?.workTypeId;
-    hint.textContent = limited ? (list.length ? `Показаны сотрудники с видом работ «${wt.name}».` : `С видом работ «${wt.name}» сотрудников нет. Вид работ добавляется в «Справочники → Сотрудники».`) : '';
-    all.hidden = !limited;
-  }
-  const save = button({ label: 'Сохранить', kind: 'primary', size: 'S', onClick: async (e) => {
-    const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
-    try { const body = {}; if ((sel.value || null) !== (r.assigneeId || null)) body.assigneeId = sel.value || null; if (note.value.trim() !== (r.note || '')) body.note = note.value.trim();
-      if (!Object.keys(body).length) { toast('Ничего не изменилось'); b.disabled = false; b.classList.remove('is-busy'); return; }
-      const saved = await api('/work-tasks/' + r.id, { method: 'PATCH', body }); toast('Сохранено'); ctx.setRow(saved); }
-    catch (err) { toastError(err, 'сохранить'); b.disabled = false; b.classList.remove('is-busy'); }
-  } });
-  const box = section({ title: 'Исполнитель и примечание', tone: 'who', open: true, cls: 'wk-assign', body: [
-    h('label', { class: 'field' }, h('span', null, 'Исполнитель'), sel), hint, all,
-    h('label', { class: 'field' }, h('span', null, 'Примечание'), note), h('div', { class: 'spec-acts' }, save)] });
-  sel.disabled = true; fill(false).then(() => { sel.disabled = false; });
-  return box;
-}
-
-/** «Начал / Закончил» текущего шага плана позиции (C047 Э3): факт ставится из карточки задания, в составе позиции — только чтение. */
-function factBlock(r) {
-  if (r.status !== 'work') return null;
-  const stepId = r.route?.[r.stepIndex]?.stepId;
-  if (!stepId) return null; // без плана позиции факт отмечается в Ганте
-  const box = h('div');
-  const stamp = (v) => (v ? new Date(v).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'не отмечено');
-  async function paint() {
-    box.replaceChildren(busyBlock('факт'));
-    try {
-      const plan = await api(`/orderline-plans/by-income/${r.incomeId}`);
-      const step = (plan.steps || []).find((s) => String(s.id) === String(stepId));
-      const started = step?.startedAt, finished = step?.finishedAt;
-      box.replaceChildren(sideNote(`Начат: ${stamp(started)}. Закончен: ${stamp(finished)}.`),
-        actions(
-          button({ label: 'Начал', size: 'S', disabled: !!started, onClick: (ev) => mark(plan.id, stepId, 'start', ev) }),
-          button({ label: 'Закончил', size: 'S', disabled: !!finished, onClick: (ev) => mark(plan.id, stepId, 'finish', ev) })));
-    } catch (e) { box.replaceChildren(failBlock(e, paint)); }
-  }
-  async function mark(planId, sid, what, ev) {
-    const t = ev?.currentTarget; t?.classList.add('is-busy');
-    try {
-      await markStep(planId, sid, what);
-      toast(what === 'start' ? 'Начало отмечено' : 'Окончание отмечено');
-      window.dispatchEvent(new CustomEvent('data-changed'));
-      await paint();
-    } catch (e) { toastError(e, 'отметить шаг'); }
-    t?.classList.remove('is-busy');
-  }
-  paint();
-  return section({ title: 'Факт работы', tone: 'who', open: true, body: box });
-}
-
-/** «Отменить»: причина обязательна. Свёрнуто, чтобы не нажать случайно. */
-function cancelBlock(r, ctx) {
-  const why = h('textarea', { rows: 2, maxlength: 300, 'aria-label': 'Причина отмены', placeholder: 'Почему отменяем (например, заказчик отказался)' });
-  const btn = button({ label: 'Отменить задание', kind: 'danger', size: 'S', onClick: async (e) => {
-    if (!why.value.trim()) { toast('Впишите причину отмены'); why.focus(); return; }
-    const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
-    try { const saved = await api(`/work-tasks/${r.id}/cancel`, { method: 'POST', body: { reason: why.value.trim() } }); toast(`${r.code} отменена`); ctx.setRow(saved); }
-    catch (err) { toastError(err, 'отменить'); b.disabled = false; b.classList.remove('is-busy'); }
-  } });
-  return section({ title: 'Отменить задание', tone: 'neutral', cls: 'wk-cancel', body: [h('p', { class: 'muted' }, 'Позиция освободится — её можно будет запустить заново.'), h('label', { class: 'field' }, h('span', null, 'Причина'), why), btn] });
-}
-
 export const work = {
   id: 'work',
   kind: 'Задача в работе',
@@ -269,7 +157,7 @@ export const work = {
       side: (r) => [badge(STATUS, r.status), r.status === 'work' ? h('span', { class: 'muted' }, ' ' + stepText(r)) : null],
       thumb: (r) => (r.photo ? h('img', { class: 'thumb', src: PREFIX + r.photo, alt: '', loading: 'lazy' }) : null),
     },
-    gantt: { mount: mountScheduleView }, // вид «Гант» — тот же экран, что раздел «Гант» (work-schedule.js)
+    gantt: { mount: mountScheduleView, searchPlaceholder: 'Заказ, изделие, работа, исполнитель…' },
     board: {
       default: true,
       mount: mountWorkBoard,
@@ -297,30 +185,7 @@ export const work = {
     },
   },
 
-  card: {
-    heading: (r) => `${r.code} · ${r.title}`,
-    subheading: (r) => stepText(r),
-    gallery: () => [],
-    top: (r) => topBlock(r),
-    view: () => [],
-    extra: (r, ctx) => {
-      if (!session.canEdit) return r.note ? h('div', { class: 'dc-note' }, r.note) : null;
-      return stack(factBlock(r), r.status === 'cancelled' ? (r.note ? h('div', { class: 'dc-note' }, r.note) : null) : assignBlock(r, ctx), r.status === 'waiting' || r.status === 'work' ? cancelBlock(r, ctx) : null);
-    },
-    actions: (r) => {
-      const run = (fn) => async (row, ctx) => { const saved = await fn(row); if (saved) ctx.setRow(saved); };
-      const last = (r.route || []).length - 1;
-      if (r.status === 'cancelled') return [];
-      if (r.status === 'done') return [{ label: 'Вернуть в работу', primary: true, title: 'Вернуть на последний шаг маршрута', run: run((row) => call(row, row.route[last] ? (row.route[last].workTypeId || 'generic') : 'waiting')) }];
-      const out = [];
-      if (r.status === 'waiting') out.push({ label: 'Взять в работу', primary: true, title: 'Начать с первого шага маршрута', run: run((row) => nextStep(row)) });
-      else if (r.stepIndex < last) out.push({ label: 'Следующий шаг: ' + r.route[r.stepIndex + 1].name, primary: true, run: run((row) => nextStep(row)) });
-      out.push({ label: 'Готово', primary: r.status === 'work' && r.stepIndex >= last, title: 'Все работы сделаны', run: run((row) => call(row, 'done')) });
-      if (r.status === 'work') out.push({ label: 'Вернуть в ожидание', more: true, run: run((row) => call(row, 'waiting')) });
-      out.push({ label: 'Отменить…', more: true, run: async () => { const d = document.querySelector('.wk-cancel'); if (!d) return; d.open = true; d.scrollIntoView({ block: 'center', behavior: 'smooth' }); d.querySelector('textarea')?.focus(); } });
-      return out;
-    },
-  },
+  card: workCard({ status: STATUS, clean, dueNode, prioBadge, people, call, nextStep }),
 
   remove: {
     text: (r) => `Удалить задание ${r.code} «${r.title}»? Позицию можно будет запустить заново.`,

@@ -13,6 +13,7 @@ export const steps = new Map();
 
 export const partOf = (b) => b.partName || 'Изделие целиком';
 export const titleOf = (b) => `${partOf(b)} · ${b.workTypeName || 'работа'}`;
+export const typeOf = (b) => String(b.workTypeId || b.workTypeName || '');
 
 /** Запомненный вид (линза, масштаб, раскрытое): localStorage `dc-gantt-*`. */
 export function pref(key, fallback) {

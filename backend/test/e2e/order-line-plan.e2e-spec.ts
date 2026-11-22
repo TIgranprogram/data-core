@@ -96,4 +96,23 @@ describe('Order line plans (состав позиции)', () => {
       await orders.updateOne({ _id: key }, { $unset: { activeArchiveVersion: '' } });
     }
   });
+
+  it('Гант: диапазон отдаёт ревизию шага, второй перенос по старой полосе отклоняется', async () => {
+    const current = (await http().get('/api/orderline-plans/by-income/' + line).set(auth()).expect(200)).body;
+    const stepId = current.steps[0].id;
+    const url = '/api/orderline-plans/' + current.id + '/steps/' + stepId;
+    const bar = async () => {
+      const schedule = await http().get('/api/work-schedule').set(auth())
+        .query({ incomeId: line, from: '2026-11-23', to: '2026-11-27' }).expect(200);
+      return schedule.body.bars.find((b: { stepId: string }) => b.stepId === stepId);
+    };
+    const initial = await http().patch(url).set(auth()).send({ start: '2026-11-23', end: '2026-11-23' }).expect(200);
+    const seen = await bar();
+    expect(seen).toMatchObject({ rev: initial.body.rev, start: '2026-11-23' });
+    expect(seen.rev).toBeGreaterThan(0);
+    const moved = await http().patch(url).set(auth()).send({ rev: seen.rev, start: '2026-11-24' }).expect(200);
+    expect(moved.body.bar).toMatchObject({ rev: seen.rev + 1, start: '2026-11-24' });
+    await http().patch(url).set(auth()).send({ rev: seen.rev, start: '2026-11-25' }).expect(409);
+    expect(await bar()).toMatchObject({ rev: moved.body.rev, start: '2026-11-24' });
+  });
 });

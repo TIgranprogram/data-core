@@ -32,6 +32,7 @@ describe('C053: задания без плана позиции — полосы
       ['Сварка', 'work', '2026-11-04', '2026-11-06', false],
     ]);
     expect(bars[0]).toMatchObject({ orderNo: '11-26', productName: 'Скамья', hue: 3, planId: '' });
+    expect(bars[0]).not.toHaveProperty('rev');
   });
 
   it('у позиции есть план — задание не дублируется', async () => {

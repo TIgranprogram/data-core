@@ -13,6 +13,7 @@ export const LINKS = [
   ['salesorders', 'products', 'кандидаты для пополнения каталога через импорт'],
   ['docs', 'products', 'исходные паспорта для импорта изделий'],
   ['salesorders', 'design', 'новое изделие, когда всё распределено'],
+  ['design', 'salesorders', 'состояние проектирования по позиции заказа'],
   ['salesorders', 'matching', 'позиции без изделия'], ['products', 'matching', 'изделия-кандидаты'], ['matching', 'salesorders', 'изделие в позиции'],
   ['gantt', 'master', 'шаги исполнителей'], ['master', 'work', 'отметки «Начал / Закончил»'],
   ['salesorders', 'shortage', 'позиции в работе'], ['stock', 'shortage', 'свободный остаток'], ['shortage', 'requests', 'заявка на недостающее'], ['design', 'products', 'созданное изделие'],

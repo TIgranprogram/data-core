@@ -16,6 +16,8 @@ import { taskBars } from './task-bars';
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 export type BarStatus = 'plan' | 'work' | 'done';
 export interface Bar {
+  /** Версия плана позиции для переноса шага. У полос старого задания без плана её нет. */
+  rev?: number;
   stepId: string; planId: string; incomeId: string; orderNo: string | null; /** производственный номер заказа (C053) */ productionNo?: string | null; title: string; partName: string; workTypeName: string; /** id вида работ шага */ workTypeId: string | null;
   assigneeId: string | null; /** 'ГГГГ-ММ-ДД', end включительно */ start: string; end: string; hours: number; status: BarStatus;
   /** Факт-отметки шага и норма на 1 шт. */
@@ -109,6 +111,7 @@ export class WorkScheduleService {
         }
         const dl = deadlineOf.get(String(inc.orderId)) ?? null;
         out.push({
+          rev: plan.rev,
           stepId: String(s._id), planId: String(plan._id), incomeId: String(plan.incomeId), orderNo: (orderOf.get(String(inc.orderId))?.orderNo as string | undefined) ?? (inc.orderNo as string | undefined) ?? null, productionNo: (orderOf.get(String(inc.orderId))?.productionNo as string | undefined) || null, title: String(inc.title ?? ''),
           partName: s.partRowId ? partName.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT, workTypeName: typeName.get(String(s.workTypeId))!, workTypeId: idOf(s.workTypeId),
           assigneeId: idOf(s.assigneeId), start: isoDay(sched[i].start), end: isoDay(sched[i].end),

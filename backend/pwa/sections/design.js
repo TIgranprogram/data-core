@@ -7,7 +7,7 @@ import { designSide } from './design-side.js';
 import { staffOptions } from './passports/common.js';
 import { taskMenu } from './design-menu.js';
 import { askAssignee, askReason, batchMoveTasks } from './design-data.js';
-import { carousel } from '../ui/kit/gallery.js';
+import { designTaskCard } from './design-card.js';
 import { boardCard } from '../ui/kit/screens/blocks.js';
 import { discussionBlock, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickerRow, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
@@ -114,67 +114,6 @@ const boardMulti = {
   run: (rows) => batchMoveTasks(rows, people),
 };
 
-// ---------- карточка: шапка, сводка, галерея ----------
-const pair = (k, v, cls) => (v === null || v === undefined || v === '' ? [] : [h('dt', { class: cls }, k), h('dd', { class: cls }, v)]);
-/** Фото для карусели: свои фото задачи (в т. ч. из сообщений), иначе фото изделия; без дублей. */
-export function taskPics(r) {
-  const seen = new Set();
-  const out = [];
-  for (const p of r.photos || []) if (p.url && !seen.has(p.url)) { seen.add(p.url); out.push(p); }
-  if (!out.length && r.photo) out.push({ url: r.photo, thumb: r.photo });
-  return out;
-}
-function topBlock(r, ctx) {
-  const can = session.canEdit;
-  const znp = clean(r.productionNo);
-  const znpText = [znp, (r.seqNo ?? r.lineNo) != null ? String(r.seqNo ?? r.lineNo) : ''].filter(Boolean).join(' / ');
-  const assign = async () => {
-    const who = await askAssignee(await people(), { okText: 'Назначить' });
-    if (!who) return;
-    try { ctx.setRow(await api('/design-tasks/' + r.id, { method: 'PATCH', body: { assigneeId: who } })); } catch (e) { toastError(e, 'назначить исполнителя'); }
-  };
-  const who = r.assignee
-    ? h(can ? 'button' : 'span', { class: 'dc-who', type: can ? 'button' : undefined, onclick: can ? assign : undefined }, h('span', { class: 'avatar sm', title: r.assignee.name, 'aria-label': 'Исполнитель: ' + r.assignee.name }, r.assignee.initials), ' ' + r.assignee.name)
-    : h(can ? 'button' : 'span', { class: 'dc-who t-none', type: can ? 'button' : undefined, onclick: can ? assign : undefined }, 'не назначен');
-  const qty = r.qty ?? r.spec?.qty ?? null;
-  const unit = clean(r.unit) || clean(r.spec?.unit) || 'шт';
-  const ask = async (e) => {
-    const b = e.currentTarget; b.classList.add('is-busy'); b.disabled = true;
-    try { await api(`/design-tasks/${r.id}/notes`, { method: 'POST', body: { text: 'Уточните, пожалуйста, сколько изделий нужно изготовить.', kind: 'question' } }); toast('Вопрос менеджеру отправлен'); b.textContent = 'Вопрос отправлен'; b.classList.remove('is-busy'); }
-    catch (err) { toastError(err, 'отправить вопрос'); b.classList.remove('is-busy'); b.disabled = false; }
-  };
-  const made = qty ? h('span', { class: 'kv-qty' }, `${qty} ${unit}`)
-    : h('span', { class: 'kv-warn' }, 'не указано ', can ? button({ label: 'Уточнить у менеджера', kind: 'ghost', size: 'S', onClick: ask }) : null);
-  const grid = h('dl', { class: 'kv-grid' },
-    ...pair('Изготовить', made, 'kv-full'),
-    ...pair('Артикул', kitSku(clean(r.sku))),
-    ...pair('№ заказа / поз.', znpText ? h('a', { class: 'ref-orders', href: '#salesorders?open=' + encodeURIComponent(znp || r.orderId || '') }, znpText) : ''),
-    ...pair('Название в договоре', clean(r.customerTitle), 'kv-full'),
-    ...pair('Срок', h('span', null, dueNode(r), r.deadline && r.deadlineFromOrder ? h('span', { class: 'muted' }, ' · из заказа') : null)),
-    ...pair('Исполнитель', who));
-  const gal = carousel(taskPics(r), { onAdd: can ? () => ctx.openTab('media') : null }); // «+ фото» — вкладка «Фото и стикеры»
-  return h('div', { class: 'dc-top' },
-    h('div', { class: 'dc-chips' }, badge(STATUS, r.status), prioBadge(r)),
-    (r.status === 'paused' || r.status === 'cancelled') && r.pauseReason ? h('div', { class: 'dc-pause' }, (r.status === 'cancelled' ? 'Отменена: ' : 'Пауза: ') + r.pauseReason) : null,
-    grid, gal.el);
-}
-/** «Изделие» из разбора ЗНП: пустые поля скрыты, нет ни одного — блока нет. Исходный текст — свёрнуто. */
-function specBlock(r) {
-  const sp = r.spec;
-  if (!sp) return null;
-  const kids = [['Габариты', clean(sp.size)], ['Крепление', clean(sp.mount)], ['Покрытие', clean(sp.cover)], ['RAL', clean(sp.ral)], ['Доп.', clean(sp.extra)]].flatMap(([k, v]) => pair(k, v));
-  const raw = clean(sp.raw);
-  if (!kids.length && !raw) return null;
-  return section({ title: 'Изделие', tone: 'main', open: true, cls: 'dc-prod', body: [
-    kids.length ? h('dl', { class: 'kv-grid' }, ...kids) : null,
-    raw ? section({ title: 'Исходный текст позиции заказа', tone: 'neutral', cls: 'dc-raw', body: h('div', { class: 'dc-note' }, raw) }) : null] });
-}
-function noteBlock(text) {
-  const p = h('div', { class: 'dc-note clip3' }, text);
-  const btn = button({ label: 'Показать полностью', kind: 'ghost', size: 'S', onClick: () => { const on = p.classList.toggle('clip3'); btn.textContent = on ? 'Показать полностью' : 'Свернуть'; } });
-  return section({ title: 'Примечание', tone: 'main', body: [p, btn] });
-}
-
 export const design = {
   id: 'design',
   kind: 'Задача проектирования',
@@ -251,39 +190,8 @@ export const design = {
     },
   },
 
-  card: {
-    heading: (r) => `${r.code} · ${title(r)}`,
-    subheading: () => '',
-    gallery: () => [],
-    top: (r, ctx) => topBlock(r, ctx), // сведения (кто, срок, кол-во, фото) — над вкладками
-    view: () => [],
-    actionsInHead: true,
-    // вкладки (C052): Задача · Обсуждение · Фото и стикеры
-    tabs: (r) => [
-      { key: 'task', label: 'Задача', blocks: (row) => {
-        const kids = [specBlock(row), row.note ? noteBlock(row.note) : null].filter(Boolean);
-        return kids.length ? kids : h('p', { class: 'muted small' }, 'Описания изделия и примечания нет — всё главное в шапке.');
-      } },
-      { key: 'talk', label: 'Обсуждение', count: r.notesCount || undefined, tone: r.openQuestions > 0 ? 'warn' : undefined,
-        blocks: (row, ctx) => discussionBlock(row, ctx, () => { const i = Math.max(0, taskPics(row).findIndex((p) => p.source === 'note')); (document.querySelectorAll('.pgal-th:not(.pgal-add)')[i] || document.querySelector('.pgal-img'))?.click(); document.querySelector('.pgal')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }) },
-      { key: 'media', label: 'Фото и стикеры', blocks: async (row, ctx) => {
-        const can = session.canEdit;
-        const ph = photosBlock(row, ctx, can);
-        ph.classList.add('dc-photos');
-        ph.open = true;
-        return [ph, stickersBlock(row, await visibleStickers(), ctx, can)];
-      } },
-    ],
-    actions: (r) => {
-      const go2 = (to, label, primary, more) => ({ label, primary, more, run: async (row, ctx) => { const saved = await moveTask(row, to); if (saved) ctx.setRow(saved); } });
-      const cancel = go2('cancelled', 'Отменить задачу', false, true);
-      if (r.status === 'queue') return [go2('work', 'Взять в работу', true), go2('paused', 'Приостановить', false, true), cancel];
-      if (r.status === 'work') return [go2('done', 'Завершить', true), go2('paused', 'Приостановить', false, true), go2('queue', 'Вернуть на распределение', false, true), cancel];
-      if (r.status === 'paused') return [go2(r.assigneeId ? 'work' : 'queue', r.assigneeId ? 'Возобновить' : 'Вернуть на распределение', true), go2('done', 'Завершить'), cancel];
-      if (r.status === 'cancelled') return [go2('queue', 'Вернуть на распределение', true)];
-      return [go2('work', 'Вернуть в работу')];
-    },
-  },
+  card: designTaskCard({ title, dueNode, prioBadge, status: STATUS, moveTask, people,
+    blocks: { discussionBlock, photosBlock, stickersBlock, visibleStickers } }),
 
   form: {
     fields: async (row) => {

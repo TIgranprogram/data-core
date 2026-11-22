@@ -96,6 +96,7 @@ const sessionStub = () => Promise.resolve({ withTransaction: (write: () => Promi
 
 describe('DesignService', () => {
   let tasks: Coll, orders: Coll, incomes: Coll, persons: Coll, products: Coll, photos: Coll, marks: Coll, stickers: Coll;
+  let work: Coll;
   let service: DesignService, board: DesignBoardService, stickerSvc: DesignStickerService, extras: DesignExtrasService;
   let seq: number;
   const id = () => new Types.ObjectId();
@@ -105,7 +106,8 @@ describe('DesignService', () => {
     [tasks, orders, incomes, persons, products, photos, marks, stickers] = [new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll()];
     tasks.uniqueSparse = 'openIncomeId';
     seq = 0;
-    const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos, designtasks: tasks, designnotes: new Coll() };
+    work = new Coll();
+    const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos, designtasks: tasks, designnotes: new Coll(), worktasks: work };
     const connection = { startSession: sessionStub, db: { collection: (n: string) => by[n] } };
     const counters = { nextSeq: jest.fn(async () => ++seq) };
     service = new DesignService(connection as never, tasks as never, counters as never, marks as never, { safe: async () => true } as never, { recheck: async () => undefined } as never);
@@ -130,6 +132,35 @@ describe('DesignService', () => {
     await expect(service.update(t.id, { status: 'paused', pauseReason: '  ' })).rejects.toThrow('причину');
     const w = await service.update(t.id, { status: 'work', assigneeId: String(personId) });
     expect(w).toMatchObject({ status: 'work', assignee: { name: 'Иванов Пётр', initials: 'ИП' } });
+  });
+
+  it('карточка читает положение позиции в производстве независимо от изделия и завершения задачи проектирования', async () => {
+    const standalone = await service.create({ title: 'Вне заказа' });
+    expect((await service.get(standalone.id)).production).toEqual({ state: 'standalone' });
+    const task = await service.create({ incomeId: String(line2), productId: String(prodId) });
+    const detail = () => service.get(task.id);
+    expect(await detail()).toMatchObject({ productId: String(prodId), production: { state: 'no-product' } });
+    expect((await service.update(task.id, { status: 'done' })).production).toEqual({ state: 'no-product' });
+    const actual = id();
+    incomes.rows[1].productId = actual;
+    products.rows.push({ _id: actual, name: 'Изделие позиции', deletedAt: new Date() });
+    expect((await detail()).production).toEqual({ state: 'no-product' });
+    products.rows[1].deletedAt = null;
+    expect((await detail()).production).toEqual({ state: 'ready-for-review', productId: String(actual) });
+    work.rows.push({ incomeId: line2, seq: 15, status: 'done' }, { openIncomeId: line2, seq: 16, deletedAt: new Date() });
+    expect((await detail()).production.state).toBe('ready-for-review');
+    work.rows.push({ openIncomeId: line2, seq: 17, note: 'Внутренняя запись цеха' });
+    expect((await detail()).production).toEqual({ state: 'in-work', productId: String(actual), workCode: 'W-17' });
+    orders.rows[0].activeArchiveVersion = 1;
+    expect((await detail()).production).toEqual({ state: 'contract-closed', productId: String(actual) });
+    incomes.rows[1].cancelledAt = new Date();
+    expect((await detail()).production).toEqual({ state: 'no-position' });
+    incomes.rows[1].cancelledAt = null;
+    incomes.rows[1].orderId = id();
+    expect((await detail()).production).toEqual({ state: 'no-position' });
+    const lookup = jest.spyOn(work, 'findOne');
+    expect((await service.list()).items[0]).not.toHaveProperty('production');
+    expect(lookup).not.toHaveBeenCalled();
   });
 
   it('свободная задача: нужно название; свои срок и приоритет; ответ без цен', async () => {

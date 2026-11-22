@@ -15,7 +15,7 @@ import { ProductionOrdersService } from '../salesorders/production-orders.servic
 import type { DesignTaskDto, FromOrderDto } from './dto/design-task.dto';
 import { DesignOrder, type DesignOrderDocument } from './design-order.schema';
 import { DESIGN_STATUSES, DesignTask, type DesignStatus, type DesignTaskDocument } from './design-task.schema';
-import { presentTasks } from './design-present';
+import { designProduction, presentTasks } from './design-present';
 
 type Doc = Record<string, unknown>;
 const isDup = (e: unknown) => (e as { code?: number }).code === 11000;
@@ -93,8 +93,14 @@ export class DesignService {
     return doc as Doc;
   }
 
-  async get(id: string) {
+  private async presentOne(id: string) {
     return (await presentTasks(this.connection, [await this.findRaw(id)]))[0];
+  }
+
+  async get(id: string) {
+    const task = await this.findRaw(id);
+    const [[view], production] = await Promise.all([presentTasks(this.connection, [task]), designProduction(this.connection, task)]);
+    return { ...view, production };
   }
 
   /** Правила состояния: «в работе» — с исполнителем, «приостановлена» — с причиной. */
@@ -220,7 +226,7 @@ export class DesignService {
     await this.markQuiet(f.orderId, userId);
     await this.notifyAssigned(doc, f.assigneeId, userId);
     if (!f.assigneeId) await this.notifyUnassigned(doc, userId);
-    return this.get(String(doc._id));
+    return this.presentOne(String(doc._id));
   }
 
   /** Задача на каждую позицию заказа (или выбранные); у кого уже есть открытая — пропуск, повтор дублей не создаёт. */
@@ -347,6 +353,6 @@ export class DesignService {
       if (isDup(e)) throw new ConflictException('На эту позицию уже есть открытая задача');
       throw e;
     }
-    return this.get(id);
+    return this.presentOne(id);
   }
 }
