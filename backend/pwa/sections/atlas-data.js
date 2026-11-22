@@ -225,13 +225,13 @@ export const NODES = [
     code: ['backend/src/modules/work', 'backend/src/modules/order-line-plan', 'backend/pwa/sections/work.js', 'backend/pwa/sections/work-card.js', 'backend/pwa/sections/order-work.js', 'backend/pwa/sections/work-facts.js'] },
   { id: 'gantt', tpl: 'summary', tplStatus: 'legacy', band: 'make', col: 2, sec: null, href: '#workschedule', t: 'Гант', l: ['сроки по людям', 'и позициям'],
     inside: [
-      { id: 'po-poziciyam', t: 'По заказам', l: 'заказ › позиция › часть › шаги', in: ['work'] },
-      { id: 'po-lyudyam', t: 'По людям', l: 'человек › позиция › шаги', in: ['staff'] },
-      { id: 'polosa-shaga', t: 'Полоса шага', l: 'цвет — вид работ, рамка — статус, ромб — срок' },
+      { id: 'po-poziciyam', t: 'По заказам', l: 'заказ › позиция › часть изделия (если задана) › операция', in: ['work'] },
+      { id: 'po-lyudyam', t: 'По людям', l: 'исполнитель › позиция › операция', in: ['staff'] },
+      { id: 'polosa-shaga', t: 'Полоса операции', l: 'тон — вид работ, пунктир — план, нижняя красная черта — просрочка' },
       { id: 'peredat-rabotu', t: 'Передать работу', l: 'перетащить полосу на другого человека, даты сохраняются', out: ['master'] },
       { id: 'moi-zadaniya', t: 'Мои задания', l: 'у исполнителя — свои шаги на «Сегодня»' },
     ],
-    rules: ['Сдвиг полосы меняет даты операции. План позиции учитывает рабочие дни. Срок заказа остаётся прежним.', 'Если план позиции уже изменил другой сотрудник, обновите Гант и повторите перенос.'],
+    rules: ['«Обзор работ» показывает загруженные операции. «День», «Неделя» и «Месяц» меняют масштаб. «Сегодня» переводит к текущей дате.', 'Сдвиг полосы меняет даты операции. План позиции учитывает рабочие дни. Срок заказа остаётся прежним.', 'Если план позиции уже изменил другой сотрудник, обновите Гант и повторите перенос.'],
     docs: ['docs/MAP.md — order-line-plan, work, my-tasks'], tech: 'worktasks, orderlineplans',
     code: ['backend/src/modules/order-line-plan', 'backend/src/modules/work', 'backend/src/modules/my-tasks', 'backend/pwa/sections/work-schedule.js'] },
 

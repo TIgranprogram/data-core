@@ -4,7 +4,7 @@ import { patch } from '../core/router.js';
 import { actions, busyBlock, button, empty, failBlock, funnel, hint, openSide, planner, segmented, stack, toast, toastError } from '../ui/kit/index.js';
 import { filterPanel } from '../ui/kit/filter-panel.js';
 import { buildModel } from './work-schedule-tree.js';
-import { DAY, NONE, SCHEDULE, day, dmy, iso, partOf, pref, savePref, startOfWeek, steps, typeOf } from './work-schedule-shared.js';
+import { DAY, NONE, SCHEDULE, day, dmy, iso, partOf, pref, savePref, startOfWeek, steps, typeOf, workLabel, isLegacyCommonWork } from './work-schedule-shared.js';
 export { wsStep } from './work-schedule-step.js';
 
 /*
@@ -16,10 +16,9 @@ export { wsStep } from './work-schedule-step.js';
  */
 const LENSES = ['orders', 'people'];
 const SCALES = ['day', 'week', 'month', 'fit'];
-const DAY_WIDTH = { day: 36, week: 18, month: 6 }; // Ширина дня в эталоне planner.
-const SPAN_DAYS = { day: 28, week: 56, fit: 56, month: 182 };
-// GET /work-schedule принимает период не длиннее года.
-const MAX_RANGE_DAYS = 366;
+// Период загрузки не зависит от масштаба и ширины экрана.
+const PERIOD_DAYS = 182;
+const OVERVIEW_DAYS = 56;
 const SHIFT = { day: 7, week: 14, fit: 14, month: 30 };
 const OPEN_MAX = 400;
 const FILTERS = ['order', 'incomeId', 'part', 'person', 'work'];
@@ -42,7 +41,7 @@ function legendFor(bars, known) {
     const id = typeOf(b);
     if (!id || legend.has(id)) continue;
     const x = types.get(id);
-    legend.set(id, { id, name: x?.name || b.workTypeName, hue: b.hue || 1 });
+    legend.set(id, { id, name: isLegacyCommonWork(b) ? workLabel(b) : x?.name || workLabel(b), hue: b.hue || 1 });
   }
   return [...legend.values()].sort((a, b) => String(a.name).localeCompare(String(b.name), 'ru'));
 }
@@ -65,12 +64,14 @@ const narrow = () => typeof matchMedia === 'function' && matchMedia('(max-width:
 /** Ядро экрана: рисует в el. set(изменения) — сменить параметры адреса (воронка, окно дат); extra — условия списка «В работе». */
 function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   let P = p0, data = null, seq = 0, extra = extra0, touched = false, chart = null;
-  let windowDates = null, viewport = null, loading = false, destroyed = false;
+  let windowDates = null, renderedDates = null, viewport = null, focusDate = null, focusWork = false, loading = false, destroyed = false;
   let lens = LENSES.includes(P.mode) ? P.mode : pref('lens', 'orders');
-  let scaleK = SCALES.includes(P.scale) ? P.scale : pref('scale', 'day'); // «День» по умолчанию: на «Неделе» работа на 1–2 дня — точка
+  let scaleK = SCALES.includes(P.scale) ? P.scale : pref('scale', 'fit');
   if (!LENSES.includes(lens)) lens = 'orders';
-  if (!SCALES.includes(scaleK)) scaleK = 'week';
-  let open = new Set(pref('open', []));
+  if (!SCALES.includes(scaleK)) scaleK = 'fit';
+  const savedOpen = pref('open', null);
+  let open = new Set(savedOpen || []);
+  let chartWidth = 0, shownBars = [];
   const box = stack();
   const top = actions();
   const bannerBox = stack();
@@ -85,33 +86,68 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   const F = () => ({ order: P.order || '', line: P.incomeId || '', part: P.part || '', person: P.person || '', work: P.work || '' });
   const from = () => {
     const parsed = /^\d{4}-\d{2}-\d{2}$/.test(P.from) ? Date.parse(P.from) : NaN;
-    return Number.isFinite(parsed) && iso(parsed) === P.from ? P.from : iso(startOfWeek() - (scaleK === 'month' ? 28 : 7) * DAY);
+    return Number.isFinite(parsed) && iso(parsed) === P.from ? P.from : iso(startOfWeek() - 84 * DAY);
   };
   const fitW = () => Math.max(320, (chartBox.clientWidth || document.querySelector('main')?.clientWidth || innerWidth) - (narrow() ? 148 : 232)); // до первой отрисовки chartBox ещё вне страницы
-  const to = () => {
-    const fitDays = scaleK === 'fit' ? 0 : Math.ceil(fitW() / DAY_WIDTH[scaleK]);
-    const days = Math.min(MAX_RANGE_DAYS, Math.max(SPAN_DAYS[scaleK], fitDays));
-    return iso(Date.parse(from()) + (days - 1) * DAY);
-  };
+
   const barsForSearch = () => {
     const words = norm(P.q).trim().split(/\s+/).filter(Boolean);
     if (!words.length) return data.bars;
     const names = new Map(data.people.map((x) => [String(x.id), x.name]));
     return data.bars.filter((b) => {
-      const line = norm([b.orderNo, b.productionNo, b.productName, b.title, partOf(b), b.workTypeName, b.assigneeId ? names.get(String(b.assigneeId)) : 'Без исполнителя'].join(' '));
+      const line = norm([b.orderNo, b.productionNo, b.productName, b.title, partOf(b), b.workTypeName, workLabel(b), b.assigneeId ? names.get(String(b.assigneeId)) : 'Без исполнителя'].join(' '));
       return words.every((word) => line.includes(word));
     });
   };
   const rememberViewport = () => {
     const scroller = chart?.scroller;
-    if (scroller?.isConnected) viewport = { left: scroller.scrollLeft, top: scroller.scrollTop };
+    if (!scroller?.isConnected) return;
+    const track = scroller.querySelector('.gt-head-track');
+    const label = scroller.querySelector('.gt-head .gt-label');
+    const px = parseFloat(getComputedStyle(track).getPropertyValue('--gt-day'));
+    const center = scroller.scrollLeft + (scroller.clientWidth - label.offsetWidth) / 2;
+    viewport = { date: iso(Date.parse(renderedDates.from) + Math.floor(center / px) * DAY), top: scroller.scrollTop };
   };
+
+  function overviewDates(bars) {
+    if (!bars.length) return windowDates;
+    let first = Infinity, last = -Infinity;
+    for (const bar of bars) {
+      first = Math.min(first, Date.parse(day(bar.start)));
+      last = Math.max(last, Date.parse(day(bar.end)));
+    }
+    const start = Date.parse(windowDates.from), end = Date.parse(windowDates.to);
+    const padding = Math.max(2 * DAY, Math.ceil((OVERVIEW_DAYS - 1 - (last - first) / DAY) / 2) * DAY);
+    return { from: iso(Math.max(start, first - padding)), to: iso(Math.min(end, last + padding)) };
+  }
+
+  function firstWork(bars) {
+    let active = '', first = '';
+    for (const bar of bars) {
+      const date = day(bar.start);
+      if (!first || date < first) first = date;
+      if (bar.status !== 'done' && (!active || date < active)) active = date;
+    }
+    return active || first || windowDates.from;
+  }
+
+  function focusToday() {
+    const now = new Date();
+    focusDate = iso(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    if (scaleK === 'fit') {
+      scaleK = 'day';
+      savePref('scale', scaleK);
+    }
+    if (focusDate < windowDates.from || focusDate > windowDates.to) set({ from: undefined });
+    else paint();
+  }
 
   async function load() {
     if (destroyed) return;
     rememberViewport();
     const my = ++seq;
-    const dates = { from: from(), to: to() };
+    const first = from();
+    const dates = { from: first, to: iso(Date.parse(first) + (PERIOD_DAYS - 1) * DAY) };
     loading = true;
     chartBox.replaceChildren(busyBlock('Гант'));
     try {
@@ -178,7 +214,7 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     const items = [
       over.length && button({ label: `Просрочено: ${over.length}`, kind: 'danger', size: 'S', title: 'Показать просроченные шаги', onClick: () => reveal('orders', over) }),
       none.length && button({ label: `Без исполнителя: ${none.length}`, size: 'S', title: 'Показать шаги без исполнителя', onClick: () => reveal('people', none) }),
-      heavy.length && button({ label: `Перегружены: ${heavy.length} чел.`, size: 'S', title: 'Показать людей, у кого часов больше, чем в рабочем дне', onClick: () => reveal('people', [], heavy) }),
+      heavy.length && button({ label: `Перегружены: ${heavy.length} чел.`, size: 'S', title: 'Показать людей, у кого часов больше, чем в рабочем дне', onClick: () => reveal('people', live.filter((b) => heavy.includes(String(b.assigneeId))), heavy) }),
       design.length && button({ label: `В проектировании: ${design.length}`, kind: 'ghost', size: 'S', title: 'Показать шаги, которые ждут проектирования', onClick: () => reveal('orders', design) }),
     ].filter(Boolean);
     bannerBox.replaceChildren(...(items.length ? [actions(hint('Что горит:'), ...items)] : []));
@@ -192,7 +228,7 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
       { key: 'line', label: 'Позиция', ask: 'выберите позицию', optional: true, value: f.line, values: countBy(bars.filter((b) => pass(b, f, 'line')), (b) => b.incomeId, label) },
       { key: 'part', label: 'Часть', ask: 'выберите часть', optional: true, value: f.part, values: countBy(bars.filter((b) => pass(b, f, 'part')), partOf, partOf) },
       { key: 'person', label: 'Исполнитель', ask: 'выберите исполнителя', optional: true, value: f.person, values: countBy(bars.filter((b) => pass(b, f, 'person')), (b) => b.assigneeId || NONE, (b) => (b.assigneeId ? data.people.find((x) => String(x.id) === String(b.assigneeId))?.name || 'Исполнитель' : 'Без исполнителя')) },
-      { key: 'work', label: 'Вид работ', ask: 'выберите вид работ', optional: true, value: f.work, values: countBy(bars.filter((b) => pass(b, f, 'work')), (b) => b.workTypeName, (b) => b.workTypeName) },
+      { key: 'work', label: 'Вид работ', ask: 'выберите вид работ', optional: true, value: f.work, values: countBy(bars.filter((b) => pass(b, f, 'work')), (b) => b.workTypeName, workLabel) },
     ].filter((s) => s.values.length || s.value);
     const fn = funnel({ steps: steps2, onChange: (key, v) => set({ [key === 'line' ? 'incomeId' : key]: v || undefined }) });
     const n = Object.values(f).filter(Boolean).length;
@@ -205,7 +241,7 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   function modelFor(bars) {
     const { person } = F();
     const people = lens === 'people' && person ? data.people.filter((x) => String(x.id) === person) : data.people;
-    return buildModel({ bars, people, lens });
+    return buildModel({ bars, people, lens, allBars: data.bars });
   }
 
   function paintChart(bars) {
@@ -215,31 +251,43 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     const model = modelFor(bars);
     const filtersOn = !!P.q || Object.values(F()).some(Boolean);
     const lensSeg = segmented({ items: [{ key: 'orders', label: 'По заказам' }, { key: 'people', label: 'По людям' }], value: lens, label: 'Что в строках', onChange: (k) => { lens = k; savePref('lens', k); paint(); } });
+    renderedDates = scaleK === 'fit' ? overviewDates(bars) : windowDates;
+    chartWidth = fitW();
+    shownBars = bars;
+    const defaultOpen = !savedOpen && !touched && bars.length <= 12
+      ? new Set(model.rows.filter((row) => !row.parentId).map((row) => row.id)) : open;
     chart = planner({
       lead: lensSeg.el,
-      rowsTitle: lens === 'people' ? 'Исполнитель · позиция' : 'Заказ · позиция · часть',
-      rows: bars.length ? model.rows : [], bars: model.bars, load: loadBy, ...windowDates, scale: scaleK, canEdit: !!session.canEdit, rowsMovable: lens === 'people',
-      fitWidth: fitW(), autoScroll: false,
-      expanded: filtersOn && !touched ? new Set(model.nodeIds) : open,
+      rowsTitle: lens === 'people' ? 'Исполнитель и операции' : 'Заказы и операции',
+      rows: bars.length ? model.rows : [], bars: model.bars, load: loadBy, ...renderedDates, scale: scaleK, canEdit: !!session.canEdit, rowsMovable: lens === 'people',
+      fitWidth: chartWidth, autoScroll: false,
+      expanded: filtersOn && !touched ? new Set(model.nodeIds) : defaultOpen,
       onToggle: (_id, _isOpen, set2) => { touched = true; open = new Set(set2); saveOpen(); },
       legend: legendFor(bars, data.legend),
       onScale: (k) => {
         if (scaleK === k) return;
+        focusWork = scaleK === 'fit';
         scaleK = k; savePref('scale', k);
-        if (from() !== windowDates.from || to() !== windowDates.to) load(); else paint();
+        paint();
       },
-      onShift: (dir) => set({ from: iso(Date.parse(windowDates.from) + dir * SHIFT[scaleK] * DAY) }),
-      onToday: () => set({ from: undefined }),
-      empty: empty({ title: filtersOn ? 'По этим фильтрам работ нет' : 'В этом периоде работ нет', hint: `${dmy(windowDates.from)} — ${dmy(windowDates.to)}. ${filtersOn ? 'Измените фильтры или сдвиньте период.' : 'Сдвиньте период или запланируйте работы в составе позиции заказа.'}` }),
+      onShift: (dir) => {
+        rememberViewport();
+        const offset = dir * SHIFT[scaleK] * DAY;
+        focusDate = iso(Date.parse(viewport?.date || windowDates.from) + offset);
+        set({ from: iso(Date.parse(windowDates.from) + offset) });
+      },
+      onToday: focusToday,
+      empty: empty({ title: filtersOn ? 'По этим фильтрам работ нет' : 'В этом периоде работ нет', hint: `${dmy(windowDates.from)} — ${dmy(windowDates.to)}. ${filtersOn ? 'Измените фильтры или поиск.' : 'Стрелки над шкалой показывают более ранние или поздние даты.'}` }),
       onOpen: (b) => (b.taskId ? patch({ of: 'work', open: b.taskId }, { replace: false }) : openSide('wsstep', b.id)), onMove: (b, dest) => move(b.id, dest), // задание без плана — его карточка
     });
     chartBox.replaceChildren(chart.el);
     if (chart.scroller.isConnected) {
-      if (viewport) {
-        chart.scroller.scrollLeft = viewport.left;
-        chart.scroller.scrollTop = viewport.top;
-      } else chart.scrollToToday();
+      chart.scroller.scrollTop = viewport?.top ?? 0;
+      const activity = P.from && !focusWork ? windowDates.from : firstWork(bars);
+      chart.scrollToDate(focusDate || (!focusWork && viewport?.date) || activity);
     }
+    focusDate = null;
+    focusWork = false;
   }
 
   async function move(stepId, dest) {
@@ -300,25 +348,31 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     const bars = matches.filter((b) => pass(b, F()));
     paintTop(); paintBanner(bars); paintFilters(matches); paintChart(bars);
   }
+  const resize = new ResizeObserver(() => {
+    if (scaleK === 'fit' && chart?.scroller.isConnected && fitW() !== chartWidth) paintChart(shownBars);
+  });
+  resize.observe(chartBox);
   paintTop();
   requestAnimationFrame(load);
   return {
     update(np, query = extra) {
       const refetch = np.from !== P.from || query.personId !== extra.personId || query.orderId !== extra.orderId;
       const changedFilter = [...FILTERS, 'q'].some((key) => np[key] !== P[key]);
-      const resetToday = !!P.from && !np.from;
+
       P = np;
       extra = query;
-      if (changedFilter || refetch) touched = false;
+      if (changedFilter || refetch) {
+        touched = false;
+        focusWork = changedFilter || !focusDate;
+      }
       if (refetch) {
         paintTop();
         load();
-        if (resetToday) viewport = null;
       } else if (changedFilter && !loading && data) paint();
     },
     resetFilters: () => set(clearFilters),
     reload: load,
-    destroy() { destroyed = true; seq++; },
+    destroy() { destroyed = true; seq++; resize.disconnect(); },
   };
 }
 

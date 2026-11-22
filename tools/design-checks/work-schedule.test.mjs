@@ -144,9 +144,14 @@ test('Гант: период, масштаб, дерево, легенда и п
     const row = (id) => graph.locator(`[data-row="${id}"]`);
     const scroller = graph.locator('.gt-scroll');
     await row('o:order1').waitFor();
+    await button('Свернуть всё').click();
     assert.equal(await graph.locator('[data-bar]').count(), 0);
     await row('o:order1').getByRole('button').click();
     await row('i:item1').getByRole('button').click();
+    assert.equal(await graph.locator('[data-bar]').count(), 0);
+    await row('p:item1:frame').getByRole('button').click();
+    await row('p:item1:roof').getByRole('button').click();
+    await row('s:step1').getByText('Сварка', { exact: true }).first().waitFor();
     assert.equal(await graph.locator('[data-bar]').count(), 2);
     await button('Свернуть всё').click();
     await button('Раскрыть всё').click();
@@ -157,10 +162,10 @@ test('Гант: период, масштаб, дерево, легенда и п
     assert.equal(await graph.locator('[data-bar].hl-on').count(), 2);
     await button('Сварка').click();
     assert.equal(await button('Сварка').getAttribute('aria-pressed'), 'false');
-    await button('Изготовление').click();
+    await button('Работа по позиции').click();
     assert.equal(await graph.locator('[data-bar].hl-on').getAttribute('data-bar'), 'task:old:0');
-    await button('Изготовление').click();
-    for (const scale of ['Неделя', 'Месяц', 'Уместить', 'День']) {
+    await button('Работа по позиции').click();
+    for (const scale of ['Неделя', 'Месяц', 'Обзор работ', 'День']) {
       await button(scale).click();
       await graph.locator('.gt-scroll').waitFor();
       assert.equal(await button(scale).getAttribute('aria-pressed'), 'true', scale);
@@ -295,7 +300,7 @@ test('Гант ограничивает период на широком мон�
     assert.equal(await month.getAttribute('aria-pressed'), 'true');
     const { from, to } = requests.at(-1);
     const days = (Date.parse(to) - Date.parse(from)) / day + 1;
-    assert.equal(days, 366);
+    assert.ok(days > 0 && days <= 366);
     const timeline = await chart.locator('.gt-scroll').evaluate(el => {
       const track = el.querySelector('.gt-head-track');
       const dayWidth = parseFloat(track.style.getPropertyValue('--gt-day'));
@@ -307,8 +312,39 @@ test('Гант ограничивает период на широком мон�
     await month.waitFor();
     const next = requests.at(-1);
     assert.ok(next.from > from);
-    assert.equal((Date.parse(next.to) - Date.parse(next.from)) / day + 1, 366);
+    assert.equal((Date.parse(next.to) - Date.parse(next.from)) / day + 1, days);
     assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
+test('Обзор работ и масштабы сохраняют операции до сегодняшней даты', async () => {
+  const { browser, page, bars, open, requests } = await fixture({ width: 2560, height: 1080 });
+  try {
+    for (const bar of bars) {
+      bar.start = date(Date.parse(bar.start) - 34 * day);
+      bar.end = date(Date.parse(bar.end) - 34 * day);
+    }
+    await open();
+    const chart = page.locator('.k-planner');
+    const button = (name) => chart.getByRole('button', { name, exact: true });
+    assert.equal(await button('Обзор работ').getAttribute('aria-pressed'), 'true');
+    await button('Раскрыть всё').click();
+    const loaded = structuredClone(requests);
+    for (const scale of ['Месяц', 'Обзор работ', 'День', 'Обзор работ']) {
+      await button(scale).click();
+      assert.equal(await chart.locator('[data-bar]').count(), 5);
+      assert.deepEqual(requests, loaded, 'масштаб меняет вид загруженного периода');
+      await chart.locator('[data-bar="step1"]').waitFor();
+      await page.waitForFunction(() => {
+        const bar = document.querySelector('[data-bar="step1"]').getBoundingClientRect();
+        const scroller = document.querySelector('.gt-scroll');
+        const left = scroller.getBoundingClientRect().left;
+        return bar.right > left + scroller.querySelector('.gt-label').offsetWidth && bar.left < left + scroller.clientWidth;
+      });
+    }
+    await button('Сегодня').click();
+    await chart.locator('.gt-today').waitFor();
+    assert.deepEqual(requests, loaded);
   } finally { await browser.close(); }
 });
 
@@ -362,7 +398,7 @@ test('Витрина сохраняет стандартное поведени�
     const { page } = admin;
     await page.goto(origin + '/app/#kit');
     const chart = page.locator('.k-planner.tree').first();
-    await chart.getByRole('button', { name: 'Уместить', exact: true }).click();
+    await chart.getByRole('button', { name: 'Обзор работ', exact: true }).click();
     await chart.getByRole('button', { name: 'Сегодня', exact: true }).click();
     await chart.getByRole('button', { name: 'Раскрыть всё', exact: true }).click();
     assert.equal(await chart.locator('[data-bar]').count(), 4);
@@ -421,6 +457,7 @@ test('Перенос сохраняет даты при назначении, с
     await page.getByRole('button', { name: 'Отменить', exact: true }).click();
     await page.getByText('Перенос отменён').waitFor();
     assert.equal(bars[0].assigneeId, 'anna');
+    await chart.locator('[data-row="ps:anna:step1"] [data-bar="step1"]').waitFor();
     const legacy = chart.locator('[data-bar="task:old:0"]');
     await legacy.waitFor();
     const count = writes.length, start = old.start;

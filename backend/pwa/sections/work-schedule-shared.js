@@ -11,7 +11,11 @@ export const round = (v) => Math.round((Number(v) || 0) * 10) / 10;
 /** stepId → { bar, people } — для панели шага и переноса полосы. */
 export const steps = new Map();
 
-export const partOf = (b) => b.partName || 'Изделие целиком';
+const WHOLE_PRODUCT = 'Изделие целиком';
+export const partOf = (b) => b.partName?.trim() || WHOLE_PRODUCT;
+export const partKeyOf = (b) => b.partRowId || b.partId || (partOf(b) === WHOLE_PRODUCT ? null : partOf(b));
+export const isLegacyCommonWork = (b) => !!b.taskId && !partKeyOf(b) && b.workTypeName?.trim().toLowerCase() === 'изготовление';
+export const workLabel = (b) => isLegacyCommonWork(b) ? 'Работа по позиции' : b.workTypeName?.trim() || 'Работа';
 export const titleOf = (b) => `${partOf(b)} · ${b.workTypeName || 'работа'}`;
 export const typeOf = (b) => String(b.workTypeId || b.workTypeName || '');
 
