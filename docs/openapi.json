@@ -22988,7 +22988,17 @@
             "type": "string"
           },
           "kind": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "contract",
+              "customer_invoice",
+              "customer_order",
+              "offer",
+              "specification",
+              "addendum",
+              "payment_evidence",
+              "acceptance"
+            ]
           },
           "number": {
             "type": "string"
@@ -28098,7 +28108,7 @@
           },
           "done": {
             "type": "boolean",
-            "description": "Готовность личной задачи (of: personal)"
+            "description": "Личная отметка завершения карточки на рабочем столе"
           },
           "tasks": {
             "maxItems": 12,

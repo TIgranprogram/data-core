@@ -145,7 +145,10 @@ function addDocument(kind, record, ctx) {
     title: 'Прикрепить документ', reason: 'Добавление оригинала юридического документа',
     initial: { kind: kind === 'offers' ? 'offer' : 'customer_invoice', revision: '1' },
     fields: [
-      { key: 'kind', label: 'Вид документа', type: 'select', options: opts(DOCUMENT_KINDS) },
+      { key: 'kind', label: 'Вид документа', type: 'select', options: opts(DOCUMENT_KINDS)
+        .filter(option => option.value !== 'customer_order' || (kind !== 'offers' && record.stage !== 'cancelled'
+          && record.legal.sourceNumber && record.legal.sourceDate && record.legal.companySnapshot?.inn
+          && record.legal.counterpartySnapshot?.inn && (record.legal.documents || []).some(document => document.kind === 'contract'))) },
       { key: 'number', label: 'Номер из документа', max: 100 },
       { key: 'date', label: 'Дата из документа', type: 'date' },
       { key: 'revision', label: 'Редакция', required: true, max: 50 },

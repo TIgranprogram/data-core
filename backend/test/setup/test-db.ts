@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { MongooseModule, getConnectionToken } from '@nestjs/mongoose';
 import { Connection, connect, type Mongoose } from 'mongoose';
+import { static as serveStatic } from 'express';
+import { join } from 'path';
 import { AppModule } from '../../src/app.module';
 import { HttpExceptionFilter } from '../../src/common/filters/http-exception.filter';
 import { MulterExceptionFilter } from '../../src/common/filters/multer-exception.filter';
@@ -37,7 +39,7 @@ export interface TestContext {
  * Must be run with `jest --runInBand` so that only one suite bootstraps
  * at a time (each suite clears + re-seeds the same `datacore-test` db).
  */
-export async function createTestApp(options: { strictValidation?: boolean; registerThrottler?: boolean } = {}): Promise<TestContext> {
+export async function createTestApp(options: { strictValidation?: boolean; registerThrottler?: boolean; intakeUploads?: string } = {}): Promise<TestContext> {
   const testDb = process.env.MONGO_DB_TEST ?? 'datacore-test';
   process.env.MONGO_DB = testDb;
   process.env.NODE_ENV = 'test';
@@ -96,6 +98,7 @@ export async function createTestApp(options: { strictValidation?: boolean; regis
   if (options.registerThrottler) app.useGlobalGuards(app.get(ThrottlerBehindAuthGuard));
   registerAppDataBodyParser(app); // как в main.ts
   registerReviewedOriginalRoute(app);
+  if (options.intakeUploads) app.use('/uploads/document-intake', serveStatic(join(options.intakeUploads, 'document-intake')));
   await app.init();
 
   const connection = app.get<Connection>(getConnectionToken());

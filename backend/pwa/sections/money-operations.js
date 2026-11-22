@@ -13,7 +13,7 @@ const articleCell = row => {
 };
 const centers = { office: 'Офис', workshop: 'Цех', smr: 'СМР', order: 'Под заказ' };
 const sources = { invoice: 'Счёт поставщика', request: 'Заявка снабжения', income: 'Оплата заказа', expense: 'Прочий расход', payroll: 'ФОТ' };
-const title = (row) => row.title || row.docNo || row.doc || sources[row.source] || 'Операция';
+export const operationTitle = (row) => row.title || row.docNo || row.doc || sources[row.source] || 'Операция';
 const typeName = (row) => row.type === 'income' ? 'Поступление' : 'Выплата';
 const amountOf = (row) => {
   const isIncome = row.type === 'income';
@@ -27,32 +27,39 @@ const sourceLink = (row) => {
   const href = '#money?' + new URLSearchParams({ of: type, open: id });
   return canFollow(session, href) ? link({ label: 'Исходный документ', onClick: () => patch({ of: type, open: id, new: undefined }) }) : null;
 };
+export function openFinanceOperation(row) {
+  if (row.operationId) patch({ of: 'moneyclassification', open: row.operationId, new: undefined });
+}
 const details = row => row.operationId ? link({ label: row.classificationEditable ? 'Уточнить для отчёта' : 'Просмотреть',
-  onClick: () => patch({ of: 'moneyclassification', open: row.operationId, new: undefined }) }) : null;
+  onClick: () => openFinanceOperation(row) }) : null;
 const description = row => clamp([row.counterpartyName || row.counterparty, row.projectName, row.docNo || row.doc].filter(Boolean).join(' · '), { lines: 2 });
 
 /** Компактные операции сводки и календаря, полная таблица отдельного ручного отбора. */
 export function operationTable(data, { compact = false, calendar = false, pending = false } = {}) {
   return table({
     label: pending ? 'Ожидаемые платежи' : 'Фактические денежные операции',
+    cls: compact ? null : 'fin-ops-list',
     columns: [
-      { label: 'Дата', nowrap: true }, { label: compact ? 'Операция' : 'Факт', wrap: true }, { label: 'Сумма, ₽', num: true, nowrap: true },
-      { label: 'Наша компания' }, { label: 'Статья / путь', wrap: true },
-      ...(compact ? [] : [{ label: 'Контрагент', wrap: true }, { label: 'Объект', wrap: true }, { label: 'Направление' }]),
-      { label: 'Документ / источник', wrap: true },
-      ...(compact ? [] : [{ label: 'Классификация', wrap: true }]),
+      { label: 'Дата', nowrap: true }, { label: 'Операция', wrap: true }, { label: 'Сумма, ₽', num: true, nowrap: true },
+      { label: compact ? 'Наша компания' : 'Стороны', wrap: !compact },
+      { label: 'Статья', wrap: true },
+      ...(compact ? [] : [{ label: 'Объект', wrap: true }]),
+      { label: 'Документ', wrap: true },
     ],
     rows: (data.items || []).map(row => ({ data: row.operationId, cells: [
       date(row.date),
-      compact ? h('div', null, clamp(h('b', null, title(row)), { lines: 2 }), description(row),
+      compact ? h('div', null, clamp(h('b', null, operationTitle(row)), { lines: 2 }), description(row),
         row.beforeStart ? h('span', { class: 'muted' }, 'До начала учёта') : null,
         row.balanceEstimated ? h('span', { class: 'muted' }, 'Оценка в рублях · ' + sourceMoney(row.sourceBalance, row)) : null) : typeName(row),
-      amountOf(row), row.companyName || row.company || 'Не указана',
+      amountOf(row),
+      compact ? row.companyName || row.company || 'Не указана' : h('div', null,
+        clamp(row.counterpartyName || row.counterparty || 'Без контрагента', { lines: 3 }),
+        h('small', { class: 'muted' }, row.companyName || row.company || 'Компания не указана')),
       row.articlePath?.length || !calendar ? articleCell(row) : row.category || '—',
-      ...(compact ? [] : [clamp(row.counterpartyName || 'Не указан', { lines: 3 }), clamp(row.projectName || row.costObject || 'Не указан', { lines: 3 }), centers[row.costCenter] || 'Не указано']),
-      h('div', null, clamp(sources[row.source] || typeName(row), { lines: 2 }), actions(sourceLink(row), compact && !calendar ? details(row) : null)),
-      ...(compact ? [] : [h('span', null, details(row), row.classificationOrigin === 'override' ? ' · Уточнено для отчёта' : '',
-        row.classificationEditable ? '' : ' · ' + (row.classificationReason || row.classificationEditableReason || row.reason || 'Только просмотр'))]),
+      ...(compact ? [] : [h('div', null, clamp(row.projectName || row.costObject || '—', { lines: 3 }),
+        row.costCenter && centers[row.costCenter] ? h('small', { class: 'muted' }, centers[row.costCenter]) : null)]),
+      h('div', null, clamp(sources[row.source] || typeName(row), { lines: 2 }), actions(sourceLink(row), !calendar ? details(row) : null),
+        !compact && row.classificationOrigin === 'override' ? h('small', { class: 'muted' }, 'Уточнено для отчёта') : null),
     ] })),
     empty: { title: 'Операций по этим условиям нет', hint: 'Измените период или фильтры.' },
   });

@@ -23,6 +23,9 @@ const dateOK=(v:unknown)=>!v||(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v
 export function prepareLegal(next:LegalBundleDto,previous?:LegalBundleDto,actorId?:string,context?:{counterpartyId?:unknown;productionNo?:unknown;unmatchedCount?:number;lineCount?:number}):LegalBundleDto {
  const out=JSON.parse(JSON.stringify(next)) as LegalBundleDto;
  if(!Array.isArray(out.documents)||!Array.isArray(out.issues)||!Array.isArray(out.paymentPlan)||!out.signature)throw new BadRequestException('Заполните комплект документов, уточнения, план и состояние подписи');
+ if (!previous && out.documents.some(document => document.kind === 'customer_order')) {
+  throw new BadRequestException('Сначала сохраните договор с оригиналом, затем приложите заказ покупателя');
+ }
  out.documents=out.documents.map(d=>({...d,lineRefs:d.lineRefs||[]}));
  if(previous){for(const key of ['sourceNumber','sourceDate','currency','gross','vatMode','vatRate','vatAmount','companySnapshot','counterpartySnapshot'] as const)if(previous[key]!==undefined&&legalHash(previous[key])!==legalHash(out[key]))throw new ConflictException('Исходные реквизиты неизменяемы: добавьте новую редакцию документа');}
  for(const a of [out.documents,out.issues,out.paymentPlan])if(!Array.isArray(a)||new Set(a.map(x=>x.uid)).size!==a.length)throw new BadRequestException('Идентификаторы документов, этапов и уточнений должны быть уникальны');
@@ -67,6 +70,19 @@ export async function patchLegal(model:Model<any>,id:string,dto:LegalPatchDto,ac
  const hash=legalHash({version:dto.version,reason:dto.reason,legal:dto.legal});
  const receipt=(cur.legalReceipts||[]).find((x:Row)=>x.uid===dto.clientUid);if(receipt){if(receipt.hash!==hash)throw new ConflictException('Ключ операции уже использован с другими данными');return legalPresentation(cur);}
  if(Number(cur.legalVersion||0)!==dto.version)throw new ConflictException('Документ изменился — обновите карточку');
+ const newCustomerOrder = dto.legal.documents.some(document => document.kind === 'customer_order'
+  && !cur.legal?.documents?.some((saved: Row) => saved.uid === document.uid));
+ if (newCustomerOrder) {
+  const source = cur.legal;
+  const number = (value: unknown) => String(value ?? '').normalize('NFKC').trim().toUpperCase().replace(/\s+/g, ' ');
+  const date = cur.contractDate instanceof Date ? cur.contractDate.toISOString().slice(0, 10) : String(cur.contractDate ?? '').slice(0, 10);
+  if (!order || cur.stage === 'cancelled' || !source?.sourceNumber || !source.sourceDate
+    || number(cur.orderNo) !== number(source.sourceNumber) || date !== source.sourceDate
+    || !source.companySnapshot?.inn || !source.counterpartySnapshot?.inn
+    || !source.documents?.some((document: Row) => document.kind === 'contract')) {
+   throw new ConflictException('Для заказа покупателя нужен действующий договор с подтверждёнными номером, датой, сторонами и оригиналом');
+  }
+ }
  if((cur.legalReceipts||[]).length>=200)throw new ConflictException('Достигнут лимит истории операций — обратитесь к администратору');
  const context={counterpartyId:cur.counterpartyId,productionNo:cur.productionNo,lineCount:0,unmatchedCount:0};
  if(dto.legal.issues.some(i=>i.state==='resolved'&&['catalogMatch','productMatching'].includes(i.field))){

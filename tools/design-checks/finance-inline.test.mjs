@@ -69,6 +69,10 @@ async function mount(browser, theme, width) {
           children: [{ id: 'ord:заказ 18/25', name: 'заказ 18/25', values: [165000, 275000], total: 440000 }] }],
       } });
     }
+    if (url.pathname.startsWith('/api/finance/operations/')) {
+      const item = factual.find(row => row.operationId === decodeURIComponent(url.pathname.split('/').at(-1)));
+      return route.fulfill(item ? { json: item } : { status: 404 });
+    }
     if (url.pathname === '/api/finance/operations') {
       queries.push(Object.fromEntries(q));
       const items = factual.filter(row => (q.get('articleId') !== steel.id || row.articlePath.includes(steel.name)) && (!q.get('type') || row.type === q.get('type')) && (!q.get('from') || row.date >= q.get('from'))
@@ -108,11 +112,13 @@ test('C219 раскрывает каскад и факты под выбранн
     await page.getByRole('button', { name: stock.name, exact: true }).click();
     const selected = page.locator('[data-id="' + steel.id + '"]');
     await selected.getByRole('button', { name: /Ноябрь 2025/ }).press('Enter');
-    const operations = selected.locator('+ .k-tree-ins');
+    const operations = selected.locator('+ .fin-tree-entry');
     await operations.getByText('Труба 40 × 40, поставка № 48').waitFor();
     assert.equal(await operations.getByText('Стальной профиль для ограждения').count(), 0);
     assert.equal(await operations.getByText('Монтаж ограждения').count(), 0);
     assert.equal(page.url(), before);
+    assert.equal(await operations.locator('table').count(), 0);
+    assert.equal((await operations.locator('td.day').nth(1).innerText()).replace(/\s/g, ' '), '−138 500,00');
     assert.deepEqual(queries.at(-1), { from: '2025-11-01', to: '2025-11-30', type: 'expense', articleId: steel.id, includeDescendants: '1', page: '1', limit: '20' });
     const staticCell = page.locator('[data-id="result"] td.day').first();
     assert.equal(await staticCell.getAttribute('tabindex'), null);
@@ -121,10 +127,16 @@ test('C219 раскрывает каскад и факты под выбранн
     await staticCell.hover();
     assert.equal(await staticColor(), color);
     await proof(page, 'articles-light-1920.png');
+    await operations.getByText('Труба 40 × 40, поставка № 48').click();
+    const drawer = page.locator('aside.drawer');
+    await drawer.getByText('Фактическая дата', { exact: true }).waitFor();
+    await page.keyboard.press('Escape');
+    await drawer.waitFor({ state: 'detached' });
+    await operations.waitFor();
     await page.keyboard.press('Escape');
     await operations.waitFor({ state: 'detached' });
     await selected.getByRole('button', { name: steel.name, exact: true }).click();
-    await operations.getByText('Стальной профиль для ограждения').waitFor();
+    await page.locator('.fin-tree-entry').getByText('Стальной профиль для ограждения').waitFor();
     assert.equal(page.url(), before);
     await page.getByRole('button', { name: 'Свернуть всё', exact: true }).click();
     await operations.waitFor({ state: 'detached' });
@@ -159,13 +171,16 @@ test('C219 фильтрует заказ, позицию и сотрудника
     await page.getByRole('combobox', { name: 'Позиция заказа', exact: true }).selectOption(position.id);
     await page.getByRole('combobox', { name: 'Сотрудник', exact: true }).selectOption(employee.id);
     await page.getByRole('button', { name: 'Операции', exact: true }).click();
-    await page.getByRole('table', { name: 'Фактические денежные операции' }).waitFor();
+    const facts = page.getByRole('table', { name: 'Фактические денежные операции' });
+    await facts.waitFor();
+    const sizes = await facts.evaluate(table => ({ table: table.scrollWidth, wrap: table.parentElement.clientWidth, cells: [...table.tHead.rows[0].cells].map(cell => [cell.textContent, cell.clientWidth, getComputedStyle(cell).whiteSpace]) }));
+    await proof(page, 'filters-dark-1440.png');
+    assert.ok(sizes.table <= sizes.wrap + 1, JSON.stringify(sizes));
     assert.equal(queries.at(-1).productionNo, '18-25');
     assert.equal(queries.at(-1).salesOrderLineId, position.id);
     assert.equal(queries.at(-1).personId, employee.id);
     const from = await page.getByLabel('С даты', { exact: true }).boundingBox();
     const to = await page.getByLabel('По дату', { exact: true }).boundingBox();
-    await proof(page, 'filters-dark-1440.png');
     assert(from && to && Math.abs(from.y - to.y) < 5, JSON.stringify({ from, to }));
     await page.goto(origin + '/app/#money?tab=calendar&month=2025-11');
     const table = page.getByRole('table', { name: 'Платежи по дням', exact: true });

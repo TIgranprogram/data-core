@@ -56,7 +56,7 @@ export async function preflight(options, dependencies = {}) {
     if (!Number.isSafeInteger(freeBytes) || freeBytes < MIN_FREE) throw new Error();
     return { freeBytes, requiredBytes: MIN_FREE };
   });
-  await check('pdf', 'Чтение текстового PDF', 'Подготовьте Python с PyMuPDF штатной кнопкой подготовки ПК и повторите проверку.', () => pdfProbe(runtime.exec, signal));
+  await check('pdf', 'Чтение текстового PDF', 'Для чтения текста PDF на этом компьютере нужен Python с PyMuPDF.', () => pdfProbe(runtime.exec, signal));
   await check('model', 'Ответ локальной модели по схеме', 'Запустите локальный сервер LM Studio, загрузите выбранную модель и проверьте её имя и локальный адрес.', async () => {
     const endpoint = localModel(modelBase);
     if (!endpoint || typeof model !== 'string' || !model.trim() || model.length > 200 || /[\x00-\x1f\x7f]/.test(model)) throw new Error();

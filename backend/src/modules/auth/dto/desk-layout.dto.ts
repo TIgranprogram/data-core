@@ -81,7 +81,7 @@ class DeskCardDto {
   @IsDateString({ strict: true })
   due?: string;
 
-  @ApiPropertyOptional({ description: 'Готовность личной задачи (of: personal)' })
+  @ApiPropertyOptional({ description: 'Личная отметка завершения карточки на рабочем столе' })
   @ValidateIf(submitted)
   @IsBoolean()
   done?: boolean;
@@ -124,13 +124,13 @@ function deskCard(dto: DeskCardDto): DeskCard {
     }
     return { ...base, of, title, ...(due ? { due } : {}), done };
   }
-  if (title !== undefined || due !== undefined || done !== undefined) {
-    throw new BadRequestException('Название, срок и готовность записи задаются в её исходной карточке');
+  if (title !== undefined || due !== undefined) {
+    throw new BadRequestException('Название и срок записи задаются в её исходной карточке');
   }
   const group = of === 'salesorders' && id.length <= 50 && id.trim() === id && id !== '.' && id !== '..' && !id.includes('://');
   const customer = of === 'partners' && id.startsWith('c:') && id.length > 2 && id.trim() === id;
   if (!OBJECT_ID.test(id) && !group && !customer) throw new BadRequestException('Недопустимый идентификатор карточки');
-  return { ...base, of };
+  return { ...base, of, ...(done === undefined ? {} : { done }) };
 }
 
 /** Проверить поля, зависящие от типа карточки, и сохранить только канонические свойства. */

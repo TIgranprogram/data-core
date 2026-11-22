@@ -6,7 +6,7 @@ export const ISSUE_FIELDS = {
 };
 export const ISSUE_STATES = { unknown: 'Нужно уточнить', conflict: 'Противоречие', not_applicable: 'Не применяется', resolved: 'Заполнено' };
 export const SIGNATURE_STATES = { unknown: 'Не проверено', seller_only: 'В копии подпись продавца', both: 'Подписано обеими сторонами', not_applicable: 'Не применяется' };
-export const DOCUMENT_KINDS = { contract: 'Договор', customer_invoice: 'Счёт покупателю', offer: 'КП', specification: 'Спецификация', addendum: 'Дополнительное соглашение', payment_evidence: 'Подтверждение оплаты', acceptance: 'Акт / УПД' };
+export const DOCUMENT_KINDS = { contract: 'Договор', customer_invoice: 'Счёт покупателю', customer_order: 'Заказ покупателя', offer: 'КП', specification: 'Спецификация', addendum: 'Дополнительное соглашение', payment_evidence: 'Подтверждение оплаты', acceptance: 'Акт / УПД' };
 export const PAYMENT_EVENTS = { signed: 'Подписание договора', advance_received: 'Зачисление аванса', installation_completed: 'Завершение монтажа', acceptance: 'Приёмка', fixed: 'Установленная дата' };
 export const copyLegal = (legal) => JSON.parse(JSON.stringify(legal));
 export const openIssues = (legal) => (legal?.issues || []).filter((x) => ['unknown', 'conflict'].includes(x.state));

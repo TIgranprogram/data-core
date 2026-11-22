@@ -158,7 +158,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     const result = await (await engine()).reviewStatus({ root: settings.root, owner: auth.claims.sub, target: settings.apiBase });
     return { counts: result.counts, items: result.items.map(item => ({
       arrivalId: asText(item.arrivalId, 36), batchId: asText(item.batchId, 36), name: asText(item.name, 400),
-      state: asText(item.state, 32), version: asCount(item.version), hash: asText(item.hash, 64), updatedAt: asText(item.updatedAt, 40),
+      state: asText(item.state, 32), kind: asText(item.kind, 32), version: asCount(item.version), hash: asText(item.hash, 64), updatedAt: asText(item.updatedAt, 40),
       issues: item.issues.map(issue => ({ code: asText(issue.code, 40), message: safeText(issue.message), action: safeText(issue.action) })),
     })) };
   }
@@ -365,7 +365,8 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         if (draft.owner !== auth.claims.sub || draft.target.replace(/\/$/, '') !== settings.apiBase) return fail(403, 'Черновик относится к другой учётной записи или контуру.');
         // История и служебные поля не нужны для просмотра оператором.
         return ok({ arrivalId: body.arrivalId, name: draft.name, version: draft.version, state: draft.state,
-          pages: draft.pages, raw: draft.raw, issues: draft.issues });
+          pages: draft.pages, raw: draft.evidence || draft.raw, kind: draft.kind || draft.proposal?.kind,
+          reference: draft.orderReference, issues: draft.issues });
       }
       if (action === 'retry') {
         const ids = body.arrivalIds;

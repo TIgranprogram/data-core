@@ -38,16 +38,17 @@ describe('C171 — версии и подтверждённая отправка
   };
   beforeAll(async () => {
     folder = await mkdtemp(join(tmpdir(), 'c171-e2e-')); before = process.env.UPLOAD_DIR; process.env.UPLOAD_DIR = folder;
-    ctx = await createTestApp({ strictValidation: true });
+    ctx = await createTestApp({ strictValidation: true, intakeUploads: folder });
     admin = (await loginAsAdmin(ctx.app)).access;
     const user = { username: 'c171-fixture-manager', password: 'local-fixture-password' };
     await http().post('/api/admin/users').set(authHeader(admin)).send({ ...user, role: 'manager' }).expect(201);
     manager = (await http().post('/api/auth/login').send(user).expect(200)).body.access;
     const parties = await ctx.connection.collection('organizations').insertMany([
       { name: 'Поставщик C171', type: ['supplier'], inn: '0107020521', deletedAt: null },
-      { name: 'Плательщик C171', isOurCompany: true, inn: '2312308098', deletedAt: null }]);
+      { name: 'Плательщик C171', isOurCompany: true, inn: '2312308098', shortName: 'ПЛ171', deletedAt: null }]);
     supplierId = String(parties.insertedIds[0]); payerCompanyId = String(parties.insertedIds[1]);
-    for (const name of ['Photo', 'SupplyInvoice', 'SupplyRequest', 'Counter', 'SupplyIntakeReview']) await ctx.connection.models[name].createIndexes();
+    for (const name of ['Photo', 'SupplyInvoice', 'SupplyRequest', 'Counter', 'SupplyIntakeReview', 'SalesOrder', 'Income']) await ctx.connection.models[name].createIndexes();
+    await ctx.connection.collection('salesorders').createIndex({ importKey: 1 }, { unique: true, sparse: true });
   });
   afterAll(async () => {
     await ctx?.cleanup();
@@ -147,5 +148,11 @@ describe('C171 — версии и подтверждённая отправка
     const { stdout } = await promisify(execFile)(process.execPath, [join(__dirname,'../../../tools/document-intake/review-roundtrip.fixture.mjs'), api, folder], { timeout: 45_000 });
     expect(stdout).toContain('PASS');
     expect(await ctx.connection.collection('supplyinvoices').countDocuments({ no: 'В-83' })).toBe(1);
+    const imported = await ctx.connection.collection('salesorders').findOne({ orderNo: 'Д-171' });
+    expect(imported).toMatchObject({ legal: { signature: { state: 'unknown' }, paymentVerification: 'unknown' } });
+    expect(imported?.productionNo).toBeFalsy();
+    expect(imported?.legal.documents.map((doc: { kind: string }) => doc.kind)).toEqual(['contract', 'customer_order']);
+    expect(await ctx.connection.collection('salesorders').countDocuments({ orderNo: 'Д-171' })).toBe(1);
+    expect(await ctx.connection.collection('incomes').countDocuments({ orderId: imported?._id })).toBe(1);
   }, 55_000);
 });

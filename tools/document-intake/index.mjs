@@ -44,7 +44,7 @@ function relatedDocument() {
 }
 
 function checkFormat(name, facts) {
-  if (facts.kind === 'acceptance') relatedDocument();
+  if (['acceptance', 'order'].includes(facts.kind)) relatedDocument();
   if (path.extname(name).toLowerCase() !== '.pdf') {
     throw question('Реквизиты прочитаны, но для сохранения оригинала нужен PDF.',
       'Подготовьте оригинальный текстовый PDF и положите его во «Входящие».');

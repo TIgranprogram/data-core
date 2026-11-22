@@ -18,6 +18,7 @@ export interface DeskTask {
 interface DeskCardBase {
   id: string;
   lane: DeskLane;
+  done?: boolean;
   tasks?: DeskTask[];
 }
 

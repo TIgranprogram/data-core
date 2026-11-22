@@ -7,7 +7,7 @@ import { chromium } from '../../tools/design-checks/node_modules/playwright-core
 import { createPult } from '../server.mjs';
 
 const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'pult-c171-ui-'));
-const output = path.resolve('docs/crew/C171-document-intake-review');
+const output = path.resolve(process.env.DC_INTAKE_UI_PROOF || 'docs/crew/C171-document-intake-review');
 const documents = process.platform === 'win32' ? 'C:\\DataCore\\Проверка счетов' : '/DataCore/Проверка счетов';
 const owner = 'synthetic-manager'; const target = 'http://127.0.0.1:3102/api';
 const arrivalId = '00000000-0000-4000-8000-000000000001';
@@ -27,7 +27,7 @@ const raw = {
 };
 const review = { counts: { pending: 0, checked: 1, question: 1, uploaded: 0 }, items: [
   { arrivalId, name, state: 'question', version: 2, hash: 'a'.repeat(64), issues: [issue] },
-  { arrivalId: '00000000-0000-4000-8000-000000000002', name: 'Счёт 2457 — проверен локально.pdf', state: 'checked', version: 1, hash: 'b'.repeat(64), issues: [] },
+  { arrivalId: '00000000-0000-4000-8000-000000000002', name: 'Счёт 2457 — проверен локально.pdf', kind: 'supplier_invoice', state: 'checked', version: 1, hash: 'b'.repeat(64), issues: [] },
 ] };
 let picked = false; const opened = []; let analyses = 0; let drafts = 0;
 let preparations = 0; let releasePreparation;
@@ -47,7 +47,7 @@ const engine = {
   async reviewStatus(binding) { assert.equal(binding.owner, owner); assert.equal(binding.target, target); return review; },
   async getDraft({ arrivalId: selected }) { assert.equal(selected, arrivalId); drafts++; return { owner, target, arrivalId, name, version: 2, state: 'question', pages, raw, issues: [issue] }; },
   async prepareBatch() {
-    return { id: arrivalId, target, items: [{ name: review.items[1].name, version: 1 }], problems: [] };
+    return { id: arrivalId, target, items: [{ name: review.items[1].name, version: 1, kind: review.items[1].kind }], problems: [] };
   },
   async sendBatch({ confirmationId }) {
     assert.equal(confirmationId, arrivalId); sends++;
@@ -166,6 +166,7 @@ try {
   assert.equal(sends, 0);
   await sideButton('Отмена').click(); assert.equal(sends, 0);
   await control('Отправить готовые…').click(); await sideButton('Подтвердить отправку').waitFor();
+  await aside.getByText(/версия 1/).filter({ hasText: 'Снабжение → Счета' }).waitFor();
   await page.screenshot({ path: path.join(output, 'ui-delivery-confirmation-dark.png') });
   await page.emulateMedia({ colorScheme: 'light' }); await page.setViewportSize({ width: 1440, height: 1000 });
   await sideButton('Подтвердить отправку').focus(); await page.keyboard.press('Enter');

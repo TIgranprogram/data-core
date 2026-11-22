@@ -7,7 +7,7 @@ import { findBrowser } from '../browser-path.mjs';
 
 const base = 'http://127.0.0.1:41738';
 const app = new URL('../../backend/pwa/', import.meta.url);
-const proof = new URL('../../docs/crew/C218-personal-desk/proof/', import.meta.url);
+const proof = new URL('../../docs/crew/C221-desk-finish/proof/', import.meta.url);
 const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
 const userId = '000000000000000000000001';
 const workId = '000000000000000000000077';
@@ -15,7 +15,7 @@ const requestId = '000000000000000000000176';
 const blocked = '000000000000000000000888';
 const productId = '000000000000000000000054';
 
-async function mount(browser, { theme = 'soft', width = 1920, role = 'manager', filled = true } = {}) {
+async function mount(browser, { theme = 'soft', width = 1920, role = 'manager', filled = true, recentExtra = 0 } = {}) {
   const user = { id: userId, username: 'anna', displayName: 'Анна', role, ...(role === 'user' ? { sections: ['design'] } : {}) };
   const context = await browser.newContext({ viewport: { width, height: 1000 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
   const page = await context.newPage();
@@ -31,7 +31,8 @@ async function mount(browser, { theme = 'soft', width = 1920, role = 'manager', 
   ] : [];
   let layout = { version: 0, items: initial };
   let conflict = false;
-  await context.addInitScript(({ user, theme, productId, requestId, blocked }) => {
+  const extras = Array.from({ length: recentExtra }, (_, i) => ({ id: String(200 + i).padStart(24, '0'), name: 'Изделие из недавних № ' + (i + 1) }));
+  await context.addInitScript(({ user, theme, productId, requestId, blocked, extras }) => {
     localStorage.setItem('dc-theme', theme);
     sessionStorage.setItem('dca_access', 'fixture');
     sessionStorage.setItem('dca_refresh', 'fixture');
@@ -40,8 +41,9 @@ async function mount(browser, { theme = 'soft', width = 1920, role = 'manager', 
       { section: 'products', of: 'products', id: productId, title: 'Скамья парковая, оцинкованная рама' },
       { section: 'requests', of: 'requests', id: requestId, title: 'Заявка снабжения' },
       { section: 'stock', of: 'stock', id: blocked, title: 'Закрытая позиция только для другой зоны' },
+      ...extras.map(({ id, name }) => ({ section: 'products', of: 'products', id, title: name })),
     ]));
-  }, { user, theme, productId, requestId, blocked });
+  }, { user, theme, productId, requestId, blocked, extras });
   await page.route('**/*', async (route) => {
     const req = route.request(), url = new URL(req.url());
     if (url.origin !== base) return route.abort();
@@ -78,6 +80,8 @@ async function mount(browser, { theme = 'soft', width = 1920, role = 'manager', 
       id: requestId, num: 176, title: 'Труба профильная 40×20', status: 'requested', qty: 24, unit: 'м', supplierName: 'Стальной прокат',
     } });
     if (url.pathname === '/api/showcase/' + productId) return route.fulfill({ json: { id: productId, sku: '4201', name: 'Скамья парковая' } });
+    const extra = extras.find(row => url.pathname === '/api/showcase/' + row.id);
+    if (extra) return route.fulfill({ json: extra });
     if (url.pathname === '/api/stock/items/' + blocked) return route.fulfill({ status: 403, json: { message: 'Чужая зона' } });
     return route.fulfill({ json: { items: [], total: 0 } });
   });
@@ -98,7 +102,7 @@ test('Рабочий стол: карточка из истории, задач�
     const { page } = t;
     const focus = lane(page, 'В фокусе');
     await card(focus, 'Заказ № 41-26').getByText(/Распределите 1 поз/).waitFor();
-    await lane(page, 'Дальше').getByText('Далее — Порошковая покраска').waitFor();
+    await lane(page, 'Запланировано').getByText('Далее — Порошковая покраска').waitFor();
     await page.getByText('Карточка недоступна').waitFor();
     assert.equal(await page.getByText('Закрытая позиция только для другой зоны').count(), 0);
     assert(page.getByRole('link', { name: 'Сегодня', exact: true }));
@@ -108,6 +112,17 @@ test('Рабочий стол: карточка из истории, задач�
     await card(focus, 'Скамья парковая').waitFor();
     await save(page);
     assert.equal(t.writes.length, 1);
+    assert.equal(await history.getByRole('link', { name: 'Скамья парковая', exact: true }).count(), 0);
+    const parkGrip = await card(focus, 'Скамья парковая').locator('.desk-grab').boundingBox();
+    const recentBox = await history.boundingBox();
+    await page.mouse.move(parkGrip.x + parkGrip.width / 2, parkGrip.y + parkGrip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(recentBox.x + 18, recentBox.y + 24, { steps: 12 });
+    await page.mouse.up();
+    await history.getByRole('link', { name: 'Скамья парковая', exact: true }).waitFor();
+    assert.equal(await card(focus, 'Скамья парковая').count(), 0);
+    await history.getByRole('button', { name: 'Убрать из недавних: Скамья парковая' }).click();
+    await history.getByRole('link', { name: 'Скамья парковая', exact: true }).waitFor({ state: 'detached' });
 
     const order = card(focus, 'Заказ № 41-26');
     await order.getByRole('button', { name: '+ Задача', exact: true }).click();
@@ -125,8 +140,9 @@ test('Рабочий стол: карточка из истории, задач�
     assert.deepEqual(t.current().items.find((item) => item.of === 'salesorders').tasks.map(({ title, due, done }) => ({ title, due, done })),
       [{ title: 'Уточнить цвет RAL у заказчика', due: '2026-12-02', done: false }]);
 
-    const work = card(lane(page, 'Дальше'), 'Рама скамьи');
-    const grip = await work.locator('.desk-grip').boundingBox();
+    const work = card(lane(page, 'Запланировано'), 'Рама скамьи');
+    const grip = await work.locator('.desk-grab').boundingBox();
+    assert.ok(grip.width > 140);
     const drop = await lane(page, 'Жду').locator('.desk-lane-cards').boundingBox();
     await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
     await page.mouse.down();
@@ -138,10 +154,22 @@ test('Рабочий стол: карточка из истории, задач�
     await page.reload();
     await card(lane(page, 'Жду'), 'Рама скамьи').waitFor();
     await agenda.getByRole('button', { name: /Уточнить цвет RAL/ }).click();
-    await order.getByRole('checkbox', { name: 'Готово: Уточнить цвет RAL у заказчика' }).check();
+    await order.getByRole('checkbox', { name: 'Готово: Уточнить цвет RAL у заказчика' }).click();
     await save(page);
     assert.equal(await agenda.getByRole('button', { name: /Уточнить цвет RAL/ }).count(), 0);
-    assert.equal(t.current().items.find((item) => item.of === 'salesorders').tasks[0].done, true);
+    const completed = t.current().items.find((item) => item.of === 'salesorders');
+    assert.equal(completed.tasks[0].done, true);
+    assert.equal(completed.done, true);
+    await order.waitFor({ state: 'detached' });
+    const tab = page.getByRole('button', { name: /^Завершённые/ });
+    await tab.click();
+    const archive = page.getByRole('region', { name: 'Завершённые карточки' });
+    await card(archive, 'Заказ № 41-26').getByRole('button', { name: 'Вернуть на стол' }).click();
+    await order.waitFor();
+    await save(page);
+    await page.reload();
+    await order.waitFor();
+    assert.equal(t.current().items.find((item) => item.of === 'salesorders').done, false);
     await page.getByRole('button', { name: '+ Задача', exact: true }).first().click();
     modal = page.getByRole('dialog');
     await modal.getByRole('textbox', { name: 'Что сделать' }).fill('Запланировать звонок');
@@ -174,7 +202,18 @@ test('Рабочий стол: пустой вход, роль и две тем�
     assert.equal(fresh.writes.length, 0);
     await fresh.context.close();
 
-    if (!process.env.C218_EVIDENCE) return;
+    const { page: many, context: recentContext } = await mount(browser, { recentExtra: 24 });
+    const recent = many.getByRole('complementary', { name: 'Недавние карточки' });
+    const show = recent.getByRole('button', { name: 'Показать все 18', exact: true });
+    await show.waitFor();
+    assert.equal(await recent.getByRole('link').count(), 6);
+    await show.click();
+    assert.equal(await recent.getByRole('link').count(), 18);
+    await recent.getByRole('button', { name: 'Свернуть', exact: true }).click();
+    assert.equal(await recent.getByRole('link').count(), 6);
+    await recentContext.close();
+
+    if (!process.env.C221_EVIDENCE) return;
     await mkdir(proof, { recursive: true });
     for (const [theme, width] of [['soft', 1920], ['dark', 2560]]) {
       const t = await mount(browser, { theme, width });
@@ -185,6 +224,12 @@ test('Рабочий стол: пустой вход, роль и две тем�
       const fit = await agenda.locator('button').first().evaluate((el) => el.scrollHeight <= el.clientHeight && el.scrollWidth <= el.clientWidth);
       assert(fit);
       await t.page.screenshot({ path: new URL(theme + '-' + width + '.png', proof).pathname.replace(/^\/(\w:)/, '$1') });
+      if (theme === 'dark') {
+        await t.page.getByRole('checkbox', { name: 'Готово: Согласовать покрытие для скамьи' }).click();
+        await t.page.getByRole('button', { name: /^Завершённые/ }).click();
+        await t.page.getByRole('region', { name: 'Завершённые карточки' }).getByText('Согласовать покрытие для скамьи').waitFor();
+        await t.page.screenshot({ path: new URL('archive-dark-2560.png', proof).pathname.replace(/^\/(\w:)/, '$1') });
+      }
       await t.context.close();
     }
   } finally { await browser.close(); }

@@ -2,8 +2,8 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, money } from '../core/format.js';
 import { patch } from '../core/router.js';
-import { actions, button, empty, segmented, failBlock, busyBlock, stats, toolbar, treeTable } from '../ui/kit/index.js';
-import { operationTable } from './money-operations.js';
+import { actions, button, empty, segmented, failBlock, busyBlock, link, stats, toolbar, treeTable } from '../ui/kit/index.js';
+import { openFinanceOperation, operationTitle } from './money-operations.js';
 import { businessToday } from './invoice-workspace-state.js';
 
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
@@ -44,7 +44,7 @@ export function articlesView({ year, org, mode, order, filters, incomeMode, onFa
     });
     return [...all.values()];
   }
-  function showOps(rowId, extra, indices, name, e) {
+  function showOps(rowId, extra, indices, e) {
     let { from, to } = filters;
     if (indices?.length) {
       const start = report.months[indices[0]] + '-01';
@@ -53,29 +53,51 @@ export function articlesView({ year, org, mode, order, filters, incomeMode, onFa
       if (start > from) from = start;
       if (end < to) to = end;
     }
-    const insert = tt.insert(rowId, { title: name + ' · ' + date(from) + ' — ' + date(to),
-      key: indices?.join(',') || 'all', trigger: e?.currentTarget });
+    const insert = tt.insertRows(rowId, { key: indices?.join(',') || 'all', trigger: e?.currentTarget });
     if (!insert) return;
+    const spanningRow = (content) => h('tr', { class: 'fin-tree-note' }, h('td', { colspan: String(groups.length + 3) }, content));
     async function load(page) {
-      insert.body.replaceChildren(busyBlock('операции'));
+      insert.set([spanningRow(busyBlock('операции'))]);
       try {
         const response = await api('/finance/operations', { query: { ...filters, ...extra, from, to, page, limit: 20 } });
-        if (!insert.body.isConnected || destroyed) return;
+        if (!insert.active() || destroyed) return;
         const items = response.items || [];
         const first = (page - 1) * response.limit + 1, last = Math.min(page * response.limit, response.total);
-        insert.body.replaceChildren(operationTable(response, { compact: true }), response.total > items.length && actions(
-          button({ label: 'Назад', size: 'S', disabled: page <= 1, onClick: () => load(page - 1) }),
-          h('span', { class: 'muted' }, 'Показано ' + first + '–' + last + ' из ' + response.total),
-          button({ label: 'Дальше', size: 'S', disabled: last >= response.total, onClick: () => load(page + 1) })));
+        const rows = items.map(operationRow);
+        if (!rows.length) rows.push(spanningRow('Операций за этот период нет.'));
+        if (response.total > response.limit) rows.push(spanningRow(actions(
+          button({ label: 'Предыдущие', size: 'S', disabled: page <= 1, onClick: () => load(page - 1) }),
+          h('span', { class: 'muted' }, first + '–' + last + ' из ' + response.total),
+          button({ label: 'Следующие', size: 'S', disabled: last >= response.total, onClick: () => load(page + 1) }))));
+        insert.set(rows);
       } catch (error) {
-        if (insert.body.isConnected && !destroyed) insert.body.replaceChildren(failBlock(error, () => load(page)));
+        if (insert.active() && !destroyed) insert.set([spanningRow(failBlock(error, () => load(page)))]);
       }
     }
     void load(1);
   }
 
+  function operationRow(row) {
+    const month = String(row.date || '').slice(0, 7);
+    const name = operationTitle(row);
+    const open = row.operationId ? () => openFinanceOperation(row) : null;
+    const supplementary = [date(row.date), row.counterpartyName || row.counterparty, row.docNo].filter(Boolean).join(' · ');
+    const isIncome = row.type === 'income';
+    const amount = h('span', { class: isIncome ? 'num u-money-in' : 'num u-money-out' },
+      (isIncome ? '+' : '−') + money(row.amount).replace(' ₽', ''));
+    const period = groups.findIndex((indices) => indices.some((i) => report.months[i] === month));
+    return h('tr', { class: 'fin-tree-entry' + (open ? ' fin-tree-entry-click' : ''), onclick: open ? (ev) => {
+      if (!ev.target.closest('a, button')) open();
+    } : null },
+    h('td', { class: 'sticky' },
+      open ? link({ label: name, title: 'Подробности операции', onClick: open }) : name,
+      supplementary ? h('small', { class: 'muted' }, supplementary) : null),
+    ...groups.map((_, i) => h('td', { class: 'day' }, i === period ? amount : null)),
+    h('td', { class: 'tot' }, period < 0 ? amount : null), h('td', { class: 'tot' }));
+  }
+
   function node({ id, label, name = label, values, total, weight, scope, cls, kids = [], strong = false }) {
-    const activate = (indices) => (e) => showOps(id, scope, indices, name, e);
+    const activate = (indices) => (e) => showOps(id, scope, indices, e);
     return {
       id, label, cls, share: weight, kids,
       cells: groups.map((indices) => {
@@ -138,14 +160,15 @@ export function articlesView({ year, org, mode, order, filters, incomeMode, onFa
       disclosure: true, open: opened, shareLabel: base ? '% цены' : 'Доля',
       periods: groups.map(indices => ({ label: titleOfPeriod(indices), today: indices.some(index => report.months[index] === businessToday().slice(0, 7)) })),
       moreLabel: rest => 'Ещё ' + rest.length, rows });
+    tt.el.classList.add('fin-report-tree');
     out.replaceChildren(
       stats([{ value: money(income), label: 'Доходы', tone: 'ok' }, { value: money(expense), label: 'Расходы' },
         { value: money(profit), label: 'Поступило минус выплачено', tone: profit < 0 ? 'danger' : undefined }]),
-      tt.el, h('p', { class: 'hint' }, 'Стрелка раскрывает строку. Сумма открывает операции за её период.'));
+      tt.el, h('p', { class: 'hint' }, 'Стрелка раскрывает ветку. Сумма показывает операции за период. Нажмите операцию, чтобы открыть подробности.'));
   }
 
   const incomeSwitch = segmented({ fit: true, label: 'Доходы в таблице', value: incomeMode === 'customers' ? 'customers' : 'articles',
-    items: [{ key: 'articles', label: 'Доходные статьи' }, { key: 'customers', label: 'Заказчики и заказы' }],
+    items: [{ key: 'articles', label: 'Статьи' }, { key: 'customers', label: 'Заказчики и заказы' }],
     onChange: value => patch({ incomeMode: value === 'customers' ? value : undefined }) });
   const periodSwitch = segmented({ fit: true, label: 'Период таблицы', value: quarters ? 'quarters' : 'months',
     items: [{ key: 'months', label: 'Месяцы' }, { key: 'quarters', label: 'Кварталы' }],

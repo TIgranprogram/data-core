@@ -57,6 +57,11 @@ export function createRecentCards(storage, key) {
       if (!e) return;
       try { storage.setItem(key, JSON.stringify([e, ...read().filter((x) => !same(x, e))].slice(0, 20))); } catch { /* приватный режим */ }
     },
+    forget(value) {
+      const e = recentEntry(value);
+      if (!e) return;
+      try { storage.setItem(key, JSON.stringify(read().filter((x) => !same(x, e)))); } catch { /* приватный режим */ }
+    },
     clear() { try { storage.removeItem(key); } catch { /* приватный режим */ } },
   };
 }

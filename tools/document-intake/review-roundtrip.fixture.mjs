@@ -81,3 +81,75 @@ assert.equal(recovered.items.length, 0, JSON.stringify(recovered));
 assert.equal((await success('reviewreport', {}, 'GET')).counts.uploaded, 1, JSON.stringify(recovered));
 assert.equal(commits, 1); await pult.stop();
 console.log('PASS: две копии, один оригинал, сбой после записи, перезапуск и сверка байтов через штатные маршруты Пульта.');
+
+function salesFixture(kind, number) {
+  const header = (kind === 'contract' ? 'Договор' : 'Заказ') + ' № ' + number;
+  const sellerText = 'Исполнитель Компания C171 ИНН 2312308098';
+  const buyerText = 'Заказчик Организация C171 ИНН 0107020521';
+  const date = 'Дата 20.11.2026';
+  const reference = kind === 'order' ? 'К договору № Д-171 от 20.11.2026' : '';
+  return { pages: [[header, date, sellerText, buyerText, 'Образец 1 шт 100,00 100,00', 'Итого 100,00 руб. Без НДС', reference].join('\n')], raw: {
+    ...raw, kind, kindEvidence: proof(header), number: field(number, header),
+    seller: { name: 'Компания C171', inn: '2312308098', ...proof(sellerText) },
+    buyer: { name: 'Организация C171', inn: '0107020521', ...proof(buyerText) },
+  } };
+}
+const sales = path.join(root, 'sales');
+const samples = [salesFixture('contract', 'Д-171'), salesFixture('order', 'З-171')];
+const contractsEngine = { ...engine, analyze: args => engine.analyze(args, { stableMs: 0,
+  extract: async (_file, bytes) => samples[bytes.toString().includes('order') ? 1 : 0].pages,
+  propose: async ({ pages }) => samples[pages[0].startsWith('Заказ') ? 1 : 0].raw }),
+};
+const salesOptions = { ...options, engine: async () => contractsEngine, stateDir: path.join(root, 'sales-settings'), pickFolder: async () => sales };
+let salesWrites = 0;
+let lostHeader = true;
+let lostAttachment = true;
+contractsEngine.sendBatch = args => engine.sendBatch(args, { connect: input => {
+  const api = connectApi(input);
+  return { ...api,
+    async post(endpoint, ...rest) {
+      const result = await api.post(endpoint, ...rest);
+      if (endpoint === '/salesorders') {
+        salesWrites++;
+        if (lostHeader) { lostHeader = false; throw new IntakeError('API_UNAVAILABLE', 'Тестовый обрыв после записи договора'); }
+      }
+      return result;
+    },
+    async patch(endpoint, ...rest) {
+      const result = await api.patch(endpoint, ...rest);
+      salesWrites++;
+      if (lostAttachment) { lostAttachment = false; throw new IntakeError('API_UNAVAILABLE', 'Тестовый обрыв после привязки заказа'); }
+      return result;
+    },
+  };
+}});
+pult = createDocumentIntake(salesOptions);
+await success('settings', settings); await success('folder'); await success('login', user);
+const analyze = async () => {
+  await success('analyze');
+  for (let i=0; i<200 && pult.busy(); i++) await delay(30);
+  return success('reviewreport', {}, 'GET');
+};
+const transfer = async (kind, lose) => {
+  const prepared = await success('prepare');
+  assert.equal(prepared.items.length, 1, JSON.stringify(prepared));
+  assert.equal(prepared.items[0].kind, kind);
+  const sent = await call('send', { confirmationId: prepared.id });
+  if (lose) assert.equal(sent.status, 409, JSON.stringify(sent));
+  else assert.equal(sent.body.uploaded, 1, JSON.stringify(sent));
+};
+await writeFile(path.join(sales, 'Inbox', 'Договор.pdf'), '%PDF-1.4 fixture contract C223');
+await writeFile(path.join(sales, 'Inbox', 'Заказ.pdf'), '%PDF-1.4 fixture order C223');
+const waiting = await analyze();
+assert.equal(waiting.counts.checked, 1, JSON.stringify(waiting));
+assert.equal(waiting.items.find(row => row.kind === 'order')?.state, 'question', JSON.stringify(waiting));
+await transfer('contract', true);
+await transfer('contract', false);
+const withContract = await analyze();
+assert.equal(withContract.items.find(row => row.kind === 'order')?.state, 'checked', JSON.stringify(withContract));
+await transfer('order', true);
+await transfer('order', false);
+assert.equal(salesWrites, 2);
+assert.equal((await success('reviewreport', {}, 'GET')).counts.uploaded, 2);
+await pult.stop();
+console.log('PASS: договор и заказ покупателя привязаны без дублей при двух потерянных ответах.');

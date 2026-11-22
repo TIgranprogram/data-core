@@ -101,6 +101,25 @@ test('анализ сохраняет локальный черновик и д�
   assert.equal((await legacyReport({ root: box.root })).counts.inbox, 1, 'непрочитанный файл не считается проверенным');
 });
 
+test('цитата стороны восстанавливается только по однозначной строке оригинала', async t => {
+  const box = await setup(t);
+  const { raw } = invoice();
+  raw.seller.quote = raw.seller.quote.replace('ИНН', 'ИН_Н');
+  const fake = runtime({ propose: async () => raw });
+  await box.drop('Счёт с искажённой цитатой.pdf');
+  const result = await analyze(box.options, fake.dependencies);
+  const draft = await getDraft({ root: box.root, arrivalId: result.items[0].arrivalId });
+  assert.equal(draft.state, 'checked');
+  assert.match(draft.raw.seller.quote, /ИН_Н/);
+  assert.equal(draft.evidence.seller.quote, fake.fixture.raw.seller.quote);
+
+  const second = await setup(t);
+  await second.drop('Два совпадения.pdf');
+  const pages = [fake.fixture.pages[0] + '\n' + fake.fixture.raw.seller.quote + ' (вторая строка)'];
+  const ambiguous = await analyze(second.options, { ...fake.dependencies, extract: async () => pages });
+  assert.equal(ambiguous.items[0].state, 'question');
+});
+
 test('ошибочный кандидат остаётся вместе с исходными страницами и причиной', async t => {
   const box = await setup(t); const bad = invoice().raw; bad.gross.value = 101;
   const fake = runtime({ propose: async () => bad }); await box.drop('Спорный.pdf');

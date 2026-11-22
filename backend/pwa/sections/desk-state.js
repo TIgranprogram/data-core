@@ -4,10 +4,24 @@ import { viewAsActive } from '../core/view-as.js';
 
 export const LANES = [
   { key: 'focus', title: 'В фокусе', empty: 'Перенесите сюда то, над чем работаете сейчас.' },
-  { key: 'next', title: 'Дальше', empty: 'Сложите дела, к которым вернётесь дальше.' },
+  { key: 'next', title: 'Запланировано', empty: 'Сложите сюда задачи на потом.' },
   { key: 'waiting', title: 'Жду', empty: 'Оставьте здесь то, где нужен ответ или результат.' },
 ];
 export const keyOf = (item) => item.of + ':' + item.id;
+
+const hasOpenTasks = (tasks) => tasks?.some((task) => !task.done);
+export function isDeskDone(item) {
+  if (hasOpenTasks(item.tasks)) return false;
+  return item.done ?? (item.of !== 'personal' && !!item.tasks?.length);
+}
+
+function withTasks(item, tasks, action) {
+  const next = { ...item, tasks };
+  if (item.of === 'personal') return next;
+  if (isDeskDone(item)) return { ...next, done: !hasOpenTasks(tasks) };
+  if (action.patch?.done === true && !hasOpenTasks(tasks)) return { ...next, done: true };
+  return next;
+}
 
 function applyFields(value, patch) {
   const next = { ...value, ...patch };
@@ -20,8 +34,9 @@ export function applyDesk(items, action) {
   if (action.type === 'remove') return items.filter((item) => item !== current);
   if (action.type === 'place') {
     if (!current && !action.item) return items;
-    if (!current && items.length >= 60) throw new Error('На столе 60 карточек. Освободите место и попробуйте ещё раз.');
-    const next = applyFields(current || action.item, { lane: action.lane });
+    if (!current && items.length >= 60) throw new Error('На столе 60 карточек, включая завершённые. Уберите ненужную карточку и попробуйте ещё раз.');
+    const item = current || action.item;
+    const next = applyFields(item, { lane: action.lane, ...(isDeskDone(item) ? { done: false } : {}) });
     const remaining = items.filter((item) => item !== current);
     const before = remaining.findIndex((item) => item.lane === action.lane && keyOf(item) === action.before);
     remaining.splice(before < 0 ? remaining.length : before, 0, next);
@@ -32,12 +47,12 @@ export function applyDesk(items, action) {
     if (item !== current) return item;
     if (action.type === 'edit') return applyFields(item, action.patch);
     const tasks = item.tasks || [];
-    if (action.type === 'task-remove') return { ...item, tasks: tasks.filter((task) => task.id !== action.id) };
+    if (action.type === 'task-remove') return withTasks(item, tasks.filter((task) => task.id !== action.id), action);
     const existing = tasks.find((task) => task.id === action.id);
-    if (existing) return { ...item, tasks: tasks.map((task) => task === existing ? applyFields(task, action.patch) : task) };
+    if (existing) return withTasks(item, tasks.map((task) => task === existing ? applyFields(task, action.patch) : task), action);
     if (!action.task) return item;
     if (tasks.length >= 12) throw new Error('В карточке уже 12 задач. Уберите завершённую, чтобы добавить новую.');
-    return { ...item, tasks: [...tasks, applyFields(action.task)] };
+    return withTasks(item, [...tasks, applyFields(action.task)], action);
   });
 }
 

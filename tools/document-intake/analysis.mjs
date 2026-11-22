@@ -4,8 +4,8 @@ import {
   IntakeError, MAX_BYTES, arrivalsOf, claim, inboxFiles, jsonAtomic, lock,
   openRoot, readJson, readOriginal, reconcileArrival, saveArrival, sha256, uid,
 } from './store.mjs';
-import { apiAddress, authorize, connectApi, decideInvoice } from './api.mjs';
-import { checkPages, EXTRACTOR_VERSION, extractDocument, propose, RULES_VERSION, validateProposal } from './proposal.mjs';
+import { apiAddress, authorize, connectApi, decideInvoice, findOrderContract, resolveSalesParties } from './api.mjs';
+import { checkPages, EXTRACTOR_VERSION, extractDocument, evidencedKind, propose, referencedContract, RULES_VERSION, validateProposal, verifyPartyCitations } from './proposal.mjs';
 
 const interrupted = new Set(['AUTH', 'ACTOR', 'CONTOUR', 'API_UNAVAILABLE', 'MODEL_UNAVAILABLE', 'EXTRACTOR', 'ABORTED']);
 export const draftFile = (store, hash) => path.join(store.documents, `c171-${hash}.json`);
@@ -36,16 +36,36 @@ async function validate(draft, api) {
   draft.proposal = null;
   draft.parties = null;
   draft.issues = [];
+  draft.kind = null;
+  draft.orderContract = null;
+  draft.orderReference = null;
+  delete draft.evidence;
   try {
     checkPages(draft.pages);
-    const proposal = validateProposal(draft.raw, draft.pages);
-    if (proposal.kind !== 'supplier_invoice' && proposal.kind !== 'customer_invoice') {
-      throw new IntakeError('QUESTION', 'Этот этап поддерживает только счета поставщиков.', 'Оставьте документ на проверке до приёмки соответствующего типа.');
+    draft.kind = evidencedKind(draft.raw, draft.pages);
+    if (draft.kind === 'acceptance') {
+      throw new IntakeError('QUESTION', 'Акт нужно привязать к договору.', 'Найдите договор заказчика по реквизитам оригинала и добавьте PDF в комплект документов.');
     }
-    const result = await decideInvoice(api, proposal);
-    if (result.kind !== 'supplier_invoice') throw new IntakeError('QUESTION', 'Счёт выставлен нашей компанией.', 'Свяжите исходящий счёт с договором вручную.');
-    draft.proposal = { ...proposal, kind: result.kind };
-    draft.parties = result.parties;
+    const reference = draft.kind === 'order' ? referencedContract(draft.pages) : null;
+    const evidence = verifyPartyCitations(draft.raw, draft.pages);
+    const proposal = validateProposal(evidence, draft.pages);
+    if (evidence !== draft.raw) draft.evidence = evidence;
+    if (['contract', 'offer', 'order'].includes(proposal.kind)) {
+      if (proposal.revision) throw new IntakeError('QUESTION', 'В документе указана редакция.', 'Сверьте редакцию в карточке существующего документа.');
+      draft.parties = await resolveSalesParties(api, proposal);
+      if (reference) {
+        draft.orderReference = reference;
+        const contract = await findOrderContract(api, reference, draft.parties, proposal);
+        draft.orderContract = contract.id ?? contract._id;
+      }
+      draft.proposal = proposal;
+    } else {
+      const result = await decideInvoice(api, proposal);
+      draft.kind = result.kind;
+      if (result.kind !== 'supplier_invoice') throw new IntakeError('QUESTION', 'Счёт выставлен нашей компанией.', 'Добавьте PDF в комплект документов договора заказчика.');
+      draft.proposal = { ...proposal, kind: result.kind };
+      draft.parties = result.parties;
+    }
     // Нельзя обещать готовность к отправке до серверной проверки версии и дублей.
     draft.state = 'checked';
   } catch (error) {
@@ -74,6 +94,7 @@ export async function reviewStatus({ root, owner, target }) {
     if (owner && (draft?.owner ?? entry.reviewOwner) !== owner) continue;
     if (target && (draft?.target ?? entry.reviewTarget) !== target) continue;
     items.push({ arrivalId: entry.arrivalId, batchId: entry.batchId, name: entry.name, hash: entry.hash,
+      kind: draft?.kind || draft?.proposal?.kind || null,
       state: entry.reviewIssue || journalIssue ? 'question' : draft?.state || 'pending', version: draft?.version || 0,
       issues: entry.reviewIssue || journalIssue ? [entry.reviewIssue || journalIssue] : draft?.issues || [],
       updatedAt: draft?.updatedAt || entry.updatedAt });

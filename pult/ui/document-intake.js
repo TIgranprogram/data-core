@@ -2,6 +2,8 @@ const endpoint = '/api/document-intake/';
 const production = 'https://kppdf-crm.ru/db/api';
 const defaultModel = 'google/gemma-4-12b-qat';
 const folderLabels = { inbox: 'Входящие', processing: 'Разбираются', checked: 'Проверено локально', question: 'На проверку', uploaded: 'Загруженные' };
+const kinds = { supplier_invoice: 'Счёт поставщика', customer_invoice: 'Счёт покупателю', contract: 'Договор заказчика', order: 'Заказ покупателя', offer: 'Коммерческое предложение', acceptance: 'Акт' };
+const destination = { supplier_invoice: 'Снабжение → Счета', contract: 'Заказы → Договоры заказчиков', offer: 'КП', order: 'Комплект договора заказчика', customer_invoice: 'Комплект договора заказчика', acceptance: 'Комплект договора заказчика' };
 const stageLabels = { preparing: 'Подготовка', extracting: 'Чтение PDF', proposing: 'Ответ локальной модели', validating: 'Проверка реквизитов', checked: 'Проверено локально', question: 'Нужна сверка' };
 
 export function createIntakeView({ api, el }) {
@@ -250,6 +252,7 @@ export function createIntakeView({ api, el }) {
         const row = el('li');
         row.append(el('strong', '', item.name));
         const result = item.state === 'checked' ? 'Проверено локально' : item.state === 'question' ? 'На проверку' : item.state === 'uploaded' ? 'Загружен' : item.state === 'sending' ? 'Ожидает сверки квитанции' : 'Разбирается';
+        if (destination[item.kind]) row.append(el('p', 'intake-updated', kinds[item.kind] + ' · ' + destination[item.kind]));
         row.append(el('p', `intake-row-result ${item.state === 'question' ? 'needs-review' : ''}`, result));
         for (const issue of item.issues || []) {
           row.append(el('p', '', issue.message || 'Требуется сверка с оригиналом.'));
@@ -371,8 +374,13 @@ export function createIntakeView({ api, el }) {
     };
     const raw = draft.raw;
     if (raw && typeof raw === 'object') {
-      const kinds = { supplier_invoice: 'Счёт поставщика', customer_invoice: 'Счёт покупателю', contract: 'Договор', offer: 'Коммерческое предложение', acceptance: 'Акт', unknown: 'Тип не определён' };
-      addField('Тип документа', kinds[raw.kind] || 'Тип не определён', raw.kindEvidence);
+      addField('Тип документа', kinds[draft.kind] || 'Сверьте заголовок', raw.kindEvidence);
+      if (destination[draft.kind]) {
+        const target = draft.reference ? destination[draft.kind] + ' № ' + draft.reference.number : destination[draft.kind];
+        const row = el('div');
+        row.append(el('dt', '', 'Куда относится'), el('dd', '', target));
+        fields.append(row);
+      }
       for (const [key, label] of [['number', 'Номер'], ['date', 'Дата'], ['currency', 'Валюта'], ['gross', 'Итог']]) addField(label, raw[key]?.value, raw[key]);
       for (const [key, label] of [['seller', 'Поставщик'], ['buyer', 'Плательщик']]) {
         addField(label, raw[key] ? `${text(raw[key].name)} · ИНН ${text(raw[key].inn)}` : null, raw[key]);
@@ -381,7 +389,7 @@ export function createIntakeView({ api, el }) {
       addField('НДС', raw.vat ? [vatModes[raw.vat.mode] || 'Режим не определён', raw.vat.rate == null ? '' : `${text(raw.vat.rate)}%`, raw.vat.amount == null ? '' : text(raw.vat.amount)].filter(Boolean).join(' · ') : null, raw.vat);
     }
     const lines = el('section', 'intake-draft-lines');
-    lines.append(el('h3', '', 'Позиции счёта'));
+    lines.append(el('h3', '', 'Позиции документа'));
     if (Array.isArray(raw?.lines) && raw.lines.length) {
       const list = el('ol', 'intake-source-lines');
       for (const [index, line] of raw.lines.entries()) {
@@ -427,7 +435,7 @@ export function createIntakeView({ api, el }) {
         const heading = el('h3', '', 'Готово к отправке · ' + result.items.length);
         heading.tabIndex = -1;
         const list = el('ul', 'intake-report-list');
-        for (const item of result.items) list.append(el('li', '', item.name + ' · версия ' + item.version));
+        for (const item of result.items) list.append(el('li', '', [item.name, destination[item.kind], item.reference && 'договор № ' + item.reference.number, 'версия ' + item.version].filter(Boolean).join(' · ')));
         const accept = button('Подтвердить отправку', () => delivery('send'), 'primary act-go');
         const cancel = button('Отмена', () => { resetConfirmation(); prepare.focus(); });
         confirmation.append(heading, el('p', '', 'Контур ' + result.target), list, actionRow(accept, cancel));

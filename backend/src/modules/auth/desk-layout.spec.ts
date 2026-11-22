@@ -21,6 +21,11 @@ describe('Данные личного рабочего стола', () => {
     ] });
   });
 
+  it.each([true, false])('сохраняет личную отметку %s для ссылки', async (done) => {
+    const item = { ...ORDER, done };
+    await expect(validate({ version: 2, items: [item] })).resolves.toEqual({ version: 2, items: [item] });
+  });
+
   it.each([
     { version: '1', items: [] },
     { version: 0, items: [], userId: 'another' },
@@ -30,7 +35,7 @@ describe('Данные личного рабочего стола', () => {
     { version: 0, items: [{ ...ORDER, of: 'products' }] },
     { version: 0, items: [{ ...ORDER, title: 'Копия исходной записи' }] },
     { version: 0, items: [{ ...ORDER, due: null }] },
-    { version: 0, items: [{ ...ORDER, done: false }] },
+    { version: 0, items: [{ ...ORDER, done: 'false' }] },
     { version: 0, items: [ORDER, { ...ORDER, lane: 'next' }] },
     { version: 0, items: [{ ...ORDER, tasks: null }] },
     { version: 0, items: [{ ...ORDER, tasks: [[TASK]] }] },

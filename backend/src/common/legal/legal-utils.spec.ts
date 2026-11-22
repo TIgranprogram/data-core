@@ -26,5 +26,14 @@ describe('C164 legal invariants',()=>{
  });
  it('одинконтент сдругимUID имеет одинhash; изменённое поле — другой',()=>{expect(intakeContentHash({intakeUid:'one',orderNo:'45'})).toBe(intakeContentHash({intakeUid:'two',orderNo:'45'}));expect(legalHash({a:1,b:2})).toBe(legalHash({b:2,a:1}));});
  it('гейт уникальности проверяетkey/partial, не толькоимя',async()=>{const good={name:'c164_sales_intake_uid',key:{intakeUid:1},unique:true,partialFilterExpression:{intakeUid:{$type:'string'}}};const model=(idx:any)=>({collection:{indexes:async()=>[idx]}} as any);await expect(assertIntakeIndexes(model(good),[good.name])).resolves.toBeUndefined();for(const idx of [{...good,key:{other:1}},{...good,partialFilterExpression:undefined},{...good,sparse:true},{...good,collation:{locale:'ru'}}])await expect(assertIntakeIndexes(model(idx),[good.name])).rejects.toThrow();});
+ it.each([{stage:'cancelled'}, {orderNo:'Д-2'}, {contractDate:new Date('2026-11-21')}])('позднее изменение договора %j запрещает привязку заказа покупателя', async change => {
+  const legal = {...bundle(), sourceNumber:'Д-1', sourceDate:'2026-11-20',
+    companySnapshot:{name:'Исполнитель',inn:'2312308098'}, counterpartySnapshot:{name:'Заказчик',inn:'0107020521'}, documents:[file()]};
+  const current = {_id:new Types.ObjectId(), stage:'new', orderNo:'Д-1', contractDate:new Date('2026-11-20'), legal, ...change};
+  const model = {collection:{name:'salesorders'}, findOne:()=>chain(current), findOneAndUpdate:jest.fn()};
+  const dto = {version:0,clientUid:'order',reason:'Добавление заказа',legal:{...legal,documents:[...legal.documents,{...file('order'),kind:'customer_order'}]}};
+  await expect(patchLegal(model as any,String(current._id),dto)).rejects.toThrow('нужен действующий договор');
+  expect(model.findOneAndUpdate).not.toHaveBeenCalled();
+ });
  it('идемпотентный повтор legalPATCH раньшеCAS, изменённыйUIDpayload409',async()=>{const dto={version:0,clientUid:'one',reason:'Проверка',legal:bundle()};const current={_id:new Types.ObjectId(),legalVersion:1,legal:bundle(),legalReceipts:[{uid:'one',hash:legalHash({version:0,reason:dto.reason,legal:dto.legal}),version:1}]};const model={collection:{name:'salesorders'},findOne:()=>chain(current),findOneAndUpdate:jest.fn()};await expect(patchLegal(model as any,String(current._id),dto)).resolves.toMatchObject({legalVersion:1});expect(model.findOneAndUpdate).not.toHaveBeenCalled();await expect(patchLegal(model as any,String(current._id),{...dto,reason:'Другой запрос'})).rejects.toThrow();});
 });

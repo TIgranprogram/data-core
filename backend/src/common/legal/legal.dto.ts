@@ -8,12 +8,13 @@ export class PartySnapshotDto {
  @ApiPropertyOptional() @IsOptional() @Matches(/^\d{9}$/) kpp?: string;
  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0,1000) address?: string;
 }
+const LEGAL_DOCUMENT_KINDS = ['contract','customer_invoice','customer_order','offer','specification','addendum','payment_evidence','acceptance'] as const;
 export class LegalDocumentDto {
  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0,100) at?: string;
  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0,100) by?: string;
 
  @ApiProperty() @IsString() @Length(1,100) uid!: string;
- @ApiProperty() @IsIn(['contract','customer_invoice','offer','specification','addendum','payment_evidence','acceptance']) kind!: string;
+ @ApiProperty({ enum: LEGAL_DOCUMENT_KINDS }) @IsIn(LEGAL_DOCUMENT_KINDS) kind!: string;
  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0,100) number?: string;
  @ApiPropertyOptional() @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) date?: string;
  @ApiProperty() @IsString() @Length(1,50) revision!: string;

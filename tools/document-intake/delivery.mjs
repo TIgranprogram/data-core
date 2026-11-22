@@ -1,11 +1,13 @@
 import path from 'node:path';
-import { apiAddress, authorize, connectApi, makeInvoicePayload, proveReviewedInvoice } from './api.mjs';
+import { apiAddress, authorize, checkOrderAttachment, checkSalesCandidates, connectApi, executeIntake, executeOrderAttachment, makeInvoicePayload, proveReviewedInvoice, resolveSalesParties } from './api.mjs';
 import { checkBinding, draftFile, findReview, reviewStatus } from './analysis.mjs';
 import { IntakeError, jsonAtomic, lock, openRoot, readJson, sha256, uid } from './store.mjs';
 
 const endpoint = '/supply/invoices/intake';
 const confirmationFile = store => path.join(store.root, '.intake', 'confirmation.json');
 const save = (store, draft) => jsonAtomic(draftFile(store, draft.hash), draft);
+const sales = kind => ['contract', 'offer', 'order'].includes(kind);
+const salesProof = draft => sha256(JSON.stringify([draft.hash, draft.version, draft.proposal, draft.parties, draft.orderContract, draft.orderReference]));
 const stale = () => new IntakeError('VERSION', 'Список документов изменён. Подготовьте его ещё раз.');
 function checkInterruption(error, signal) {
   if (signal?.aborted) throw new IntakeError('ABORTED', 'Действие остановлено. Повторите сверку квитанций.');
@@ -43,7 +45,7 @@ async function reviewed(store, api, draft, entry, bytes) {
     draft.submission = { localVersion: draft.version, input: {
       draftId: previous?.draftId || entry.arrivalId, batchId: previous?.batchId || entry.batchId, requestId: uid(),
       expectedRevision: previous?.revision || 0, sourceSha256: draft.hash, sourceSize: bytes.length,
-      evidenceSummary: sha256(JSON.stringify([draft.version, draft.engine, draft.raw])),
+      evidenceSummary: sha256(JSON.stringify([draft.version, draft.engine, draft.evidence || draft.raw])),
       facts: { ...facts, supplierInn: draft.proposal.seller.inn, payerInn: draft.proposal.buyer.inn },
     } };
     await save(store, draft);
@@ -77,6 +79,40 @@ async function recover(store, api, draft, bytes, version) {
   return true;
 }
 
+async function prepareSales(api, draft, bytes) {
+  if (bytes.length > 15 * 1024 * 1024) throw new IntakeError('QUESTION', 'PDF превышает 15 МиБ.');
+  if (draft.proposal.revision) throw new IntakeError('QUESTION', 'Редакцию нужно сверить с существующей карточкой.');
+  const parties = await resolveSalesParties(api, draft.proposal);
+  if (parties.companyId !== draft.parties?.companyId || parties.counterpartyId !== draft.parties?.counterpartyId) {
+    throw new IntakeError('QUESTION', 'Стороны документа изменились в справочнике.');
+  }
+  const doc = draft.salesDelivery || { uid: 'c169-' + draft.hash, hash: draft.hash, proposal: draft.proposal, parties,
+    orderContract: draft.orderContract, orderReference: draft.orderReference };
+  if (doc.proposal.kind === 'order') await checkOrderAttachment(api, doc);
+  else await checkSalesCandidates(api, doc);
+  return doc;
+}
+
+async function sendSales(store, api, draft, item, found) {
+  if (item.kind !== draft.proposal?.kind || draft.hash !== item.hash || draft.version !== item.localVersion || salesProof(draft) !== item.payloadHash) throw stale();
+  if (draft.state !== 'uploaded' && !(Date.parse(item.expiresAt) > Date.now())) throw stale();
+  const doc = await prepareSales(api, draft, found.bytes);
+  if (!doc.complete) {
+    draft.salesDelivery = doc;
+    draft.sendStarted = true;
+    draft.state = 'sending';
+    await save(store, draft);
+  }
+  // Оригинал и строки используют устойчивые ключи записи. При обрыве продолжаем с локальных квитанций.
+  const execute = item.kind === 'order' ? executeOrderAttachment : executeIntake;
+  await execute({ api, doc, bytes: found.bytes, name: found.entry.name, save: () => save(store, draft) });
+  draft.receipt = { kind: item.kind, entityId: doc.entityId, fileId: doc.fileId };
+  draft.state = 'uploaded';
+  draft.issues = [];
+  draft.updatedAt = new Date().toISOString();
+  await save(store, draft);
+}
+
 async function lockedBatch(options, dependencies, work) {
   const store = await openRoot(options.root);
   const release = await lock(store.root);
@@ -102,12 +138,19 @@ export function prepareBatch(options, dependencies = {}) {
         const found = await findReview(store, row.arrivalId);
         draft = found.draft;
         checkBinding(draft, target, actor);
+        const kind = draft.proposal?.kind;
+        if (sales(kind)) {
+          await prepareSales(api, draft, found.bytes);
+          confirmation.items.push({ arrivalId: row.arrivalId, name: row.name, hash: row.hash, localVersion: draft.version,
+            kind, reference: draft.orderReference, payloadHash: salesProof(draft), expiresAt: new Date(Date.now() + 15 * 60_000).toISOString() });
+          continue;
+        }
         const version = await reviewed(store, api, draft, found.entry, found.bytes);
         if (await recover(store, api, draft, found.bytes, version)) continue;
         const prepared = await api.post(endpoint + '/prepare', version);
         if (prepared.draftId !== version.draftId || prepared.revision !== version.revision || prepared.payloadHash !== version.payloadHash
           || !/^[a-f0-9]{64}$/.test(prepared.ticket) || !(Date.parse(prepared.expiresAt) > Date.now())) throw stale();
-        confirmation.items.push({ arrivalId: row.arrivalId, name: row.name, hash: row.hash, localVersion: draft.version, ...prepared });
+        confirmation.items.push({ arrivalId: row.arrivalId, name: row.name, hash: row.hash, localVersion: draft.version, kind, ...prepared });
       } catch (error) {
         checkInterruption(error, options.signal);
         const issue = publicIssue(error);
@@ -120,7 +163,7 @@ export function prepareBatch(options, dependencies = {}) {
       }
     }
     await jsonAtomic(confirmationFile(store), confirmation);
-    return { id: confirmation.id, target, items: confirmation.items.map(({ name, localVersion }) => ({ name, version: localVersion })), problems };
+    return { id: confirmation.id, target, items: confirmation.items.map(({ name, localVersion, kind, reference }) => ({ name, version: localVersion, kind, ...(reference ? { reference } : {}) })), problems };
   });
 }
 
@@ -137,6 +180,7 @@ export function sendBatch(options, dependencies = {}) {
         const found = await findReview(store, item.arrivalId);
         draft = found.draft;
         checkBinding(draft, target, actor);
+        if (sales(item.kind)) { await sendSales(store, api, draft, item, found); uploaded++; continue; }
         if (draft.hash !== item.hash || draft.version !== item.localVersion || draft.submission?.result?.payloadHash !== item.payloadHash
           || draft.submission.withdrawId) throw stale();
         if (await recover(store, api, draft, found.bytes, item)) { uploaded++; continue; }
@@ -156,7 +200,7 @@ export function sendBatch(options, dependencies = {}) {
         problems.push({ name: item.name, message: issue.message });
         if (draft && draft.version === item.localVersion) {
           draft.issues = [issue];
-          if (draft.sendStarted) {
+          if (draft.sendStarted && !sales(item.kind)) {
             const current = await api.get(endpoint + '/review/' + item.draftId, undefined, true);
             if (current?.state === 'question') { draft.state = 'question'; draft.sendStarted = false; }
           }

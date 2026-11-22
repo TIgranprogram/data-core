@@ -4,7 +4,7 @@ import { PREFIX } from '../core/api.js';
 import { iconButton, button, textInput, modal, confirmDlg, openPopMenu, toast } from '../ui/kit/index.js';
 import { toggle } from '../ui/kit/guide.js';
 import { deskKind } from './desk-data.js';
-import { keyOf, LANES } from './desk-state.js';
+import { isDeskDone, keyOf, LANES } from './desk-state.js';
 
 export function taskDate(due, done) {
   if (!due) return null;
@@ -29,7 +29,7 @@ async function taskDialog(title, initial) {
   });
 }
 
-export function deskActions(change) {
+export function deskActions(change, recall) {
   return {
     async create(parent, initial) {
       const key = parent && keyOf(parent);
@@ -47,11 +47,15 @@ export function deskActions(change) {
     done(item, task, done) {
       change(task ? { type: 'task', key: keyOf(item), id: task.id, patch: { done } } : { type: 'edit', key: keyOf(item), patch: { done } });
     },
-    async remove(item) {
-      if (item.tasks?.length && !await confirmDlg('Убрать карточку со стола?', 'Личный список задач внутри карточки тоже будет убран.', { okText: 'Убрать' })) return;
-      change({ type: 'remove', key: keyOf(item) });
-      toast('Карточка убрана со стола');
+    async remove(item, toRecent = false) {
+      const title = toRecent ? 'Вернуть карточку в недавние?' : 'Убрать карточку со стола?';
+      const okText = toRecent ? 'Вернуть' : 'Убрать';
+      if (item.tasks?.length && !await confirmDlg(title, 'Личный список задач внутри карточки тоже будет убран.', { okText })) return;
+      if (change({ type: 'remove', key: keyOf(item) }) === false) return;
+      if (toRecent) recall(item);
+      toast(toRecent ? 'Карточка вернулась в недавние' : 'Карточка убрана со стола');
     },
+    complete(item, done) { change({ type: 'edit', key: keyOf(item), patch: { done } }); },
     removeTask(item, task) { change({ type: 'task-remove', key: keyOf(item), id: task.id }); },
     place(item, lane, before) { change({ type: 'place', key: keyOf(item), item, lane, before }); },
   };
@@ -83,7 +87,7 @@ function todoRow(item, task, actions) {
     check, taskDate(task.due, task.done), more);
 }
 
-function moveMenu(item, laneItems, actions, event) {
+function moveMenu(item, laneItems, actions, event, mayRecall) {
   const i = laneItems.indexOf(item);
   const move = LANES.filter((lane) => lane.key !== item.lane).map(({ key, title }) => ({
     label: 'Перенести в «' + title + '»', onSelect: () => actions.place(item, key),
@@ -93,7 +97,10 @@ function moveMenu(item, laneItems, actions, event) {
   openPopMenu({ anchor: event.currentTarget, side: 'down', groups: [
     ...(item.of === 'personal' ? [{ items: [{ label: 'Изменить задачу', onSelect: () => actions.create(item, item) }] }] : []),
     { items: move },
-    { sep: true, items: [{ label: 'Убрать со стола', onSelect: () => actions.remove(item) }] },
+    { sep: true, items: [
+      !isDeskDone(item) && item.of !== 'personal' && !item.tasks?.some((task) => !task.done) ? { label: 'Завершить на столе', onSelect: () => actions.complete(item, true) } : null,
+      mayRecall ? { label: 'Вернуть в недавние', onSelect: () => actions.remove(item, true) } : { label: 'Убрать со стола', onSelect: () => actions.remove(item) },
+    ].filter(Boolean) },
   ] });
 }
 
@@ -103,10 +110,12 @@ export function deskCard(item, meta, laneItems, actions, expanded, expand) {
   const todos = item.tasks || [];
   const done = todos.filter((task) => task.done).length;
   const showTodo = personal || !!meta?.href;
+  const completed = isDeskDone(item);
   const header = h('div', { class: 'desk-card-head' },
-    h('span', { class: 'desk-grip', title: 'Перетащить карточку', 'aria-hidden': 'true' }, '⠿'),
-    h('span', { class: 'desk-kind' }, deskKind(item.of)[0]),
-    iconButton({ icon: '⋯', size: 'S', label: 'Действия с карточкой ' + title, menu: true, onClick: (e) => moveMenu(item, laneItems, actions, e) }));
+    h('div', { class: 'desk-grab', dataset: { deskGrab: '' }, title: 'Потяните за верхнюю полосу, чтобы перенести карточку' },
+      h('span', { class: 'desk-grip', 'aria-hidden': 'true' }, '⠿'),
+      h('span', { class: 'desk-kind' }, deskKind(item.of)[0])),
+    iconButton({ icon: '⋯', cls: 'desk-control', size: 'S', label: 'Действия с карточкой ' + title, menu: true, onClick: (e) => moveMenu(item, laneItems, actions, e, !!meta?.href) }));
   const mainLabel = meta?.href ? h('a', { class: 'desk-title', href: meta.href }, title)
     : personal ? taskCheck(item, (done) => actions.done(item, null, done))
       : h('span', { class: 'desk-title' }, title);
@@ -115,15 +124,16 @@ export function deskCard(item, meta, laneItems, actions, expanded, expand) {
     h('div', null, h('h3', null, mainLabel), meta?.subtitle ? h('p', { class: 'desk-subtitle' }, meta.subtitle) : null,
       taskDate(personal ? item.due : meta?.due, item.done)));
   const branch = meta?.next || meta?.links?.length ? h('div', { class: 'desk-branch' },
-    meta.next ? h('div', { class: 'desk-suggestion' }, h('span', null, 'Дальше'), meta.next) : null,
+    meta.next ? h('div', { class: 'desk-suggestion' }, h('span', null, 'Следующий шаг'), meta.next) : null,
     meta.links.length ? h('div', { class: 'desk-links' }, meta.links.map((link) => h('a', { href: link.href }, link.label))) : null) : null;
   const panelId = 'desk-tasks-' + encodeURIComponent(ref);
-  const toggle = todos.length ? button({ size: 'S', kind: 'ghost', cls: 'desk-todo-toggle',
+  const toggle = todos.length ? button({ size: 'S', cls: 'desk-todo-toggle',
     label: 'Задачи ' + done + '/' + todos.length, onClick: () => expand(ref) }) : null;
   toggle?.setAttribute('aria-expanded', String(expanded)); toggle?.setAttribute('aria-controls', panelId);
-  const footer = showTodo ? h('div', { class: 'desk-card-foot' }, toggle,
-    button({ size: 'S', kind: 'ghost', cls: 'desk-task-add', label: '+ Задача', title: 'Добавить задачу к карточке', onClick: () => actions.create(item) })) : null;
-  return h('article', { class: 'desk-card' + (item.done ? ' is-done' : ''), dataset: { deskCard: ref, deskColor: deskKind(item.of)[4] } },
+  const footer = (showTodo || completed) ? h('div', { class: 'desk-card-foot' }, toggle,
+    completed ? button({ size: 'S', cls: 'desk-task-add', label: 'Вернуть на стол', onClick: () => actions.complete(item, false) })
+      : button({ size: 'S', cls: 'desk-task-add', label: '+ Задача', title: 'Добавить задачу к карточке', onClick: () => actions.create(item) })) : null;
+  return h('article', { class: 'desk-card' + (completed ? ' is-done' : ''), dataset: { deskCard: ref, deskColor: deskKind(item.of)[4] } },
     header, main, branch, footer,
     showTodo && todos.length ? h('ul', { class: 'desk-todos', id: panelId, hidden: !expanded }, todos.map((task) => todoRow(item, task, actions))) : null);
 }

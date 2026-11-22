@@ -78,6 +78,7 @@ export function connectApi({ apiBase, token, signal }) {
   }
   return {
     get: (endpoint, query, absent) => json(`${endpoint}${params(query)}`, { absent }),
+    patch: (endpoint, body) => json(endpoint, { method: 'PATCH', body }),
     post: (endpoint, body, query) => json(`${endpoint}${params(query)}`, { method: 'POST', body }),
     commitReviewed: (draftId, ticket, body) => json('/supply/invoices/intake/commit' + params({ draftId }), { method: 'POST', body, ticket }),
     async original(url, expectedLength) {
@@ -145,6 +146,12 @@ async function resolveParty(api, party, own, supplier = false) {
   return idOf(match);
 }
 
+export async function resolveSalesParties(api, proposal) {
+  const companyId = await resolveParty(api, proposal.seller, true);
+  const counterpartyId = await resolveParty(api, proposal.buyer, false);
+  return { companyId, counterpartyId };
+}
+
 export async function decideInvoice(api, proposal) {
   const seller = await lookupParty(api, proposal.seller);
   const buyer = await lookupParty(api, proposal.buyer);
@@ -186,6 +193,71 @@ async function candidates(api, doc) {
     throw question('Найден документ с похожими реквизитами и другим или неизвестным оригиналом.', RESOLVE);
   }
   return detail;
+}
+
+export async function findOrderContract(api, reference, parties, proposal) {
+  const matches = row => nameKey(row.orderNo) === nameKey(reference.number) && dayOf(row.contractDate) === reference.date
+    && row.companyId === parties.companyId && row.counterpartyId === parties.counterpartyId;
+  const query = { search: reference.number, filter: 'all' };
+  const removed = (await all(api, '/salesorders', { ...query, deleted: '1' })).some(matches);
+  const found = (await all(api, '/salesorders', query)).filter(row => row.stage !== 'cancelled' && matches(row));
+  if (removed || found.length !== 1 || !objectId(idOf(found[0]))) {
+    throw question('По ссылке из заказа не найден один действующий договор этих сторон.', RESOLVE);
+  }
+  const result = await api.get('/salesorders/' + idOf(found[0]), undefined, true);
+  const source = result?.legal;
+  if (!result || !matches(result) || result.deletedAt || result.stage === 'cancelled' || result.activeArchiveVersion != null
+    || nameKey(source?.sourceNumber) !== nameKey(reference.number) || source?.sourceDate !== reference.date
+    || source.companySnapshot?.inn !== proposal.seller.inn || source.counterpartySnapshot?.inn !== proposal.buyer.inn
+    || !source.documents?.some(item => item.kind === 'contract')) {
+    throw question('У договора нет доступного комплекта с оригиналом договора.', RESOLVE);
+  }
+  return result;
+}
+
+function orderAttachment(entity, doc) {
+  const exact = entity.legal.documents.find(item => item.kind === 'customer_order' && item.sourceSha256 === doc.hash);
+  const similar = entity.legal.documents.some(item => item.kind === 'customer_order'
+    && nameKey(item.number) === nameKey(doc.proposal.number) && item.date === doc.proposal.date && item.sourceSha256 !== doc.hash);
+  if (similar) throw question('Заказ с этим номером и датой уже вложен с другим оригиналом.', RESOLVE);
+  return exact;
+}
+
+export async function checkOrderAttachment(api, doc) {
+  const entity = await findOrderContract(api, doc.orderReference, doc.parties, doc.proposal);
+  if (idOf(entity) !== doc.orderContract) throw question('Договор изменился после разбора заказа.', RESOLVE);
+  if (!orderAttachment(entity, doc) && entity.legal.documents.length >= 30) {
+    throw question('Достигнут предел документов в комплекте договора.', RESOLVE);
+  }
+  return entity;
+}
+
+export async function executeOrderAttachment({ api, doc, bytes, name, save }) {
+  const entity = await checkOrderAttachment(api, doc);
+  const existing = orderAttachment(entity, doc);
+  if (doc.complete && !existing) throw question('Подтверждённый ранее заказ отсутствует в составе договора.', RESOLVE);
+  await recoverFile(api, doc, bytes, name, save, null);
+  const p = doc.proposal;
+  const attachment = { uid: doc.uid, kind: 'customer_order', number: p.number, date: p.date, revision: '1',
+    fileId: doc.fileId, sourceSha256: doc.hash, gross: p.gross, currency: p.currency };
+  if (!existing) {
+    const version = entity.legalVersion ?? 0;
+    const legal = { ...entity.legal, documents: [...entity.legal.documents, attachment] };
+    // Обновление защиты по версии не даёт затереть параллельные правки договора.
+    await api.patch('/salesorders/' + doc.orderContract + '/legal', { version, legal, clientUid: doc.uid, reason: 'Добавлен оригинал заказа покупателя из Пульта' });
+  }
+  const confirmed = orderAttachment(await checkOrderAttachment(api, doc), doc);
+  if (!confirmed || Object.keys(attachment).some(key => confirmed[key] !== attachment[key])) {
+    throw question('Карточка договора не подтвердила вложенный заказ.', RESOLVE);
+  }
+  await originalProof(api, doc, bytes);
+  doc.entityId = doc.orderContract;
+  doc.complete = true;
+  await save();
+}
+
+export async function checkSalesCandidates(api, doc) {
+  await candidates(api, doc);
 }
 
 function makeLegal(doc) {
@@ -485,6 +557,7 @@ async function executeInvoice({ api, doc, bytes, name, save }) {
 export async function executeIntake({ api, doc, bytes, name, save }) {
   if (doc.proposal.kind === 'supplier_invoice') return executeInvoice({ api, doc, bytes, name, save });
   const p = doc.proposal;
+  if (!['contract', 'offer'].includes(p.kind)) throw question('Для этого типа нужен существующий договор или заказ.', RESOLVE);
   const endpoint = pathFor(p);
   if (doc.complete) {
     const fresh = await api.get(`${endpoint}/${doc.entityId}`, undefined, true);
@@ -493,7 +566,7 @@ export async function executeIntake({ api, doc, bytes, name, save }) {
   }
 
   if (!doc.parties) {
-    doc.parties = { companyId: await resolveParty(api, p.seller, true), counterpartyId: await resolveParty(api, p.buyer, false) };
+    doc.parties = await resolveSalesParties(api, p);
     await save();
   }
   let entity = doc.entityId ? await api.get(`${endpoint}/${doc.entityId}`, undefined, true) : await candidates(api, doc);
