@@ -4,7 +4,7 @@ const defaultModel = 'google/gemma-4-12b-qat';
 const folderLabels = { inbox: 'Входящие', processing: 'Разбираются', checked: 'Проверено в Пульте', question: 'Нужна сверка', uploaded: 'Отправлено на сайт' };
 const kinds = { supplier_invoice: 'Счёт поставщика', customer_invoice: 'Счёт покупателю', contract: 'Договор заказчика', order: 'Заказ покупателя', offer: 'Коммерческое предложение', acceptance: 'Акт' };
 const destination = { supplier_invoice: 'Снабжение → Счета', contract: 'Заказы → Договоры заказчиков', offer: 'КП', order: 'Комплект договора заказчика', customer_invoice: 'Комплект договора заказчика', acceptance: 'Комплект договора заказчика' };
-const fileStages = [['extracting', 'Чтение PDF'], ['proposing', 'Ожидаем ответ LM Studio'], ['validating', 'Проверка и сохранение']];
+const fileStages = [['extracting', 'Чтение PDF'], ['proposing', 'Ожидаем ответ LM Studio'], ['validating', 'Проверка реквизитов'], ['viewing', 'ИИ смотрит страницу PDF']];
 
 export function createIntakeView({ api, el }) {
   const call = (action, body) => api(endpoint + action, body);
@@ -520,6 +520,11 @@ export function createIntakeView({ api, el }) {
     }
 
     const content = [];
+    if (draft.vision?.pages?.length && draft.vision.state !== 'unavailable') {
+      const detail = draft.vision.fields?.length ? ' · подтверждено полей: ' + draft.vision.fields.length : '';
+      content.push(el('p', 'intake-updated', 'ИИ посмотрел страницы PDF ' + draft.vision.pages.join(', ') + detail));
+    }
+    if (draft.layoutFields?.length) content.push(el('p', 'intake-updated', 'Повторно проверено по знакомому макету: ' + draft.layoutFields.length));
     if (issueMessages.length) content.push(issueBox);
     const attention = [...fields, ...lines].filter(row => flagged.has(row.key));
     if (attention.length) {

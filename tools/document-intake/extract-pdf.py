@@ -1,4 +1,5 @@
 """Получить текст исходного PDF по страницам, ничего не изменяя в документе."""
+import base64
 import json
 import re
 import sys
@@ -56,12 +57,21 @@ def party_columns(page, number):
 
 limit = int(sys.argv[2])
 columns = len(sys.argv) == 4 and sys.argv[3] == "--party-columns"
+render = len(sys.argv) == 5 and sys.argv[3] == "--images"
 pages = []
 size = 0
 with pymupdf.open(sys.argv[1]) as document:
     if not document.is_pdf or document.needs_pass or document.page_count > 100:
         sys.exit(3)
+    selected = set(json.loads(sys.argv[4])[:4]) if render else set()
     for index, page in enumerate(document, 1):
+        if render:
+            if index in selected and 0 < max(page.rect.width, page.rect.height):
+                scale = 1700 / max(page.rect.width, page.rect.height)
+                pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
+                jpeg = pix.tobytes("jpeg", jpg_quality=86)
+                pages.append({"page": index, "jpeg": base64.b64encode(jpeg).decode("ascii")})
+            continue
         if columns:
             pages.extend(party_columns(page, index))
             if len(pages) > 20:

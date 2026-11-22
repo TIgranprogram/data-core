@@ -103,9 +103,69 @@ function runtime(patch = {}) {
     },
     async post(endpoint) { calls.push({ method: 'POST', endpoint }); assert.fail('Анализ не должен писать в DataCore'); },
   };
-  return { calls, fixture, dependencies: { stableMs: 0, connect: () => api,
+  return { calls, fixture, dependencies: { stableMs: 0, connect: () => api, renderImages: async () => [],
     extract: async () => structuredClone(fixture.pages), propose: async () => structuredClone(fixture.raw), ...patch } };
 }
+
+test('повторный счёт повторно использует доказанный способ чтения итога', async t => {
+  const box = await setup(t);
+  const { raw, pages } = invoice();
+  const weak = structuredClone(raw);
+  weak.gross.value = 101;
+  let views = 0;
+  const fake = runtime({
+    propose: async () => weak,
+    renderImages: async (_file, numbered) => {
+      assert.deepEqual(numbered, [1]);
+      return [{ page: 1, jpeg: 'fixture' }];
+    },
+    proposeVision: async () => { views++; return raw; },
+  });
+  await box.drop('Первый счёт.pdf');
+  const first = await analyze(box.options, fake.dependencies);
+  const draft = await getDraft({ root: box.root, arrivalId: first.items[0].arrivalId });
+  assert.equal(draft.state, 'checked');
+  assert.deepEqual(draft.vision.fields, ['gross']);
+  assert.equal(draft.raw.gross.value, 101);
+  await box.drop('Следующий счёт.pdf');
+  const second = await analyze(box.options, {
+    ...fake.dependencies,
+    extract: async () => pages.map(page => page.replace('50,00 100,00', '60,00 120,00').replace('Всего 100,00', 'Всего 120,00')),
+    propose: async () => ({
+      ...weak, lines: [{ ...weak.lines[0], unitPrice: 60, amount: 120, quote: 'Урна 2 шт 60,00 120,00' }],
+    }),
+  });
+  const reused = await getDraft({ root: box.root, arrivalId: second.items.find(item => item.name === 'Следующий счёт.pdf').arrivalId });
+  assert.equal(reused.state, 'checked');
+  assert.deepEqual(reused.layoutFields, ['gross']);
+  assert.equal(reused.proposal.gross, 120);
+  assert.equal(views, 1);
+  assert.equal(fake.calls.some(call => call.method === 'POST'), false);
+});
+
+test('визуальный ответ не заменяет подтверждённый реквизит и не принимает число без источника', async t => {
+  const box = await setup(t);
+  const fixture = invoice();
+  const weak = { ...fixture.raw, gross: { ...fixture.raw.gross, value: 101 } };
+  const visual = {
+    ...fixture.raw,
+    number: { ...fixture.raw.number, value: 'Т-90' },
+    gross: { ...fixture.raw.gross, value: 900 },
+  };
+  const fake = runtime({
+    propose: async () => weak,
+    renderImages: async () => [{ page: 1, jpeg: 'fixture' }],
+    proposeVision: async () => visual,
+  });
+  await box.drop('Спорный счёт.pdf');
+  const result = await analyze(box.options, fake.dependencies);
+  const draft = await getDraft({ root: box.root, arrivalId: result.items[0].arrivalId });
+  assert.equal(draft.state, 'question');
+  assert.equal(draft.vision.state, 'review');
+  assert.deepEqual(draft.vision.fields, []);
+  assert.equal(draft.raw.number.value, fixture.raw.number.value);
+  assert.equal(draft.proposal, null);
+});
 
 test('анализ сохраняет локальный черновик и доказательства, не выполняя POST и не обещая готовность', async t => {
   const box = await setup(t); const fake = runtime();

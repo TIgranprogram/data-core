@@ -514,7 +514,9 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         // История и служебные поля не нужны для просмотра оператором.
         return ok({ arrivalId: body.arrivalId, name: draft.name, version: draft.version, state: draft.state,
           pages: draft.pages, partyColumns: draft.partyColumns, raw: draft.evidence || draft.raw, kind: draft.kind || draft.proposal?.kind,
-          reference: draft.orderReference, issues: draft.issues });
+          reference: draft.orderReference, issues: draft.issues,
+          vision: draft.vision && { state: draft.vision.state, pages: draft.vision.pages, fields: draft.vision.fields },
+          layoutFields: draft.layoutFields });
       }
       if (action === 'retry') {
         const ids = body.arrivalIds;

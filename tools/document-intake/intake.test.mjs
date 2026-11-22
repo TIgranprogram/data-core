@@ -508,6 +508,16 @@ test('маскировка URL: API не пересылает bearer, модел
   assert.deepEqual(seen, ['/db/api/auth/me', '/v1/chat/completions', '/db/uploads/c169/source.pdf']);
 });
 
+test('печатный знак рубля сам подтверждает валюту только при наличии в оригинале', () => {
+  const { pages, raw } = fixture('supplier_invoice');
+  raw.currency.quote = '₽';
+  assert.throws(() => validateProposal(raw, pages), /валюта/);
+  pages[0] += '\n₽';
+  assert.equal(validateProposal(raw, pages).currency, 'RUB');
+  raw.currency.value = 'USD';
+  assert.throws(() => validateProposal(raw, pages), /валюта/);
+});
+
 test('Gemma получает параметры генерации и инструкции для дословных реквизитов и НДС', async (t) => {
   const { pages, raw } = fixture('supplier_invoice');
   const sellerQuote = `${raw.seller.name} ИНН ${raw.seller.inn}\nПоставщик`;
@@ -529,8 +539,14 @@ test('Gemma получает параметры генерации и инстр
   const modelBase = 'http://127.0.0.1:1235/v1';
   const proposal = await propose({ pages, modelBase, model: 'google/gemma-4-12b-qat' });
   await propose({ pages, modelBase, model: 'other-local-model' });
+  await propose({ pages, modelBase, model: 'google/gemma-4-12b-qat', images: [{ page: 1, jpeg: 'sample' }] });
 
-  const [gemma, other] = requests;
+  const [gemma, other, vision] = requests;
+  assert.match(vision.messages[0].content, /Сверь текст с изображениями/);
+  assert.deepEqual(vision.messages[1].content.slice(1), [
+    { type: 'text', text: 'Изображение исходной страницы 1' },
+    { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,sample' } },
+  ]);
   assert.equal(gemma.reasoning_effort, 'none');
   assert.deepEqual(gemma.chat_template_kwargs, { enable_thinking: false });
   assert.equal(Object.hasOwn(other, 'reasoning_effort'), false);

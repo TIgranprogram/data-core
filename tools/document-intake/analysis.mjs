@@ -5,7 +5,7 @@ import {
   openRoot, readJson, readOriginal, reconcileArrival, reconcileRetry, saveArrival, sha256, startRetry, uid,
 } from './store.mjs';
 import { apiAddress, authorize, connectApi, decideInvoice, findOrderContract, lookupParty, resolveSalesParties } from './api.mjs';
-import { checkPages, confirmParties, EXTRACTOR_VERSION, extractDocument, extractPartyColumns, evidencedKind, propose, referencedContract, RULES_VERSION, validateProposal, verifyCitations } from './proposal.mjs';
+import { applyInvoiceLayout, checkPages, confirmParties, EXTRACTOR_VERSION, extractDocument, extractPartyColumns, evidencedKind, learnInvoiceLayout, mergeVisionProof, propose, referencedContract, renderPages, RULES_VERSION, validateProposal, verifyCitations, VISION_VERSION } from './proposal.mjs';
 
 const interrupted = new Set(['AUTH', 'ACTOR', 'CONTOUR', 'API_UNAVAILABLE', 'MODEL_UNAVAILABLE', 'EXTRACTOR', 'ABORTED']);
 export const draftFile = (store, hash) => path.join(store.documents, `c171-${hash}.json`);
@@ -34,7 +34,8 @@ export async function findReview(store, arrivalId) {
   return { entry, draft, bytes };
 }
 
-async function validate(draft, api, loadColumns) {
+async function validate(draft, api, loadColumns, raw = draft.raw) {
+  let reading = true;
   draft.engine.rules = RULES_VERSION;
   draft.proposal = null;
   draft.parties = null;
@@ -45,17 +46,17 @@ async function validate(draft, api, loadColumns) {
   delete draft.evidence;
   try {
     checkPages(draft.pages);
-    draft.kind = evidencedKind(draft.raw, draft.pages);
+    draft.kind = evidencedKind(raw, draft.pages);
     if (draft.kind === 'acceptance') {
+      reading = false;
       throw new IntakeError('QUESTION', 'Акт нужно привязать к договору.', 'Найдите договор заказчика по реквизитам оригинала и добавьте PDF в комплект документов.');
     }
-    const reference = draft.kind === 'order' ? referencedContract(draft.pages) : null;
-    let evidence = verifyCitations(draft.raw, draft.pages);
+    let evidence = verifyCitations(raw, draft.pages);
     let sides = confirmParties(evidence, draft.pages);
     if (draft.kind === 'contract' && sides.some(side => side.issue)) {
       if (!draft.partyColumns && loadColumns) draft.partyColumns = await loadColumns();
       if (draft.partyColumns?.length) {
-        evidence = verifyCitations(draft.raw, draft.pages, draft.partyColumns);
+        evidence = verifyCitations(raw, draft.pages, draft.partyColumns);
         sides = confirmParties(evidence, draft.pages, draft.partyColumns);
       }
     }
@@ -84,8 +85,10 @@ async function validate(draft, api, loadColumns) {
           draft.issues.push(problem(error.code, error.message, error.action));
         }
       }
-      return;
+      return true;
     }
+    reading = false;
+    const reference = draft.kind === 'order' ? referencedContract(draft.pages) : null;
     if (['contract', 'offer', 'order'].includes(proposal.kind)) {
       if (proposal.revision) throw new IntakeError('QUESTION', 'В документе указана редакция.', 'Сверьте редакцию в карточке существующего документа.');
       draft.parties = await resolveSalesParties(api, proposal);
@@ -104,10 +107,12 @@ async function validate(draft, api, loadColumns) {
     }
     // Нельзя обещать готовность к отправке до серверной проверки версии и дублей.
     draft.state = 'checked';
+    return false;
   } catch (error) {
     if (!(error instanceof IntakeError) || interrupted.has(error.code)) throw error;
     draft.state = 'question';
     draft.issues = [problem(error.code, error.message, error.action || 'Сверьте поле с оригиналом.')];
+    return reading;
   }
 }
 
@@ -178,6 +183,8 @@ export async function reviseDraft(options, dependencies = {}) {
     }
     draft.history.push({ version: draft.version, raw: draft.raw, state: draft.state, updatedAt: draft.updatedAt });
     draft.raw = structuredClone(raw);
+    delete draft.vision;
+    delete draft.layoutFields;
     draft.version++;
     draft.updatedAt = new Date().toISOString();
     await validate(draft, api);
@@ -189,11 +196,41 @@ export async function reviseDraft(options, dependencies = {}) {
   } finally { await release(); }
 }
 
+async function lookAtPages(draft, file, options, runtime, onStart) {
+  const { model, modelBase, signal } = options;
+  const existing = draft.vision;
+  if (existing?.version === VISION_VERSION && existing.model === model && existing.candidate) return existing;
+  const total = draft.pages?.length || 1;
+  const raw = draft.evidence || draft.raw;
+  const pageNumbers = [...new Set([1, total, raw?.seller?.page, raw?.buyer?.page, raw?.vat?.page,
+    ...(Array.isArray(raw?.lines) ? raw.lines.map(line => line?.page) : []),
+    ...Array.from({ length: Math.min(total, 4) }, (_, index) => index + 1),
+  ].filter(page => Number.isInteger(page) && page > 0 && page <= total))].slice(0, 4).sort((a, b) => a - b);
+  const result = { version: VISION_VERSION, model, pages: [], state: 'unavailable', fields: [] };
+  draft.vision = result;
+  try {
+    const images = await runtime.renderImages(file, pageNumbers, signal);
+    if (!images?.length) return result;
+    result.pages = images.map(image => image.page);
+    onStart();
+    result.candidate = await runtime.proposeVision({ pages: draft.pages || [], modelBase, model, signal, images });
+    result.state = 'review';
+  } catch (error) {
+    if (signal?.aborted) throw error;
+  }
+  return result;
+}
+
 export async function analyze(options, dependencies = {}) {
   const { root, signal, onProgress, scope } = options;
   const store = await openRoot(root);
   const release = await lock(store.root);
-  const runtime = { extract: extractDocument, extractColumns: extractPartyColumns, propose, connect: connectApi, ...dependencies };
+  const runtime = {
+    extract: extractDocument, extractColumns: extractPartyColumns, propose, renderImages: renderPages,
+    proposeVision: propose, connect: connectApi, ...dependencies,
+  };
+  const layoutFile = path.join(store.root, '.intake', 'vision-layouts.json');
+  let layouts;
   let current = '', stage = 'preparing', processed = 0, total = 0;
   let lastEventAt = new Date().toISOString();
   const notify = (event = false) => {
@@ -252,27 +289,58 @@ export async function analyze(options, dependencies = {}) {
           state: 'extracting', pages: null, raw: null, issues: [], updatedAt: new Date().toISOString() };
         await jsonAtomic(draftFile(store, hash), draft);
       }
+      const filename = path.join(store.folders.processing, entry.arrivalId, entry.name);
+      const loadColumns = () => runtime.extractColumns(filename, signal);
+      const canRender = path.extname(entry.name).toLowerCase() === '.pdf' && bytes.subarray(0, 5).toString() === '%PDF-';
       try {
         if (!draft.pages) {
-          if (path.extname(entry.name).toLowerCase() !== '.pdf') throw new IntakeError('QUESTION', 'Для проверки нужен оригинал PDF.', 'Добавьте текстовый PDF.');
-          draft.pages = await runtime.extract(path.join(store.folders.processing, entry.arrivalId, entry.name), bytes, signal);
+          if (!canRender) throw new IntakeError('QUESTION', 'Для проверки нужен оригинал PDF.', 'Добавьте PDF.');
+          draft.pages = await runtime.extract(filename, bytes, signal);
           await jsonAtomic(draftFile(store, hash), draft);
-          checkPages(draft.pages);
         }
+        checkPages(draft.pages);
         if (!draft.raw) {
           stage = 'proposing'; draft.state = stage; notify(true);
           draft.raw = await runtime.propose({ pages: draft.pages, modelBase: options.modelBase, model: options.model, signal });
-          // Доказательства сохраняются до первой проверки, в том числе ошибочные кандидаты.
           await jsonAtomic(draftFile(store, hash), draft);
         }
         stage = 'validating'; notify(true);
-        await validate(draft, api, () => runtime.extractColumns(path.join(store.folders.processing, entry.arrivalId, entry.name), signal));
+        let needsVision = await validate(draft, api, loadColumns);
+        if (needsVision && canRender) {
+          layouts ??= await readJson(layoutFile).catch(() => []);
+          if (!Array.isArray(layouts)) layouts = [];
+          const base = draft.evidence || draft.raw;
+          const reused = applyInvoiceLayout(base, draft.pages, layouts);
+          draft.layoutFields = reused.fields;
+          if (reused.fields.length) needsVision = await validate(draft, api, loadColumns, reused.evidence);
+          if (needsVision) {
+            const vision = await lookAtPages(draft, filename, options, runtime, () => { stage = 'viewing'; notify(true); });
+            if (vision.candidate) {
+              const from = draft.evidence || draft.raw;
+              const result = mergeVisionProof(from, vision.candidate, draft.pages, draft.partyColumns || [], vision.pages);
+              vision.fields = result.fields;
+              vision.state = result.fields.length ? 'confirmed' : 'review';
+              if (result.fields.length) {
+                await validate(draft, api, loadColumns, result.evidence);
+                const recipes = learnInvoiceLayout(result.evidence, draft.pages, result.fields);
+                if (recipes.length) {
+                  const merged = new Map([...layouts, ...recipes].map(recipe => [JSON.stringify(recipe), recipe]));
+                  layouts = [...merged.values()].slice(-200);
+                  await jsonAtomic(layoutFile, layouts).catch(() => {});
+                }
+              }
+            }
+          }
+        }
       } catch (error) {
         if (interrupted.has(error.code) || signal?.aborted) throw error;
         draft.state = 'question';
         draft.issues = [error instanceof IntakeError
           ? problem(error.code, error.message, error.action || 'Сверьте оригинал.')
           : problem('DOCUMENT', 'Файл не удалось проверить.', 'Откройте оригинал и проверьте читаемость.')];
+        if (canRender && !draft.pages && error.code === 'QUESTION') {
+          await lookAtPages(draft, filename, options, runtime, () => { stage = 'viewing'; notify(true); });
+        }
       }
       if (sha256(await readOriginal(store, entry, MAX_BYTES)) !== hash) throw new IntakeError('ORIGINAL', 'Оригинал изменён во время проверки.', 'Восстановите исходные байты.');
       abort(signal);
