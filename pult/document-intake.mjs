@@ -252,7 +252,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     };
   }
 
-  function start(mode, arrivalIds) {
+  function start(mode, arrivalIds, scope) {
     if (!settings.root) return fail(409, 'Сначала выберите папку документов.');
     if (!settings.apiBase || !settings.model) return fail(409, 'Сначала сохраните адрес сайта и настройки локальной модели.');
     if (!loggedIn()) return fail(401, 'Войдите в учётную запись менеджера.');
@@ -262,7 +262,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     const token = tokenProvider(session, { root, apiBase }, controller);
     active = controller;
     if (mode === 'analyze') preparation = null;
-    progress = publicProgress({ state: 'processing', message: 'Проверяем входящие документы…' });
+    progress = publicProgress({ state: 'processing', message: scope === 'review' ? 'Готовим сомнительные документы к повторной проверке…' : 'Готовим входящие документы к разбору…' });
     notify();
     const onProgress = (update) => {
       if (!controller.signal.aborted) progress = publicProgress(update);
@@ -286,7 +286,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         if (!preparation.ready) return { stopped: { code: 'PREPARATION', message: 'Подготовка не завершена.',
           action: preparation.steps.filter(step => step.status === 'blocked').map(step => step.recovery).join(' ') } };
       }
-      return intake[mode]({ root, apiBase, token, modelBase, model, onProgress, signal: controller.signal, ...(arrivalIds ? { arrivalIds } : {}) });
+      return intake[mode]({ root, apiBase, token, modelBase, model, onProgress, signal: controller.signal, ...(arrivalIds ? { arrivalIds } : {}), ...(scope ? { scope } : {}) });
     })
       .then((result) => {
         if (result?.stopped?.code === 'AUTH' && !controller.signal.aborted) clearAuth(session);
@@ -386,6 +386,17 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
           return fail(error.code === 'AUTH' ? 401 : 409, safeStopped(error));
         } finally { active = null; task = null; }
       }
+      if (action === 'analyze' && body.scope !== undefined) {
+        if (!['incoming', 'review'].includes(body.scope)) return fail(400, 'Выберите входящие или повторную проверку.');
+        if (settings.root && loggedIn()) {
+          const { reviewCounts } = await view();
+          if (reviewCounts && body.scope === 'incoming' && !reviewCounts.inbox && !reviewCounts.processing) {
+            return fail(409, 'Во входящих нет PDF. Сомнительные файлы можно повторно проверить в отчёте.');
+          }
+          if (reviewCounts && body.scope === 'review' && !reviewCounts.question) return fail(409, 'Документов для повторной проверки нет.');
+        }
+        return start(action, undefined, body.scope);
+      }
       if (action === 'draft') {
         if (!loggedIn() || !auth.claims) return fail(401, 'Войдите в учётную запись менеджера.');
         if (typeof body.arrivalId !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.arrivalId)) return fail(400, 'Выберите документ в отчёте.');
@@ -393,7 +404,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         if (draft.owner !== auth.claims.sub || draft.target.replace(/\/$/, '') !== settings.apiBase) return fail(403, 'Черновик относится к другой учётной записи или контуру.');
         // История и служебные поля не нужны для просмотра оператором.
         return ok({ arrivalId: body.arrivalId, name: draft.name, version: draft.version, state: draft.state,
-          pages: draft.pages, raw: draft.evidence || draft.raw, kind: draft.kind || draft.proposal?.kind,
+          pages: draft.pages, partyColumns: draft.partyColumns, raw: draft.evidence || draft.raw, kind: draft.kind || draft.proposal?.kind,
           reference: draft.orderReference, issues: draft.issues });
       }
       if (action === 'retry') {

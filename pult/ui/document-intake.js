@@ -1,7 +1,7 @@
 const endpoint = '/api/document-intake/';
 const production = 'https://kppdf-crm.ru/db/api';
 const defaultModel = 'google/gemma-4-12b-qat';
-const folderLabels = { inbox: 'Входящие', processing: 'Разбираются', checked: 'Проверено локально', question: 'На проверку', uploaded: 'Загруженные' };
+const folderLabels = { inbox: 'Входящие', processing: 'Разбираются', checked: 'Проверено в Пульте', question: 'Нужна сверка', uploaded: 'Отправлено на сайт' };
 const kinds = { supplier_invoice: 'Счёт поставщика', customer_invoice: 'Счёт покупателю', contract: 'Договор заказчика', order: 'Заказ покупателя', offer: 'Коммерческое предложение', acceptance: 'Акт' };
 const destination = { supplier_invoice: 'Снабжение → Счета', contract: 'Заказы → Договоры заказчиков', offer: 'КП', order: 'Комплект договора заказчика', customer_invoice: 'Комплект договора заказчика', acceptance: 'Комплект договора заказчика' };
 const fileStages = [['extracting', 'Чтение PDF'], ['proposing', 'Ожидаем ответ LM Studio'], ['validating', 'Проверка и сохранение']];
@@ -106,10 +106,11 @@ export function createIntakeView({ api, el }) {
     statList.append(item);
     return [key, value];
   });
-  const run = button('Разобрать', () => perform('analyze', {}, mainFeedback), 'primary act-go');
+  const run = button('Разобрать входящие', () => perform('analyze', { scope: 'incoming' }, mainFeedback), 'primary act-go');
   const stop = button('Остановить', () => perform('stop', {}, mainFeedback), 'ghost danger');
-  const prepare = button('Отправить готовые…', () => delivery('prepare'));
-  main.append(card('Ход разбора', statusText, progress, current, stages, activity, preparation, statList, actionRow(run, stop, reportButton, prepare), mainFeedback));
+  const prepare = button('Отправить на сайт…', () => delivery('prepare'));
+  const deliveryHint = el('p', 'intake-updated', 'Файлы отправляются в выбранную базу после вашего подтверждения.');
+  main.append(card('Разбор и отправка', statusText, progress, current, stages, activity, preparation, statList, actionRow(run, stop, reportButton, prepare), deliveryHint, mainFeedback));
 
   const apiBase = field('Адрес сайта', { type: 'url', required: true, maxLength: 1200, spellcheck: false, placeholder: production });
   const modelBase = field('Адрес LM Studio', { type: 'url', required: true, maxLength: 1200, spellcheck: false });
@@ -149,12 +150,13 @@ export function createIntakeView({ api, el }) {
   const reportTime = el('p', 'intake-updated');
   const reportStatus = feedback('intake-feedback');
   const reportItems = el('div', 'intake-report-items');
+  const retryReview = button('Повторить проверку сомнительных', () => perform('analyze', { scope: 'review' }, reportStatus));
   const sideReport = el('section', 'intake-pane');
   const confirmation = el('section', 'card intake-card');
   let confirmationId = '';
   const resetConfirmation = () => { confirmationId = ''; confirmation.hidden = true; confirmation.replaceChildren(); };
   resetConfirmation();
-  sideReport.append(el('h2', '', 'Результаты проверки'), confirmation, reportTime, reportStatus, reportItems);
+  sideReport.append(el('h2', '', 'Результаты проверки'), confirmation, retryReview, reportTime, reportStatus, reportItems);
   const sideDraft = el('section', 'intake-pane');
   const draftTitle = el('h2', '', 'Сверка документа');
   draftTitle.tabIndex = -1;
@@ -175,6 +177,7 @@ export function createIntakeView({ api, el }) {
     sideSettings.hidden = next !== 'settings';
     sideReport.hidden = next !== 'report';
     sideDraft.hidden = next !== 'draft';
+    side.closest('.layout')?.classList.toggle('intake-review-open', next === 'draft');
     settingsButton.setAttribute('aria-pressed', String(next === 'settings'));
     sideReportButton.setAttribute('aria-pressed', String(next === 'report'));
     if (next !== 'settings') password.input.value = '';
@@ -202,7 +205,9 @@ export function createIntakeView({ api, el }) {
     const busy = !!pending || !!view?.busy;
     const canStart = !!settings?.root && !!settings.apiBase && !!settings.model && !!view.signedIn && !running && !busy;
     const stalled = view?.progress?.state === 'stopped';
-    const canResume = stalled || !!view?.reviewCounts?.processing;
+    const canResume = !!view?.reviewCounts?.processing;
+    const incoming = view?.reviewCounts?.inbox ?? view?.counts?.inbox ?? 0;
+    const hasQuestions = !!view?.reviewCounts?.question;
     folder.disabled = !view || busy || running;
     inbox.disabled = !view || !!pending;
     detach.hidden = !settings?.root;
@@ -212,9 +217,11 @@ export function createIntakeView({ api, el }) {
     if (inboxPath.input.value !== nextPath) inboxPath.input.value = nextPath;
     inboxPath.input.title = nextPath;
     prepare.disabled = !canStart || !(view?.reviewCounts?.checked || view?.reviewCounts?.sending);
-    run.disabled = !canStart;
+    run.disabled = !canStart || (!incoming && !canResume);
     run.hidden = running;
-    run.textContent = canResume ? 'Возобновить' : 'Разобрать';
+    run.textContent = canResume ? 'Продолжить разбор' : 'Разобрать входящие';
+    retryReview.hidden = !hasQuestions;
+    retryReview.disabled = !canStart;
     stop.hidden = !running;
     stop.disabled = !!pending || !view?.canStop;
     for (const control of draftButtons) control.disabled = busy || running || !view?.signedIn;
@@ -230,12 +237,16 @@ export function createIntakeView({ api, el }) {
     else if (running && job?.state === 'stopping') statusText.textContent = job.message;
     else if (running) statusText.textContent = job?.total ? `Обработано ${job.processed} из ${job.total}` : 'Готовим документы к проверке…';
     else if (stalled) statusText.textContent = job.message;
-    else if (view?.reviewCounts?.processing) statusText.textContent = 'Есть локальные черновики. Нажмите «Возобновить», чтобы повторить проверку.';
+    else if (view?.reviewCounts?.processing) statusText.textContent = 'Есть незавершённый разбор. Нажмите «Продолжить разбор».';
     else if (!settings?.root) statusText.textContent = view ? 'Откройте входящие и сложите туда PDF.' : '';
     else if (!settings.apiBase || !settings.model) statusText.textContent = 'Сохраните адрес сайта и параметры своей локальной модели.';
     else if (!view.signedIn) statusText.textContent = 'Войдите в DataCore через «Настройки».';
-    else if (job?.state === 'finished') statusText.textContent = job.total ? `Разбор завершён. Обработано ${job.processed} из ${job.total}.` : 'Разбор завершён. Результаты доступны в отчёте.';
-    else statusText.textContent = 'Положите файлы во входящие. Перед разбором запустите выбранную модель в LM Studio.';
+    else if (job?.state === 'finished' && job.processed) statusText.textContent = `Обработано ${job.processed} из ${job.total}. ${incoming ? 'Результаты в отчёте.' : 'Входящих PDF нет.'}`;
+    else if (!incoming) statusText.textContent = hasQuestions
+      ? 'Входящих PDF нет. Сомнительные файлы можно проверить повторно в отчёте.'
+      : 'Входящих PDF нет. Положите новые файлы в папку «Входящие».';
+    else if (job?.state === 'finished' && job.total && !job.processed) statusText.textContent = 'Файлы ещё не готовы к чтению. Проверьте, завершилось ли копирование.';
+    else statusText.textContent = 'Во входящих есть PDF. Нажмите «Разобрать входящие».';
     progress.hidden = !running;
     if (job?.total) { progress.max = job.total; progress.value = job.processed; }
     else progress.removeAttribute('value');
@@ -302,7 +313,7 @@ export function createIntakeView({ api, el }) {
       for (const item of items.slice(offset, offset + 50)) {
         const row = el('li');
         row.append(el('strong', '', item.name));
-        const result = item.state === 'checked' ? 'Проверено локально' : item.state === 'question' ? 'На проверку' : item.state === 'uploaded' ? 'Загружен' : item.state === 'sending' ? 'Ожидает сверки квитанции' : 'Разбирается';
+        const result = item.state === 'checked' ? 'Проверено в Пульте' : item.state === 'question' ? 'Нужна сверка' : item.state === 'uploaded' ? 'Отправлен на сайт' : item.state === 'sending' ? 'Ожидает сверки квитанции' : 'Разбирается';
         if (destination[item.kind]) row.append(el('p', 'intake-updated', kinds[item.kind] + ' · ' + destination[item.kind]));
         row.append(el('p', `intake-row-result ${item.state === 'question' ? 'needs-review' : ''}`, result));
         for (const issue of item.issues || []) {
@@ -349,10 +360,10 @@ export function createIntakeView({ api, el }) {
       const uploaded = report.items.filter((item) => item.state === 'uploaded');
       draftButtons = [];
       const groups = [];
-      if (exceptions.length) groups.push(reportGroup('На проверку', exceptions, true));
+      if (exceptions.length) groups.push(reportGroup('Нужна сверка', exceptions, true));
       if (incomplete.length) groups.push(reportGroup('В работе', incomplete, true));
-      if (checked.length) groups.push(reportGroup('Проверено локально', checked));
-      if (uploaded.length) groups.push(reportGroup('Загруженные', uploaded));
+      if (checked.length) groups.push(reportGroup('Проверено в Пульте', checked));
+      if (uploaded.length) groups.push(reportGroup('Отправлено на сайт', uploaded));
       if (!groups.length) groups.push(el('p', 'intake-updated', view.settings.root ? 'Результаты появятся после разбора документов.' : 'Выберите папку, чтобы открыть её отчёт.'));
       reportItems.replaceChildren(...groups);
       update();
@@ -368,7 +379,7 @@ export function createIntakeView({ api, el }) {
     const request = ++draftRequest;
     showPane('draft');
     draftTitle.textContent = item.name;
-    draftFeedback.textContent = 'Загружаем сохранённые поля и доказательства…';
+    draftFeedback.textContent = 'Открываем сверку…';
     draftContent.replaceChildren();
     try {
       const draft = await call('draft', { revision: view.revision, arrivalId: item.arrivalId });
@@ -382,84 +393,152 @@ export function createIntakeView({ api, el }) {
   }
 
   function renderDraft(draft) {
-    const text = value => typeof value === 'string' || typeof value === 'number' ? String(value) : 'Не извлечено';
-    const note = el('p', 'intake-updated', `Версия ${draft.version}. Просмотр без изменения. Правка полей станет доступна после серверной проверки.`);
-    const issues = el('div', 'intake-draft-issues');
-    for (const issue of draft.issues || []) {
-      const line = el('div');
-      line.append(el('p', 'intake-next-action', issue.message || 'Требуется сверка.'), el('p', '', issue.action || 'Сравните реквизиты с оригиналом.'));
-      issues.append(line);
-    }
-    const evidence = el('section', 'intake-evidence');
-    const evidenceTitle = el('h3', '', 'Источник выбранного поля');
-    const evidencePage = el('p', 'intake-updated', 'Выберите поле или строку, чтобы увидеть страницу и цитату.');
-    const citation = el('blockquote');
-    const source = el('details', 'intake-source');
-    const sourceTitle = el('summary', '', 'Текст исходной страницы');
-    const sourceText = el('pre');
-    source.append(sourceTitle, sourceText);
-    source.hidden = true;
-    evidence.append(evidenceTitle, evidencePage, citation, source);
-    const selectors = [];
-    const select = (control, label, proof) => {
-      for (const selector of selectors) selector.setAttribute('aria-pressed', String(selector === control));
-      evidenceTitle.textContent = label;
-      const page = Number.isInteger(proof?.page) && proof.page > 0 ? proof.page : null;
-      evidencePage.textContent = page ? `Страница ${page}` : 'Страница не подтверждена. Сверьте оригинал.';
-      citation.textContent = typeof proof?.quote === 'string' ? proof.quote : 'Цитата отсутствует. Поле требует ручной сверки.';
-      const pageText = page && Array.isArray(draft.pages) ? draft.pages[page - 1] : null;
-      sourceText.textContent = typeof pageText === 'string' ? pageText : '';
-      source.hidden = !sourceText.textContent;
-      source.open = false;
-      evidence.scrollIntoView({ block: 'nearest' });
-    };
-    const fields = el('dl', 'intake-draft-fields');
-    const addField = (label, value, proof) => {
-      const row = el('div');
-      const control = button(text(value), () => select(control, label, proof), 'ghost intake-field-value');
-      control.setAttribute('aria-label', `Источник поля «${label}»: ${text(value)}`);
-      control.setAttribute('aria-pressed', 'false');
-      selectors.push(control);
-      const content = el('dd'); content.append(control);
-      row.append(el('dt', '', label), content); fields.append(row);
-    };
     const raw = draft.raw;
-    if (raw && typeof raw === 'object') {
-      addField('Тип документа', kinds[draft.kind] || 'Сверьте заголовок', raw.kindEvidence);
-      if (destination[draft.kind]) {
-        const target = draft.reference ? destination[draft.kind] + ' № ' + draft.reference.number : destination[draft.kind];
-        const row = el('div');
-        row.append(el('dt', '', 'Куда относится'), el('dd', '', target));
-        fields.append(row);
-      }
-      for (const [key, label] of [['number', 'Номер'], ['date', 'Дата'], ['currency', 'Валюта'], ['gross', 'Итог']]) addField(label, raw[key]?.value, raw[key]);
-      for (const [key, label] of [['seller', 'Поставщик'], ['buyer', 'Плательщик']]) {
-        addField(label, raw[key] ? `${text(raw[key].name)} · ИНН ${text(raw[key].inn)}` : null, raw[key]);
-      }
-      const vatModes = { none: 'Без НДС', included: 'НДС включён', excluded: 'НДС сверх цены' };
-      addField('НДС', raw.vat ? [vatModes[raw.vat.mode] || 'Режим не определён', raw.vat.rate == null ? '' : `${text(raw.vat.rate)}%`, raw.vat.amount == null ? '' : text(raw.vat.amount)].filter(Boolean).join(' · ') : null, raw.vat);
+    const pages = Array.isArray(draft.pages) ? draft.pages : [];
+    const issues = (draft.issues || []).filter(issue => issue?.message);
+    const issueMessages = [...new Set(issues.map(issue => issue.message))];
+    const issueBox = el('div', 'intake-draft-issues');
+    for (const message of issueMessages) issueBox.append(el('p', '', message));
+
+    const reader = el('details', 'intake-source');
+    const readerTitle = el('summary', '', 'Текст оригинала');
+    const sourceText = el('pre');
+    const pageChoice = el('select');
+    const pageLabel = el('label', 'intake-page-select', 'Страница');
+    for (let index = 0; index < pages.length; index++) {
+      const option = el('option', '', String(index + 1));
+      option.value = String(index + 1);
+      pageChoice.append(option);
     }
-    const lines = el('section', 'intake-draft-lines');
-    lines.append(el('h3', '', 'Позиции документа'));
-    if (Array.isArray(raw?.lines) && raw.lines.length) {
-      const list = el('ol', 'intake-source-lines');
-      for (const [index, line] of raw.lines.entries()) {
-        const row = el('li');
-        const label = `Позиция ${index + 1}`;
-        const control = button(`${text(line?.title)} · ${text(line?.qty)} ${text(line?.unit)} · цена ${text(line?.unitPrice)} · сумма ${text(line?.amount)}`, () => select(control, label, line), 'ghost intake-field-value');
-        control.setAttribute('aria-label', `Источник позиции ${index + 1}`);
-        control.setAttribute('aria-pressed', 'false'); selectors.push(control);
-        row.append(control); list.append(row);
+    function showPage(number) {
+      pageChoice.value = String(number);
+      sourceText.textContent = pages[number - 1] || 'Текст на этой странице не прочитан.';
+    }
+    pageLabel.append(pageChoice);
+    reader.append(readerTitle, pageLabel, sourceText);
+    reader.hidden = !pages.length;
+    if (pages.length) showPage(1);
+    pageChoice.onchange = () => showPage(Number(pageChoice.value));
+
+    const text = value => typeof value === 'string' && value.trim() ? value
+      : typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('ru-RU') : '';
+    const normalized = value => value.normalize('NFKC').replace(/\u00ad/g, '-').replace(/\s+/gu, ' ').trim();
+    const sourceCell = ({ proof, key, label }) => {
+      const cell = el('td', 'intake-original');
+      const page = Number.isInteger(proof?.page) && typeof pages[proof.page - 1] === 'string' ? proof.page : 0;
+      const quote = typeof proof?.quote === 'string' ? normalized(proof.quote) : '';
+      const columns = ['seller', 'buyer'].includes(key) && Array.isArray(draft.partyColumns) ? draft.partyColumns : [];
+      const sources = page ? [pages[page - 1], ...columns.filter(column => column.page === page).map(column => column.quote)] : [];
+      let excerpt = '';
+      if (quote) {
+        for (const source of sources) {
+          if (typeof source !== 'string') continue;
+          const content = normalized(source);
+          const start = content.indexOf(quote);
+          if (start < 0) continue;
+          const line = source.split(/\r?\n/).find(value => normalized(value).includes(quote));
+          excerpt = line && line.length <= 230 ? line.trim() : content.slice(start, start + quote.length);
+          break;
+        }
       }
-      lines.append(list);
-    } else lines.append(el('p', 'intake-updated', 'Позиции не извлечены. Откройте оригинал для сверки.'));
+      const visibleText = excerpt.length > 260 ? excerpt.slice(0, 257) + '…' : excerpt;
+      cell.append(el('p', excerpt ? 'intake-excerpt' : 'intake-updated', visibleText
+        || (pages.length ? 'Подтверждённый фрагмент не найден' : 'Текст PDF недоступен')));
+      if (page) {
+        const open = button('Стр. ' + page, () => {
+          showPage(page);
+          reader.open = true;
+          reader.scrollIntoView({ block: 'nearest' });
+          readerTitle.focus({ preventScroll: true });
+        }, 'intake-page-link');
+        open.setAttribute('aria-label', label + ' · открыть страницу ' + page);
+        cell.append(open);
+      }
+      return cell;
+    };
+    const partyText = party => [text(party?.name), party?.inn ? 'ИНН ' + text(party.inn) : ''].filter(Boolean).join('\n');
+    const vatModes = { none: 'Без НДС', included: 'НДС включён', excluded: 'НДС сверх цены' };
+    const vatText = raw?.vat ? [vatModes[raw.vat.mode], raw.vat.rate == null ? '' : text(raw.vat.rate) + '%',
+      raw.vat.amount == null ? '' : text(raw.vat.amount) + ' ₽'].filter(Boolean).join(' · ') : '';
+    const invoice = ['supplier_invoice', 'customer_invoice'].includes(draft.kind);
+    const fields = raw && typeof raw === 'object' ? [
+      { key: 'kind', label: 'Документ', value: kinds[draft.kind] || kinds[raw.kind], proof: raw.kindEvidence },
+      { key: 'number', label: 'Номер', value: text(raw.number?.value), proof: raw.number },
+      { key: 'date', label: 'Дата', value: text(raw.date?.value).replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3.$2.$1'), proof: raw.date },
+      { key: 'seller', label: invoice ? 'Поставщик' : 'Исполнитель', value: partyText(raw.seller), proof: raw.seller },
+      { key: 'buyer', label: invoice ? 'Плательщик' : 'Заказчик', value: partyText(raw.buyer), proof: raw.buyer },
+      { key: 'gross', label: 'Итог', value: text(raw.gross?.value), proof: raw.gross },
+      { key: 'currency', label: 'Валюта', value: raw.currency?.value === 'RUB' ? 'Рубли' : text(raw.currency?.value), proof: raw.currency },
+      { key: 'vat', label: 'НДС', value: vatText, proof: raw.vat },
+    ] : [];
+    const lines = Array.isArray(raw?.lines) ? raw.lines.slice(0, 200).map((line, index) => ({
+      key: 'line-' + (index + 1), label: 'Позиция ' + (index + 1), proof: line,
+      value: [text(line?.title), [text(line?.qty), text(line?.unit)].filter(Boolean).join(' '),
+        line?.unitPrice == null ? '' : 'Цена ' + text(line.unitPrice),
+        line?.amount == null ? '' : 'Сумма ' + text(line.amount)].filter(Boolean).join('\n'),
+    })) : [];
+    const flagged = new Set(issueMessages.flatMap(message => {
+      const line = message.match(/строк[аиуе]\s+(\d+)/iu);
+      if (line) return ['line-' + line[1]];
+      if (/сумм[ауые] всех строк|состав документа/iu.test(message)) return ['gross', 'lines'];
+      if (/поставщик|исполнител|продавец/iu.test(message)) return ['seller'];
+      if (/покупател|заказчик|плательщик|контрагент/iu.test(message)) return ['buyer'];
+      const keys = [['kind', /тип документ/iu], ['number', /номер документ/iu], ['date', /«дат[аыу]»/iu],
+        ['gross', /итог|сумм[ауые] к оплате/iu], ['currency', /валют/iu], ['vat', /НДС/iu]];
+      return keys.filter(([, pattern]) => pattern.test(message)).map(([key]) => key);
+    }));
+
+    function comparison(rows, label) {
+      const table = el('table', 'intake-review-table');
+      table.setAttribute('aria-label', label);
+      const head = el('thead');
+      const titles = el('tr');
+      for (const title of ['Поле', 'Прочитал Пульт', 'В оригинале PDF']) {
+        const cell = el('th', '', title); cell.scope = 'col'; titles.append(cell);
+      }
+      head.append(titles);
+      const body = el('tbody');
+      for (const row of rows) {
+        const item = el('tr', flagged.has(row.key) ? 'intake-review-flagged' : '');
+        const heading = el('th', '', row.label);
+        heading.scope = 'row';
+        item.append(heading, el('td', 'intake-read-value', row.value || 'Не прочитано'), sourceCell(row));
+        body.append(item);
+      }
+      table.append(head, body);
+      return table;
+    }
+    function folded(title, child) {
+      const section = el('details', 'intake-review-details');
+      section.append(el('summary', '', title), child);
+      return section;
+    }
+
+    const content = [];
+    if (issueMessages.length) content.push(issueBox);
+    const attention = [...fields, ...lines].filter(row => flagged.has(row.key));
+    if (attention.length) {
+      content.push(comparison(attention, 'Поля для сверки'));
+      const otherFields = fields.filter(row => !flagged.has(row.key));
+      if (otherFields.length) content.push(folded('Остальные реквизиты', comparison(otherFields, 'Остальные реквизиты')));
+    } else if (fields.length) content.push(comparison(fields, 'Реквизиты'));
+    else content.push(el('p', 'intake-updated', 'Пульт не прочитал реквизиты документа.'));
+    const otherLines = lines.filter(row => !flagged.has(row.key));
+    if (otherLines.length) {
+      const section = folded('Позиции · ' + otherLines.length, comparison(otherLines, 'Позиции документа'));
+      section.open = flagged.has('lines');
+      content.push(section);
+    }
+    const actions = [...new Set(issues.map(issue => issue.action).filter(Boolean))];
     const doubts = (Array.isArray(raw?.doubts) ? raw.doubts : []).filter(value => typeof value === 'string' && value.trim()).slice(0, 30);
-    if (draft.state === 'question' && doubts.length) {
+    for (const [title, items] of [['Что делать', actions], ['Замечания модели', doubts]]) {
+      if (!items.length) continue;
       const list = el('ul', 'intake-model-doubts');
-      list.append(...doubts.map(value => el('li', '', value.slice(0, 500))));
-      issues.append(el('h3', '', 'Что заметила модель'), list);
+      list.append(...items.map(value => el('li', '', value.slice(0, 500))));
+      content.push(folded(title, list));
     }
-    draftContent.replaceChildren(note, issues, fields, lines, evidence);
+    if (pages.length) content.push(reader);
+    draftContent.replaceChildren(...content);
   }
 
   function refresh(forceReport = false) {
@@ -498,7 +577,7 @@ export function createIntakeView({ api, el }) {
         confirmation.append(heading, el('p', '', 'Контур ' + result.target), list, actionRow(accept, cancel));
         confirmation.hidden = false; heading.focus();
       }
-      const summary = action === 'send' ? 'Загружено и сверено: ' + result.uploaded : result.items.length ? 'Проверьте список перед отправкой.' : 'Готовых документов нет.';
+      const summary = action === 'send' ? 'Отправлено на сайт: ' + result.uploaded : result.items.length ? 'Проверьте список перед отправкой.' : 'Готовых документов нет.';
       mainFeedback.textContent = [summary, ...problems].join(' ');
     } catch (error) { mainFeedback.textContent = error.message; }
     finally { pending = ''; await refresh(true); update(); }
@@ -531,10 +610,15 @@ export function createIntakeView({ api, el }) {
     mount(center, aside) {
       if (center.firstChild !== main) center.replaceChildren(main);
       if (aside.firstChild !== side) aside.replaceChildren(side);
-      if (!visible) { visible = true; refresh(true); }
+      if (!visible) {
+        visible = true;
+        side.closest('.layout')?.classList.toggle('intake-review-open', pane === 'draft');
+        refresh(true);
+      }
     },
     hide() {
       visible = false;
+      side.closest('.layout')?.classList.remove('intake-review-open');
       clearInterval(activityTimer); activityTimer = null;
       password.input.value = '';
     },

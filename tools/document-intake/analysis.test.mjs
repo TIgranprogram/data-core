@@ -11,6 +11,32 @@ const supplier = { id: '111111111111111111111111', name: 'ООО Альфа', in
 const payer = { id: '222222222222222222222222', name: 'ООО Бета', inn: '7702070139', isOurCompany: true };
 const pdf = suffix => Buffer.from(`%PDF-1.4\nОбезличенный оригинал для теста C171: ${suffix}.`);
 
+test('входящие и повторная сверка запускаются отдельно', async t => {
+  const box = await setup(t);
+  const { raw } = invoice();
+  raw.gross.value = 101;
+  const fake = runtime({ propose: async () => raw });
+  await box.drop('Сомнительный счёт.pdf');
+  const initial = await analyze({ ...box.options, scope: 'incoming' }, fake.dependencies);
+  assert.equal(initial.counts.question, 1);
+  const arrivalId = initial.items[0].arrivalId;
+  const empty = await analyze({ ...box.options, scope: 'incoming' }, fake.dependencies);
+  assert.equal(empty.total, 0);
+  assert.equal(empty.processed, 0);
+
+  await box.drop('Новый счёт.pdf');
+  const repeated = await analyze({ ...box.options, scope: 'review' }, fake.dependencies);
+  assert.equal(repeated.total, 1);
+  assert.equal(repeated.items.length, 1);
+  assert.equal(repeated.items[0].arrivalId, arrivalId);
+
+  const previous = (await arrivalsOf(box.store))[0];
+  const incoming = await analyze({ ...box.options, scope: 'incoming' }, runtime().dependencies);
+  assert.equal(incoming.total, 1);
+  assert.equal(incoming.counts.checked, 1);
+  assert.deepEqual((await arrivalsOf(box.store)).find(entry => entry.arrivalId === arrivalId), previous);
+});
+
 test('повреждённый черновик не скрывает остальные документы и не открывает произвольный путь', async t => {
   const box = await setup(t); const fake = runtime();
   await box.drop('Первый.pdf'); await box.drop('Второй.pdf');

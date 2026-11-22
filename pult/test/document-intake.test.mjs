@@ -17,12 +17,12 @@ test('C171: подготовка блокирует анализ, просмот
   const id = '00000000-0000-4000-8000-000000000001';
   const actor = '111111111111111111111111';
   const jwt = `${Buffer.from('{}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: actor, exp: Math.floor(Date.now() / 1000) + 600 })).toString('base64url')}.signature`;
-  let prepared = false, analyzed = 0, draftOwner = actor, draftTarget = `${services.apiBase}/`;
+  let prepared = false, analyzed = 0, inbox = 0, draftOwner = actor, draftTarget = `${services.apiBase}/`;
   const intake = createDocumentIntake({ stateDir: path.join(root, 'settings'), pickFolder: async () => root,
     prepare: async ({ onStep }) => { onStep({ title: 'Проверяем модель' }); return { ready: prepared, steps: [{ status: prepared ? 'ready' : 'blocked', recovery: 'Запустите модель.' }] }; },
     fetchFn: async () => Response.json({ access: jwt, user: { id: actor, baseRole: 'manager', canMoney: true } }),
     engine: async () => ({
-      configure: async () => ({ root }), status: async () => ({ counts: { inbox: 1 }, running: false }),
+      configure: async () => ({ root }), status: async () => ({ counts: { inbox }, running: false }),
       reviewStatus: async () => ({ counts: { pending: 0, checked: 1, question: 0, uploaded: 0 }, items: [{ arrivalId: id, name: 'Счёт.pdf', state: 'checked', version: 1, issues: [] }] }),
       analyze: async ({ token, onProgress }) => { assert.equal(await token(), jwt); analyzed++; onProgress({ total: 1, processed: 1, state: 'processing', stage: 'checked' }); return {}; },
       getDraft: async () => ({ owner: draftOwner, target: draftTarget, name: 'Счёт.pdf', version: 1, pages: ['Счёт'], raw: { number: { value: '17' } }, issues: [], history: [{ private: true }] }),
@@ -36,7 +36,11 @@ test('C171: подготовка блокирует анализ, просмот
   await call('settings', services); await call('folder');
   assert.equal((await call('draft', { arrivalId: id })).status, 401);
   await call('login', { username: 'manager', password });
-  assert.equal((await call('analyze')).status, 202);
+  assert.equal((await call('analyze', { scope: 'incoming' })).status, 409);
+  assert.equal((await call('analyze', { scope: 'review' })).status, 409);
+  assert.equal(analyzed, 0);
+  inbox = 1;
+  assert.equal((await call('analyze', { scope: 'incoming' })).status, 202);
   for (let n = 0; n < 50 && intake.busy(); n++) await wait(5);
   assert.equal(analyzed, 0);
   assert.match((await call('status', {}, 'GET')).body.progress.message, /Запустите модель/);

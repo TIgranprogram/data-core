@@ -21,7 +21,7 @@ const raw = {
   date: { value: '2026-11-20', page: 1, quote: 'Счёт № 2456 от 20.11.2026' },
   seller: { name: 'ООО Альфа', inn: '7707083893', page: 1, quote: 'Поставщик ООО Альфа ИНН 7707083893' },
   buyer: { name: 'ООО Бета', inn: '7702070139', page: 1, quote: 'Плательщик ООО Бета ИНН 7702070139' },
-  currency: { value: 'RUB', page: 1, quote: 'руб.' }, gross: { value: 101, page: 1, quote: 'Всего 100,00 руб.' },
+  currency: { value: 'RUB', page: 1, quote: 'Неподтверждённая цитата модели' }, gross: { value: 101, page: 1, quote: 'Всего 100,00 руб.' },
   vat: { mode: 'none', rate: null, amount: null, page: 1, quote: 'Без НДС' },
   lines: [{ title: 'Урна', qty: 2, unit: 'шт', unitPrice: 50, amount: 100, page: 1, quote: 'Урна 2 шт 50,00 100,00' }],
   doubts: ['Модель нашла два итога, проверьте сумму к оплате.', suspicious],
@@ -30,7 +30,7 @@ const review = { counts: { pending: 0, checked: 1, question: 1, uploaded: 0 }, i
   { arrivalId, name, state: 'question', version: 2, hash: 'a'.repeat(64), issues: [issue] },
   { arrivalId: '00000000-0000-4000-8000-000000000002', name: 'Счёт 2457 — проверен локально.pdf', kind: 'supplier_invoice', state: 'checked', version: 1, hash: 'b'.repeat(64), issues: [] },
 ] };
-let picked = false; const opened = []; let analyses = 0; let drafts = 0;
+let picked = false; const opened = []; let analyses = 0; let drafts = 0; let inboxCount = 3;
 let preparations = 0; let releasePreparation;
 const preparationOnly = process.argv.includes('--preparation-only');
 const deliveryOnly = process.argv.includes('--delivery-only');
@@ -44,7 +44,7 @@ const access = `${Buffer.from('{"alg":"test"}').toString('base64url')}.${Buffer.
 const inboxFor = root => path.join(root, root.endsWith('default-intake') ? 'Входящие' : 'Inbox');
 const engine = {
   async configure({ root }) { return { root, folders: { inbox: inboxFor(root) } }; },
-  async status({ root }) { return { counts: { inbox: 3, processing: 0, ready: 0, question: 0 }, folders: { inbox: inboxFor(root) }, running: false }; },
+  async status({ root }) { return { counts: { inbox: inboxCount, processing: 0, ready: 0, question: 0 }, folders: { inbox: inboxFor(root) }, running: false }; },
   async report() { return { counts: {}, items: [] }; },
   async reviewStatus(binding) { assert.equal(binding.owner, owner); assert.equal(binding.target, target); return review; },
   async getDraft({ arrivalId: selected }) { assert.equal(selected, arrivalId); drafts++; return { owner, target, arrivalId, name, version: 2, state: 'question', pages, raw, issues: [issue] }; },
@@ -56,13 +56,16 @@ const engine = {
     review.items[1].state = 'uploaded'; review.counts.uploaded = 1; review.counts.checked = 0;
     return { uploaded: 1, problems: [] };
   },
-  async analyze({ onProgress, signal }) {
+  async analyze({ onProgress, signal, scope }) {
     analyses++;
+    if (scope === 'review') return { ...review, processed: 1, total: 1 };
+    assert.equal(scope, 'incoming');
     onProgress({ processed: 1, total: 3, current: name, stage: 'proposing', state: 'processing', lastEventAt: new Date().toISOString(), heartbeatAt: new Date().toISOString() });
     if (analyses === 1) {
       await new Promise(resolve => signal.addEventListener('abort', resolve, { once: true }));
       return { ...review, stopped: { code: 'ABORTED' } };
     }
+    inboxCount = 0;
     return { ...review, processed: 3, total: 3 };
   },
 };
@@ -105,8 +108,8 @@ try {
   const aside = page.getByRole('complementary', { name: 'Настройки и отчёт разбора документов' });
   const sideButton = name => aside.getByRole('button', { name, exact: true });
   await page.getByText('Откройте входящие и сложите туда PDF.').waitFor();
-  assert.ok(await control('Разобрать').isDisabled());
-  assert.equal(await control('Возобновить').count(), 0);
+  assert.ok(await control('Разобрать входящие').isDisabled());
+  assert.equal(await control('Продолжить разбор').count(), 0);
   await control('Отчёт').click(); await aside.getByText('Выберите папку, чтобы открыть её отчёт.').waitFor();
   const inboxCard = page.getByRole('main').locator('.intake-card').filter({ has: page.getByRole('heading', { name: 'Входящие', exact: true }) });
   assert.deepEqual(await inboxCard.getByRole('button').allTextContents(), ['Открыть входящие']);
@@ -144,7 +147,7 @@ try {
   assert.equal(await aside.getByLabel('Пароль', { exact: true }).inputValue(), '');
   assert.doesNotMatch(await page.content(), /fixture-c171-password/);
   assert.doesNotMatch(await fs.readFile(path.join(temporary, 'document-intake.json'), 'utf8'), /fixture-c171-password/);
-  await control('Разобрать').click();
+  await control('Разобрать входящие').click();
   await page.getByRole('main').getByText('Проверяется', { exact: true }).waitFor();
   await screenshot('ui-preparation-progress-1440-light.png', true);
   releasePreparation();
@@ -155,7 +158,7 @@ try {
   await screenshot('ui-preparation-blocked-1024-dark.png', true);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await page.emulateMedia({ colorScheme: 'light' }); await page.setViewportSize({ width: 1440, height: 1000 });
-  await control('Возобновить').click();
+  await control('Разобрать входящие').click();
   await page.getByText('Обработано 1 из 3', { exact: true }).waitFor();
   await page.getByText('Файл 2 из 3 · ' + name, { exact: true }).waitFor();
   await page.getByRole('list', { name: 'Этапы разбора файла' }).locator('[aria-current=step]').getByText('Ожидаем ответ LM Studio', { exact: true }).waitFor();
@@ -172,52 +175,72 @@ try {
   await page.emulateMedia({ colorScheme: 'light' });
   await page.setViewportSize({ width: 1440, height: 1000 });
   assert.equal(await page.getByRole('main').getByRole('heading', { name: 'Подготовка ПК' }).count(), 0);
-  await aside.getByText('На проверку · 1', { exact: true }).waitFor();
+  await aside.getByText('Нужна сверка · 1', { exact: true }).waitFor();
   await screenshot('ui-progress-1440-light.png');
-  assert.equal(await control('Разобрать').count(), 0);
+  assert.equal(await control('Разобрать входящие').count(), 0);
   await page.reload(); await page.getByText('Обработано 1 из 3', { exact: true }).waitFor();
   await control('Остановить').click(); await page.getByText('Разбор остановлен.', { exact: false }).waitFor();
-  await control('Возобновить').click(); await page.getByText('Разбор завершён.', { exact: false }).waitFor();
+  await control('Разобрать входящие').click();
+  await page.getByText('Обработано 3 из 3. Входящих PDF нет.', { exact: true }).waitFor();
+  assert.ok(await control('Разобрать входящие').isDisabled());
+  const disabledBackground = await control('Разобрать входящие').evaluate(button => getComputedStyle(button).backgroundColor);
+  assert.equal(disabledBackground, await page.locator('.intake-counts div').first().evaluate(box => getComputedStyle(box).backgroundColor));
+  await screenshot('ui-empty-inbox-1440-light.png', true);
   assert.equal(analyses, 2);
   await aside.getByRole('button', { name: `Сверить: ${name}`, exact: true }).click();
-  await aside.getByText('Версия 2.', { exact: false }).waitFor();
-  await aside.getByRole('heading', { name: 'Что заметила модель' }).waitFor();
+  const comparison = aside.getByRole('table', { name: 'Поля для сверки' });
+  await comparison.waitFor();
+  assert.deepEqual(await comparison.getByRole('columnheader').allTextContents(), ['Поле', 'Прочитал Пульт', 'В оригинале PDF']);
+  const total = comparison.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Итог', exact: true }) });
+  assert.equal(await total.getByRole('cell').first().textContent(), '101');
+  assert.match(await total.getByRole('cell').last().textContent(), /Всего 100,00 руб/);
+  assert.equal(await aside.getByRole('table', { name: 'Остальные реквизиты' }).count(), 0);
+  assert.equal(await aside.getByText('Модель нашла два итога, проверьте сумму к оплате.', { exact: true }).isVisible(), false);
+  await screenshot('ui-review-1440-light.png', true);
+  await aside.getByText('Замечания модели', { exact: true }).click();
   await aside.getByText('Модель нашла два итога, проверьте сумму к оплате.', { exact: true }).waitFor();
   assert.equal(await aside.locator('.intake-model-doubts img').count(), 0);
-  await screenshot('ui-draft-top-1440-light.png', true);
-  const number = aside.getByRole('button', { name: /Источник поля «Номер»/ });
+  await aside.getByText('Замечания модели', { exact: true }).click();
+  await aside.getByText('Остальные реквизиты', { exact: true }).click();
+  await aside.getByText('Подтверждённый фрагмент не найден', { exact: true }).waitFor();
+  assert.equal(await aside.getByText('Неподтверждённая цитата модели', { exact: true }).count(), 0);
+  const number = aside.getByRole('button', { name: 'Номер · открыть страницу 1', exact: true });
   await number.focus(); await page.keyboard.press('Enter');
-  await aside.getByText('Страница 1', { exact: true }).waitFor();
-  await aside.getByText('Текст исходной страницы', { exact: true }).click();
+  await aside.getByRole('combobox', { name: 'Страница', exact: true }).waitFor();
   await aside.locator('pre').filter({ hasText: suspicious }).waitFor();
   assert.equal(await page.evaluate(() => !!window.c171Injected), false); assert.equal(await aside.locator('img').count(), 0);
-  await screenshot('ui-draft-1440-light.png');
+  await aside.getByText('Текст оригинала', { exact: true }).click();
+  await aside.getByText('Остальные реквизиты', { exact: true }).click();
   await page.emulateMedia({ colorScheme: 'dark' }); await page.setViewportSize({ width: 1024, height: 1000 });
-  await aside.getByRole('button', { name: 'Источник позиции 1', exact: true }).click();
-  await aside.getByText('Урна 2 шт 50,00 100,00', { exact: true }).waitFor();
-  await screenshot('ui-draft-1024-dark.png');
+  await aside.getByText('Позиции · 1', { exact: true }).click();
+  await aside.getByRole('table', { name: 'Позиции документа' }).getByText('Урна 2 шт 50,00 100,00', { exact: true }).waitFor();
+  await screenshot('ui-review-1024-dark.png', true);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await sideButton('К списку документов').click();
-  await aside.getByText('Проверено локально · 1', { exact: true }).waitFor();
+  await aside.getByText('Проверено в Пульте · 1', { exact: true }).waitFor();
   await screenshot('ui-report-1024-dark.png');
   assert.equal(await page.getByRole('button', { name: /Подтвердить отправку|Повторить выбранные/ }).count(), 0);
   assert.equal(await page.getByText('Готово к отправке', { exact: false }).count(), 0);
   assert.equal(actions.some(action => ['run', 'resume', 'retry'].includes(action)), false);
-  await control('Отправить готовые…').click();
+  await sideButton('Повторить проверку сомнительных').click();
+  await page.getByText('Обработано 1 из 1. Входящих PDF нет.', { exact: true }).waitFor();
+  assert.equal(analyses, 3);
+  assert.ok(await control('Разобрать входящие').isDisabled());
+  await control('Отправить на сайт…').click();
   await aside.getByText('Готово к отправке · 1').waitFor();
   await aside.getByText('Контур ' + target).waitFor();
   assert.equal(sends, 0);
   await sideButton('Отмена').click(); assert.equal(sends, 0);
-  await control('Отправить готовые…').click(); await sideButton('Подтвердить отправку').waitFor();
+  await control('Отправить на сайт…').click(); await sideButton('Подтвердить отправку').waitFor();
   await aside.getByText(/версия 1/).filter({ hasText: 'Снабжение → Счета' }).waitFor();
   await page.screenshot({ path: path.join(output, 'ui-delivery-confirmation-dark.png') });
   await page.emulateMedia({ colorScheme: 'light' }); await page.setViewportSize({ width: 1440, height: 1000 });
   await sideButton('Подтвердить отправку').focus(); await page.keyboard.press('Enter');
-  await aside.getByText('Загруженные · 1').waitFor();
+  await aside.getByText('Отправлено на сайт · 1').waitFor();
   assert.equal(sends, 1);
   await page.screenshot({ path: path.join(output, 'ui-delivery-receipt-light.png') });
   await aside.getByRole('button', { name: `Сверить: ${name}`, exact: true }).click();
-  await aside.getByText('Версия 2.', { exact: false }).waitFor();
+  await aside.getByRole('table', { name: 'Поля для сверки' }).waitFor();
   await sideButton('Настройки').click(); await sideButton('Выйти').click();
   await sideButton('Войти').waitFor();
   await sideButton('Отчёт').click();

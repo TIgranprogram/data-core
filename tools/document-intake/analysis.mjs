@@ -190,7 +190,7 @@ export async function reviseDraft(options, dependencies = {}) {
 }
 
 export async function analyze(options, dependencies = {}) {
-  const { root, signal, onProgress } = options;
+  const { root, signal, onProgress, scope } = options;
   const store = await openRoot(root);
   const release = await lock(store.root);
   const runtime = { extract: extractDocument, extractColumns: extractPartyColumns, propose, connect: connectApi, ...dependencies };
@@ -220,11 +220,13 @@ export async function analyze(options, dependencies = {}) {
       if (entry.pending || entry.phase === 'claiming') {
         if (!await reconcileArrival(store, entry)) continue;
       }
+      const needsReview = entry.state === 'question' || Boolean(entry.reviewIssue) || Boolean(entry.retryIntent);
+      if ((scope === 'incoming' && (entry.state === 'question' || entry.reviewIssue)) || (scope === 'review' && !needsReview)) continue;
       if (entry.state === 'question') await startRetry(store, entry, { target, owner: actor.id });
       if (entry.phase === 'retrying') await reconcileRetry(store, entry);
       if (entry.state === 'processing') entries.push(entry);
     }
-    const incoming = await inboxFiles(store);
+    const incoming = scope === 'review' ? [] : await inboxFiles(store);
     // Снимок пачки: новые поступления во время анализа остаются до следующего запуска.
     total = entries.length + incoming.length;
     const work = async entry => {

@@ -218,6 +218,7 @@ dialog label[hidden] { display: none; }
 .intake-side .intake-card { box-shadow: none; }
 .intake-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .intake-main button:disabled, .intake-side button:disabled { opacity: .55; cursor: not-allowed; }
+.intake-main .primary.act-go:disabled { opacity: 1; color: var(--muted); background: var(--panel-2); border-color: var(--line); }
 .intake-target, .intake-current, .intake-report-list { overflow-wrap: anywhere; }
 .intake-path { display: grid; gap: 4px; min-width: 0; }
 .intake-destination { padding: 8px 12px; color: var(--muted); border-left: 3px solid var(--line); }
@@ -270,21 +271,40 @@ dialog label[hidden] { display: none; }
 .intake-review-choice input { width:auto; flex:0 0 auto; margin:3px 0 0; }
 .intake-availability { color: var(--muted); border-left: 3px solid var(--warn); padding: 8px 12px; }
 .intake-report-list .intake-row-result.needs-review { color: var(--warn); }
-.intake-draft-content { display: grid; gap: 16px; min-width: 0; }
-.intake-draft-fields { margin: 0; display: grid; gap: 8px; }
-.intake-draft-fields > div { padding-bottom: 8px; border-bottom: 1px solid var(--line); min-width: 0; }
-.intake-draft-fields dt { color: var(--muted); }
-.intake-draft-fields dd { margin: 4px 0 0; }
-.intake-field-value { display: block; width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }
-.intake-field-value[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
-.intake-draft-issues { display: grid; gap: 8px; }
-.intake-draft-issues > div { border-left: 3px solid var(--warn); padding-left: 12px; }
-.intake-draft-issues p { overflow-wrap: anywhere; }
-.intake-source-lines { padding-left: 24px; display: grid; gap: 8px; }
-.intake-evidence { border-top: 1px solid var(--line); padding-top: 12px; min-width: 0; }
-.intake-evidence blockquote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--panel-2); white-space: pre-wrap; overflow-wrap: anywhere; }
-.intake-source summary { cursor: pointer; color: var(--accent); }
-.intake-source pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; padding: 8px; background: var(--panel-2); }
+.intake-draft-content { display: grid; gap: 10px; min-width: 0; }
+.intake-draft-issues { padding: 8px 10px; border-left: 3px solid var(--warn); background: var(--warn-soft); border-radius: 4px; overflow-wrap: anywhere; }
+.intake-draft-issues p + p { margin-top: 4px; }
+.intake-review-table { width: 100%; table-layout: fixed; border: 1px solid var(--line); border-collapse: collapse; }
+.intake-review-table th, .intake-review-table td { padding: 7px 9px; border: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.intake-review-table thead { background: var(--panel-2); color: var(--muted); }
+.intake-review-table thead th { font-weight: 600; }
+.intake-review-table thead th:first-child { width: 21%; }
+.intake-review-table thead th:nth-child(2) { width: 34%; }
+.intake-review-table tbody th { font-weight: 600; }
+.intake-review-flagged th { color: var(--warn); background: var(--warn-soft); }
+.intake-review-table .intake-read-value { white-space: pre-line; font-variant-numeric: tabular-nums; }
+.intake-review-table .intake-original { background: var(--panel-2); }
+.intake-excerpt { white-space: pre-line; }
+.intake-page-link { display: inline-block; margin-top: 2px; padding: 2px 0; border: 0; color: var(--accent); background: none; cursor: pointer; font-size: 13px; text-decoration: underline; text-underline-offset: 2px; }
+.intake-review-details, .intake-source { min-width: 0; border: 1px solid var(--line); border-radius: 6px; }
+.intake-review-details summary, .intake-source summary { padding: 6px 9px; cursor: pointer; color: var(--accent); font-weight: 600; }
+.intake-review-details .intake-review-table { border-inline: 0; border-bottom: 0; }
+.intake-review-details > ul { margin: 0 0 8px; }
+.intake-page-select { display: flex; align-items: center; gap: 6px; padding: 0 9px; }
+.intake-page-select select { background: var(--panel); border: 1px solid var(--line); }
+.intake-source pre { max-height: 360px; overflow: auto; margin: 6px 0 0; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; background: var(--panel-2); }
+.intake-pane > h2 { overflow-wrap: anywhere; }
+.intake-pane > .ghost { justify-self: start; }
+.intake-pane > .ghost[hidden] { display: none; }
+
+@media (min-width: 1051px) {
+  .layout.intake-open.intake-review-open { grid-template-columns: 228px minmax(0, 1fr) minmax(550px, 56%); }
+}
+@media (min-width: 900px) and (max-width: 1050px) {
+  .layout.intake-open.intake-review-open { grid-template-columns: 200px minmax(0, 1fr) minmax(480px, 52%); }
+  .layout.intake-open.intake-review-open .intake-main { grid-column: 1 / -1; }
+  .layout.intake-open.intake-review-open .cards { grid-template-columns: minmax(0, 1fr); }
+}
 .intake-preparation[hidden] { display: none; }
 .intake-preparation h3 { margin: 0; }
 .intake-preparation-steps { margin: 8px 0; padding: 0; list-style: none; display: grid; gap: 8px; }
