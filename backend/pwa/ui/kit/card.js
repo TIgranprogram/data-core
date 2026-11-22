@@ -313,20 +313,21 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
       const done = busyBtn(save, 'Сохраняю…'); err.hidden = true;
       saving = true; cancel.disabled = true;
       const controls = [...body.querySelectorAll('input,textarea,select,button')].map((el) => ({ el, disabled: el.disabled }));
-      controls.forEach(({ el }) => { el.disabled = true; });
       const unlock = () => controls.forEach(({ el, disabled }) => { el.disabled = disabled; });
       try {
         const r = form.read();
-        if (r.errors) { saving = false; cancel.disabled = false; unlock(); done(); return; }
+        if (r.errors) { saving = false; cancel.disabled = false; done(); return; }
+        controls.forEach(({ el }) => { el.disabled = true; });
         const bodyData = section.form.toBody(r.values, isNew ? null : row);
         saved = isNew ? await section.form.create(bodyData) : await section.form.update(row.id, bodyData, row); // row — для версии записи (C049-1)
       } catch (e) {
         // ОШ2.4: сбой — «Не удалось сохранить: нет связи… Проверьте интернет…»; ответ сервера — «Не сохранено: Укажите…»
         reportError(e, { action: isNew ? 'создать запись' : 'сохранить' });
         err.textContent = isFailure(e) ? actionText(isNew ? 'создать запись' : 'сохранить', e) : 'Не сохранено: ' + errText(e); err.hidden = false;
+        unlock();
         if (e?.fields) form.markErrors?.(e.fields);
         form.onError?.(e);
-        saving = false; cancel.disabled = false; unlock();
+        saving = false; cancel.disabled = false;
         done(); if (form.conflicted) save.disabled = true; save.textContent = saveLabel;
         return;
       }

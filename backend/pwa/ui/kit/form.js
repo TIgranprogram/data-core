@@ -182,10 +182,12 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
         empty: f.load ? () => (loading && !done ? 'Загружаю…' : undefined) : undefined }); // признак загрузки, а не «список пуст»
       if (f.strict) {
         const was = String(v ?? '');
+        const validChoice = (value) => !value || value === was ||
+          (typeof f.strict === 'function' && !f.strict(get)) || list().some((o) => String(o.label ?? o) === value);
+        inputs.get(f.key).validChoice = validChoice;
         input.addEventListener('blur', () => setTimeout(() => {
-          if (typeof f.strict === 'function' && !f.strict(get)) { err.hidden = true; return; } // ТЭ: «свой текст» включён — проверка выключена
-          const val = input.value.trim();
-          if (!val || val === was || list().some((o) => String(o.label ?? o) === val)) { err.hidden = true; return; }
+          if (label.classList.contains('has-error')) return;
+          if (validChoice(input.value.trim())) { err.hidden = true; return; }
           input.value = was; err.textContent = f.strictText || 'Выберите из списка'; err.hidden = false;
         }, 200));
       }
@@ -266,7 +268,17 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
   const manual = new Set();
   for (const [k, x] of inputs) {
     const el = x.input.el || x.input;
-    const mark = (e) => { if (e.isTrusted) { manual.add(k); (x.input.classList || x.input.el?.classList)?.remove('is-default'); delete x.label?.querySelector?.(':scope > span')?.dataset.src; } };
+    const mark = (e) => {
+      if (x.label.classList.contains('has-error')) {
+        x.err.hidden = true;
+        x.label.classList.remove('has-error');
+      }
+      if (e.isTrusted) {
+        manual.add(k);
+        (x.input.classList || x.input.el?.classList)?.remove('is-default');
+        delete x.label?.querySelector?.(':scope > span')?.dataset.src;
+      }
+    };
     el.addEventListener?.('input', mark); el.addEventListener?.('click', (e) => { if (x.f.type === 'segment' || x.f.type === 'widget') mark(e); });
   }
   // f.mount(api) — поле следит за другими (паспорт: категория → списки, умолчания, «не хватает для выпуска»)
@@ -297,7 +309,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
 
   function read() {
     const values = {}, errors = {};
-    for (const [key, { f, input, err, label }] of inputs) {
+    for (const [key, { f, input, err, label, validChoice }] of inputs) {
       const raw = input.value.trim();
       err.hidden = true; label.classList.remove('has-error');
       if (f.type === 'photos' || f.type === 'widget') { values[key] = raw ? JSON.parse(raw) : null; continue; }
@@ -308,6 +320,7 @@ const setCat = (name) => { catSel = name; item.placeholder = name ? `Позиц�
         else if (f.min !== undefined && val < f.min) errors[key] = `Не меньше ${f.min}`;
       }
       if (f.required && (val === null || val === '')) errors[key] = 'Заполните поле';
+      if (validChoice && !validChoice(raw)) errors[key] = f.strictText || 'Выберите из списка';
       if (errors[key]) { err.textContent = errors[key]; err.hidden = false; label.classList.add('has-error'); }
       values[key] = val;
     }

@@ -1,8 +1,30 @@
 /* Каркас книжного редактора паспорта, рабочая область под портретный A4. */
-.offer-editor .bk-toc { width: clamp(12rem, 18vw, 19rem); }
-.offer-editor .bk-side { width: clamp(15rem, 22vw, 23rem); overflow: auto; }
+.offer-editor .bk-toc { width: clamp(11rem, 15vw, 17rem); }
+.offer-editor .bk-side { width: clamp(15rem, 20vw, 20rem); overflow: auto; }
 .offer-editor .offer-stage { padding: var(--s3); overflow: auto; }
-.offer-editor .offer-paper { width: var(--offer-paper-width); height: auto; display: block; margin: 0 auto; box-shadow: var(--shadow); max-width: none; }
+.offer-editor .offer-sheet { position: relative; width: var(--offer-paper-width); margin: 0 auto; line-height: 0; box-shadow: var(--shadow); }
+.offer-editor .offer-paper { width: 100%; height: auto; display: block; max-width: none; }
+.offer-editor .offer-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); padding: var(--s2) var(--s4); border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.offer-editor .offer-toolbar span { margin-inline-start: var(--s1); font-size: var(--fs-sm); }
+.offer-editor .offer-sheet-tools { position: absolute; inset: 0; pointer-events: none; line-height: 1.35; }
+.offer-editor :is(.offer-hit, .offer-ghost, .offer-handle-box, .offer-inline) { left: var(--sheet-x); top: var(--sheet-y); width: var(--sheet-w); }
+.offer-editor :is(.offer-hit, .offer-ghost, .offer-handle-box) { height: var(--sheet-h); }
+.offer-editor .offer-hit { position: absolute; z-index: 3; pointer-events: auto; margin: 0; padding: 0; min-width: 0; min-height: 0; border: 0; background: transparent; border-radius: var(--radius-sm); }
+.offer-editor .offer-hit[data-editable='1'] { cursor: text; }
+.offer-editor .offer-hit:focus-visible, .offer-editor .offer-hit[data-active] { outline: 2px solid var(--primary); outline-offset: -1px; }
+.offer-editor .offer-hit:hover { box-shadow: inset 0 0 0 1px var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.offer-editor .offer-hit[data-kind='table'] { z-index: 1; }
+.offer-editor .offer-hit[data-kind='row'] { z-index: 2; }
+.offer-editor .offer-hit[data-kind='photo'] { z-index: 4; cursor: pointer; }
+.offer-editor .offer-ghost, .offer-editor .offer-handle-box { position: absolute; z-index: 5; pointer-events: none; }
+.offer-editor .offer-ghost { border: 2px dashed var(--primary); background: color-mix(in srgb, var(--primary) 15%, transparent); }
+.offer-editor .offer-handle { position: absolute; z-index: 6; pointer-events: auto; touch-action: none; color: var(--primary); background: var(--surface); border: 1px solid var(--primary); border-radius: var(--radius-sm); font: inherit; font-weight: 700; line-height: 1; padding: var(--s1); min-width: var(--s5); min-height: var(--s5); }
+.offer-editor .offer-handle[data-mode='move'] { top: 0; left: 0; transform: translateX(-95%); cursor: grab; }
+.offer-editor .offer-handle[data-mode='move']:active { cursor: grabbing; }
+.offer-editor .offer-handle[data-mode='resize'] { bottom: 0; right: 0; cursor: nwse-resize; transform: translate(50%, 40%); }
+.offer-editor .offer-handle-box[data-target='table'] .offer-handle[data-mode='resize'] { top: 50%; bottom: auto; cursor: ew-resize; }
+.offer-editor .offer-inline { position: absolute; z-index: 7; min-width: 11rem; padding: var(--s2); display: flex; gap: var(--s1); flex-wrap: wrap; pointer-events: auto; background: var(--surface); border: 1px solid var(--primary); border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+.offer-editor .offer-inline [data-offer-input] { flex: 0 0 100%; min-width: 0; width: 100%; }
 .offer-editor .bk-side .field { flex: 0 0 auto; margin: 0; }
 .offer-editor .bk-side .bk-panel { gap: var(--s2); }
 .offer-editor .bk-side .bk-panel .k-form { display: flex; flex-direction: column; }

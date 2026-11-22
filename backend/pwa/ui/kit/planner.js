@@ -17,7 +17,7 @@ const dmy = (n) => isoOf(n).split('-').reverse().join('.');
 const todayNum = () => { const d = new Date(); return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5); };
 
 /** fitPx(width, from, to) — «Уместить»: ширина одного дня (не меньше 4 px), чтобы лента from…to влезла в width пикселей. */
-export const fitPx = (width, from, to) => Math.max(4, Math.floor((Number(width) || 0) / Math.max(1, (dayNum(to) ?? 0) - (dayNum(from) ?? 0) + 1)));
+export const fitPx = (width, from, to) => Math.max(4, (Number(width) || 0) / Math.max(1, (dayNum(to) ?? 0) - (dayNum(from) ?? 0) + 1));
 
 /** Дорожки внутри строки: пересекающиеся полосы — друг под другом. */
 function lanes(items) {
@@ -44,13 +44,13 @@ function lanes(items) {
  *   load  { [rowId]: { 'ГГГГ-ММ-ДД': часы } } — занятость по дням (видна и на свёрнутой строке человека)
  *   expanded — раскрытые узлы (по умолчанию всё свёрнуто); панель над лентой появляется, если есть onScale/onShift/дерево/legend
  * Перетаскивание (мышь; палец — после долгого нажатия): по горизонтали — сдвиг дат (длительность сохраняется), по вертикали — другая строка.
- * Клавиши на полосе: ←/→ сдвиг на день, Enter — открыть. Ошибка onMove — полоса возвращается на место.
+ * onResize(bar, { start, end }) меняет правый край. Клавиши: ←/→ сдвиг, Shift + ←/→ конец, Enter открыть.
  * → { el, scroller, scrollToDate(date), scrollToToday(flash?), expandAll(), collapseAll() }
  */
 const KINDS = ['info', 'ok', 'warn', 'danger', 'dim'];
 const STATUSES = { plan: 'запланировано', work: 'в работе', done: 'сделано' };
 
-export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, autoScroll = true, canEdit = false, rowsMovable = false, onOpen, onMove, empty, expanded, onToggle, legend = [], onScale, onShift, onToday } = {}) {
+export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, autoScroll = true, canEdit = false, rowsMovable = false, onOpen, onMove, onResize, empty, expanded, onToggle, legend = [], onScale, onShift, onToday } = {}) {
   const min = dayNum(from), max = dayNum(to) + 1;
   const days = Math.max(1, max - min);
   // Широкий экран растягивает загруженные дни, не добавляя новых дат к периоду.
@@ -59,9 +59,10 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     : Math.max(PX[scale] || PX.week, (fitWidth || 0) / days);
   const W = days * px;
   const dayCols = scale === 'day';
-  const coarse = touch(), LANE = coarse ? 44 : 32;
+  const coarse = touch(), LANE = coarse ? 44 : 40;
   const today = todayNum();
   const xOf = (n) => (n - min) * px;
+  const rangeWidth = (s, e) => Math.max(0, Math.min(e + 1, max) - Math.max(s, min)) * px;
   const todayX = xOf(today) + px / 2;
   const track = (t) => { t.style.width = W + 'px'; t.style.setProperty('--gt-line', (dayCols ? px : px * 7) + 'px'); t.style.setProperty('--gt-off', xOf(dayCols ? min : min + ((8 - dow(min)) % 7)) + 'px'); t.style.setProperty('--gt-day', px + 'px'); t.style.setProperty('--gt-we', xOf(min + ((13 - dow(min)) % 7)) + 'px'); return t; }; // --gt-we — первая суббота: выходные полосой и в строках
 
@@ -71,7 +72,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     const d = new Date(n * 864e5), wd = dow(n);
     if (!months.length || months[months.length - 1].m !== d.getUTCMonth()) months.push({ m: d.getUTCMonth(), y: d.getUTCFullYear(), from: n, to: n + 1 }); else months[months.length - 1].to = n + 1;
     if (dayCols) nums.push(h('i', { class: 'gt-n' + (wd === 0 || wd === 6 ? ' we' : '') + (n === today ? ' today' : ''), style: { left: xOf(n) + 'px', width: px + 'px' } }, String(d.getUTCDate()), h('small', null, WD[wd])));
-    else if (wd === 1 && px * 7 >= 28) nums.push(h('i', { class: 'gt-n', style: { left: xOf(n) + 'px', width: px * 7 + 'px' } }, String(d.getUTCDate())));
+    else if (wd === 1 && px * 7 >= 28) nums.push(h('i', { class: 'gt-n', style: { left: xOf(n) + 'px', width: Math.min(7, max - n) * px + 'px' } }, String(d.getUTCDate())));
   }
   const head = h('div', { class: 'gt-row gt-head' }, h('div', { class: 'gt-label' }, rowsTitle || 'Строки'),
     track(h('div', { class: 'gt-track gt-head-track' },
@@ -82,7 +83,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   const byRow = new Map(rows.map((r) => [String(r.id), []]));
   for (const b of bars) {
     const s = dayNum(b.start), e = dayNum(b.end) ?? s;
-    if (s === null || !byRow.has(String(b.rowId))) continue;
+    if (s === null || s >= max || Math.max(s, e) < min || !byRow.has(String(b.rowId))) continue;
     byRow.get(String(b.rowId)).push({ b, s, e: Math.max(s, e), dl: dayNum(b.deadline), over: !!b.overdue });
   }
   const tree = buildTree(rows, byRow);
@@ -99,36 +100,76 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     d.style.left = xOf(dl) + px / 2 + 'px'; tr.append(d);
   };
 
-  function barNode(it, rowEl) {
+  function barNode(it, rowEl, nLanes) {
     const { b, s, e, lane } = it;
-    const len = e - s + 1;
+    const width = rangeWidth(s, e);
     const st = b.status === 'done' || b.status === 'work' || b.status === 'plan' ? b.status : '';
+    const editable = canEdit && !b.locked && st !== 'done';
+    const resizable = editable && !!onResize && e < max;
     const state = [STATUSES[st], b.overdue && 'просрочено'].filter(Boolean).join(', ');
-    const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', canEdit && !b.locked ? 'drag' : '', len * px < Math.max(72, String(b.title).length * 7 + 16) ? 'narrow' : ''].filter(Boolean).join(' '); // narrow — подпись справа от полосы (как в kppdf), не «И…»
+    const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', editable ? 'drag' : '', resizable ? 'resizable' : '', width < Math.max(72, String(b.title).length * 7 + 16) ? 'narrow' : ''].filter(Boolean).join(' ');
     const node = h('button', { type: 'button', class: cls, 'data-bar': String(b.id), 'data-wt': b.wt == null ? null : String(b.wt),
-      title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, state, b.overdue ? 'Просрочено' : '', b.hint, canEdit && !b.locked ? 'Потяните, чтобы переставить' : b.locked ? 'Задание без плана позиции — нажмите, чтобы открыть' : ''].filter(Boolean).join('\n'),
+      title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, state, b.hint, editable ? 'Потяните, чтобы переставить' : '', resizable ? 'Правый край или Shift + ←/→ — изменить конец' : ''].filter(Boolean).join('\n'),
+      'aria-keyshortcuts': resizable ? 'Shift+ArrowLeft Shift+ArrowRight' : null,
       'aria-label': `${b.title}, ${dmy(s)} — ${dmy(e)}${state ? ', ' + state : ''}. Открыть` },
-      h('span', { class: 'gt-bt' }, (st === 'done' ? '✓ ' : '') + b.title), b.sub && len * px >= 120 ? h('small', { class: 'k-pl-sub' }, b.sub) : null); // узкая полоса — одна строка, подробности в подсказке
-    node.style.left = xOf(s) + 'px'; node.style.width = Math.max(coarse ? 44 : 10, len * px - 2) + 'px'; node.style.top = 4 + lane * LANE + 'px';
+      h('span', { class: 'gt-bt' }, (st === 'done' ? '✓ ' : '') + b.title), b.sub && width >= 120 ? h('small', { class: 'k-pl-sub' }, b.sub) : null);
+    node.style.left = xOf(Math.max(s, min)) + 'px';
+    node.style.width = width + 'px';
+    node.style.top = `calc(50% + ${(lane - (nLanes - 1) / 2) * LANE}px)`;
     if (hl) node.classList.toggle('hl-on', String(b.wt) === hl);
     let moved = false;
     node.addEventListener('click', (ev) => { if (moved) { moved = false; ev.preventDefault(); return; } onOpen?.(b); });
-    if (canEdit && !b.locked) { // locked — полоса только для просмотра (задание без плана позиции)
+    if (resizable) bindResize(node, b, s, e);
+    if (editable) {
       bindDrag(node, b, s, e, rowEl, () => { moved = true; });
       node.addEventListener('keydown', (ev) => {
         if ((ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') || ev.ctrlKey || ev.metaKey || ev.altKey) return;
         ev.preventDefault();
         const d = ev.key === 'ArrowRight' ? 1 : -1;
-        run(node, b, { start: isoOf(s + d), end: isoOf(e + d), rowId: b.ownerId ?? b.rowId }, () => {});
+        if (ev.shiftKey) {
+          if (resizable && e + d >= s) run(node, onResize, b, { start: isoOf(s), end: isoOf(e + d) });
+        } else run(node, onMove, b, { start: isoOf(s + d), end: isoOf(e + d), rowId: b.ownerId ?? b.rowId });
       });
     }
     return node;
   }
 
-  async function run(node, b, to2, revert) {
+  async function run(node, action, b, to2, revert) {
     node.classList.add('is-busy'); node.disabled = true;
-    try { await onMove?.(b, to2); } catch { revert(); }
+    try { await action?.(b, to2); } catch { revert?.(); }
     finally { node.classList.remove('is-busy'); node.disabled = false; }
+  }
+
+  function bindResize(node, bar, start, originalEnd) {
+    const handle = h('span', { class: 'gt-h', 'aria-hidden': 'true', title: 'Изменить конец работы' });
+    node.append(handle);
+    handle.addEventListener('click', (event) => { event.stopPropagation(); event.preventDefault(); });
+    handle.addEventListener('pointerdown', (event) => {
+      if (event.button > 0 || node.disabled) return;
+      event.stopPropagation();
+      event.preventDefault();
+      const x = event.clientX, width = node.style.width;
+      let end = originalEnd;
+      handle.setPointerCapture(event.pointerId);
+      node.classList.add('resizing');
+      const preview = (move) => {
+        end = Math.max(start, originalEnd + Math.round((move.clientX - x) / px));
+        node.style.width = rangeWidth(start, end) + 'px';
+        node.dataset.hint = dmy(end);
+      };
+      const finish = (done) => {
+        handle.removeEventListener('pointermove', preview);
+        handle.removeEventListener('pointerup', finish);
+        handle.removeEventListener('lostpointercapture', finish);
+        node.classList.remove('resizing');
+        delete node.dataset.hint;
+        node.style.width = width;
+        if (done.type === 'pointerup' && end !== originalEnd) run(node, onResize, bar, { start: isoOf(start), end: isoOf(end) });
+      };
+      handle.addEventListener('pointermove', preview);
+      handle.addEventListener('pointerup', finish, { once: true });
+      handle.addEventListener('lostpointercapture', finish, { once: true });
+    });
   }
 
   function bindDrag(node, b, s, e, rowEl, markMoved) {
@@ -167,7 +208,7 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
         markMoved();
         const back = () => { node.style.left = left0 + 'px'; node.style.transform = ''; };
         if (cancel || (dx === 0 && target === rowEl)) { back(); return; }
-        await run(node, b, { start: isoOf(s + dx), end: isoOf(e + dx), rowId: target === rowEl ? b.ownerId ?? b.rowId : target.dataset.drop }, back);
+        await run(node, onMove, b, { start: isoOf(s + dx), end: isoOf(e + dx), rowId: target === rowEl ? b.ownerId ?? b.rowId : target.dataset.drop }, back);
       };
       const up = () => end(false), cn = () => end(true);
       node.addEventListener('pointermove', mv); node.addEventListener('pointerup', up); node.addEventListener('pointercancel', cn);
@@ -201,9 +242,9 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     const seen = new Set();
     if (sum) {
       const bar = h('div', { class: 'gt-bar sum k-pl-sum lv' + Math.min(depth, 2) + (sum.over ? ' over' : ''), title: `${r.label}: ${dmy(sum.s)} — ${dmy(sum.e)} · шагов: ${sum.n}` });
-      bar.style.left = xOf(sum.s) + 'px'; bar.style.width = Math.max(6, (sum.e - sum.s + 1) * px - 2) + 'px'; tr.append(bar);
+      bar.style.left = xOf(Math.max(sum.s, min)) + 'px'; bar.style.width = rangeWidth(sum.s, sum.e) + 'px'; tr.append(bar);
       diamond(sum.dl, sum.dl != null && (sum.e > sum.dl || sum.over), tr, seen);
-    } else for (const it of own) { tr.append(barNode(it, rowEl)); if (!r.parentId) diamond(it.dl, it.over || (it.dl != null && it.e > it.dl), tr, seen); } // в дереве срок — ромбом только на строке-узле (не дублировать)
+    } else for (const it of own) { tr.append(barNode(it, rowEl, nLanes)); if (!r.parentId) diamond(it.dl, it.over || (it.dl != null && it.e > it.dl), tr, seen); } // в дереве срок — ромбом только на строке-узле (не дублировать)
     return rowEl;
   }
 

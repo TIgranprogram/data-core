@@ -59,7 +59,11 @@ button.gt-label:hover { background: var(--row-hover); }
 .k-pl-row.drop { background: var(--info-soft); }
 .k-pl-label small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .k-pl-label small.over { color: var(--danger); font-weight: 600; }
-.k-pl-bar { flex-direction: column; align-items: flex-start; justify-content: center; line-height: 1.15; z-index: 1; }
+.k-pl-bar { height: calc(var(--s6) + var(--s1)); flex-direction: column; align-items: flex-start; justify-content: center; line-height: 1.15; z-index: 1; translate: 0 -50%; }
+.k-pl-bar.resizable:not(.narrow) { padding-right: var(--s4); }
+.k-pl-bar .gt-h { z-index: 1; width: min(35%, var(--s3)); background: color-mix(in srgb, currentColor 24%, transparent); border-left: 1px solid currentColor; }
+.k-pl-bar.resizing { z-index: 3; cursor: ew-resize; }
+.k-pl-bar.resizing::after { content: attr(data-hint); position: absolute; right: 100%; top: 0; padding: var(--s1); background: var(--surface); color: var(--text); white-space: nowrap; }
 .k-pl-bar .gt-bt { width: 100%; text-align: left; }
 .k-pl-sub { font-size: var(--fs-label); opacity: .85; white-space: nowrap; }
 .k-pl-bar.ok { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
@@ -85,10 +89,10 @@ button.gt-label:hover { background: var(--row-hover); }
 .k-pl-bar.st-plan { border: 1px dashed currentColor; }
 .k-pl-bar.st-work { border-left-width: 3px; } /* идёт — метка слева */
 .k-pl-bar.st-done, .k-pl-bar.hue.st-done { background: var(--surface-3); border-color: var(--border-strong); color: var(--text-2, var(--muted)); } /* сделано — серая с ✓, читается */
-.k-pl-bar.late { box-shadow: inset 0 -3px 0 var(--danger); }
+.k-pl-bar.late { box-shadow: inset 0 -3px 0 var(--danger); padding-bottom: var(--s1); }
 .k-pl-bar.late:focus-visible { outline-color: var(--gold); }
 .k-planner.hl .k-pl-bar:not(.hl-on) { opacity: .3; }
-.gt-bar.k-pl-sum { background: var(--muted); top: 18px; height: 8px; border-radius: var(--radius-sm); } /* сводка отличается толщиной */
+.gt-bar.k-pl-sum { background: var(--muted); top: 50%; height: 8px; translate: 0 -50%; border-radius: var(--radius-sm); } /* сводка отличается толщиной */
 .gt-bar.k-pl-sum.lv1 { opacity: .7; }
 .gt-bar.k-pl-sum.lv2 { opacity: .5; }
 .gt-bar.k-pl-sum.over { background: var(--muted); }
@@ -105,5 +109,6 @@ button.gt-label:hover { background: var(--row-hover); }
 /* Панель Ганта на касании (планшет, телефон): кнопки и масштабы не ниже 44 px (приёмка дизайнера C053) */
 @media (pointer: coarse) { .k-pl-tools .btn, .k-pl-tools .k-seg-btn { min-height: 44px; } }
 .k-pl-tools .k-seg { flex: none; } .k-pl-tools .k-seg-btn { flex: none; min-width: max-content; } /* «Уместить» не обрезается */
-.k-pl-bar.narrow { overflow: visible; } .k-pl-bar.narrow .gt-bt { position: absolute; left: calc(100% + var(--s1)); top: 50%; transform: translateY(-50%); width: auto; color: var(--text); font-weight: 600; white-space: nowrap; pointer-events: none; } /* узкая полоса — подпись справа */
+.k-pl-bar.narrow { overflow: visible; padding-inline: 0; } .k-pl-bar.narrow .gt-bt { position: absolute; left: calc(100% + var(--s1)); top: 50%; transform: translateY(-50%); width: auto; color: var(--text); font-weight: 600; white-space: nowrap; pointer-events: none; } /* узкая полоса — подпись справа */
+.k-pl-bar.narrow .k-pl-sub { display: none; }
 .k-planner .gt-nums { height: calc(var(--s5) + var(--s3) + var(--s1)); } /* число и день недели в две строки — не вылезают под шапку (телефон) */
