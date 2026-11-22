@@ -127,10 +127,17 @@ export async function authorize(api) {
   return actor;
 }
 
-async function lookupParty(api, party) {
+export async function lookupParty(api, party, label) {
   const entries = await all(api, '/organizations', { search: party.inn });
-  const matches = entries.filter((row) => row.inn === party.inn && !row.deletedAt);
-  return matches.length === 1 && objectId(idOf(matches[0])) ? matches[0] : null;
+  const matches = entries.filter(row => row.inn === party.inn && !row.deletedAt);
+  if (!matches.length) {
+    throw question(label + ' отсутствует в справочнике по подтверждённому ИНН.', 'ИНН сверен с оригиналом. Проверьте карточку в «Контрагентах».');
+  }
+  if (matches.length > 1) {
+    throw question(label + ' найден в нескольких карточках с одним ИНН.', 'Сверьте дубли в «Контрагентах».');
+  }
+  if (!objectId(idOf(matches[0]))) throw question('Карточка стороны недоступна для привязки.', 'Проверьте карточку в «Контрагентах».');
+  return matches[0];
 }
 
 function supplierRole(party) {
@@ -138,10 +145,13 @@ function supplierRole(party) {
 }
 
 async function resolveParty(api, party, own, supplier = false) {
-  const match = await lookupParty(api, party);
-  if (!match || Boolean(match.isOurCompany) !== own || (supplier && !supplierRole(match))) {
-    throw question(own ? 'Наша фирма по ИНН не найдена однозначно.' : supplier ? 'Поставщик по ИНН не найден однозначно.' : 'Заказчик по ИНН не найден однозначно.',
-      'Откройте «Контрагенты», сверьте ИНН и признак нашей компании. Проверьте документ вручную.');
+  const label = own ? 'Исполнитель' : supplier ? 'Поставщик' : 'Заказчик';
+  const match = await lookupParty(api, party, label);
+  if (Boolean(match.isOurCompany) !== own) {
+    throw question('Признак нашей компании в справочнике не соответствует стороне договора.', 'Сверьте стороны договора и отметку «Наша компания» в «Контрагентах».');
+  }
+  if (supplier && !supplierRole(match)) {
+    throw question('Карточка по ИНН найдена, но у неё нет роли поставщика.', 'Проверьте роль в «Контрагентах».');
   }
   return idOf(match);
 }
@@ -153,14 +163,14 @@ export async function resolveSalesParties(api, proposal) {
 }
 
 export async function decideInvoice(api, proposal) {
-  const seller = await lookupParty(api, proposal.seller);
-  const buyer = await lookupParty(api, proposal.buyer);
-  if (seller && buyer && seller.isOurCompany && !buyer.isOurCompany) return { kind: 'customer_invoice' };
-  if (seller && buyer && !seller.isOurCompany && buyer.isOurCompany && supplierRole(seller)) {
-    return { kind: 'supplier_invoice', parties: { supplierId: idOf(seller), payerCompanyId: idOf(buyer) } };
+  const seller = await lookupParty(api, proposal.seller, 'Поставщик');
+  const buyer = await lookupParty(api, proposal.buyer, 'Плательщик');
+  if (seller.isOurCompany && !buyer.isOurCompany) return { kind: 'customer_invoice' };
+  if (Boolean(seller.isOurCompany) === Boolean(buyer.isOurCompany)) {
+    throw question('По ИНН найдены обе стороны счёта, но не определено, какая из них наша компания.', 'Сверьте отметку «Наша компания» в «Контрагентах».');
   }
-  throw question('Поставщик и плательщик счёта не подтверждены по ИНН.',
-    'В «Контрагентах» проверьте ИНН, признак нашей компании и роль поставщика. После сверки откройте счёт в «Снабжении».');
+  if (!supplierRole(seller)) throw question('Поставщик найден по ИНН, но у его карточки нет роли поставщика.', 'Проверьте роль в «Контрагентах».');
+  return { kind: 'supplier_invoice', parties: { supplierId: idOf(seller), payerCompanyId: idOf(buyer) } };
 }
 
 const pathFor = (p) => p.kind === 'offer' ? '/offers' : '/salesorders';

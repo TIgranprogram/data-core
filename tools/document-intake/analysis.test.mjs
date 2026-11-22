@@ -115,9 +115,49 @@ test('цитата стороны восстанавливается тольк�
 
   const second = await setup(t);
   await second.drop('Два совпадения.pdf');
-  const pages = [fake.fixture.pages[0] + '\n' + fake.fixture.raw.seller.quote + ' (вторая строка)'];
+  const pages = [fake.fixture.pages[0] + '\n' + fake.fixture.raw.seller.quote.replace(supplier.inn, payer.inn)];
   const ambiguous = await analyze(second.options, { ...fake.dependencies, extract: async () => pages });
   assert.equal(ambiguous.items[0].state, 'question');
+});
+
+test('разбор исправляет ИНН и страницу по повторяющимся однозначным реквизитам', async t => {
+  const box = await setup(t);
+  const { pages, raw } = invoice();
+  const repeated = supplier.name + ' ИНН/КПП: ' + supplier.inn + ' / 770701001\nПоставщик';
+  pages[0] = pages[0].replace(raw.seller.quote, 'Реквизиты на следующей странице.');
+  pages.push(repeated + '\n\n' + repeated);
+  raw.seller.inn = '7707083890';
+  raw.seller.quote = 'Поставщик ' + supplier.name + ' ИНН ' + raw.seller.inn;
+  const fake = runtime({ extract: async () => pages, propose: async () => raw });
+  await box.drop('Счёт с повтором реквизитов.pdf');
+  const result = await analyze(box.options, fake.dependencies);
+  const draft = await getDraft({ root: box.root, arrivalId: result.items[0].arrivalId });
+  assert.equal(draft.state, 'checked');
+  assert.equal(draft.raw.seller.inn, '7707083890');
+  assert.equal(draft.evidence.seller.inn, supplier.inn);
+  assert.equal(draft.evidence.seller.page, 2);
+});
+
+test('подтверждённый ИНН ищется отдельно от ошибки чтения второй стороны', async t => {
+  const box = await setup(t);
+  const { raw } = invoice();
+  raw.buyer = null;
+  const searched = [];
+  const fake = runtime({ propose: async () => raw, connect: () => ({
+    async get(endpoint, query) {
+      if (endpoint === '/auth/me') return { id: 'synthetic-manager', role: 'manager', canMoney: true };
+      assert.equal(endpoint, '/organizations');
+      searched.push(query.search);
+      return { items: [], total: 0, page: 1, limit: 100 };
+    },
+    async post() { assert.fail('Анализ не должен писать в DataCore'); },
+  }) });
+  await box.drop('Счёт для уточнения.pdf');
+  const result = await analyze(box.options, fake.dependencies);
+  assert.equal(result.counts.question, 1);
+  assert.deepEqual(searched, [supplier.inn]);
+  assert.match(result.items[0].issues[0].message, /отсутствует в справочнике по подтверждённому ИНН/);
+  assert.match(result.items[0].issues[1].message, /ИНН не прочитан/);
 });
 
 test('сторона на соседних строках и явный НДС сверяются по дословным строкам PDF', async t => {
@@ -145,6 +185,42 @@ test('сторона на соседних строках и явный НДС �
   assert.match(rejected.items[0].issues[0].message, /НДС/);
 });
 
+test('две колонки договора исправляют ИНН, страницу и названия, сохраняя ответ модели', async t => {
+  const box = await setup(t);
+  const { pages, raw } = invoice();
+  raw.kind = 'contract';
+  const header = raw.kindEvidence.quote.replace('Счёт', 'Договор');
+  pages[0] = pages[0].replace(raw.kindEvidence.quote, header).replace(raw.seller.quote + '\n' + raw.buyer.quote, '');
+  raw.kindEvidence.quote = header;
+  raw.number.quote = header;
+  raw.seller.name = 'Неточное название продавца';
+  raw.buyer.name = 'Неточное название покупателя';
+  raw.buyer.inn = '7702070130';
+  const sellerTax = 'ИНН/КПП: ' + supplier.inn + ' / 770701001';
+  const buyerTax = 'ИНН/КПП: ' + payer.inn + ' / 770701001';
+  pages.push(['Покупатель: Поставщик:', payer.name + ' ' + supplier.name, 'Два адреса', sellerTax, buyerTax].join('\n'));
+  const columns = [
+    { page: 2, quote: ['Покупатель:', payer.name, 'Адрес покупателя', buyerTax].join('\n') },
+    { page: 2, quote: ['Поставщик:', supplier.name, 'Адрес поставщика', sellerTax].join('\n') },
+  ];
+  const fake = runtime({ extract: async () => pages, extractColumns: async () => columns, propose: async () => raw, connect: () => ({
+    async get(endpoint, query) {
+      if (endpoint === '/auth/me') return { id: 'synthetic-manager', role: 'manager', canMoney: true };
+      assert.equal(endpoint, '/organizations');
+      const items = [{ ...supplier, isOurCompany: true }, { ...payer, isOurCompany: false }].filter(row => row.inn === query.search);
+      return { items, total: items.length, page: 1, limit: 100 };
+    },
+    async post() { assert.fail('Анализ не должен писать в DataCore'); },
+  }) });
+  await box.drop('Договор с колонками.pdf');
+  const result = await analyze(box.options, fake.dependencies);
+  const draft = await getDraft({ root: box.root, arrivalId: result.items[0].arrivalId });
+  assert.equal(draft.state, 'checked');
+  assert.deepEqual(draft.raw, raw);
+  assert.deepEqual(draft.evidence.buyer, { ...columns[0], name: payer.name, inn: payer.inn });
+  assert.deepEqual(draft.evidence.seller, { ...columns[1], name: supplier.name, inn: supplier.inn });
+});
+
 test('ошибочный кандидат остаётся вместе с исходными страницами и причиной', async t => {
   const box = await setup(t); const bad = invoice().raw; bad.gross.value = 101;
   const fake = runtime({ propose: async () => bad }); await box.drop('Спорный.pdf');
@@ -153,6 +229,28 @@ test('ошибочный кандидат остаётся вместе с ис�
   const draft = await getDraft({ root: box.root, arrivalId: result.items[0].arrivalId });
   assert.deepEqual(draft.raw, bad); assert.deepEqual(draft.pages, fake.fixture.pages);
   assert.equal(draft.proposal, null); assert.ok(draft.issues[0].message); assert.ok(draft.issues[0].action);
+});
+
+test('ошибка журнала не скрывает причину сверки, повтор считает поступление один раз', async t => {
+  const box = await setup(t);
+  const { raw } = invoice();
+  raw.lines[0].qty = 3;
+  const fake = runtime({ propose: async () => raw });
+  await box.drop('Счёт со спорной строкой.pdf');
+  await analyze(box.options, fake.dependencies);
+  const [entry] = await arrivalsOf(box.store);
+  entry.reviewIssue = { code: 'DOCUMENT', message: 'Старая ошибка.', action: 'Повторите.' };
+  await saveArrival(box.store, entry);
+  const report = await reviewStatus({ root: box.root });
+  assert.equal(report.items[0].issues[0].code, 'DOCUMENT');
+  assert.match(report.items[0].issues[1].message, /строка 1/);
+
+  const result = await analyze(box.options, fake.dependencies);
+  assert.equal(result.processed, 1);
+  assert.equal(result.total, 1);
+  assert.equal(result.items[0].issues.length, 1);
+  assert.match(result.items[0].issues[0].message, /строка 1/);
+  assert.equal((await arrivalsOf(box.store))[0].reviewIssue, undefined);
 });
 
 test('испорченный файл в середине пачки направляется на проверку, следующий счёт анализируется', async t => {
