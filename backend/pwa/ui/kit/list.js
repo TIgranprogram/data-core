@@ -70,7 +70,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
   // ---------- Поиск и фильтры (создаются один раз) ----------
   // общий поиск (ПО.3): пусто = весь список — q убирается из адреса и запроса, страница — на первую
-  const sb = searchBox({ value: P.q || '', placeholder: L.searchPlaceholder || 'Поиск…', onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
+  const defaultSearch = L.searchPlaceholder || 'Поиск…';
+  const sb = searchBox({ value: P.q || '', placeholder: defaultSearch, onSearch: (q) => patch({ q: q || undefined, page: undefined }) });
   const chipFilters = (L.filters || []).filter((f) => f.type === 'chips');
   const otherFilters = (L.filters || []).filter((f) => f.type !== 'chips' && f.type !== 'hidden');
   const side = !!(L.sidebar || otherFilters.length || L.toolbarExtra);
@@ -101,13 +102,14 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   /** Сколько фильтров выбрано (для кнопки «Фильтры · N» на телефоне). */
   let ganttCount = 0;
   const extraFilterKeys = () => (L.extraKeys || []).filter(k => !(st().gallery && L.gallery.pathKeys?.includes(k)));
-  const selCount = () => (L.filters || []).filter((f) => P[f.key] && P[f.key] !== 'all').length
+  const activeFilters = () => st().gantt ? (L.filters || []).filter((f) => f.key !== 'status') : L.filters || [];
+  const selCount = () => activeFilters().filter((f) => P[f.key] && P[f.key] !== 'all').length
     + extraFilterKeys().reduce((n, k) => n + (k !== 'all' && P[k] ? String(P[k]).split('|').filter(Boolean).length : 0), 0);
 
   const anyFilter = () => selCount() > 0 || (st().gantt && ganttCount > 0);
   function resetFilters() {
     const clear = { q: undefined, page: undefined };
-    for (const f of L.filters || []) clear[f.key] = undefined;
+    for (const f of activeFilters()) clear[f.key] = undefined;
     for (const k of extraFilterKeys()) clear[k] = undefined;
     if (st().gantt && ganttCount) gantt?.resetFilters?.();
     sb.set('', true);
@@ -197,10 +199,10 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const el = mark(h('div', { class: 'list-screen' + (side ? ' has-side' : '') }, head,
     filters ? filters.el : [tilesBox, panel, boardBox, ganttBox]), 'list');
 
-  // ---------- Синхронизация элементов с адресом ----------
   function syncControls() {
     const { board: isBoard, gallery: isGallery, gantt: isGantt } = st();
     sb.set(P.q || '');
+    sb.input.placeholder = (isGantt && L.gantt.searchPlaceholder) || defaultSearch;
     for (const [k, c] of Object.entries(controls)) c.value = P[k] || '';
     resetBtn.hidden = !(anyFilter() || P.q);
     if (ganttFields) ganttFields.hidden = !isGantt;
@@ -214,7 +216,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (quickBox) quickBox.hidden = isBoard || isGantt;
     panel.classList.toggle('compact', isBoard || isGantt);
     boardBox.hidden = !isBoard; ganttBox.hidden = !isGantt;
-    renderHead(); renderChips(); renderTiles();
+    chipsBox.hidden = isGantt; renderHead(); renderChips(); renderTiles();
     const hint = L.hints && !isBoard ? L.hints[P[L.hintKey || 'status'] || ''] : '';
     // banner(P) → { text, keys } — особая выборка (пришли по ссылке «Все →»): пометка + «Показать все» (снимает keys)
     const bn = L.banner ? L.banner(P) : null;
@@ -244,7 +246,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   async function currentQuery(isBoard = false) {
     const params = P;
     const query = { search: params.q, ...(await L.query?.(params)) };
-    for (const f of L.filters || []) {
+    for (const f of activeFilters()) {
       const v = params[f.key] !== undefined ? params[f.key] : (f.defaultValue || '');
       if (v && v !== 'all' && !(isBoard && f.key === 'status')) query[f.key] = v;
     }

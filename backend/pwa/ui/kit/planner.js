@@ -48,8 +48,9 @@ function lanes(items) {
  * → { el, scroller, scrollToToday(flash?), expandAll(), collapseAll() }
  */
 const KINDS = ['info', 'ok', 'warn', 'danger', 'dim'];
+const STATUSES = { plan: 'запланировано', work: 'в работе', done: 'сделано' };
 
-export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, canEdit = false, rowsMovable = false, onOpen, onMove, empty, expanded, onToggle, legend = [], onScale, onShift, onToday } = {}) {
+export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from, to, scale = 'week', fitWidth, autoScroll = true, canEdit = false, rowsMovable = false, onOpen, onMove, empty, expanded, onToggle, legend = [], onScale, onShift, onToday } = {}) {
   const px = scale === 'fit' ? fitPx(fitWidth || 720, from, to) : PX[scale] || PX.week;
   const dayCols = scale === 'day';
   const coarse = touch(), LANE = coarse ? 44 : 32;
@@ -97,10 +98,11 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
     const { b, s, e, lane } = it;
     const len = e - s + 1;
     const st = b.status === 'done' || b.status === 'work' || b.status === 'plan' ? b.status : '';
+    const state = [STATUSES[st], b.overdue && 'просрочено'].filter(Boolean).join(', ');
     const cls = ['gt-bar k-pl-bar', b.hue ? 'hue wt-' + b.hue : KINDS.includes(b.tone) ? b.tone : 'info', st ? 'st-' + st : '', b.overdue ? 'late' : '', canEdit && !b.locked ? 'drag' : '', len * px < 72 ? 'narrow' : ''].filter(Boolean).join(' '); // narrow — подпись справа от полосы (как в kppdf), не «И…»
     const node = h('button', { type: 'button', class: cls, 'data-bar': String(b.id), 'data-wt': b.wt == null ? null : String(b.wt),
-      title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, b.hint, canEdit && !b.locked ? 'Потяните, чтобы переставить' : b.locked ? 'Задание без плана позиции — нажмите, чтобы открыть' : ''].filter(Boolean).join('\n'),
-      'aria-label': `${b.title}, ${dmy(s)} — ${dmy(e)}${st === 'done' ? ', сделано' : b.overdue ? ', просрочено' : ''}. Открыть` },
+      title: [b.title, b.sub, `${dmy(s)} — ${dmy(e)}`, state, b.hint, canEdit && !b.locked ? 'Потяните, чтобы переставить' : b.locked ? 'Задание без плана позиции — нажмите, чтобы открыть' : ''].filter(Boolean).join('\n'),
+      'aria-label': `${b.title}, ${dmy(s)} — ${dmy(e)}${state ? ', ' + state : ''}. Открыть` },
       h('span', { class: 'gt-bt' }, (st === 'done' ? '✓ ' : '') + b.title), b.sub && len * px >= 120 ? h('small', { class: 'k-pl-sub' }, b.sub) : null); // узкая полоса — одна строка, подробности в подсказке
     node.style.left = xOf(s) + 'px'; node.style.width = Math.max(coarse ? 44 : 10, len * px - 2) + 'px'; node.style.top = 4 + lane * LANE + 'px';
     if (hl) node.classList.toggle('hl-on', String(b.wt) === hl);
@@ -120,7 +122,8 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
 
   async function run(node, b, to2, revert) {
     node.classList.add('is-busy'); node.disabled = true;
-    try { await onMove?.(b, to2); } catch { revert(); node.classList.remove('is-busy'); node.disabled = false; }
+    try { await onMove?.(b, to2); } catch { revert(); }
+    finally { node.classList.remove('is-busy'); node.disabled = false; }
   }
 
   function bindDrag(node, b, s, e, rowEl, markMoved) {
@@ -218,10 +221,10 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   const wrap = h('div', { class: 'gt-wrap k-planner' + (tree.hasKids ? ' tree' : '') });
   const scrollToToday = (flash) => requestAnimationFrame(() => {
     const lab = scroller.querySelector('.gt-label')?.offsetWidth || 0;
-    scroller.scrollLeft = Math.max(0, todayX - (scroller.clientWidth + lab) / 2);
+    scroller.scrollLeft = Math.max(0, todayX - (scroller.clientWidth - lab) / 2);
     if (flash && line) { line.classList.remove('flash'); void line.offsetWidth; line.classList.add('flash'); }
   });
-  const toToday = () => { if (today >= min && today < max) scrollToToday(true); else onToday?.(); };
+  const toToday = () => { if (rows.length && today >= min && today < max) scrollToToday(true); else onToday?.(); };
   const paintBar = () => {
     const bar = plannerBar({ lead, scale, onScale, onShift, onToday: toToday, tree: tree.hasKids, onAll: setAll, legend, hl, onHl: (id) => { hl = id; paintBar(); applyHl(); } });
     wrap.replaceChildren(...[bar, rows.length && canEdit && coarse ? h('p', { class: 'k-pl-hint' }, 'Удерживайте полосу, чтобы переставить.') : null, rows.length ? scroller : empty || null].filter(Boolean));
@@ -232,6 +235,6 @@ export function planner({ lead, rowsTitle, rows = [], bars = [], load = {}, from
   }
   paintBar();
   const el = mark(wrap, 'planner');
-  scrollToToday();
+  if (autoScroll) scrollToToday();
   return { el, scroller, scrollToToday, expandAll: () => setAll(true), collapseAll: () => setAll(false) };
 }

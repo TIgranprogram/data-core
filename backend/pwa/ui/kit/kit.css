@@ -973,12 +973,18 @@ table.cal.k-tree tr.k-tree-ins > td { padding: 0; white-space: normal; text-alig
 @media (max-width: 720px) { .drawer-head > .btn-icon, .drawer-head > .rel .btn-icon { width: 44px; height: 44px; } }
 
 /* Шапка карточки одним блоком (заказ, 15.11): этап по центру, срок справа — screenCard({ stage }) → .k-head-meta */
+.drawer-head > .t:has(.k-head-meta) { container: card-heading / inline-size; }
 .k-head-row:has(.k-head-meta) .k-head-slot { flex: 1; }
 .k-head-row:has(.k-head-meta) { align-items: center; } /* «Срок» — на одной линии с номером */
 .k-head-meta { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--s3); width: 100%; padding-left: var(--s4); }
 .k-head-meta > :first-child { grid-column: 2; white-space: nowrap; } /* этап — по центру, срок — справа, не наезжают (владелец 15.11) */
 .k-head-meta > :last-child { grid-column: 3; justify-self: end; white-space: nowrap; text-align: right; }
-@media (max-width: 720px) { .k-head-meta { grid-template-columns: auto 1fr; padding-left: 0; } .k-head-meta > :first-child { grid-column: 1; } .k-head-meta > :last-child { grid-column: 2; } }
+@container card-heading (max-width: 500px) {
+  .k-head-row:has(.k-head-meta) .k-head-slot { flex-basis: 100%; margin-left: 0; }
+  .k-head-meta { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); padding-left: 0; }
+  .k-head-meta > :empty { display: none; }
+  .k-head-meta > :last-child { white-space: normal; text-align: left; }
+}
 .k-pos-group .k-row { justify-content: flex-start; text-align: left; } /* заголовок договора — слева, не теряется среди позиций (C140) */
 .k-pos-group td { background: var(--surface-2); font-weight: 600; }
 /* Несколько договоров: каждый в своей рамке — таблица не сливается (владелец 17.11, C140) */
