@@ -6,6 +6,8 @@ import { UserModule } from '../user/user.module';
 import { RoleModule } from '../role/role.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { DeskFilesController } from './desk-files.controller';
+import { DeskFilesService } from './desk-files.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { LoginSoftlockService } from '../../common/login-softlock/login-softlock.service';
@@ -27,9 +29,10 @@ import { LoginSoftlockService } from '../../common/login-softlock/login-softlock
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, DeskFilesController],
   providers: [
     AuthService,
+    DeskFilesService,
     JwtStrategy,
     JwtRefreshStrategy,
     // TZ-249 §2.4 — softlock service is module-scoped. Single instance per

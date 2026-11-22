@@ -128,14 +128,14 @@ export class SupplyController {
     return this.invoices.merge(id, dto.targetId, dto.strategy ?? 'append', user?.id);
   }
 
-  /** Принять счёт на склад: все неполученные заявки (или отмеченные). */
+  /** Принять счёт на склад или подтвердить прямую поставку отмеченных строк по выбранному назначению. */
   @Post('invoices/:id/receive')
   @HttpCode(200)
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.invoice.received', entityType: 'SupplyInvoice', idParam: 'id' })
   async receiveInvoice(@Param('id') id: string, @Body() dto: ReceiveInvoiceDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
-    return this.invoices.receive(id, dto.requestIds, user?.id);
+    return this.invoices.receive(id, dto.requestIds, user?.id, dto);
   }
 
   /** Оплата — денежные роли (и менеджер). */

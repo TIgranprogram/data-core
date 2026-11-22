@@ -58,7 +58,7 @@ const report = await success('reviewreport', {}, 'GET');
 assert.deepEqual(await readdir(inbox), []);
 assert.equal((await readdir(path.join(documents, 'Проверенные'))).length, 2);
 assert.equal((await readdir(path.join(documents, 'Сомнительные'))).length, 1);
-assert.equal(report.counts.checked, 2, JSON.stringify(report)); assert.equal(report.counts.question, 1);
+assert.equal(report.counts.checked, 1, JSON.stringify(report)); assert.equal(report.counts.question, 1);
 const preview = await success('prepare'); assert.equal(preview.items.length, 1, JSON.stringify(preview));
 const auth = await fetch(apiBase + '/auth/login', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(user) }).then(r=>r.json());
 const entry = report.items.find(item => item.state === 'checked');
@@ -72,7 +72,7 @@ pult = createDocumentIntake(options);
 await success('login', user);
 const resumed = await success('prepare'); assert.equal(resumed.items.length, 0, JSON.stringify(resumed));
 const final = await success('reviewreport', {}, 'GET');
-assert.equal(final.counts.uploaded, 2, JSON.stringify(final)); assert.equal(final.counts.question, 1);
+assert.equal(final.counts.uploaded, 1, JSON.stringify(final)); assert.equal(final.counts.question, 1);
 assert.equal(commits, 1); await pult.stop();
 const other = path.join(root, 'independent-batch');
 pult = createDocumentIntake({ ...options, stateDir: path.join(root, 'other-settings'), pickFolder: async () => other });
@@ -157,3 +157,44 @@ assert.equal(salesWrites, 2);
 assert.equal((await success('reviewreport', {}, 'GET')).counts.uploaded, 2);
 await pult.stop();
 console.log('PASS: договор и заказ покупателя привязаны без дублей при двух потерянных ответах.');
+
+const automaticRoot = path.join(root, 'automatic');
+const automaticCases = {
+  'manual-fixture': 'В-84',
+  'automatic-fixture': 'В-85',
+  'near-fixture': 'В85',
+};
+const docs = new Map(Object.entries(automaticCases).map(([name, number]) => [
+  '%PDF-1.4 ' + name, {
+    pages: pages.map(page => page.replace('В-83', number)),
+    raw: { ...raw, number: field(number, 'Счёт № ' + number), kindEvidence: proof('Счёт № ' + number) },
+  },
+]));
+pult = createDocumentIntake({
+  ...options, secureSession: null, stateDir: path.join(root, 'automatic-settings'), pickFolder: async () => automaticRoot,
+  engine: async () => ({ ...engine, analyze: args => engine.analyze(args, {
+    stableMs: 0, extract: async (_file, source) => docs.get(source.toString()).pages,
+    propose: async ({ pages }) => [...docs.values()].find(doc => doc.pages[0] === pages[0]).raw,
+  }) }),
+});
+await success('settings', settings); await success('folder'); await success('login', user);
+await writeFile(path.join(await inboxPath(), 'Ранее проверен.pdf'), '%PDF-1.4 manual-fixture');
+await success('analyze', { scope: 'incoming' });
+for (let i = 0; i < 200 && pult.busy(); i++) await delay(30);
+await writeFile(path.join(await inboxPath(), 'На автоматическую отправку.pdf'), '%PDF-1.4 automatic-fixture');
+await writeFile(path.join(await inboxPath(), 'Сомнительный.pdf'), 'учебный неподдерживаемый файл');
+await success('analyze', { scope: 'incoming', automatic: true });
+for (let i = 0; i < 200 && pult.busy(); i++) await delay(30);
+let autoReport = await success('reviewreport', {}, 'GET');
+assert.equal(autoReport.counts.uploaded, 1, JSON.stringify(autoReport));
+assert.equal(autoReport.counts.checked, 1);
+assert.equal(autoReport.counts.question, 1);
+await writeFile(path.join(await inboxPath(), 'Похожий номер.pdf'), '%PDF-1.4 near-fixture');
+await success('analyze', { scope: 'incoming', automatic: true });
+for (let i = 0; i < 200 && pult.busy(); i++) await delay(30);
+autoReport = await success('reviewreport', {}, 'GET');
+assert.equal(autoReport.items.find(item => item.name === 'Похожий номер.pdf').state, 'question');
+assert.match(autoReport.items.find(item => item.name === 'Похожий номер.pdf').issues[0].message, /похожий номер/);
+assert.equal(autoReport.counts.uploaded, 1);
+await pult.stop();
+console.log('PASS: автоматическая отправка учла один проверенный файл текущего разбора; прежний, похожий и сомнительный пропущены.');

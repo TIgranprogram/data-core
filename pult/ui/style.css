@@ -211,7 +211,7 @@ dialog label[hidden] { display: none; }
 .intake-open .console { display: none; }
 .intake-main { grid-column: 1 / -1; display: grid; gap: 12px; min-width: 0; }
 .intake-card h2, .intake-pane > h2 { font-size: 16px; }
-.intake-side { min-width: 0; overflow: auto; padding: 16px; background: var(--panel); border-left: 1px solid var(--line); }
+.intake-side { container-type: inline-size; min-width: 0; overflow: auto; padding: 16px; background: var(--panel); border-left: 1px solid var(--line); }
 .intake-side-content, .intake-pane, .intake-form { display: grid; gap: 12px; }
 .intake-pane[hidden], .intake-form[hidden], .intake-actions[hidden], .intake-card[hidden] { display: none; }
 .intake-side .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--text); background: var(--accent-soft); }
@@ -219,7 +219,7 @@ dialog label[hidden] { display: none; }
 .intake-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .intake-main button:disabled, .intake-side button:disabled { opacity: .55; cursor: not-allowed; }
 .intake-main .primary.act-go:disabled { opacity: 1; color: var(--muted); background: var(--panel-2); border-color: var(--line); }
-.intake-target, .intake-current, .intake-report-list { overflow-wrap: anywhere; }
+.intake-target, .intake-current { overflow-wrap: anywhere; }
 .intake-path { display: grid; gap: 4px; min-width: 0; }
 .intake-destination { padding: 8px 12px; color: var(--muted); border-left: 3px solid var(--line); }
 .intake-destination strong { color: var(--text); }
@@ -251,14 +251,54 @@ dialog label[hidden] { display: none; }
 .intake-card .intake-status.warn, .intake-card .intake-feedback, .intake-feedback { color: var(--warn); }
 .intake-status:empty, .intake-feedback:empty { display: none; }
 .intake-form > .ghost { justify-self: start; }
-.intake-form input, .intake-path input { width: 100%; min-width: 0; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); }
-.intake-report-items { display: grid; gap: 16px; }
-.intake-report-group h3 { margin: 0; font-size: 14px; }
-.intake-report-list { padding: 0; margin: 4px 0 0; list-style: none; }
-.intake-report-list li { padding: 9px 0; border-bottom: 1px solid var(--line); }
-.intake-report-list p { margin-top: 3px; color: var(--muted); }
-.intake-report-list .intake-next-action { color: var(--text); }
-.intake-report-list .intake-row-result { color: var(--ok); }
+.intake-form input, .intake-path input, .intake-party-edit input { width: 100%; min-width: 0; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); }
+.intake-report-table {
+  width: 100%;
+  table-layout: fixed;
+  border: 1px solid var(--line);
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.intake-report-table > :is(thead, tbody) > tr > :is(th, td) {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.intake-report-table > thead {
+  background: var(--panel-2);
+  color: var(--muted);
+}
+.intake-report-table > thead th:first-child { width: 34%; }
+.intake-report-table > thead th:nth-child(2) { width: 30%; }
+.intake-report-table .intake-report-group-title { background: var(--panel-2); }
+.intake-report-table .intake-report-group-title > th { font-weight: 650; }
+.intake-report-doc { font-weight: 600; }
+.intake-report-doc .intake-updated { font-weight: 400; }
+.intake-report-evidence { color: var(--muted); }
+.intake-report-table .intake-quick-party {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.intake-report-table .intake-quick-party + .intake-quick-party { margin-top: 4px; }
+.intake-report-controls .intake-actions { gap: 4px; }
+.intake-report-controls .intake-actions + .intake-actions { margin-top: 4px; }
+.intake-report-controls :is(.ghost, .primary) {
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: 6px;
+  line-height: 1.35;
+}
+.intake-report-table .intake-report-detail > td {
+  padding: 10px;
+  background: var(--panel-2);
+}
+.intake-report-detail[hidden] { display: none; }
+@container (max-width: 560px) {
+  .intake-report-table > thead th:first-child { width: 32%; }
+  .intake-report-table > thead th:nth-child(2) { width: 27%; }
+}
 @media (min-width: 900px) and (max-width: 1050px) {
   .layout.intake-open { grid-template-columns: 200px minmax(0, 1fr) minmax(310px, 36%); grid-template-rows: minmax(0, 1fr); }
   .layout.intake-open .main { min-width: 0; }
@@ -270,7 +310,6 @@ dialog label[hidden] { display: none; }
 .intake-review-choice { display:flex; align-items:flex-start; gap:8px; cursor:pointer; }
 .intake-review-choice input { width:auto; flex:0 0 auto; margin:3px 0 0; }
 .intake-availability { color: var(--muted); border-left: 3px solid var(--warn); padding: 8px 12px; }
-.intake-report-list .intake-row-result.needs-review { color: var(--warn); }
 .intake-draft-content { display: grid; gap: 10px; min-width: 0; }
 .intake-draft-issues { padding: 8px 10px; border-left: 3px solid var(--warn); background: var(--warn-soft); border-radius: 4px; overflow-wrap: anywhere; }
 .intake-draft-issues p + p { margin-top: 4px; }
@@ -284,6 +323,10 @@ dialog label[hidden] { display: none; }
 .intake-review-flagged th { color: var(--warn); background: var(--warn-soft); }
 .intake-review-table .intake-read-value { white-space: pre-line; font-variant-numeric: tabular-nums; }
 .intake-review-table .intake-original { background: var(--panel-2); }
+.intake-read-value > .intake-actions, .intake-party-edit { margin-top: 6px; }
+.intake-party-edit { display: grid; gap: 6px; }
+.intake-party-edit[hidden], .intake-read-value > .intake-actions[hidden] { display: none; }
+.intake-party-edit .param { min-width: 0; }
 .intake-excerpt { white-space: pre-line; }
 .intake-page-link { display: inline-block; margin-top: 2px; padding: 2px 0; border: 0; color: var(--accent); background: none; cursor: pointer; font-size: 13px; text-decoration: underline; text-underline-offset: 2px; }
 .intake-review-details, .intake-source { min-width: 0; border: 1px solid var(--line); border-radius: 6px; }

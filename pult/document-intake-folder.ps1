@@ -1,8 +1,19 @@
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('Pick','Open')][string]$Mode,
+    [Parameter(Mandatory=$true)][ValidateSet('Pick','Open','PDF')][string]$Mode,
     [string]$InitialPath
 )
 $ErrorActionPreference = 'Stop'
+
+if ($Mode -eq 'PDF') {
+    $item = Get-Item -LiteralPath $InitialPath
+    if ($item.PSIsContainer -or $item.Extension -ne '.pdf') { throw 'PDF not found' }
+    $info = [System.Diagnostics.ProcessStartInfo]::new()
+    $info.FileName = $item.FullName
+    $info.UseShellExecute = $true
+    [void][System.Diagnostics.Process]::Start($info)
+    [Console]::Write('opened')
+    exit
+}
 
 if ($Mode -eq 'Open') {
     $folder = Get-Item -LiteralPath $InitialPath

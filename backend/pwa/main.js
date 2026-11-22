@@ -45,7 +45,7 @@ const SECTIONS = {};   // имя раздела -> описание (запол�
 const FN = {};         // имя функции монтирования -> функция
 // ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
 const LAZY = {
-  desk: [() => import('./sections/desk.js'), [['@mountDesk', 'mountDesk']]],
+  desk: [() => import('./sections/desk.js'), [['@mountDesk', 'mountDesk'], ['desk', 'deskTask']]],
   woodgrid: [() => import('./sections/wood-grid.js'), [['@mountWoodGrid', 'mountWoodGrid'], ['wooditem', 'woodItem']]],
   partwork: [() => import('./sections/part-work.js'), [['partwork','partWork']]], // C122: виды работ детали — правая панель
   requests: [() => import('./sections/requests.js'), [['requests','requests'],['reqreceive','reqReceive']]],

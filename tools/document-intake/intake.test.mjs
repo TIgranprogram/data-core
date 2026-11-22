@@ -7,7 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { configure, report, resume, retry, run, status } from './index.mjs';
 import { IntakeError, MAX_BYTES, arrivalsOf, claim, finishArrival, lock, openRoot, readOriginal, reconcileRetry, saveArrival, sha256, startRetry } from './store.mjs';
-import { connectApi } from './api.mjs';
+import { checkAutomaticDuplicate, connectApi } from './api.mjs';
 import { checkPages, propose, validateProposal } from './proposal.mjs';
 
 const seller = { id: '111111111111111111111111', name: 'ООО Альфа', inn: '7707083893', isOurCompany: true };
@@ -506,6 +506,27 @@ test('маскировка URL: API не пересылает bearer, модел
   assert.deepEqual(await api.original('/uploads/c169/source.pdf', bytes.length), bytes);
   await assert.rejects(api.original('/uploads/%2e%2e/api/auth/me', bytes.length), { code: 'QUESTION' });
   assert.deepEqual(seen, ['/db/api/auth/me', '/v1/chat/completions', '/db/uploads/c169/source.pdf']);
+});
+
+test('автоотправка отличает исходный PDF, похожий номер и новый счёт', async () => {
+  const { raw, pages } = fixture('supplier_invoice');
+  const proposal = validateProposal(raw, pages);
+  const doc = { proposal, parties: { supplierId: seller.id, payerCompanyId: buyer.id }, hash: sha256(bytes), bytes };
+  const record = { id: entityId, no: proposal.number, supplierId: seller.id, payerCompanyId: buyer.id,
+    date: proposal.date, amount: proposal.gross, intakeSourceSha256: doc.hash };
+  let existing = [record];
+  const api = { async get(endpoint) {
+    if (endpoint === '/supply/invoices') return { items: existing, total: existing.length };
+    assert.equal(endpoint, '/supply/invoices/' + entityId);
+    return record;
+  } };
+  assert.equal(await checkAutomaticDuplicate(api, doc), true);
+  const stripped = proposal.number.replace(/[^\p{L}\p{N}]/gu, '');
+  const similar = stripped === proposal.number ? proposal.number + '-' : stripped;
+  existing = [{ ...record, no: similar }];
+  await assert.rejects(checkAutomaticDuplicate(api, doc), /похожий номер/);
+  existing = [];
+  assert.equal(await checkAutomaticDuplicate(api, doc), false);
 });
 
 test('печатный знак рубля сам подтверждает валюту только при наличии в оригинале', () => {

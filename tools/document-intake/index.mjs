@@ -6,7 +6,7 @@ import {
 import { apiAddress, authorize, connectApi, decideInvoice, executeIntake } from './api.mjs';
 import { checkPages, EXTRACTOR_VERSION, extractDocument, propose, question, RULES_VERSION, validateProposal } from './proposal.mjs';
 
-export { analyze, getDraft, reviseDraft, reviewStatus } from './analysis.mjs';
+export { analyze, getDraft, getReviewOriginal, reviewDecision, reviseDraft, reviewStatus } from './analysis.mjs';
 export { prepareBatch, sendBatch } from './delivery.mjs';
 
 export async function configure({ root, localized = false }) {

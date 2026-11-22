@@ -8,6 +8,12 @@ export const COST_CENTERS = { workshop: 'Цех', office: 'Офис', smr: 'СМ
 export type CostCenter = keyof typeof COST_CENTERS;
 export const COST_CENTER_KEYS = Object.keys(COST_CENTERS) as CostCenter[];
 
+export const DIRECT_COST_CENTERS = ['office', 'workshop', 'smr'] as const satisfies readonly CostCenter[];
+export type DirectCostCenter = (typeof DIRECT_COST_CENTERS)[number];
+export type DirectReceiptTarget =
+  | { directOrderId: string; directCostCenter?: never; directCostObject?: never }
+  | { directOrderId?: never; directCostCenter: DirectCostCenter; directCostObject?: string };
+
 /** Подпись направления заявки (для сводки); нет данных — «Не указано». */
 export function costCenterLabel(d: { costCenter?: unknown; salesOrderId?: unknown }): string {
   const k = String(d.costCenter ?? '') as CostCenter;

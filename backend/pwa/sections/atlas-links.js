@@ -33,7 +33,7 @@ export const LINKS = [
   ['partners', 'requests', 'поставщик'], ['contracts', 'requests', 'договор поставки'],
   ['products', 'needs', 'состав изделия и количество к выпуску'], ['stock', 'needs', 'учтённое наличие материалов и покупных позиций'], ['needs', 'requests', 'перечень недостающих позиций для заявки'],
   ['products', 'stock', 'материалы к резервированию при запуске в работу'],
-  ['requests', 'stock', 'приёмка'], ['stockmobile', 'stock', 'те же остатки'], ['stock', 'movements', 'каждая операция'],
+  ['requests', 'stock', 'приёмка'], ['requests', 'salesorders', 'поставка прямо на объект'], ['stockmobile', 'stock', 'те же остатки'], ['stock', 'movements', 'каждая операция'],
   ['stock', 'work', 'выдача материалов'], ['requests', 'money', 'счета: план, после оплаты — факт'], ['salesorders', 'money', 'оплаты заказчика'],
   ['expenses', 'money', 'расходы'], ['dicts', 'expenses', 'статьи расходов'], ['payroll', 'money', 'выплаты'], ['staff', 'payroll', 'ставки сотрудников для оплаты труда'],
   ['salesorders', 'shiporder', 'позиции и остаток заказа к отгрузке'],

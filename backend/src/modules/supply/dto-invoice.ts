@@ -1,3 +1,4 @@
+import { DIRECT_COST_CENTERS, type DirectCostCenter } from './cost-center';
 import { INVOICE_CURRENCIES } from './invoice-financials';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsPositive, IsString, Length, Min, Matches } from 'class-validator';
@@ -25,6 +26,12 @@ export class AdminOverrideDto {
 export class ReceiveInvoiceDto {
   @ApiPropertyOptional({ description: 'Какие заявки счёта принять (id); по умолчанию — все неполученные', type: [String] })
   @IsOptional() @IsArray() @ArrayMaxSize(200) @IsMongoId({ each: true }) requestIds?: string[];
+  @ApiPropertyOptional({ description: 'Заказ для прямой поставки без прихода на склад; требует явно указать requestIds' })
+  @IsOptional() @IsMongoId() directOrderId?: string;
+  @ApiPropertyOptional({ enum: DIRECT_COST_CENTERS, description: 'Направление прямой поставки без заказа и без прихода на склад' })
+  @IsOptional() @IsIn(DIRECT_COST_CENTERS) directCostCenter?: DirectCostCenter;
+  @ApiPropertyOptional({ description: 'Название объекта или уточнение направления прямой поставки' })
+  @IsOptional() @IsString() @Length(0, 200) directCostObject?: string;
 }
 
 export class InvoiceTaxDto {

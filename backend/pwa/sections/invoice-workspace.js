@@ -2,6 +2,7 @@ import { metaBlock } from './invoice-workspace-meta.js';
 import { h } from '../core/dom.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { current } from '../core/router.js';
+import { chooseDirectReceipt, directReceiptLabel, lineOrder } from './invoice-workspace-receipt.js';
 import { date, dateTime, money, qty } from '../core/format.js';
 import { stack, section, table, button, actions, link, badge, INVOICE_STATUS, SUPPLY_STATUS, confirmDlg, failBlock, toast, toastError, attachCombo } from '../ui/kit/index.js';
 import { permissions, lineAmount, pendingLines, assertOperation, addBody, takeInvoiceOperation, sourceMoney, foreignInvoice, paymentStateLabel, invoiceWarnings, needsPaymentDate } from './invoice-workspace-state.js';
@@ -29,7 +30,7 @@ function positions(invoice, ctx, { editable = true, commands = true, receiveChec
   const p = permissions(invoice, session);
   // «Цена / ед.» — второй строкой под суммой, статус — под названием: таблица не шире панели
   const columns = [{ label: 'Позиция', wrap: true }, { label: 'Кол-во', num: true, cls: 'nowrap' },
-    ...(session.canMoney ? [{ label: 'Сумма / цена за ед.', num: true }] : []),
+    ...(session.canMoney ? [{ label: 'Сумма', num: true }] : []),
   ];
   if (receiveChecks) columns.unshift({ label: 'Принять' });
   const rows = (invoice.requests || []).map((line) => {
@@ -48,8 +49,12 @@ function positions(invoice, ctx, { editable = true, commands = true, receiveChec
         ? () => actions(button({ label: 'Отменить приёмку', kind: 'danger', onClick: () => override(invoice, ctx, 'rollback', line) }))
         : null;
     // Название позиции — текст, без перехода в раздел заявок (один экран счёта).
-    const cells = [stack(h('span', { title: lineTitle(line) }, lineTitle(line)), badge(SUPPLY_STATUS, line.status === 'ordered' && line.paid ? 'paid' : line.status)),
-      qtyCell, ...(session.canMoney ? [stack(sumCell, h('span', { class: 'muted small' }, priceCell))] : [])];
+    const direct = line.status === 'received' && line.receivedTo === 'direct';
+    const receipt = direct ? badge(line.salesOrderId ? 'На объекте' : directReceiptLabel(line), 'ok')
+      : badge(SUPPLY_STATUS, line.status === 'ordered' && line.paid ? 'paid' : line.status);
+    const cells = [stack(h('span', { title: lineTitle(line) }, lineTitle(line)), receipt,
+      line.salesOrderId ? link({ label: lineOrder(line), href: '#salesorders?open=' + line.salesOrderId }) : null),
+      qtyCell, ...(session.canMoney ? [stack(sumCell, h('span', { class: 'muted small' }, priceCell === '—' ? priceCell : `${priceCell} / ед.`))] : [])];
     if (receiveChecks) {
       const cb = mutable ? h('input', { type: 'checkbox', checked: true, 'aria-label': 'Принять ' + lineTitle(line) }) : null;
       if (cb) receiveChecks.set(line.id, cb);
@@ -68,7 +73,9 @@ async function override(invoice, ctx, kind, line) {
     const path = kind === 'unpay' ? `/supply/invoices/${invoice.id}/unpay` : `/supply/requests/${line.id}/rollback-receipt`;
     const done = await adminAction(path, kind === 'unpay'
       ? { title: 'Снять оплату со счёта?', okText: 'Снять оплату', lead: 'Счёт вернётся в «Выставлен», деньги уйдут из календаря оплат. Запись о снятии сохранится.' }
-      : { title: 'Отменить приёмку?', okText: 'Отменить приёмку', lead: `Позиция «${lineTitle(line)}» уйдёт со склада и вернётся на прежний этап.` });
+      : { title: 'Отменить приёмку?', okText: 'Отменить приёмку', lead: line.receivedTo === 'direct'
+        ? `Приёмка позиции «${lineTitle(line)}» будет отменена, позиция вернётся на прежний этап.`
+        : `Позиция «${lineTitle(line)}» уйдёт со склада и вернётся на прежний этап.` });
     if (!done) return;
     toast(kind === 'unpay' ? 'Оплата снята' : 'Приёмка отменена');
     ctx.changed();
@@ -83,10 +90,11 @@ async function command(invoice, ctx, operation, lineId, body = {}) {
   const titles = { remove: 'Убрать позицию из счёта?', issue: 'Выставить счёт?', pay: 'Отметить счёт оплаченным?', receive: 'Принять отмеченные позиции на склад?' };
   const notes = { remove: 'Заявка останется и вернётся в «Заказать». Сумма счёта пересчитается.', issue: 'Нужны №, дата, сумма и наша компания. Это выставление без оплаты.', pay: 'Нужна наша компания — иначе расход не попадёт в «Деньги». Реквизиты эта команда не сохраняет.', receive: 'Будут приняты только отмеченные позиции. Первая приёмка зафиксирует финансы всего счёта.' };
   if (operation === 'receive' && !body.requestIds?.length) { toast('Отметьте позиции, которые приехали', { error: true }); return; }
-  if (!(await confirmDlg(titles[operation], notes[operation], { okText: operation === 'remove' ? 'Убрать' : 'Подтвердить', danger: operation === 'remove' }))) return;
+  const direct = !!(body.directOrderId || body.directCostCenter);
+  if (!direct && !(await confirmDlg(titles[operation], notes[operation], { okText: operation === 'remove' ? 'Убрать' : 'Подтвердить', danger: operation === 'remove' }))) return;
   await ctx.run(async () => {
     await writeInvoice(invoice, session, operation, body, lineId);
-    toast({ remove: 'Позиция убрана', issue: 'Счёт выставлен', pay: 'Счёт оплачен', receive: 'Позиции приняты на склад' }[operation]);
+    toast({ remove: 'Позиция убрана', issue: 'Счёт выставлен', pay: 'Счёт оплачен', receive: direct ? 'Поставка на объект отмечена' : 'Позиции приняты на склад' }[operation]);
     ctx.changed();
     await refreshInvoice(invoice, ctx);
   });
@@ -198,10 +206,19 @@ function newRequestBar(invoice, ctx) {
   return h('div', { class: 'iw-new-wrap' }, toggle, panel);
 }
 
-/** Выбранные «приехавшие» позиции: заполняет body(), читает кнопка шага «Принять на склад» (nextCard). */
+/** Обе команды приёмки используют один набор отмеченных позиций счёта. */
 const checksOf = new WeakMap();
+const markedIds = invoice => [...(checksOf.get(invoice) || [])].filter(([, cb]) => cb.checked).map(([id]) => id);
 
-
+async function receiveOnObject(invoice, ctx) {
+  try {
+    assertOperation(invoice, session, 'receive');
+    const requestIds = markedIds(invoice);
+    if (!requestIds.length) { toast('Отметьте позиции, которые получил объект', { error: true }); return; }
+    const target = await chooseDirectReceipt(invoice.requests.filter(row => requestIds.includes(row.id)));
+    if (target) await command(invoice, ctx, 'receive', null, { requestIds, ...target });
+  } catch (error) { toastError(error); }
+}
 async function voidPayment(invoice, payment, ctx) {
   try {
     const path = `/supply/invoices/${invoice.id}/payments/${payment.id}/void`;
@@ -266,9 +283,12 @@ function body(invoice, ctx, notes = []) {
   return h('div', { 'data-invoice-workspace': invoice.id, class: 'iw-screen' },
     section({ title: 'Позиции', count: (invoice.requests || []).length, open: true, body: [
       positions(invoice, ctx, { receiveChecks: checks }),
+      checks ? actions(
+        button({ label: 'Принять на склад', onClick: () => command(invoice, ctx, 'receive', null, { requestIds: markedIds(invoice) }) }),
+        button({ label: 'Принять на объект', onClick: () => receiveOnObject(invoice, ctx) }),
+      ) : null,
       addPicker(invoice, ctx),
       newRequestBar(invoice, ctx),
-      checks ? h('span', { class: 'hint' }, 'Отметьте только приехавшие позиции — кнопка «Принять на склад» в «Что дальше».') : null,
     ] }),
     ...notes,
     undatedEvidenceBlock(invoice),
@@ -289,7 +309,6 @@ function steps(invoice, ctx) {
   const all = [
     p.issue && { key: 'issue', label: 'Выставить счёт', text: 'Сначала проверьте реквизиты, затем выставьте счёт.', run: () => command(invoice, ctx, 'issue') },
     p.pay && { key: 'pay', label: p.dateRequired ? 'Заполнить дату' : 'Добавить оплату', text: p.dateRequired ? 'Оплата подтверждена — заполнить дату перечисления по документу.' : 'Внесите подтверждённую сумму и фактическую дату. Авансы и доплаты сохраняются отдельно.', run: () => command(invoice, ctx, 'pay') },
-    p.receive && { key: 'receive', label: 'Принять на склад', text: 'Отметьте приехавшие позиции в таблице и примите их на склад.', run: () => command(invoice, ctx, 'receive', null, { requestIds: [...(checksOf.get(invoice) || [])].filter(([, cb]) => cb.checked).map(([id]) => id) }) },
   ].filter(Boolean);
   return { main: all[0] || null, rest: all.slice(1) };
 }

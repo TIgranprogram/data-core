@@ -12,7 +12,7 @@ import { Model, Types } from 'mongoose';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import type { DeskLayout } from './desk-layout';
+import { DESK_LANES, type DeskLayout } from './desk-layout';
 import { UI_PREF_KEYS, UI_PREF_STR_KEYS, UiPrefs, User, UserDocument } from './user.schema';
 import { userActivityCache } from '../../common/guards/user-activity-cache';
 import { isBaseRole, isBuiltinRole } from '../../common/roles-hierarchy';
@@ -291,7 +291,12 @@ export class UserService {
 
   /** Сохранить один снимок только поверх прочитанной версии. */
   async saveDesk(id: string, current: DeskLayout): Promise<DeskLayout> {
-    const next = { version: current.version + 1, items: current.items };
+    const before = await this.getDesk(id);
+    if (before.version !== current.version) throw new ConflictException("Рабочий стол изменился. Загрузите свежую версию");
+    const lanes = current.lanes ?? before.lanes;
+    const keys = new Set<string>(lanes?.map(({ key }) => key) ?? DESK_LANES);
+    if (current.items.some(({ lane }) => !keys.has(lane))) throw new BadRequestException("Не найдена стопка карточки");
+    const next = { version: current.version + 1, items: current.items, ...(lanes ? { lanes } : {}) };
     const version = current.version === 0 ? { $in: [0, null] } : current.version;
     const user = await this.model.findOneAndUpdate(
       { _id: id, isActive: { $ne: false }, 'privateDesk.version': version },

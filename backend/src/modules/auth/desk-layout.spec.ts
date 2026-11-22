@@ -21,6 +21,16 @@ describe('Данные личного рабочего стола', () => {
     ] });
   });
 
+  it('принимает стопку и проверяет ссылки и корзину личной задачи', async () => {
+    const lane = { key: '26dd22a9-2dd2-4136-ab6c-cf0fdfcf5156', title: 'Разобрать' };
+    const task = { of: 'personal', ...TASK, lane: lane.key, refs: [{ of: 'salesorders', id: '20-26' }], deletedAt: '2026-11-22T13:00:00Z' };
+    await expect(validate({ version: 3, lanes: [lane], items: [task] })).resolves.toEqual({ version: 3, lanes: [lane], items: [task] });
+    await expect(validate({ version: 3, lanes: [{ key: 'focus', title: 'В фокусе' }], items: [task] })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(validate({ version: 3, lanes: [lane, { key: 'focus', title: ' разобрать ' }], items: [task] })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(validate({ version: 3, items: [{ ...task, refs: [{ of: 'personal', id: TASK.id }] }] })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(validate({ version: 3, items: [{ ...ORDER, deletedAt: task.deletedAt }] })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it.each([true, false])('сохраняет личную отметку %s для ссылки', async (done) => {
     const item = { ...ORDER, done };
     await expect(validate({ version: 2, items: [item] })).resolves.toEqual({ version: 2, items: [item] });

@@ -1,4 +1,5 @@
 import { claimStockLinks, withOrderWrite } from '../../common/order-archive/write';
+import type { DirectReceiptTarget } from './cost-center';
 import { hasUndatedPayment, undatedLocked } from './undated-payment';
 import { normText } from '../../common/text/norm-text';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
@@ -722,6 +723,72 @@ export class SupplyService {
       if (so?.salesOrderId) await this.orders.recheck(so.salesOrderId, userId);
     } catch { /* пересчёт готовности не должен ломать приход */ }
     return out;
+  }
+
+  /** Прямая поставка отмеченных строк. Назначение и факт получения фиксируются одной транзакцией. */
+  async receiveInvoiceDirect(invoiceId: string, requestIds: string[], target: DirectReceiptTarget, userId?: string) {
+    if (!requestIds.length) throw new BadRequestException('Отметьте позиции, которые получил объект');
+    const invoiceKey = oid(invoiceId, 'счёта');
+    const orderKey = target.directOrderId ? oid(target.directOrderId, 'заказа') : undefined;
+    const costCenter = target.directCostCenter || 'order';
+    const costObject = target.directCostObject?.trim();
+    const ids = [...new Set(requestIds.map(value => String(oid(value, 'заявки'))))].map(value => new Types.ObjectId(value));
+    const count = await withOrderWrite(this.connection, [], async session => {
+      const db = this.connection.db!;
+      const invoice = await db.collection('supplyinvoices').findOne({ _id: invoiceKey, deletedAt: null }, { session });
+      if (!invoice) throw new NotFoundException('Счёт не найден');
+      if (invoice.status === 'cancelled') throw new BadRequestException('Счёт отменён');
+      const rows = await this.model.find({ _id: { $in: ids }, invoiceId: invoiceKey, deletedAt: null, status: { $ne: 'cancelled' } }).session(session).lean().exec();
+      if (rows.length !== ids.length) throw new BadRequestException('Часть позиций уже убрана из счёта или отменена. Обновите карточку');
+
+      const pending = rows.filter(row => {
+        const label = row.num == null ? row.title : `Заявка №${row.num}`;
+        const sameOrder = orderKey ? String(row.salesOrderId) === String(orderKey) : !row.salesOrderId && !row.salesOrderLineId;
+        const sameDestination = sameOrder && row.costCenter === costCenter && (costObject === undefined || costObject === (row.costObject || ''));
+        if (row.status === 'received') {
+          if (row.receivedTo === 'direct' && sameDestination) return false;
+          throw new ConflictException(`${label} уже получена по другому месту приёмки`);
+        }
+        if ((row.salesOrderId || (!orderKey && row.salesOrderLineId)) && !sameOrder) {
+          throw new ConflictException(orderKey
+            ? `${label} связана с другим заказом. Отметьте позиции одного заказа`
+            : `${label} уже связана с заказом. Для неё выберите этот заказ`);
+        }
+        if (Number(row.receivedQty) > 0) throw new ConflictException(`${label} уже частично принята. Для прямой поставки остатка нужна отдельная позиция`);
+        if (!(Number(row.qty) > 0)) throw new BadRequestException(`${label}: укажите количество`);
+        if (hasUndatedPayment(invoice) && !sameDestination) throw undatedLocked();
+        return true;
+      });
+      if (!pending.length) return 0;
+      let orderLabel: string | undefined;
+      if (orderKey) {
+        await claimStockLinks(db, session, [...pending, { salesOrderId: orderKey }]);
+        const order = await db.collection('salesorders').findOne({ _id: orderKey, deletedAt: null, stage: { $ne: 'cancelled' } }, { session });
+        if (!order) throw new BadRequestException('Заказ не найден или отменён');
+        orderLabel = `Заказ № ${order.productionNo || order.orderNo || '—'}${order.customer ? ' · ' + order.customer : ''}`;
+        const lineIds = pending.flatMap(row => row.salesOrderLineId ? [row.salesOrderLineId] : []);
+        if (lineIds.length) {
+          const count = await db.collection('incomes').countDocuments({ _id: { $in: lineIds }, orderId: orderKey, deletedAt: null }, { session });
+          if (count !== new Set(lineIds.map(String)).size) throw new ConflictException('Часть отметок относится к позициям другого заказа');
+        }
+      }
+
+      await this.markInvoiceReceiptBoundary(invoiceKey, session);
+      const at = new Date();
+      for (const row of pending) {
+        const written = await this.model.updateOne({ _id: row._id, invoiceId: invoiceKey, qty: row.qty, status: row.status, deletedAt: null }, { $set: {
+          ...(orderKey ? { salesOrderId: orderKey, orderLabel } : {}),
+          costCenter, ...(costObject ? { costObject } : {}), status: 'received', receivedTo: 'direct',
+          receivedQty: Number(row.qty), receivedAt: at, editedInApp: true,
+        }, ...(!costObject && (costObject === '' || (!orderKey && row.costCenter !== costCenter)) ? { $unset: { costObject: '' } } : {}) }, { session }).exec();
+        if (!written.matchedCount) throw new ConflictException('Позиция изменилась во время приёмки. Обновите счёт');
+      }
+      return pending.length;
+    });
+    if (count && orderKey) {
+      try { await this.orders.recheck(orderKey, userId); } catch { /* пересчёт готовности не меняет факт поставки */ }
+    }
+    return count;
   }
 
   /**

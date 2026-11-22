@@ -6,7 +6,7 @@ import { invoicePaymentSummaries } from './invoice-payment-summary';
 import { expenseArticleMatch } from './expense-article-filter';
 import { SupplyInvoicePaymentsService } from './supply-invoice-payments.service';
 import { FINANCIAL_META, SOURCE_LINE_KEYS, financials, factDate, type FinancialRecord } from './invoice-financials';
-import { CreateInvoicePaymentDto, VoidInvoicePaymentDto } from './dto-invoice';
+import { CreateInvoicePaymentDto, ReceiveInvoiceDto, VoidInvoicePaymentDto } from './dto-invoice';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
@@ -314,8 +314,16 @@ export class SupplyInvoiceService {
     return { ...inv, ...financial, partial, ...(partial ? { amount: (items as Lean[]).reduce((s, x) => s + (Number(x.priceHint) || 0), 0) } : {}), id: String(inv._id), payerName: inv.payerCompanyId ? names.get(String(inv.payerCompanyId)) ?? null : null, contractNo: contract?.contractNo ?? null, contractDate: contract?.contractDate ?? null, requests: financial.requests ?? requests, files, orders: [...chain.values()] };
   }
 
-  /** Принять счёт на склад: каждая неполученная заявка — через SupplyService.receive (приход на склад по умолчанию, повтор безопасен по clientUid). */
-  async receive(id: string, requestIds: string[] | undefined, userId?: string) {
+  /** Обычный приход или прямая поставка выбранных строк с явным назначением. */
+  async receive(id: string, requestIds: string[] | undefined, userId?: string, target: ReceiveInvoiceDto = {}) {
+    const { directOrderId, directCostCenter, directCostObject } = target;
+    if (directOrderId && directCostCenter) throw new BadRequestException("Укажите заказ или направление затрат");
+    if (directCostObject != null && !directCostCenter) throw new BadRequestException("Укажите направление затрат для объекта");
+    if (directOrderId || directCostCenter) {
+      const destination = directOrderId ? { directOrderId } as const : { directCostCenter: directCostCenter!, directCostObject } as const;
+      const receivedCount = await this.supply.receiveInvoiceDirect(id, requestIds || [], destination, userId);
+      return { ...(await this.get(id)), receivedCount };
+    }
     const inv = await this.load(id);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
     const lines = await this.requests.find({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' } }).sort({ num: 1, _id: 1 }).lean().exec() as Lean[];

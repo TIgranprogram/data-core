@@ -148,6 +148,8 @@ describe('C171 — версии и подтверждённая отправка
     const { stdout } = await promisify(execFile)(process.execPath, [join(__dirname,'../../../tools/document-intake/review-roundtrip.fixture.mjs'), api, folder], { timeout: 45_000 });
     expect(stdout).toContain('PASS');
     expect(await ctx.connection.collection('supplyinvoices').countDocuments({ no: 'В-83' })).toBe(1);
+    expect(await ctx.connection.collection('supplyinvoices').countDocuments({ no: 'В-85' })).toBe(1);
+    expect(await ctx.connection.collection('supplyinvoices').countDocuments({ no: { $in: ['В-84', 'В85'] } })).toBe(0);
     const imported = await ctx.connection.collection('salesorders').findOne({ orderNo: 'Д-171' });
     expect(imported).toMatchObject({ legal: { signature: { state: 'unknown' }, paymentVerification: 'unknown' } });
     expect(imported?.productionNo).toBeFalsy();

@@ -435,7 +435,7 @@ export class CollectionsAdminController {
     const raw = await db.listCollections({}, { nameOnly: true }).toArray();
     const names = raw
       .map((c) => c.name)
-      .filter((n) => n && !n.startsWith('system.') && !ORDER_ARCHIVE_COLLECTIONS.has(n))
+      .filter((n) => n && !n.startsWith('system.') && !n.startsWith('private_desk.') && !ORDER_ARCHIVE_COLLECTIONS.has(n))
       .sort((a, b) => a.localeCompare(b));
 
     const items: {

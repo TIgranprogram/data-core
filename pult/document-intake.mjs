@@ -46,6 +46,7 @@ async function nativeFolder(mode, initialPath) {
   const { stdout } = await exec('powershell.exe', args, { windowsHide: true, timeout: mode === 'Pick' ? 10 * 60_000 : 15_000 });
   const value = stdout.trim();
   if (mode === 'Open') return value === 'foreground';
+  if (mode === 'PDF') return value === 'opened';
   return value ? Buffer.from(value, 'base64').toString('utf8') : '';
 }
 
@@ -99,7 +100,7 @@ const errors = {
   ABORTED: 'Разбор остановлен. Чтобы продолжить, нажмите «Возобновить».',
 };
 
-export function createDocumentIntake({ stateDir, changed, engine = () => import('../tools/document-intake/index.mjs'), prepare = preflight, probeModel = probeLocalModel, fetchFn = fetch, now = Date.now, pickFolder = (root) => nativeFolder('Pick', root), openFolder = (root) => nativeFolder('Open', root), defaultRoot = standardFolder, secureSession = protectSession }) {
+export function createDocumentIntake({ stateDir, changed, engine = () => import('../tools/document-intake/index.mjs'), prepare = preflight, probeModel = probeLocalModel, fetchFn = fetch, now = Date.now, pickFolder = (root) => nativeFolder('Pick', root), openFolder = (root) => nativeFolder('Open', root), defaultRoot = standardFolder, secureSession = protectSession, openOriginal = (file) => nativeFolder('PDF', file) }) {
   const file = path.join(stateDir, 'document-intake.json');
   const sessionFile = path.join(stateDir, 'document-intake-session.json');
   const initialized = fs.readFile(file, 'utf8').then((raw) => {
@@ -258,12 +259,12 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
   async function view() {
     const { root } = settings;
     const snapshot = root ? await (await engine()).status({ root }).catch(() => null) : null;
-    const review = root && loggedIn() && auth.claims ? await (await engine()).reviewStatus?.({ root, owner: auth.claims.sub, target: settings.apiBase }).catch(() => null) : null;
+    const review = root && loggedIn() && auth.claims ? await (await engine()).reviewStatus?.({ root, owner: auth.claims.sub, target: settings.apiBase, collapseCopies: true }).catch(() => null) : null;
     const running = !!active || !!snapshot?.running;
     return {
       settings, inboxPath: root ? snapshot?.folders?.inbox || path.join(root, FOLDERS.inbox) : path.join(defaultRoot, RUSSIAN_FOLDERS.inbox), revision, signedIn: loggedIn(), remembered: rememberedOnDisk, busy: pending, running, canStop: !!active && !active.signal.aborted,
       counts: counts(snapshot?.counts),
-      reviewCounts: review ? { inbox: asCount(snapshot?.counts?.inbox), processing: asCount(review.counts.pending), checked: asCount(review.counts.checked), question: asCount(review.counts.question), uploaded: asCount(review.counts.uploaded), ...(review.counts.sending ? { sending: review.counts.sending } : {}) } : null,
+      reviewCounts: review ? { inbox: asCount(snapshot?.counts?.inbox), processing: asCount(review.counts.pending), checked: asCount(review.counts.checked), question: asCount(review.counts.question), uploaded: asCount(review.counts.uploaded), ...(review.counts.sending ? { sending: review.counts.sending } : {}), ...(review.counts.automatic ? { automatic: review.counts.automatic } : {}) } : null,
       preparation,
       progress: progress || (snapshot?.running ? publicProgress({ state: 'processing', current: snapshot.current }) : null),
     };
@@ -271,11 +272,18 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
 
   async function reviewReport() {
     if (!settings.root) return { counts: {}, items: [] };
-    const result = await (await engine()).reviewStatus({ root: settings.root, owner: auth.claims.sub, target: settings.apiBase });
+    const result = await (await engine()).reviewStatus({ root: settings.root, owner: auth.claims.sub, target: settings.apiBase, collapseCopies: true });
     return { counts: result.counts, items: result.items.map(item => ({
       arrivalId: asText(item.arrivalId, 36), batchId: asText(item.batchId, 36), name: asText(item.name, 400),
       state: asText(item.state, 32), kind: asText(item.kind, 32), version: asCount(item.version), hash: asText(item.hash, 64), updatedAt: asText(item.updatedAt, 40),
-      issues: item.issues.map(issue => ({ code: asText(issue.code, 40), message: safeText(issue.message), action: safeText(issue.action) })),
+      ...(item.returnToManager ? { returnToManager: true } : {}),
+      ...(item.reviewParties?.length ? { reviewParties: item.reviewParties.map(party => ({
+        field: asText(party.field, 10), name: safeText(party.name), inn: asText(party.inn, 12), page: asCount(party.page),
+      })) } : {}),
+      issues: item.issues.map(issue => ({
+        code: asText(issue.code, 40), message: safeText(issue.message), action: safeText(issue.action),
+        ...(issue.field ? { field: asText(issue.field, 10) } : {}),
+      })),
     })) };
   }
 
@@ -326,17 +334,18 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
   }
 
   function tokenProvider(session, { root, apiBase }, controller) {
-    const { signal } = controller;
+    const signal = controller?.signal;
     function checkBinding() {
-      signal.throwIfAborted();
-      if (auth !== session || session.apiBase !== apiBase || settings.apiBase !== apiBase || settings.root !== root || active !== controller) throw authError();
+      signal?.throwIfAborted();
+      const operationActive = controller ? active === controller : pending && !active;
+      if (auth !== session || session.apiBase !== apiBase || settings.apiBase !== apiBase || settings.root !== root || !operationActive) throw authError();
     }
     async function refreshAccess() {
       try {
         Object.assign(session, await renew(session, signal, checkBinding));
         await saveSession(session);
       } catch (error) {
-        signal.throwIfAborted();
+        signal?.throwIfAborted();
         if (error.code === 'AUTH' || !session.remember) await forgetAuth(session);
         else {
           clearAuth(session);
@@ -357,10 +366,11 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     };
   }
 
-  function start(mode, arrivalIds, scope) {
+  function start(mode, arrivalIds, scope, automatic = false) {
     if (!settings.root) return fail(409, 'Сначала выберите папку документов.');
     if (!settings.apiBase || !settings.model) return fail(409, 'Сначала сохраните адрес сайта и настройки локальной модели.');
     if (!loggedIn()) return fail(401, 'Войдите в учётную запись менеджера.');
+    if (automatic && !localBase(settings.apiBase, '/api')) return fail(409, 'Автоматическая отправка сейчас доступна на тестовой копии.');
     const { root, apiBase, modelBase, model } = settings;
     const session = auth;
     const controller = new AbortController();
@@ -391,7 +401,18 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         if (!preparation.ready) return { stopped: { code: 'PREPARATION', message: 'Подготовка не завершена.',
           action: preparation.steps.filter(step => step.status === 'blocked').map(step => step.recovery).join(' ') } };
       }
-      return intake[mode]({ root, apiBase, token, modelBase, model, onProgress, signal: controller.signal, ...(arrivalIds ? { arrivalIds } : {}), ...(scope ? { scope } : {}) });
+      const options = { root, apiBase, token, modelBase, model, onProgress, signal: controller.signal,
+        ...(arrivalIds ? { arrivalIds } : {}), ...(scope ? { scope } : {}) };
+      const result = await intake[mode](mode === 'analyze' ? { ...options, automatic } : options);
+      if (!automatic || result?.stopped) return result;
+      controller.signal.throwIfAborted();
+      onProgress({ ...progress, state: 'processing', stage: 'sending', current: '', message: 'Проверяем дубли и отправляем подтверждённые документы.' });
+      const batch = await intake.prepareBatch({ ...options, automatic: true });
+      if (!batch.items.length) return result;
+      controller.signal.throwIfAborted();
+      const sent = await intake.sendBatch({ ...options, confirmationId: batch.id });
+      return { ...result, autoUploaded: sent.uploaded };
+
     })
       .then(async (result) => {
         if (result?.stopped?.code === 'AUTH' && !controller.signal.aborted) await forgetAuth(session);
@@ -399,7 +420,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         progress = publicProgress({ ...progress,
           ...(Number.isSafeInteger(result?.processed) ? { processed: result.processed } : {}),
           ...(Number.isSafeInteger(result?.total) ? { total: result.total } : {}),
-          state: message || controller.signal.aborted ? 'stopped' : 'finished', current: '', message: message || (controller.signal.aborted ? errors.ABORTED : '') });
+          state: message || controller.signal.aborted ? 'stopped' : 'finished', current: '', message: message || (controller.signal.aborted ? errors.ABORTED : result?.autoUploaded ? 'Автоматически отправлено: ' + result.autoUploaded : '') });
       }).catch(async (err) => {
         if (err.code === 'AUTH' && !controller.signal.aborted) await forgetAuth(session);
         const message = controller.signal.aborted ? errors.ABORTED : errors[err.code] || 'Не удалось продолжить разбор. Проверьте доступ к папке, сайту и локальной модели.';
@@ -466,7 +487,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         if (!await forgetAuth()) return fail(409, 'Вход закрыт в этом окне. Пульт не смог удалить сохранённый вход с диска. Повторите выход.');
         return ok({ signedIn: false });
       }
-      if (!['settings', 'login', 'run', 'resume', 'retry', 'analyze', 'draft', 'prepare', 'send', 'modelprobe'].includes(action)) return fail(404, 'Нет такого действия.');
+      if (!['settings', 'login', 'run', 'resume', 'retry', 'analyze', 'draft', 'original', 'reviewdecision', 'prepare', 'send', 'modelprobe'].includes(action)) return fail(404, 'Нет такого действия.');
       const body = await readBody();
       if (body?.revision !== revision) return fail(409, 'Настройки изменились в другом окне. Проверьте показанный адрес и повторите действие.');
       if (action === 'modelprobe') {
@@ -497,24 +518,45 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
       }
       if (action === 'analyze' && body.scope !== undefined) {
         if (!['incoming', 'review'].includes(body.scope)) return fail(400, 'Выберите входящие или повторную проверку.');
+        const automatic = body.automatic === true && body.scope === 'incoming';
         if (settings.root && loggedIn()) {
           const { reviewCounts } = await view();
-          if (reviewCounts && body.scope === 'incoming' && !reviewCounts.inbox && !reviewCounts.processing) {
+          if (reviewCounts && body.scope === 'incoming' && !reviewCounts.inbox && !reviewCounts.processing && !(automatic && reviewCounts.automatic)) {
             return fail(409, 'Во входящих нет PDF. Сомнительные файлы можно повторно проверить в отчёте.');
           }
           if (reviewCounts && body.scope === 'review' && !reviewCounts.question) return fail(409, 'Документов для повторной проверки нет.');
         }
-        return start(action, undefined, body.scope);
+        return start(action, undefined, body.scope, automatic);
       }
-      if (action === 'draft') {
-        if (!loggedIn() || !auth.claims) return fail(401, 'Войдите в учётную запись менеджера.');
+      if (['draft', 'original', 'reviewdecision'].includes(action)) {
+        if (!settings.root || !loggedIn() || !auth.claims) return fail(401, 'Войдите в учётную запись менеджера.');
         if (typeof body.arrivalId !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.arrivalId)) return fail(400, 'Выберите документ в отчёте.');
-        const draft = await (await engine()).getDraft({ root: settings.root, arrivalId: body.arrivalId });
+        const intake = await engine();
+        let draft;
+        try {
+          const { root, apiBase } = settings;
+          const { arrivalId, version, decision, field, name, inn, value } = body;
+          if (action === 'reviewdecision') {
+            const token = tokenProvider(auth, { root, apiBase });
+            draft = await intake.reviewDecision({ root, apiBase, token, arrivalId, version, decision, field, name, inn, value });
+            preparation = null;
+          } else {
+            draft = await intake[action === 'original' ? 'getReviewOriginal' : 'getDraft']({ root, arrivalId });
+          }
+        } catch (error) {
+          return fail(409, safeStopped(error));
+        }
         if (draft.owner !== auth.claims.sub || draft.target.replace(/\/$/, '') !== settings.apiBase) return fail(403, 'Черновик относится к другой учётной записи или контуру.');
+        if (action === 'original') {
+          try { if (await openOriginal(draft.original)) return ok({ opened: true }); }
+          catch { /* просмотрщик недоступен */ }
+          return fail(409, 'Windows не смогла открыть PDF. Проверьте программу просмотра PDF.');
+        }
         // История и служебные поля не нужны для просмотра оператором.
         return ok({ arrivalId: body.arrivalId, name: draft.name, version: draft.version, state: draft.state,
-          pages: draft.pages, partyColumns: draft.partyColumns, raw: draft.evidence || draft.raw, kind: draft.kind || draft.proposal?.kind,
+          pages: draft.pages, partyColumns: draft.partyColumns, printedRows: draft.printedRows, raw: draft.evidence || draft.raw, kind: draft.kind || draft.proposal?.kind,
           reference: draft.orderReference, issues: draft.issues,
+          manualParties: draft.manualParties, returnToManager: Boolean(draft.returnToManager),
           vision: draft.vision && { state: draft.vision.state, pages: draft.vision.pages, fields: draft.vision.fields },
           layoutFields: draft.layoutFields });
       }

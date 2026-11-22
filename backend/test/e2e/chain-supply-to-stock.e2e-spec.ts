@@ -163,4 +163,77 @@ describe('Цепочка: снабжение до склада', () => {
     expect(items.total).toBe(1);
     expect(items.items[0]).toMatchObject({ name: 'Новая позиция ЦС-6', quantity: 7 });
   });
+
+  it('прямая поставка связывает только выбранную позицию с заказом и сохраняет остатки при повторе', async () => {
+    const orderId = new Types.ObjectId();
+    await db().collection('salesorders').insertOne({ _id: orderId, orderNo: 'ЦС-Д1', productionNo: 'ЦС-О1', customer: 'Учебный заказчик', stage: 'production', deletedAt: null });
+    const material = (await http().post('/api/stock/items').set(auth()).send({ name: 'Материал ЦС-объект', unit: 'шт', categoryName: 'Металл' }).expect(201)).body.id;
+    const direct = await mkReq({ title: 'Прямая позиция ЦС', qty: 3, priceHint: 100 });
+    const stock = await mkReq({ title: 'Материал ЦС-объект', materialId: material, qty: 5, priceHint: 200 });
+    const invoice = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [direct, stock] }).expect(201)).body.items[0].id as string;
+    const accept = (body: object) => http().post(`/api/supply/invoices/${invoice}/receive`).set(auth()).send(body);
+    const body = { requestIds: [direct], directOrderId: String(orderId) };
+
+    const materialCount = await db().collection('materials').countDocuments();
+    const storageCount = await db().collection('storageitems').countDocuments();
+    await accept({ directOrderId: String(orderId) }).expect(400);
+    const deliveries = await Promise.all([accept(body).expect(200), accept(body).expect(200)]);
+    expect(deliveries.map(response => response.body.receivedCount).sort()).toEqual([0, 1]);
+    const result = deliveries.find(response => response.body.receivedCount === 1)!.body;
+    expect(result.requests.find((row: { id: string }) => row.id === direct)).toMatchObject({ receivedTo: 'direct', status: 'received', receivedQty: 3, costCenter: 'order', salesOrderId: String(orderId), orderLabel: 'Заказ № ЦС-О1 · Учебный заказчик' });
+    expect(result.requests.find((row: { id: string }) => row.id === stock)).not.toMatchObject({ status: 'received' });
+    expect((await accept(body).expect(200)).body.receivedCount).toBe(0);
+    expect(await db().collection('stockmovements').countDocuments({ documentRef: `SupplyRequest:${direct}` })).toBe(0);
+    expect(await db().collection('materials').countDocuments()).toBe(materialCount);
+    expect(await db().collection('storageitems').countDocuments()).toBe(storageCount);
+    expect(await qtyOf(material)).toBe(0);
+    expect((await accept({ requestIds: [stock] }).expect(200)).body.receivedCount).toBe(1);
+    expect(await qtyOf(material)).toBe(5);
+    expect(await moves(material)).toHaveLength(1);
+  });
+
+  it.each([['office', 'На офис'], ['workshop', 'На цех'], ['smr', 'Площадка парка']])
+    ('прямая приёмка %s учитывает назначение и последующую оплату без склада', async (costCenter, label) => {
+      const material = (await http().post('/api/stock/items').set(auth()).send({ name: 'Материал для ' + label, unit: 'шт' }).expect(201)).body.id;
+      const row = await mkReq({ title: 'Поставка ' + label, qty: 3, materialId: material, priceHint: 100 });
+      const invoice = await invoiceOf(row, 600, 'ЦС-' + costCenter);
+      const accept = (body: object) => http().post('/api/supply/invoices/' + invoice + '/receive').set(auth()).send(body);
+      const body = { requestIds: [row], directCostCenter: costCenter, ...(costCenter === 'smr' ? { directCostObject: ' ' + label + ' ' } : {}) };
+      await accept({ directCostCenter: costCenter }).expect(400);
+      await accept({ ...body, directOrderId: String(new Types.ObjectId()) }).expect(400);
+      const result = await accept(body).expect(200);
+      expect(result.body.receivedCount).toBe(1);
+      const received = result.body.requests.find(({ id }: { id: string }) => id === row);
+      expect(received).toMatchObject({ status: 'received', receivedTo: 'direct', receivedQty: 3, costCenter });
+      expect(received.salesOrderId).toBeFalsy();
+      if (costCenter === 'smr') expect(received.costObject).toBe(label);
+      expect((await accept(body).expect(200)).body.receivedCount).toBe(0);
+      await accept({ requestIds: [row], directCostCenter: costCenter === 'office' ? 'workshop' : 'office' }).expect(409);
+      expect(await qtyOf(material)).toBe(0);
+      expect(await moves(material)).toHaveLength(0);
+      await http().post('/api/supply/invoices/' + invoice + '/payments').set(auth())
+        .send({ clientUid: 'direct-' + costCenter, date: '2026-10-22', amount: 600 }).expect(200);
+      const paid = (await http().get('/api/finance/operations').set(auth())
+        .query({ from: '2026-10-22', to: '2026-10-22', companyId: String(payerId), costCenter }).expect(200)).body;
+      expect(paid.items).toHaveLength(1);
+      expect(paid.items[0]).toMatchObject({ amount: 600, costCenter, ...(costCenter === 'smr' ? { costObject: label } : {}) });
+    });
+
+  it('прямой приём разных заказов отклоняет всю отмеченную партию', async () => {
+    const firstOrder = new Types.ObjectId();
+    const secondOrder = new Types.ObjectId();
+    await db().collection('salesorders').insertMany([
+      { _id: firstOrder, orderNo: 'ЦС-О2', stage: 'production', deletedAt: null },
+      { _id: secondOrder, orderNo: 'ЦС-О3', stage: 'production', deletedAt: null },
+    ]);
+    const a = await mkReq({ title: 'Строка без заказа', qty: 2, priceHint: 100 });
+    const b = await mkReq({ title: 'Строка другого заказа', qty: 2, priceHint: 100, salesOrderId: String(secondOrder) });
+    const invoice = (await http().post('/api/supply/invoices').set(auth()).send({ requestIds: [a, b] }).expect(201)).body.items[0].id;
+    await http().post(`/api/supply/invoices/${invoice}/receive`).set(auth()).send({ requestIds: [a, b], directOrderId: String(firstOrder) }).expect(409);
+    await http().post(`/api/supply/invoices/${invoice}/receive`).set(auth()).send({ requestIds: [a, b], directCostCenter: 'office' }).expect(409);
+    const rows = await db().collection('supplyrequests').find({ _id: { $in: [new Types.ObjectId(a), new Types.ObjectId(b)] } }).toArray();
+    expect(rows.map(row => row.status)).not.toContain('received');
+    expect(rows.find(row => String(row._id) === b)?.salesOrderId).toEqual(secondOrder);
+    expect(await db().collection('stockmovements').countDocuments({ documentRef: { $in: [`SupplyRequest:${a}`, `SupplyRequest:${b}`] } })).toBe(0);
+  });
 });

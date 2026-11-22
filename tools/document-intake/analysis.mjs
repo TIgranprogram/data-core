@@ -5,9 +5,10 @@ import {
   openRoot, readJson, readOriginal, reconcileArrival, reconcileRetry, saveArrival, sha256, startRetry, uid,
 } from './store.mjs';
 import { apiAddress, authorize, connectApi, decideInvoice, findOrderContract, lookupParty, resolveSalesParties } from './api.mjs';
-import { applyInvoiceLayout, checkPages, confirmParties, EXTRACTOR_VERSION, extractDocument, extractPartyColumns, evidencedKind, learnInvoiceLayout, mergeVisionProof, propose, referencedContract, renderPages, RULES_VERSION, validateProposal, verifyCitations, VISION_VERSION } from './proposal.mjs';
+import { applyInvoiceLayout, checkPages, confirmParties, confirmReadFact, EXTRACTOR_VERSION, extractDocument, extractPartyColumns, extractTables, evidencedKind, learnInvoiceLayout, mergeVisionProof, recoverPrintedRows, propose, referencedContract, renderPages, resolvePrintedDoubts, RULES_VERSION, validateProposal, validInn, verifyCitations, VISION_VERSION } from './proposal.mjs';
 
 const interrupted = new Set(['AUTH', 'ACTOR', 'CONTOUR', 'API_UNAVAILABLE', 'MODEL_UNAVAILABLE', 'EXTRACTOR', 'ABORTED']);
+const fileBusy = new Set(['EPERM', 'EACCES', 'EBUSY']);
 export const draftFile = (store, hash) => path.join(store.documents, `c171-${hash}.json`);
 const problem = (code, message, action) => ({ code, message, action });
 const abort = signal => { if (signal?.aborted) throw new IntakeError('ABORTED', 'Проверка остановлена.', 'Нажмите «Возобновить».'); };
@@ -27,11 +28,12 @@ export async function findReview(store, arrivalId) {
   if (!entry?.hash || !/^[a-f0-9]{64}$/.test(entry.hash)) throw new IntakeError('SELECTION', 'Черновик не найден.');
   const destination = entry.pending?.state;
   const moved = destination && await exists(path.join(store.folders[destination], entry.arrivalId));
-  const bytes = await readOriginal(store, entry, MAX_BYTES, moved ? destination : entry.state);
+  const location = moved ? destination : entry.state;
+  const bytes = await readOriginal(store, entry, MAX_BYTES, location);
   if (sha256(bytes) !== entry.hash) throw new IntakeError('ORIGINAL', 'Оригинал изменён.', 'Восстановите неизменённый исходный файл.');
   const draft = await readJson(draftFile(store, entry.hash));
   if (!draft || draft.hash !== entry.hash || draft.workflow !== 'c171') throw new IntakeError('JOURNAL', 'Черновик не соответствует оригиналу.');
-  return { entry, draft, bytes };
+  return { entry, draft, bytes, original: path.join(store.folders[location], entry.arrivalId, entry.name) };
 }
 
 async function validate(draft, api, loadColumns, raw = draft.raw) {
@@ -51,21 +53,25 @@ async function validate(draft, api, loadColumns, raw = draft.raw) {
       reading = false;
       throw new IntakeError('QUESTION', 'Акт нужно привязать к договору.', 'Найдите договор заказчика по реквизитам оригинала и добавьте PDF в комплект документов.');
     }
-    let evidence = verifyCitations(raw, draft.pages);
-    let sides = confirmParties(evidence, draft.pages);
+    const corrected = draft.manualFacts ? { ...raw, ...draft.manualFacts } : raw;
+    let evidence = verifyCitations(corrected, draft.pages);
+    let sides = confirmParties(evidence, draft.pages, [], draft.manualParties);
     if (draft.kind === 'contract' && sides.some(side => side.issue)) {
       if (!draft.partyColumns && loadColumns) draft.partyColumns = await loadColumns();
       if (draft.partyColumns?.length) {
-        evidence = verifyCitations(raw, draft.pages, draft.partyColumns);
-        sides = confirmParties(evidence, draft.pages, draft.partyColumns);
+        evidence = verifyCitations(corrected, draft.pages, draft.partyColumns);
+        sides = confirmParties(evidence, draft.pages, draft.partyColumns, draft.manualParties);
       }
     }
+    if (draft.printedRows?.length) evidence = resolvePrintedDoubts({ ...evidence, lines: draft.printedRows },
+      draft.pages, draft.partyColumns || [], draft.printedRows, draft.manualParties);
     if (evidence !== draft.raw) draft.evidence = evidence;
 
     let proposal;
-    try { proposal = validateProposal(evidence, draft.pages, draft.kind === 'contract' ? draft.partyColumns : []); }
+    try { proposal = validateProposal(evidence, draft.pages, draft.kind === 'contract' ? draft.partyColumns : [], draft.printedRows, draft.manualParties); }
     catch (error) {
       if (!(error instanceof IntakeError) || interrupted.has(error.code)) throw error;
+      if (error.code === 'SOURCE_FORMAT') reading = false;
       if (!sides.some(side => side.issue?.message === error.message)) {
         draft.issues.push(problem(error.code, error.message, error.action));
       }
@@ -76,7 +82,7 @@ async function validate(draft, api, loadColumns, raw = draft.raw) {
       draft.state = 'question';
       for (const { key, party, issue } of sides) {
         if (issue) {
-          draft.issues.push(problem(issue.code, issue.message, issue.action));
+          draft.issues.push({ ...problem(issue.code, issue.message, issue.action), field: key });
           continue;
         }
         try { await lookupParty(api, party, labels[key]); }
@@ -85,7 +91,7 @@ async function validate(draft, api, loadColumns, raw = draft.raw) {
           draft.issues.push(problem(error.code, error.message, error.action));
         }
       }
-      return true;
+      return reading;
     }
     reading = false;
     const reference = draft.kind === 'order' ? referencedContract(draft.pages) : null;
@@ -120,14 +126,29 @@ async function fileReviewResult(store, entry, draft) {
   const state = draft.state === 'question' ? 'question' : 'ready';
   const hadIssue = Boolean(entry.reviewIssue);
   delete entry.reviewIssue;
+  delete entry.reviewDiagnostic;
   if (entry.state !== state) await finishArrival(store, entry, { state });
   else if (hadIssue) await saveArrival(store, entry);
 }
 
-export async function reviewStatus({ root, owner, target }) {
+function distinctCopies(items) {
+  const rank = { uploaded: 5, existing: 4, checked: 3, sending: 2, question: 1 };
+  const documents = new Map();
+  for (const item of items) {
+    const key = /^[\da-f]{64}$/.test(item.hash || '') ? item.hash : item.arrivalId;
+    const previous = documents.get(key);
+    if (!previous || (rank[item.state] || 0) > (rank[previous.state] || 0)
+      || (item.state === 'question' && previous.state === 'question' && previous.issues.some(issue => issue.code === 'DOCUMENT')
+        && !item.issues.some(issue => issue.code === 'DOCUMENT'))) documents.set(key, item);
+  }
+  return [...documents.values()];
+}
+
+export async function reviewStatus({ root, owner, target, collapseCopies = false }) {
   const store = await openRoot(root, { create: false });
   const entries = (await arrivalsOf(store)).filter(row => row.workflow === 'c171');
-  const items = [];
+  let items = [];
+  let automatic = 0;
   for (const entry of entries) {
     let draft = null, journalIssue = null;
     try {
@@ -142,24 +163,114 @@ export async function reviewStatus({ root, owner, target }) {
     }
     if (owner && (draft?.owner ?? entry.reviewOwner) !== owner) continue;
     if (target && (draft?.target ?? entry.reviewTarget) !== target) continue;
+    if (draft?.autoDispatch && !entry.reviewIssue && !journalIssue && ['checked', 'sending'].includes(draft.state)) automatic++;
+    const issues = [entry.reviewIssue, journalIssue, ...(draft?.issues || [])].filter(Boolean);
+    const evidence = draft?.evidence || draft?.raw;
+    const fields = new Set(issues.map(reviewField).filter(field => ['seller', 'buyer'].includes(field)));
+    const reviewParties = !draft?.returnToManager && draft?.state === 'question' ? [...fields].map(field => {
+      const party = evidence?.[field];
+      if (typeof party?.name !== 'string' || !party.name.trim() || party.name.length > 300 || !validInn(party.inn)) return null;
+      const page = draft.pages?.findIndex(text => typeof text === 'string' && text.includes(party.inn)) + 1;
+      return { field, name: party.name, inn: party.inn, ...(page ? { page } : {}) };
+    }).filter(Boolean) : [];
     items.push({ arrivalId: entry.arrivalId, batchId: entry.batchId, name: entry.name, hash: entry.hash,
       kind: draft?.kind || draft?.proposal?.kind || null,
       state: entry.reviewIssue || journalIssue ? 'question' : draft?.state || 'pending', version: draft?.version || 0,
-      issues: [entry.reviewIssue, journalIssue, ...(draft?.issues || [])].filter(Boolean),
+      issues, ...(reviewParties.length ? { reviewParties } : {}),
+      ...(draft?.returnToManager ? { returnToManager: true } : {}),
       updatedAt: draft?.updatedAt || entry.updatedAt });
   }
+  if (collapseCopies) items = distinctCopies(items);
   return { items, counts: {
     pending: items.filter(row => ['pending', 'extracting', 'proposing'].includes(row.state)).length,
     checked: items.filter(row => row.state === 'checked').length,
     question: items.filter(row => row.state === 'question').length,
     ...(items.some(row => row.state === 'sending') ? { sending: items.filter(row => row.state === 'sending').length } : {}),
     uploaded: items.filter(row => row.state === 'uploaded').length,
+    ...(automatic ? { automatic } : {}),
   } };
+}
+
+function reviewField(issue) {
+  if (issue.field) return issue.field;
+  if (issue.code !== 'QUESTION') return null;
+  if (/^Не подтверждено поле «итог(?: с налогом)?»/iu.test(issue.message)) return 'gross';
+  if (/^Не подтверждено поле «номер документа»/iu.test(issue.message)) return 'number';
+  if (/^Не подтверждено поле «дата»/iu.test(issue.message)) return 'date';
+  if (!/^ИНН /u.test(issue.message)) return null;
+  if (/«поставщик или исполнитель»/u.test(issue.message)) return 'seller';
+  if (/«покупатель или заказчик»/u.test(issue.message)) return 'buyer';
+  return null;
 }
 
 export async function getDraft({ root, arrivalId }) {
   const { entry, draft } = await findReview(await openRoot(root), arrivalId);
-  return { ...draft, arrivalId, name: entry.name, batchId: entry.batchId };
+  const issues = draft.issues.map(issue => ({ ...issue, field: reviewField(issue) }));
+  return { ...draft, issues, arrivalId, name: entry.name, batchId: entry.batchId };
+}
+
+export async function getReviewOriginal({ root, arrivalId }) {
+  const { draft, bytes, original } = await findReview(await openRoot(root, { create: false }), arrivalId);
+  if (path.extname(original).toLowerCase() !== '.pdf' || bytes.subarray(0, 5).toString() !== '%PDF-') {
+    throw new IntakeError('QUESTION', 'Этот оригинал не является PDF.');
+  }
+  return { owner: draft.owner, target: draft.target, original };
+}
+
+export async function reviewDecision(options, dependencies = {}) {
+  const { root, arrivalId, version, decision, field, name, inn, value } = options;
+  const store = await openRoot(root, { create: false });
+  const release = await lock(store.root);
+  try {
+    const { draft, entry } = await findReview(store, arrivalId);
+    const api = readOnly((dependencies.connect || connectApi)(options));
+    const actor = await authorize(api);
+    checkBinding(draft, apiAddress(options.apiBase), actor);
+    if (draft.version !== version || draft.version >= 100 || draft.state !== 'question'
+      || draft.submission || draft.sendStarted || entry.pending) {
+      throw new IntakeError('VERSION', 'Документ уже изменился. Откройте его из отчёта ещё раз.');
+    }
+
+    const now = new Date().toISOString();
+    if (decision === 'confirm-party') {
+      if (draft.returnToManager || !['seller', 'buyer'].includes(field) || !draft.issues.some(issue => reviewField(issue) === field)) {
+        throw new IntakeError('SELECTION', 'Выберите реквизиты стороны, которую Пульт просит сверить.');
+      }
+      const partyName = typeof name === 'string' ? name.trim() : '';
+      const partyInn = typeof inn === 'string' ? inn.replace(/\s+/gu, '') : '';
+      if (!partyName || partyName.length > 300 || !validInn(partyInn)) {
+        throw new IntakeError('QUESTION', 'Введите название и действительный ИНН из PDF.');
+      }
+      const opposite = field === 'seller' ? 'buyer' : 'seller';
+      const evidence = draft.evidence || draft.raw;
+      const other = confirmParties(evidence, draft.pages, draft.partyColumns, draft.manualParties)
+        .find(side => side.key === opposite)?.party;
+      if (other?.inn === partyInn) throw new IntakeError('QUESTION', 'У обеих сторон указан один ИНН. Проверьте, чей ИНН записан в PDF.');
+      draft.manualParties = { ...draft.manualParties, [field]: { name: partyName, inn: partyInn, at: now } };
+      await validate(draft, api, undefined, evidence);
+    } else if (decision === 'confirm-fact') {
+      if (draft.returnToManager || !['gross', 'number', 'date'].includes(field) || !draft.issues.some(issue => reviewField(issue) === field)) {
+        throw new IntakeError('SELECTION', 'Выберите значение, которое Пульт просит сверить.');
+      }
+      const evidence = draft.evidence || draft.raw;
+      const corrected = confirmReadFact(evidence, draft.pages, field, value);
+      draft.manualFacts = { ...draft.manualFacts, [field]: corrected };
+      await validate(draft, api, undefined, evidence);
+    } else if (decision === 'mark-return' && !draft.returnToManager && draft.issues.some(issue => issue.code === 'SOURCE_FORMAT')) {
+      draft.returnToManager = now;
+    } else if (decision === 'undo-return' && draft.returnToManager) {
+      delete draft.returnToManager;
+    } else {
+      throw new IntakeError('SELECTION', 'Действие недоступно для этого документа.');
+    }
+
+    delete draft.autoDispatch;
+    draft.updatedAt = now;
+    draft.version++;
+    await jsonAtomic(draftFile(store, draft.hash), draft);
+    await fileReviewResult(store, entry, draft);
+    return getDraft({ root, arrivalId });
+  } finally { await release(); }
 }
 
 export async function reviseDraft(options, dependencies = {}) {
@@ -183,6 +294,11 @@ export async function reviseDraft(options, dependencies = {}) {
     }
     draft.history.push({ version: draft.version, raw: draft.raw, state: draft.state, updatedAt: draft.updatedAt });
     draft.raw = structuredClone(raw);
+    delete draft.autoDispatch;
+    delete draft.manualParties;
+    delete draft.manualFacts;
+    delete draft.returnToManager;
+    delete draft.printedRows;
     delete draft.vision;
     delete draft.layoutFields;
     draft.version++;
@@ -222,12 +338,12 @@ async function lookAtPages(draft, file, options, runtime, onStart) {
 }
 
 export async function analyze(options, dependencies = {}) {
-  const { root, signal, onProgress, scope } = options;
+  const { root, signal, onProgress, scope, automatic } = options;
   const store = await openRoot(root);
   const release = await lock(store.root);
   const runtime = {
     extract: extractDocument, extractColumns: extractPartyColumns, propose, renderImages: renderPages,
-    proposeVision: propose, connect: connectApi, ...dependencies,
+    proposeVision: propose, readTables: extractTables, connect: connectApi, ...dependencies,
   };
   const layoutFile = path.join(store.root, '.intake', 'vision-layouts.json');
   let layouts;
@@ -252,8 +368,13 @@ export async function analyze(options, dependencies = {}) {
     const api = readOnly(runtime.connect(options));
     const actor = await authorize(api);
     const entries = [];
-    for (const entry of existingEntries.filter(row => row.workflow === 'c171')) {
-      if (entry.reviewOwner !== actor.id || entry.reviewTarget !== target) continue;
+    const candidates = existingEntries.filter(entry => entry.workflow === 'c171' && entry.reviewOwner === actor.id && entry.reviewTarget === target);
+    const retrying = new Set(candidates.filter(entry => entry.state === 'processing' && entry.retryIntent).map(entry => entry.arrivalId));
+    const selected = scope === 'review' ? new Set((await reviewStatus({ root, owner: actor.id, target, collapseCopies: true })).items
+      .filter(item => !item.returnToManager && (item.state === 'question' || retrying.has(item.arrivalId)))
+      .map(item => item.arrivalId)) : null;
+    for (const entry of candidates) {
+      if (selected && !selected.has(entry.arrivalId)) continue;
       if (entry.pending || entry.phase === 'claiming') {
         if (!await reconcileArrival(store, entry)) continue;
       }
@@ -278,7 +399,7 @@ export async function analyze(options, dependencies = {}) {
       let draft = await readJson(draftFile(store, hash));
       if (draft) {
         checkBinding(draft, target, actor);
-        if (draft.submission || draft.sendStarted || draft.state === 'uploaded') {
+        if (draft.submission || draft.sendStarted || draft.state === 'uploaded' || draft.returnToManager) {
           await fileReviewResult(store, entry, draft);
           return draft.state;
         }
@@ -294,7 +415,11 @@ export async function analyze(options, dependencies = {}) {
       const canRender = path.extname(entry.name).toLowerCase() === '.pdf' && bytes.subarray(0, 5).toString() === '%PDF-';
       try {
         if (!draft.pages) {
-          if (!canRender) throw new IntakeError('QUESTION', 'Для проверки нужен оригинал PDF.', 'Добавьте PDF.');
+          if (!canRender) {
+            const word = path.extname(entry.name).toLowerCase() === '.docx';
+            throw new IntakeError('QUESTION', word ? 'Приложен файл Word (.docx). Для разбора нужен оригинал PDF.' : 'Для проверки нужен оригинал PDF.',
+              word ? 'Сохраните документ Word в PDF и положите его во «Входящие».' : 'Добавьте PDF.');
+          }
           draft.pages = await runtime.extract(filename, bytes, signal);
           await jsonAtomic(draftFile(store, hash), draft);
         }
@@ -306,6 +431,13 @@ export async function analyze(options, dependencies = {}) {
         }
         stage = 'validating'; notify(true);
         let needsVision = await validate(draft, api, loadColumns);
+        if (needsVision && canRender && !draft.printedRows?.length && Array.isArray(draft.raw?.lines) && draft.raw.lines.length) {
+          const printedRows = recoverPrintedRows(draft.evidence || draft.raw, draft.pages, await runtime.readTables(filename, signal));
+          if (printedRows.length) {
+            draft.printedRows = printedRows;
+            needsVision = await validate(draft, api, loadColumns);
+          }
+        }
         if (needsVision && canRender) {
           layouts ??= await readJson(layoutFile).catch(() => []);
           if (!Array.isArray(layouts)) layouts = [];
@@ -317,7 +449,7 @@ export async function analyze(options, dependencies = {}) {
             const vision = await lookAtPages(draft, filename, options, runtime, () => { stage = 'viewing'; notify(true); });
             if (vision.candidate) {
               const from = draft.evidence || draft.raw;
-              const result = mergeVisionProof(from, vision.candidate, draft.pages, draft.partyColumns || [], vision.pages);
+              const result = mergeVisionProof(from, vision.candidate, draft.pages, draft.partyColumns || [], vision.pages, draft.printedRows);
               vision.fields = result.fields;
               vision.state = result.fields.length ? 'confirmed' : 'review';
               if (result.fields.length) {
@@ -344,6 +476,7 @@ export async function analyze(options, dependencies = {}) {
       }
       if (sha256(await readOriginal(store, entry, MAX_BYTES)) !== hash) throw new IntakeError('ORIGINAL', 'Оригинал изменён во время проверки.', 'Восстановите исходные байты.');
       abort(signal);
+      if (automatic && draft.state === 'checked' && !draft.manualParties && !draft.manualFacts) draft.autoDispatch = true;
       draft.updatedAt = new Date().toISOString();
       await jsonAtomic(draftFile(store, hash), draft);
       await fileReviewResult(store, entry, draft);
@@ -354,9 +487,13 @@ export async function analyze(options, dependencies = {}) {
         stage = await work(entry);
       } catch (error) {
         if (interrupted.has(error.code) || signal?.aborted) throw error;
-        entry.reviewIssue = problem(error instanceof IntakeError ? error.code : 'DOCUMENT',
-          error instanceof IntakeError ? error.message : 'Не удалось прочитать документ.',
-          error instanceof IntakeError ? error.action : 'Сверьте наличие и читаемость оригинала.');
+        entry.reviewDiagnostic = { stage, code: typeof error.code === 'string' && /^[A-Z_]{2,40}$/.test(error.code) ? error.code : 'UNEXPECTED',
+          errorClass: /^[A-Za-z]{3,30}$/.test(error?.name) ? error.name : 'Error' };
+        entry.reviewIssue = fileBusy.has(error.code)
+          ? problem('FILE_BUSY', 'Windows временно заблокировала файл или журнал разбора.', 'Закройте PDF и повторите проверку.')
+          : problem(error instanceof IntakeError ? error.code : 'DOCUMENT',
+            error instanceof IntakeError ? error.message : 'Не удалось прочитать документ.',
+            error instanceof IntakeError ? error.action : 'Сверьте наличие и читаемость оригинала.');
         if (error.code === 'QUESTION' && !entry.pending && entry.state === 'processing') await finishArrival(store, entry, { state: 'question' });
         else await saveArrival(store, entry);
         stage = 'question';
@@ -366,6 +503,8 @@ export async function analyze(options, dependencies = {}) {
     for (const entry of entries) await workSafely(entry);
     for (const name of incoming) {
       abort(signal);
+      current = name;
+      stage = 'claiming';
       const entry = await claim(store, name, runtime.stableMs, { workflow: 'c171', batchId, owner: actor.id, target });
       if (!entry) continue; // Занятый или ещё сохраняемый файл не считается проверенным.
       await workSafely(entry);
@@ -374,6 +513,9 @@ export async function analyze(options, dependencies = {}) {
   } catch (error) {
     return { ...await reviewStatus({ root }), processed, total, stopped: signal?.aborted
       ? problem('ABORTED', 'Проверка остановлена.', 'Нажмите «Возобновить».')
+      : fileBusy.has(error.code) ? problem('FILE_BUSY', current
+        ? 'Windows заблокировала файловую операцию при разборе «' + current + '».'
+        : 'Windows заблокировала папку или журнал разбора.', 'Закройте открытый PDF и повторите запуск. Разбор продолжится с сохранённого состояния.')
       : problem(error instanceof IntakeError ? error.code : 'INTAKE', error instanceof IntakeError ? error.message : 'Проверка приостановлена.', error instanceof IntakeError ? error.action : 'Проверьте папку и повторите запуск.') };
   } finally { clearInterval(timer); await release(); }
 }

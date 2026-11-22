@@ -13,8 +13,9 @@ const owner = 'synthetic-manager'; const target = 'http://127.0.0.1:3102/api';
 const arrivalId = '00000000-0000-4000-8000-000000000001';
 const name = 'Счёт поставщика 2456 от 20.11.2026 — оборудование мастерской.pdf';
 const suspicious = '<img src=x onerror="window.c171Injected=true">';
-const issue = { code: 'QUESTION', message: 'Не подтверждено поле «Итог».', action: 'Сверьте итог счёта с оригиналом.' };
-const pages = ['Счёт № 2456 от 20.11.2026\nПоставщик ООО Альфа ИНН 7707083893\nПлательщик ООО Бета ИНН 7702070139\nУрна 2 шт 50,00 100,00\nВсего 100,00 руб. Без НДС\n' + suspicious];
+const issue = { code: 'QUESTION', field: 'gross', message: 'Не подтверждено поле «Итог».', action: 'Сверьте итог счёта с оригиналом.' };
+const partyIssue = { code: 'QUESTION', field: 'seller', message: 'ИНН прочитан, но его связь со стороной «поставщик или исполнитель» не подтверждена оригиналом.' };
+const pages = ['Счёт № 2456 от 20.11.2026\nООО Альфа ИНН 7707083893\nПлательщик ООО Бета ИНН 7702070139\nУрна 2 шт 50,00 100,00\nВсего 100,00 руб. Без НДС\n' + suspicious];
 const raw = {
   kind: 'supplier_invoice', kindEvidence: { page: 1, quote: 'Счёт № 2456 от 20.11.2026' },
   number: { value: '2456', page: 1, quote: 'Счёт № 2456 от 20.11.2026' },
@@ -31,6 +32,25 @@ const review = { counts: { pending: 0, checked: 1, question: 1, uploaded: 0 }, i
   { arrivalId: '00000000-0000-4000-8000-000000000002', name: 'Счёт 2457 — проверен локально.pdf', kind: 'supplier_invoice', state: 'checked', version: 1, hash: 'b'.repeat(64), issues: [] },
 ] };
 let picked = false; const opened = []; let analyses = 0; let drafts = 0; let inboxCount = 3;
+const originals = []; const decisions = [];
+const formatId = '00000000-0000-4000-8000-000000000003';
+const formatIssue = { code: 'SOURCE_FORMAT', message: 'Итог PDF расходится с напечатанными позициями.' };
+const formatItem = { arrivalId: formatId, name: 'Проверить оформление.pdf', state: 'question', version: 1, hash: 'c'.repeat(64), issues: [formatIssue] };
+const quickItems = ['Поставка крепежа.pdf', 'Поставка досок для парковой мебели.pdf'].map((filename, index) => ({
+  arrivalId: '00000000-0000-4000-8000-00000000000' + (index + 4),
+  name: filename, version: 1, kind: raw.kind, state: 'question', issues: [partyIssue],
+  reviewParties: [{ field: 'seller', name: raw.seller.name, inn: raw.seller.inn, page: 1 }],
+}));
+let partyChecked = false;
+function draftFor(selected) {
+  if (selected === formatId) return { ...formatItem, owner, target, pages, raw };
+  const quick = quickItems.find(item => item.arrivalId === selected);
+  if (quick) return { ...quick, owner, target, pages, raw };
+  assert.equal(selected, arrivalId);
+  const entry = review.items[0];
+  return { ...entry, owner, target, pages, raw, kind: raw.kind,
+    issues: entry.state === 'checked' ? [] : partyChecked ? [issue] : [issue, partyIssue] };
+}
 let preparations = 0; let releasePreparation;
 const preparationOnly = process.argv.includes('--preparation-only');
 const deliveryOnly = process.argv.includes('--delivery-only');
@@ -47,7 +67,50 @@ const engine = {
   async status({ root }) { return { counts: { inbox: inboxCount, processing: 0, ready: 0, question: 0 }, folders: { inbox: inboxFor(root) }, running: false }; },
   async report() { return { counts: {}, items: [] }; },
   async reviewStatus(binding) { assert.equal(binding.owner, owner); assert.equal(binding.target, target); return review; },
-  async getDraft({ arrivalId: selected }) { assert.equal(selected, arrivalId); drafts++; return { owner, target, arrivalId, name, version: 2, state: 'question', pages, raw, issues: [issue] }; },
+  async getDraft({ arrivalId: selected }) {
+    drafts++;
+    return draftFor(selected);
+  },
+  async getReviewOriginal({ arrivalId: selected }) {
+    return { owner, target, original: path.join(documents, draftFor(selected).name) };
+  },
+  async reviewDecision({ token, arrivalId: selected, version, decision, field, name: partyName, inn, value }) {
+    assert.equal(await token(), access);
+    decisions.push(decision);
+    const quick = quickItems.find(item => item.arrivalId === selected);
+    if (selected === formatId) {
+      assert.equal(version, formatItem.version++);
+      formatItem.returnToManager = decision === 'mark-return';
+    } else if (decision === 'confirm-fact') {
+      assert.equal(selected, arrivalId);
+      assert.equal(field, 'gross');
+      assert.equal(value, '100,00');
+      const entry = review.items[0];
+      assert.equal(version, entry.version++);
+      entry.state = 'checked';
+      entry.issues = [];
+      review.counts.question--;
+      review.counts.checked++;
+    } else {
+      assert.equal(decision, 'confirm-party');
+      assert.equal(field, 'seller');
+      assert.equal(partyName, raw.seller.name);
+      assert.equal(inn, raw.seller.inn);
+      if (quick) {
+        assert.equal(version, quick.version++);
+        quick.state = 'checked';
+        quick.issues = [];
+        quick.reviewParties = [];
+        review.counts.question--;
+        review.counts.checked++;
+      } else {
+        assert.equal(selected, arrivalId);
+        assert.equal(version, review.items[0].version++);
+        partyChecked = true;
+      }
+    }
+    return draftFor(selected);
+  },
   async prepareBatch() {
     return { id: arrivalId, target, items: [{ name: review.items[1].name, version: 1, kind: review.items[1].kind }], problems: [] };
   },
@@ -89,6 +152,7 @@ const pult = createPult({
     },
     fetchFn: async () => Response.json({ access, user: { id: owner, role: 'manager', canMoney: true } }),
     pickFolder: async () => picked ? documents : '', openFolder: async value => opened.push(value),
+    openOriginal: async value => Boolean(originals.push(value)),
   },
 });
 
@@ -192,17 +256,29 @@ try {
   await comparison.waitFor();
   assert.deepEqual(await comparison.getByRole('columnheader').allTextContents(), ['Поле', 'Прочитал Пульт', 'В оригинале PDF']);
   const total = comparison.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Итог', exact: true }) });
-  assert.equal(await total.getByRole('cell').first().textContent(), '101');
+  assert.equal(await total.getByRole('textbox', { name: 'Итог по PDF', exact: true }).inputValue(), '101');
   assert.match(await total.getByRole('cell').last().textContent(), /Всего 100,00 руб/);
   assert.equal(await aside.getByRole('table', { name: 'Остальные реквизиты' }).count(), 0);
   assert.equal(await aside.getByText('Модель нашла два итога, проверьте сумму к оплате.', { exact: true }).isVisible(), false);
+  await aside.getByText('ИНН есть на странице 1. Проверьте, чьи это реквизиты.', { exact: true }).waitFor();
+  await sideButton('Открыть оригинал PDF').click();
+  await page.waitForFunction(() => !document.querySelector('.intake-draft-content .intake-actions button')?.disabled);
+  assert.deepEqual(originals, [path.join(documents, name)]);
   await screenshot('ui-review-1440-light.png', true);
+  const seller = comparison.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Поставщик', exact: true }) });
+  await seller.getByRole('button', { name: 'Исправить', exact: true }).click();
+  await seller.getByRole('textbox', { name: 'ИНН по PDF', exact: true }).waitFor();
+  await screenshot('ui-review-edit-1440-light.png', true);
+  await seller.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await seller.getByRole('button', { name: 'Подтвердить', exact: true }).click();
+  await aside.getByText('Подтверждено. Остались замечания.', { exact: true }).waitFor();
+  assert.deepEqual(decisions, ['confirm-party']);
   await aside.getByText('Замечания модели', { exact: true }).click();
   await aside.getByText('Модель нашла два итога, проверьте сумму к оплате.', { exact: true }).waitFor();
   assert.equal(await aside.locator('.intake-model-doubts img').count(), 0);
   await aside.getByText('Замечания модели', { exact: true }).click();
   await aside.getByText('Остальные реквизиты', { exact: true }).click();
-  await aside.getByText('Подтверждённый фрагмент не найден', { exact: true }).waitFor();
+  await aside.getByText('Строка PDF не найдена', { exact: true }).waitFor();
   assert.equal(await aside.getByText('Неподтверждённая цитата модели', { exact: true }).count(), 0);
   const number = aside.getByRole('button', { name: 'Номер · открыть страницу 1', exact: true });
   await number.focus(); await page.keyboard.press('Enter');
@@ -216,7 +292,7 @@ try {
   await aside.getByRole('table', { name: 'Позиции документа' }).getByText('Урна 2 шт 50,00 100,00', { exact: true }).waitFor();
   await screenshot('ui-review-1024-dark.png', true);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-  await sideButton('К списку документов').click();
+  await sideButton('Скрыть: ' + name).click();
   await aside.getByText('Проверено в Пульте · 1', { exact: true }).waitFor();
   await screenshot('ui-report-1024-dark.png');
   assert.equal(await page.getByRole('button', { name: /Подтвердить отправку|Повторить выбранные/ }).count(), 0);
@@ -241,13 +317,100 @@ try {
   await page.screenshot({ path: path.join(output, 'ui-delivery-receipt-light.png') });
   await aside.getByRole('button', { name: `Сверить: ${name}`, exact: true }).click();
   await aside.getByRole('table', { name: 'Поля для сверки' }).waitFor();
+  await sideButton('Скрыть: ' + name).click();
+  review.items.push(formatItem, ...quickItems);
+  review.counts.question += 3;
+  await sideButton('Отчёт').click();
+  const reportTable = aside.locator('.intake-report-table');
+  await reportTable.getByRole('columnheader', { name: 'Документ', exact: true }).waitFor();
+  assert.deepEqual(await reportTable.getByRole('columnheader').allTextContents(), ['Документ', 'Сверка', 'Действия']);
+  const tableFits = () => reportTable.evaluate(table => table.offsetWidth <= table.parentElement.clientWidth && table.scrollWidth <= table.offsetWidth + 1);
+  assert.equal(await tableFits(), true);
+  const formatButton = sideButton('Сверить оформление: ' + formatItem.name);
+  const formatDraft = page.waitForResponse(response => response.url().endsWith('/api/document-intake/draft')
+    && response.request().postDataJSON().arrivalId === formatId);
+  await formatButton.click();
+  const formatResponse = await formatDraft;
+  assert.ok(formatResponse.ok(), await formatResponse.text());
+  const markResponse = page.waitForResponse('**/api/document-intake/reviewdecision');
+  await sideButton('Пометить для возврата менеджеру').click();
+  const marked = await markResponse;
+  assert.ok(marked.ok(), await marked.text());
+  assert.equal((await marked.json()).returnToManager, true);
+  await aside.getByText('Вернуть менеджеру · 1', { exact: true }).waitFor();
+  if (!await sideButton('Вернуть на сверку').isVisible()) await sideButton('Открыть: ' + formatItem.name).click();
+  await sideButton('Вернуть на сверку').click();
+  await aside.getByText('Проверить оформление · 1', { exact: true }).waitFor();
+  const formatHide = sideButton('Скрыть: ' + formatItem.name);
+  if (await formatHide.isVisible()) await formatHide.click();
+  assert.deepEqual(decisions, ['confirm-party', 'mark-return', 'undo-return']);
+
+  const quickLabel = (action, item) => action + ': ' + item.name + ' · Поставщик';
+  const [first, second] = quickItems;
+  const firstRow = reportTable.getByRole('row').filter({ has: page.getByRole('button', { name: quickLabel('Подтвердить', first), exact: true }) });
+  await firstRow.getByText(/7707083893/).waitFor();
+  const pdfResponse = page.waitForResponse('**/api/document-intake/original');
+  await sideButton('PDF: ' + first.name).click();
+  assert.ok((await pdfResponse).ok());
+  assert.deepEqual(originals, [path.join(documents, name), path.join(documents, first.name)]);
+  await screenshot('ui-report-table-1440-light.png', true);
+
+  await sideButton(quickLabel('Исправить', second)).click();
+  const inline = reportTable.locator('.intake-report-detail:not([hidden])');
+  const inn = inline.getByRole('textbox', { name: 'ИНН по PDF', exact: true });
+  await inn.waitFor();
+  const secondRow = reportTable.getByRole('row').filter({ has: page.getByRole('button', { name: 'Скрыть: ' + second.name, exact: true }) });
+  assert.equal(await inline.evaluate(node => node.previousElementSibling.innerText.includes('Поставка досок')), true);
+  assert.equal(await secondRow.count(), 1);
+  assert.equal(await inn.inputValue(), raw.seller.inn);
+  await inn.fill('1234');
+  await sideButton('Сохранить исправление').click();
+  assert.equal(await inn.evaluate(input => input.validity.patternMismatch), true);
+  assert.deepEqual(decisions, ['confirm-party', 'mark-return', 'undo-return']);
+  const refreshed = page.waitForResponse('**/api/document-intake/reviewreport');
+  await sideButton('Отчёт').click();
+  await refreshed;
+  assert.equal(await inn.inputValue(), '1234');
+  await inn.fill(raw.seller.inn);
+  await page.emulateMedia({ colorScheme: 'dark' }); await page.setViewportSize({ width: 1024, height: 1000 });
+  assert.equal(await tableFits(), true);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  await inline.locator('.intake-party-edit').scrollIntoViewIfNeeded();
+  await screenshot('ui-report-table-edit-1024-dark.png', true);
+  await sideButton('Скрыть: ' + second.name).click();
+  assert.equal(await inn.isVisible(), false);
+  await reportTable.locator('thead').scrollIntoViewIfNeeded();
+  await screenshot('ui-report-table-1024-dark.png', true);
+  const beforeQuick = drafts;
+  await sideButton(quickLabel('Подтвердить', first)).click();
+  await aside.getByText('Проверено в Пульте · 1', { exact: true }).waitFor();
+  await page.waitForFunction(label => document.activeElement?.getAttribute('aria-label') === label, quickLabel('Подтвердить', second));
+  await page.keyboard.press('Enter');
+  await aside.getByText('Проверено в Пульте · 2', { exact: true }).waitFor();
+  assert.equal(drafts, beforeQuick);
+  assert.deepEqual(decisions, ['confirm-party', 'mark-return', 'undo-return', 'confirm-party', 'confirm-party']);
+  assert.equal(sends, 1);
+
+  await sideButton('Сверить: ' + name).click();
+  const gross = inline.getByRole('textbox', { name: 'Итог по PDF', exact: true });
+  await gross.fill('100,00');
+  await gross.scrollIntoViewIfNeeded();
+  await screenshot('ui-report-gross-edit-1024-dark.png', true);
+  const savedGross = page.waitForResponse('**/api/document-intake/reviewdecision');
+  await inline.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  assert.ok((await savedGross).ok());
+  await aside.getByText('Подтверждено. Документ проверен.', { exact: true }).waitFor();
+  await aside.getByText('Проверено в Пульте · 3', { exact: true }).waitFor();
+  assert.equal(decisions.at(-1), 'confirm-fact');
+  assert.equal(sends, 1);
+
   await sideButton('Настройки').click(); await sideButton('Выйти').click();
   await sideButton('Войти').waitFor();
   await sideButton('Отчёт').click();
   await aside.getByText('Войдите в DataCore в настройках, чтобы открыть локальные черновики.').waitFor();
   assert.equal((await aside.textContent()).includes(name), false);
   assert.ok(drafts >= 1); assert.deepEqual(errors, []);
-  console.log('PASS C171: подготовка, сверка, отмена и подтверждение отправки, отчёт. Синтетический обработчик.');
+  console.log('PASS C171/C230: подготовка, отправка, табличная сверка и правка итога. Синтетический обработчик.');
 } finally {
   await browser?.close(); await pult.close();
   assert.equal(path.dirname(temporary), await fs.realpath(os.tmpdir()));

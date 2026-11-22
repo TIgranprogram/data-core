@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { analyze, getDraft, reviseDraft, reviewStatus } from './analysis.mjs';
+import { analyze, getDraft, getReviewOriginal, reviewDecision, reviseDraft, reviewStatus } from './analysis.mjs';
 import { report as legacyReport, resume as legacyResume, retry as legacyRetry, run as legacyRun } from './index.mjs';
 import { IntakeError, arrivalsOf, claim, openRoot, saveArrival, sha256, uid } from './store.mjs';
 
@@ -35,6 +35,24 @@ test('входящие и повторная сверка запускаются
   assert.equal(incoming.total, 1);
   assert.equal(incoming.counts.checked, 1);
   assert.deepEqual((await arrivalsOf(box.store)).find(entry => entry.arrivalId === arrivalId), previous);
+});
+
+test('повторная сверка считает копии одного PDF одним документом', async t => {
+  const box = await setup(t);
+  const { raw } = invoice();
+  raw.gross.value = 101;
+  const fake = runtime({ propose: async () => raw });
+  const bytes = pdf('Один оригинал');
+  await box.drop('Счёт.pdf', bytes);
+  await box.drop('Копия.pdf', bytes);
+  const first = await analyze(box.options, fake.dependencies);
+  assert.equal(first.counts.question, 2);
+  const retry = await analyze({ ...box.options, scope: 'review' }, fake.dependencies);
+  assert.equal(retry.total, 1);
+  assert.equal(retry.processed, 1);
+  const entries = await arrivalsOf(box.store);
+  assert.equal(entries.filter(entry => entry.history?.length).length, 1);
+  assert.equal(entries.filter(entry => entry.state === 'question').length, 2);
 });
 
 test('повреждённый черновик не скрывает остальные документы и не открывает произвольный путь', async t => {
@@ -103,7 +121,7 @@ function runtime(patch = {}) {
     },
     async post(endpoint) { calls.push({ method: 'POST', endpoint }); assert.fail('Анализ не должен писать в DataCore'); },
   };
-  return { calls, fixture, dependencies: { stableMs: 0, connect: () => api, renderImages: async () => [],
+  return { calls, fixture, dependencies: { stableMs: 0, connect: () => api, renderImages: async () => [], readTables: async () => [],
     extract: async () => structuredClone(fixture.pages), propose: async () => structuredClone(fixture.raw), ...patch } };
 }
 
@@ -165,6 +183,112 @@ test('визуальный ответ не заменяет подтверждё
   assert.deepEqual(draft.vision.fields, []);
   assert.equal(draft.raw.number.value, fixture.raw.number.value);
   assert.equal(draft.proposal, null);
+});
+
+test('строки восстанавливаются по физическим колонкам и сверяются со всеми итогами', async t => {
+  const box = await setup(t);
+  const { raw, pages } = invoice();
+  raw.lines[0].title = 'Название модели';
+  raw.doubts = ['The table rows and total were unclear.'];
+  raw.gross = { page: 1, quote: 'Всего 120,00 руб.', value: 120 };
+  pages[0] = pages[0].replace('Всего 100,00', 'Всего 120,00');
+  const fake = runtime({
+    extract: async () => pages,
+    propose: async () => raw,
+    readTables: async () => [{
+      page: 1,
+      rows: [
+        ['№', 'Наименование', 'Цена', 'Количество', 'Ед.', 'Сумма НДС', 'Сумма'],
+        ['1', 'Урна', '50 , 00', '2', 'шт', '0,00', '100,00'],
+        ['2', 'Опора', '20,00', '1', 'шт', '0,00', '20,00'],
+        ['', 'Итого', '', '', '', '', '120,00'],
+      ],
+    }],
+  });
+  await box.drop('Счёт с таблицей.pdf');
+  const result = await analyze({ ...box.options, automatic: true }, fake.dependencies);
+  const draft = await getDraft({ root: box.root, arrivalId: result.items[0].arrivalId });
+  assert.equal(draft.state, 'checked');
+  assert.equal(draft.autoDispatch, true);
+  assert.equal(draft.raw.lines.length, 1);
+  assert.deepEqual(draft.proposal.lines.map(row => row.title), ['Урна', 'Опора']);
+  assert.equal(draft.proposal.gross, 120);
+  assert.equal(fake.calls.some(call => call.method === 'POST'), false);
+});
+
+test('подтверждение названия и ИНН завершает локальную сверку и не включает автоотправку', async t => {
+  const box = await setup(t);
+  const { raw, pages } = invoice();
+  pages[0] = pages[0].replace(raw.seller.quote, supplier.name + ' ИНН ' + supplier.inn);
+  const fake = runtime({ propose: async () => raw, extract: async () => pages });
+  await box.drop('Стороны для проверки.pdf');
+  const result = await analyze({ ...box.options, automatic: true }, fake.dependencies);
+  const { arrivalId, version } = result.items[0];
+  assert.equal(result.items[0].issues[0].field, 'seller');
+  const original = await getReviewOriginal({ root: box.root, arrivalId });
+  assert.equal(original.owner, 'synthetic-manager');
+  assert.equal(path.basename(original.original), 'Стороны для проверки.pdf');
+
+  const request = { ...box.options, arrivalId, version, decision: 'confirm-party', field: 'seller', name: supplier.name, inn: supplier.inn };
+  await assert.rejects(reviewDecision({ ...request, inn: '123' }, fake.dependencies), { code: 'QUESTION' });
+  await assert.rejects(reviewDecision({ ...request, inn: payer.inn }, fake.dependencies), { code: 'QUESTION' });
+  const checked = await reviewDecision(request, fake.dependencies);
+  assert.equal(checked.state, 'checked');
+  assert.equal(checked.manualParties.seller.inn, supplier.inn);
+  assert.equal(checked.proposal.seller.inn, supplier.inn);
+  assert.equal(checked.autoDispatch, undefined);
+  assert.equal(fake.calls.every(call => call.method === 'GET'), true);
+  await assert.rejects(reviewDecision(request, fake.dependencies), { code: 'VERSION' });
+});
+
+test('ручное исправление итога требует напечатанного значения и сохраняется при повторном разборе', async t => {
+  const box = await setup(t);
+  const { raw, pages } = invoice();
+  raw.gross.value = 101;
+  const fake = runtime({ propose: async () => raw, extract: async () => pages });
+  const bytes = pdf('Исправление итога');
+  await box.drop('Итог.pdf', bytes);
+  const analyzed = await analyze(box.options, fake.dependencies);
+  const { arrivalId, version } = analyzed.items[0];
+  const request = { ...box.options, arrivalId, version, decision: 'confirm-fact', field: 'gross' };
+  await assert.rejects(reviewDecision({ ...request, value: '101,00' }, fake.dependencies), { code: 'QUESTION' });
+  const result = await reviewDecision({ ...request, value: '100,00' }, fake.dependencies);
+  assert.equal(result.proposal.gross, 100);
+  assert.equal(result.raw.gross.value, 101);
+  await box.drop('Копия итога.pdf', bytes);
+  const retry = await analyze({ ...box.options, automatic: true }, fake.dependencies);
+  assert.equal(retry.counts.checked, 2);
+  assert.equal(retry.counts.automatic, undefined);
+});
+
+test('расхождение итога в PDF можно отметить для возврата менеджеру и вернуть на сверку', async t => {
+  const box = await setup(t);
+  const { raw, pages } = invoice();
+  raw.gross = { page: 1, quote: 'Всего 120,00 руб.', value: 120 };
+  pages[0] = pages[0].replace('Всего 100,00', 'Всего 120,00');
+  const fake = runtime({
+    extract: async () => pages,
+    propose: async () => raw,
+    readTables: async () => [{ page: 1, rows: [
+      ['№', 'Наименование', 'Цена', 'Количество', 'Ед.', 'Сумма'],
+      ['1', 'Урна', '50,00', '2', 'шт', '100,00'],
+      ['', 'Итого', '', '', '', '120,00'],
+    ] }],
+  });
+  await box.drop('Расходятся итоги.pdf');
+  const result = await analyze({ ...box.options, automatic: true }, fake.dependencies);
+  const { arrivalId, version, issues } = result.items[0];
+  assert.equal(issues[0].code, 'SOURCE_FORMAT');
+  const request = { ...box.options, arrivalId, version };
+  const marked = await reviewDecision({ ...request, decision: 'mark-return' }, fake.dependencies);
+  assert.ok(marked.returnToManager);
+  assert.equal(marked.autoDispatch, undefined);
+  const retry = await analyze({ ...box.options, scope: 'review' }, fake.dependencies);
+  assert.equal(retry.items[0].returnToManager, true);
+  assert.equal(retry.items[0].state, 'question');
+  const restored = await reviewDecision({ ...request, version: marked.version, decision: 'undo-return' }, fake.dependencies);
+  assert.equal(restored.returnToManager, undefined);
+  assert.equal(restored.issues[0].code, 'SOURCE_FORMAT');
 });
 
 test('анализ сохраняет локальный черновик и доказательства, не выполняя POST и не обещая готовность', async t => {

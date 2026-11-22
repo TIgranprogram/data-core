@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { isDeepStrictEqual } from 'node:util';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -71,6 +72,108 @@ function loopbackModel(modelBase) {
     throw new IntakeError('MODEL_UNAVAILABLE', 'Укажите адрес локального ИИ на этом компьютере.');
   }
   return new URL('/v1/chat/completions', url);
+}
+
+export async function extractTables(file, signal) {
+  try {
+    const { stdout } = await exec('python', [pdfScript, file, String(MAX_TEXT), '--tables'], {
+      signal, timeout: 30_000, maxBuffer: 900_000, windowsHide: true,
+    });
+    const result = JSON.parse(stdout);
+    return Array.isArray(result) && result.length <= 60 ? result : [];
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    return [];
+  }
+}
+
+const rowHeading = {
+  title: /^(?:наименован|товары|товар\s*[\s(]|предмет|описание)/iu,
+  unit: /^(?:ед(?:\.|\s|$)|единиц)/iu,
+  qty: /^(?:количество|кол[-\s.]*во|кол[.\s]*$)/iu,
+  unitPrice: /^цена/iu,
+  amount: /^(?!сумма\s*\(?(?:ндс|налога)(?!\p{L}))(?:сумма|стоимость|всего)/iu,
+};
+const footerRow = /^(?:итого|всего|в\s+том\s+числе\s+ндс|сумма\s+ндс|ндс|к\s+оплате)(?=\s|[:.,]|$)/iu;
+const tableCell = value => typeof value === 'string' ? normalize(value) : '';
+
+function printedNumber(cell) {
+  const value = cell.replace(/\s*(?:₽|руб\.?)$/iu, '').replace(/\s*([,.])\s*/gu, '$1');
+  if (!/^(?:\d+|\d{1,3}(?: \d{3})+)(?:[,.]\d+)?$/u.test(value)) return null;
+  const parsed = Number(value.replace(/ /g, '').replace(',', '.'));
+  return Number.isFinite(parsed) && parsed <= 1e11 ? parsed : null;
+}
+
+function parseTable(table, pageCount) {
+  if (!Number.isInteger(table?.page) || table.page < 1 || table.page > pageCount || !Array.isArray(table.rows)) return [];
+  const rows = table.rows;
+  if (!Array.isArray(rows[0]) || rows[0].length < 5) return [];
+  let header = rows[0].map(() => '');
+  for (let index = 0; index < Math.min(3, rows.length - 1); index++) {
+    if (!Array.isArray(rows[index]) || rows[index].length !== header.length) return [];
+    header = header.map((value, col) => normalize([value, tableCell(rows[index][col])].filter(Boolean).join(' ')));
+    const columns = Object.entries(rowHeading).map(([key, match]) => [key, header.flatMap((title, col) => match.test(title) ? [col] : [])]);
+    if (columns.some(([, found]) => found.length !== 1)) continue;
+    const indices = Object.fromEntries(columns.map(([key, [col]]) => [key, col]));
+    if (new Set(Object.values(indices)).size !== columns.length) return [];
+    const expanded = Object.fromEntries(Object.entries(indices).map(([key, col]) => {
+      let end = col + 1;
+      while (end < header.length && !header[end]) end++;
+      let start = col;
+      if (key === 'title') while (start && !header[start - 1]) start--;
+      return [key, [start, end]];
+    }));
+    const extracted = [];
+    for (const row of rows.slice(index + 1)) {
+      if (!Array.isArray(row) || row.length !== header.length) return [];
+      const cells = row.map(tableCell);
+      if (!cells.some(Boolean)) continue;
+      const field = key => cells.slice(...expanded[key]).filter(Boolean).join(' ');
+      const title = field('title');
+      const hasQuantity = Boolean(field('qty') || field('unit') || field('unitPrice'));
+      const populated = cells.filter(Boolean);
+      if (!hasQuantity && (footerRow.test(title || populated[0])
+        || (extracted.length && populated.length === 2 && /ндс|стоимост|цен[ауы]\s+договора/iu.test(populated[0])
+          && printedNumber(field('amount')) !== null))) continue;
+      if (title && cells.every((value, col) => !value || (col >= expanded.title[0] && col < expanded.title[1]))) {
+        if (!extracted.length) return [];
+        const previous = extracted.at(-1);
+        previous.title = normalize(previous.title + ' ' + title);
+        previous.quote += '\n' + title;
+        if (!length(previous.title, 300)) return [];
+        continue;
+      }
+      const unit = field('unit'), qty = printedNumber(field('qty'));
+      const unitPrice = printedNumber(field('unitPrice')), total = printedNumber(field('amount'));
+      if (!length(title, 300) || !length(unit, 20) || !/\p{L}/u.test(unit) || qty === null || qty < 0.001 || qty > 1e8
+        || !amount(unitPrice) || !amount(total) || cents(qty * unitPrice) !== cents(total)) return [];
+      extracted.push({ title, unit, qty, unitPrice, amount: total, page: table.page, quote: cells.filter(Boolean).join('\n') });
+    }
+    return extracted;
+  }
+  return [];
+}
+
+export function recoverPrintedRows(raw, pages, tables) {
+  if (!Array.isArray(raw?.lines) || !raw.lines.length || !Array.isArray(tables)) return [];
+  const choices = new Map();
+  for (const table of tables) {
+    const rows = parseTable(table, pages.length);
+    if (!rows.length) continue;
+    const priority = table.strategy === 'lines_strict' ? 0 : 1;
+    let group = choices.get(table.page);
+    if (!group || group.priority > priority) {
+      group = { priority, candidates: new Map() };
+      choices.set(table.page, group);
+    }
+    if (group.priority === priority) group.candidates.set(JSON.stringify(rows.map(({ quote, ...facts }) => facts)), rows);
+  }
+  if ([...choices.values()].some(group => group.candidates.size !== 1)) return [];
+  const rows = [...choices].sort(([first], [second]) => first - second).flatMap(([, group]) => group.candidates.values().next().value);
+  if (rows.length < raw.lines.length || (rows.length > raw.lines.length && rows.some(row => !row.amount))) return [];
+  const proven = raw.lines.map(row => factOrNull(() => validateLines([row], pages)[0])).filter(Boolean);
+  if (!proven.every(row => rows.some(({ page, quote, ...facts }) => sameFact(row, facts)))) return [];
+  return rows;
 }
 
 export async function renderPages(file, pageNumbers, signal) {
@@ -170,6 +273,13 @@ function validDate(value, quote) {
 }
 
 const token = (quote, value) => new RegExp(`(?<![\\p{L}\\p{N}/-])${escaped(normalize(value))}(?![\\p{L}\\p{N}/-]|\\.[\\p{L}\\p{N}])`, 'iu').test(quote);
+function labeledNumber(value, quote) {
+  if (token(quote, value)) return true;
+  const suffix = escaped(normalize(value));
+  // Unicode № нормализуется в No. За ним может сразу стоять номер.
+  return new RegExp('(?<![\\p{L}\\p{N}])N[oо]\\s*' + suffix + '(?![\\p{L}\\p{N}/-]|\\.[\\p{L}\\p{N}])', 'iu').test(quote);
+}
+
 const amount = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1e11
   && Math.abs(value * 100 - Math.round(value * 100)) < 0.002;
 export const cents = (value) => Math.round(value * 100);
@@ -213,9 +323,14 @@ function party(item, pages, side, columns = []) {
   return { name: item.name, inn: item.inn };
 }
 
-export function confirmParties(raw, pages, columns = []) {
+function reviewedParty(item, pages, side, columns, manualParties) {
+  const confirmed = manualParties[side.key];
+  return confirmed ? { name: confirmed.name, inn: confirmed.inn } : party(item, pages, side, columns);
+}
+
+export function confirmParties(raw, pages, columns = [], manualParties = {}) {
   return sides.map(side => {
-    try { return { key: side.key, party: party(raw?.[side.key], pages, side, columns) }; }
+    try { return { key: side.key, party: reviewedParty(raw?.[side.key], pages, side, columns, manualParties) }; }
     catch (issue) {
       if (!(issue instanceof IntakeError)) throw issue;
       return { key: side.key, issue };
@@ -346,6 +461,19 @@ function recoverColumnParties(raw, pages, columns) {
   return { ...raw, ...pair };
 }
 
+export function resolvePrintedDoubts(evidence, pages, columns, printedRows, manualParties = {}) {
+  if (!Array.isArray(evidence.doubts) || !evidence.doubts.length || !printedRows.length) return evidence;
+  const proof = factOrNull(() => validateProposal({ ...evidence, doubts: [] }, pages, columns, printedRows, manualParties));
+  if (!proof) return evidence;
+  const taxConfirmed = proof.vat?.mode === 'none' || (proof.vat?.rate != null && proof.vat.amount != null);
+  const doubts = evidence.doubts.filter(note => {
+    if (typeof note !== 'string' || /подпис|заказчик|поставщик|покупател|продавец|реквизит|инн|срок|поставк|услови|оплат|signature|supplier|customer|delivery|condition|payment|deadline/iu.test(note)) return true;
+    if (/ндс|\bvat\b|\btax\b/iu.test(note)) return !taxConfirmed;
+    return !/строк|позици|таблиц|арифметик|итог|\brows?\b|\bitems?\b|\btable\b|\btotal\b/iu.test(note);
+  });
+  return doubts.length === evidence.doubts.length ? evidence : { ...evidence, doubts };
+}
+
 export function verifyCitations(raw, pages, columns = []) {
   let result = raw;
   for (const side of sides) {
@@ -404,14 +532,14 @@ export function supplierTotals(lines, vat) {
   }, { gross: 0, tax: 0 });
 }
 
-function factReaders(raw, pages, columns) {
+function factReaders(raw, pages, columns, printedRows = [], manualParties = {}) {
   return {
     kind: () => evidencedKind(raw, pages),
     date: () => valueOf(raw.date, pages, 'дата', validDate),
     number: () => raw.number === null && raw.kind === 'offer' ? null : valueOf(raw.number, pages, 'номер документа',
-      (v, q) => length(v, raw.kind === 'contract' ? 50 : 100) && token(q, v) && /№|номер|\bN[o°]?\b|предложение|договор|контракт|сч[её]т|акт|заказ/iu.test(q)),
-    seller: () => party(raw.seller, pages, sides[0], columns),
-    buyer: () => party(raw.buyer, pages, sides[1], columns),
+      (v, q) => length(v, raw.kind === 'contract' ? 50 : 100) && labeledNumber(v, q) && /№|номер|\bN[o°]?|предложение|договор|контракт|сч[её]т|акт|заказ/iu.test(q)),
+    seller: () => reviewedParty(raw.seller, pages, sides[0], columns, manualParties),
+    buyer: () => reviewedParty(raw.buyer, pages, sides[1], columns, manualParties),
     currency: () => valueOf(raw.currency, pages, 'валюта', (v, q) => v === 'RUB' && /₽|(?:\bRUB\b)|руб(?=[.\s]|л|$)/iu.test(q),
       raw.currency?.quote === '₽' ? 1 : 3),
     gross: () => valueOf(raw.gross, pages, 'итог с налогом', (v, q) => amount(v) && v > 0
@@ -419,15 +547,38 @@ function factReaders(raw, pages, columns) {
     revision: () => raw.revision === null ? null : valueOf(raw.revision, pages, 'редакция',
       (v, q) => length(v, 50) && /редакц|версия|изменение/iu.test(q) && token(q, v)),
     vat: () => validateVat(raw.vat, pages, raw.gross?.value),
-    lines: () => validateLines(raw.lines, pages),
+    lines: () => validateLines(raw.lines, pages, printedRows),
   };
 }
 
-function validateLines(rows, pages) {
+export function confirmReadFact(raw, pages, field, input) {
+  const text = typeof input === 'string' ? input.trim() : '';
+  const value = field === 'gross' ? printedNumber(text)
+    : field === 'date' ? text.replace(/^(\d{2})\.(\d{2})\.(\d{4})$/u, '$3-$2-$1') : text;
+  if (!raw || !['number', 'date', 'gross'].includes(field) || !text || text.length > 100 || value === null) {
+    throw question('Введите значение, напечатанное в PDF.');
+  }
+  const read = candidate => factReaders({ ...raw, [field]: candidate }, pages, [])[field]();
+  const fromModel = { ...raw[field], value };
+  if (factOrNull(() => read(fromModel)) !== null) return fromModel;
+  const found = pages.flatMap((_, index) => {
+    const candidate = recoverCitation({ page: index + 1, quote: '', value }, pages, () => true, read);
+    return candidate.quote ? [candidate] : [];
+  });
+  if (found.length) return found[0];
+  throw question('В тексте PDF это значение не найдено. Проверьте оригинал.');
+}
+
+function validateLines(rows, pages, printedRows = []) {
   requireEvidence(Array.isArray(rows) && rows.length > 0 && rows.length <= 200, 'состав документа');
   const used = new Set();
   return rows.map((row, index) => {
     const label = `строка ${index + 1}`;
+    const physical = printedRows[index];
+    if (physical && sameFact(row, physical)) {
+      const { page, quote, ...facts } = physical;
+      return facts;
+    }
     const q = quoteOf(row, pages, label, ['title', 'qty', 'unit', 'unitPrice', 'amount']);
     const evidence = `${row.page}:${q}`;
     requireEvidence(!used.has(evidence), label);
@@ -450,12 +601,12 @@ function factOrNull(read) {
   catch (error) { if (!(error instanceof IntakeError)) throw error; return null; }
 }
 
-const sameFact = (first, second) => JSON.stringify(first) === JSON.stringify(second);
+const sameFact = isDeepStrictEqual;
 
-export function mergeVisionProof(original, visual, pages, columns, pictured) {
+export function mergeVisionProof(original, visual, pages, columns, pictured, printedRows = []) {
   if (!original || !visual || !exactKeys(visual, Object.keys(PROPOSAL_SCHEMA.properties))) return { evidence: original, fields: [] };
   const next = verifyCitations(visual, pages, columns);
-  const from = factReaders(original, pages, columns);
+  const from = factReaders(original, pages, columns, printedRows);
   const to = factReaders(next, pages, columns);
   const evidence = { ...original };
   const fields = [];
@@ -531,14 +682,22 @@ export function applyInvoiceLayout(raw, pages, recipes) {
   return { evidence, fields };
 }
 
-export function validateProposal(raw, pages, columns = []) {
+function requireDocumentTotal(ok, label, printedRows) {
+  if (!ok && printedRows.length) {
+    throw new IntakeError('SOURCE_FORMAT', 'Итог или НДС в PDF расходится с напечатанными позициями (' + label + ').',
+      'Откройте PDF и проверьте итог, налог, дополнительные строки и скидки. Если в документе ошибка, верните его менеджеру.');
+  }
+  requireEvidence(ok, label);
+}
+
+export function validateProposal(raw, pages, columns = [], printedRows = [], manualParties = {}) {
   const fields = Object.keys(PROPOSAL_SCHEMA.properties);
   if (!exactKeys(raw, fields) || !(raw.kind === 'unknown' || Object.hasOwn(KINDS, raw.kind))
     || !Array.isArray(raw.doubts) || raw.doubts.length > 30 || raw.doubts.some((s) => !length(s, 500))) {
     throw question('Ответ модели не соответствует структуре документа.', 'Проверьте исходный документ и внесите неподтверждённые реквизиты вручную.');
   }
   if (raw.kind === 'unknown') throw question('Тип документа не удалось подтвердить.', 'Уточните тип и назначение документа по оригиналу.');
-  const read = factReaders(raw, pages, columns);
+  const read = factReaders(raw, pages, columns, printedRows, manualParties);
   read.kind();
   const date = read.date(), number = read.number(), seller = read.seller(), buyer = read.buyer();
   requireEvidence(seller.inn !== buyer.inn, 'ИНН сторон');
@@ -546,12 +705,12 @@ export function validateProposal(raw, pages, columns = []) {
   if (raw.kind === 'supplier_invoice' || raw.kind === 'customer_invoice') {
     requireEvidence(vat && (vat.mode === 'none' || [0, 5, 7, 10, 20, 22].includes(vat.rate)), 'режим и ставка НДС в счёте');
     const totals = supplierTotals(lines, vat);
-    requireEvidence(totals.gross === cents(gross), 'сумма всех строк с НДС');
-    requireEvidence(vat.amount === null || cents(vat.amount) === totals.tax, 'сумма НДС');
+    requireDocumentTotal(totals.gross === cents(gross), 'сумма всех строк с НДС', printedRows);
+    requireDocumentTotal(vat.amount === null || cents(vat.amount) === totals.tax, 'сумма НДС', printedRows);
   } else {
-    requireEvidence(lines.reduce((sum, row) => sum + cents(row.amount), 0) === cents(gross), 'сумма всех строк');
+    requireDocumentTotal(lines.reduce((sum, row) => sum + cents(row.amount), 0) === cents(gross), 'сумма всех строк', printedRows);
     if (vat?.amount != null && vat.rate !== null && vat.mode !== 'none') {
-      requireEvidence(cents(gross * vat.rate / (100 + vat.rate)) === cents(vat.amount), 'сумма НДС');
+      requireDocumentTotal(cents(gross * vat.rate / (100 + vat.rate)) === cents(vat.amount), 'сумма НДС', printedRows);
     }
   }
   if (raw.doubts.length) throw question('В документе есть неоднозначные реквизиты или строки.', 'Откройте «Сверить», чтобы увидеть, что отметила модель.');

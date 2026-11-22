@@ -57,6 +57,7 @@ def party_columns(page, number):
 
 limit = int(sys.argv[2])
 columns = len(sys.argv) == 4 and sys.argv[3] == "--party-columns"
+tables = len(sys.argv) == 4 and sys.argv[3] == "--tables"
 render = len(sys.argv) == 5 and sys.argv[3] == "--images"
 pages = []
 size = 0
@@ -71,6 +72,25 @@ with pymupdf.open(sys.argv[1]) as document:
                 pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
                 jpeg = pix.tobytes("jpeg", jpg_quality=86)
                 pages.append({"page": index, "jpeg": base64.b64encode(jpeg).decode("ascii")})
+            continue
+        if tables:
+            words = page.get_text("words", sort=True)
+            for strategy in ("lines_strict", "lines"):
+                for table in page.find_tables(strategy=strategy).tables:
+                    if not (2 <= table.row_count <= 250 and 5 <= table.col_count <= 20):
+                        continue
+                    rows = []
+                    for row in table.rows:
+                        cells = []
+                        for box in row.cells:
+                            if box is None:
+                                cells.append("")
+                                continue
+                            x0, y0, x1, y1 = box
+                            cells.append(" ".join(w[4] for w in words
+                                                  if 2*x0 <= w[0]+w[2] < 2*x1 and 2*y0 <= w[1]+w[3] < 2*y1))
+                        rows.append(cells)
+                    pages.append({"page": index, "strategy": strategy, "rows": rows})
             continue
         if columns:
             pages.extend(party_columns(page, index))

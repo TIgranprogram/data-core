@@ -61,6 +61,56 @@ test('C171: подготовка блокирует анализ, просмот
   assert.equal((await call('draft', { arrivalId: '../other' })).status, 400);
 });
 
+test('автоотправка запускает серверную проверку только по явному действию на локальной копии', async t => {
+  const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pult-auto-intake-test-'));
+  const calls = [];
+  const actor = 'synthetic-qa';
+  const access = ['eyJhbGciOiJIUzI1NiJ9', Buffer.from(JSON.stringify({ sub: actor, exp: Math.floor(Date.now() / 1000) + 600 })).toString('base64url'), 'test'].join('.');
+  const intake = createDocumentIntake({
+    stateDir, secureSession: null, pickFolder: async () => stateDir,
+    fetchFn: async () => Response.json({ access, user: { id: actor, role: 'admin' } }),
+    prepare: async () => ({ ready: true }),
+    engine: async () => ({
+      configure: async () => ({ root: stateDir }),
+      status: async () => ({ counts: { inbox: 1 }, running: false }),
+      reviewStatus: async () => ({ items: [], counts: { pending: 0, checked: 0, question: 0, uploaded: 0 } }),
+      analyze: async ({ automatic }) => { calls.push('analyze:' + automatic); return { total: 1, processed: 1 }; },
+      prepareBatch: async ({ automatic }) => {
+        assert.equal(automatic, true);
+        calls.push('prepare');
+        return { id: 'fixture', items: [{ name: 'Проверенный' }] };
+      },
+      sendBatch: async ({ confirmationId }) => {
+        assert.equal(confirmationId, 'fixture');
+        calls.push('send');
+        return { uploaded: 1 };
+      },
+    }),
+  });
+  t.after(async () => { await intake.stop(); await fs.rm(stateDir, { recursive: true, force: true }); });
+  const call = async (action, body = {}) => {
+    const view = await intake.route('GET', 'status');
+    return intake.route('POST', action, async () => ({ revision: view.body.revision, ...body }));
+  };
+  const finish = async () => {
+    for (let index = 0; index < 50 && intake.busy(); index++) await wait(5);
+    assert.equal(intake.busy(), false);
+  };
+  await call('folder');
+  await call('settings', services);
+  await call('login', { username: actor, password });
+  assert.equal((await call('analyze', { scope: 'incoming' })).status, 202);
+  await finish();
+  assert.deepEqual(calls, ['analyze:false']);
+  assert.equal((await call('analyze', { scope: 'incoming', automatic: true })).status, 202);
+  await finish();
+  assert.deepEqual(calls, ['analyze:false', 'analyze:true', 'prepare', 'send']);
+  await call('settings', { ...services, apiBase: 'https://kppdf-crm.ru/db/api' });
+  await call('login', { username: actor, password });
+  assert.equal((await call('analyze', { scope: 'incoming', automatic: true })).status, 409);
+  assert.equal(calls.length, 4);
+});
+
 test('вход в локальную копию сохраняется в Windows и восстанавливается после перезапуска', {
   skip: process.platform !== 'win32',
 }, async (t) => {

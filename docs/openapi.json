@@ -20619,6 +20619,204 @@
           }
         }
       }
+    },
+    "/api/auth/me/desk/tasks/{taskId}/files": {
+      "get": {
+        "operationId": "DeskFilesController_list",
+        "summary": "Показать файлы своей задачи",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeskFileDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      },
+      "post": {
+        "operationId": "DeskFilesController_upload",
+        "summary": "Прикрепить файл к своей задаче",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeskFileDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/me/desk/tasks/{taskId}/files/{fileId}": {
+      "get": {
+        "operationId": "DeskFilesController_download",
+        "summary": "Скачать файл своей задачи",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fileId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      },
+      "delete": {
+        "operationId": "DeskFilesController_remove",
+        "summary": "Убрать файл своей задачи в корзину задачи",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fileId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeskFileDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/me/desk/tasks/{taskId}/files/{fileId}/restore": {
+      "post": {
+        "operationId": "DeskFilesController_restore",
+        "summary": "Вернуть файл из корзины своей задачи",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fileId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeskFileDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
     }
   },
   "info": {
@@ -22353,6 +22551,23 @@
             "items": {
               "type": "string"
             }
+          },
+          "directOrderId": {
+            "type": "string",
+            "description": "Заказ для прямой поставки без прихода на склад; требует явно указать requestIds"
+          },
+          "directCostCenter": {
+            "type": "string",
+            "enum": [
+              "office",
+              "workshop",
+              "smr"
+            ],
+            "description": "Направление прямой поставки без заказа и без прихода на склад"
+          },
+          "directCostObject": {
+            "type": "string",
+            "description": "Название объекта или уточнение направления прямой поставки"
           }
         }
       },
@@ -28089,11 +28304,19 @@
           },
           "lane": {
             "type": "string",
-            "enum": [
-              "focus",
-              "next",
-              "waiting"
-            ]
+            "description": "Ключ стопки"
+          },
+          "refs": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskRefDto"
+            }
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Личная задача в корзине"
           },
           "title": {
             "type": "string",
@@ -28132,8 +28355,16 @@
             "minimum": 0,
             "maximum": 9007199254740990
           },
+          "lanes": {
+            "minItems": 1,
+            "maxItems": 9,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskLaneDto"
+            }
+          },
           "items": {
-            "maxItems": 60,
+            "maxItems": 660,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DeskCardDto"
@@ -28143,6 +28374,88 @@
         "required": [
           "version",
           "items"
+        ]
+      },
+      "DeskLaneDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Ключ стопки: встроенный или UUID"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "key",
+          "title"
+        ]
+      },
+      "DeskRefDto": {
+        "type": "object",
+        "properties": {
+          "of": {
+            "type": "string",
+            "enum": [
+              "salesorders",
+              "salesorder",
+              "orders",
+              "design",
+              "work",
+              "products",
+              "modules",
+              "parts",
+              "requests",
+              "stock",
+              "offers",
+              "passarchive",
+              "passports",
+              "contract",
+              "suppliercatalog",
+              "partners"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "of",
+          "id"
+        ]
+      },
+      "DeskFileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{24}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "uploadedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deletedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "size",
+          "uploadedAt"
         ]
       }
     }

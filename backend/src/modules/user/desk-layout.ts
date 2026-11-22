@@ -6,7 +6,8 @@ export const DESK_CARD_TYPES = [
 export const DESK_LANES = ['focus', 'next', 'waiting'] as const;
 
 type DeskCardType = (typeof DESK_CARD_TYPES)[number];
-type DeskLane = (typeof DESK_LANES)[number];
+export type DeskRef = { of: Exclude<DeskCardType, 'personal'>; id: string };
+export interface DeskLane { key: string; title: string }
 
 export interface DeskTask {
   id: string;
@@ -17,16 +18,17 @@ export interface DeskTask {
 
 interface DeskCardBase {
   id: string;
-  lane: DeskLane;
+  lane: string;
   done?: boolean;
   tasks?: DeskTask[];
 }
 
 export type DeskCard = DeskCardBase & (
-  { of: Exclude<DeskCardType, 'personal'> } | ({ of: 'personal' } & DeskTask)
+  { of: DeskRef['of'] } | ({ of: 'personal'; refs?: DeskRef[]; deletedAt?: string } & DeskTask)
 );
 
 export interface DeskLayout {
   version: number;
+  lanes?: DeskLane[];
   items: DeskCard[];
 }

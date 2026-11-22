@@ -1,8 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import * as fs from 'node:fs/promises';
+import fs from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
@@ -28,6 +29,20 @@ export async function exists(file) {
   catch (e) { if (e.code === 'ENOENT') return null; throw e; }
 }
 
+const windowsSharingErrors = new Set(['EPERM', 'EACCES', 'EBUSY']);
+const windowsRetryDelays = [25, 50, 100, 200, 400];
+
+async function retryWindowsFile(operation) {
+  for (let attempt = 0; ; attempt++) {
+    try { return await operation(); }
+    catch (error) {
+      const pause = windowsRetryDelays[attempt];
+      if (process.platform !== 'win32' || !windowsSharingErrors.has(error.code) || pause === undefined) throw error;
+      await delay(pause);
+    }
+  }
+}
+
 async function syncDirectory(dir) {
   if (process.platform === 'win32') return;
   const handle = await fs.open(dir, 'r');
@@ -43,9 +58,13 @@ export async function jsonAtomic(file, item) {
       await handle.writeFile(JSON.stringify(item), 'utf8');
       await handle.sync();
     } finally { await handle.close(); }
-    await fs.rename(temp, file);
-    await syncDirectory(dir);
-  } finally { await fs.rm(temp, { force: true }); }
+    await retryWindowsFile(() => fs.rename(temp, file));
+  } catch (error) {
+    // Сохраняем причину отказа. Временный файл не считается записью журнала.
+    await retryWindowsFile(() => fs.rm(temp, { force: true })).catch(() => {});
+    throw error;
+  }
+  await syncDirectory(dir);
 }
 
 export async function readJson(file) {
@@ -188,7 +207,7 @@ function unchanged(a, b) {
     && a.size === b.size && a.mtimeMs === b.mtimeMs && a.ctimeMs === b.ctimeMs);
 }
 
-async function captureClosed(input, target) {
+async function captureClosed(input, target, check) {
   const windows = process.platform === 'win32';
   if (!windows && process.platform !== 'linux') {
     throw new IntakeError('FOLDER', 'Захват закрытых файлов поддерживается в Windows и Linux.');
@@ -197,16 +216,26 @@ async function captureClosed(input, target) {
   const args = windows
     ? ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', helper('./claim.ps1'), input, target]
     : [helper('./claim-linux.py'), input, target];
-  try {
-    const { stdout } = await exec(program, args, { timeout: 60_000, windowsHide: true, maxBuffer: 4096 });
-    const hash = stdout.trim();
-    if (/^[\da-f]{64}$/.test(hash)) return hash;
-  } catch (e) {
-    if (e.code === 3) return null;
-    if (e.code === 4) {
-      throw new IntakeError('FOLDER', 'Файловая система не поддерживает проверку закрытия файла.', 'Выберите папку на локальном диске и возобновите разбор.');
+  let busy = false;
+  for (let attempt = 0; ; attempt++) {
+    const state = await check();
+    if (!state.unchanged || state.hash) return state.hash;
+    try {
+      const { stdout } = await exec(program, args, { timeout: 60_000, windowsHide: true, maxBuffer: 4096 });
+      const hash = stdout.trim();
+      if (/^[\da-f]{64}$/.test(hash)) return hash;
+      break;
+    } catch (error) {
+      if (error.code === 3) { busy = true; break; }
+      if (error.code === 4) {
+        throw new IntakeError('FOLDER', 'Файловая система не поддерживает проверку закрытия файла.', 'Выберите папку на локальном диске и возобновите разбор.');
+      }
+      if (!windows || error.code !== 5 || windowsRetryDelays[attempt] === undefined) break;
+      await delay(windowsRetryDelays[attempt]);
     }
   }
+  const state = await check();
+  if (state.hash || busy) return state.hash;
   throw new IntakeError('ORIGINAL', 'Не удалось безопасно захватить исходный файл.', 'Проверьте папку и возобновите разбор.');
 }
 
@@ -231,19 +260,23 @@ export async function claim(store, name, stableMs = 2200, metadata) {
   await saveArrival(store, entry);
   const target = withinArrival(store, 'processing', entry);
   await checkWorkflowFolders(store, ['inbox', 'processing']);
-  await fs.mkdir(target, { mode: 0o700 });
-  const unmodified = unchanged(stat, await exists(input));
-  await checkWorkflowFolders(store, ['inbox', 'processing']);
-  await checkedDirectory(target, store.rootStat.dev);
-  if (!unmodified) {
-    await fs.rmdir(target);
-    await fs.rm(arrivalFile(store, entry.arrivalId));
-    return null;
-  }
-  const hash = await captureClosed(input, originalPath(store, entry));
+  await retryWindowsFile(() => fs.mkdir(target, { mode: 0o700 }));
+  const output = originalPath(store, entry);
+  const hash = await captureClosed(input, output, async () => {
+    await checkWorkflowFolders(store, ['inbox', 'processing']);
+    await checkedDirectory(target, store.rootStat.dev);
+    const [source, moved] = await Promise.all([exists(input), exists(output)]);
+    if (!moved) return { unchanged: unchanged(stat, source), hash: null };
+    // Помощник может успеть переместить файл и завершиться до возврата хэша.
+    if (source || !moved.isFile() || stat.dev !== moved.dev || stat.ino !== moved.ino
+      || stat.size !== moved.size || stat.mtimeMs !== moved.mtimeMs) {
+      throw new IntakeError('ORIGINAL', 'Не удалось подтвердить уже перемещённый оригинал.', 'Сохраните исходные файлы для сверки.');
+    }
+    return { unchanged: false, hash: sha256(await readOriginal(store, entry)) };
+  });
   if (!hash) {
-    await fs.rmdir(target);
-    await fs.rm(arrivalFile(store, entry.arrivalId));
+    await retryWindowsFile(() => fs.rmdir(target));
+    await retryWindowsFile(() => fs.rm(arrivalFile(store, entry.arrivalId), { force: true }));
     return null;
   }
   await syncDirectory(target);
@@ -283,11 +316,18 @@ async function moveArrival(store, entry, from, to) {
   const source = withinArrival(store, from, entry);
   const target = withinArrival(store, to, entry);
   await checkWorkflowFolders(store, [from, to]);
-  await checkedDirectory(source, store.rootStat.dev);
-  if (await exists(target)) {
-    throw new IntakeError('JOURNAL', 'Папка назначения этого поступления уже существует.', 'Сохраните обе папки для сверки.');
-  }
-  await fs.rename(source, target);
+  const initial = await checkedDirectory(source, store.rootStat.dev);
+  await retryWindowsFile(async () => {
+    await checkWorkflowFolders(store, [from, to]);
+    const [present, destination] = await Promise.all([exists(source), exists(target)]);
+    if (!present && destination?.isDirectory() && destination.dev === initial.dev && destination.ino === initial.ino) return;
+    if (destination) {
+      throw new IntakeError('JOURNAL', 'Папка назначения этого поступления уже существует.', 'Сохраните обе папки для сверки.');
+    }
+    const current = await checkedDirectory(source, store.rootStat.dev);
+    if (current.ino !== initial.ino) throw new IntakeError('ORIGINAL', 'Исходная папка поступления изменилась.');
+    await fs.rename(source, target);
+  });
   await syncDirectory(store.folders[from]);
   await syncDirectory(store.folders[to]);
 }
@@ -386,10 +426,11 @@ export async function reconcileArrival(store, entry) {
     await saveArrival(store, entry);
   } else if (entry.phase === 'claiming') {
     if (!(await exists(originalPath(store, entry)))?.isFile()) {
-      if (await exists(source)) await fs.rmdir(source);
-      await fs.rm(arrivalFile(store, entry.arrivalId), { force: true });
+      if (await exists(source)) await retryWindowsFile(() => fs.rmdir(source));
+      await retryWindowsFile(() => fs.rm(arrivalFile(store, entry.arrivalId), { force: true }));
       return null;
     }
+    entry.hash ??= sha256(await readOriginal(store, entry));
     entry.phase = 'claimed';
     await saveArrival(store, entry);
   }

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { apiAddress, authorize, checkOrderAttachment, checkSalesCandidates, connectApi, executeIntake, executeOrderAttachment, makeInvoicePayload, proveReviewedInvoice, resolveSalesParties } from './api.mjs';
+import { apiAddress, authorize, checkAutomaticDuplicate, checkOrderAttachment, checkSalesCandidates, connectApi, executeIntake, executeOrderAttachment, makeInvoicePayload, proveReviewedInvoice, resolveSalesParties } from './api.mjs';
 import { checkBinding, draftFile, findReview, reviewStatus } from './analysis.mjs';
 import { IntakeError, jsonAtomic, lock, openRoot, readJson, sha256, uid } from './store.mjs';
 
@@ -138,7 +138,15 @@ export function prepareBatch(options, dependencies = {}) {
         const found = await findReview(store, row.arrivalId);
         draft = found.draft;
         checkBinding(draft, target, actor);
+        if (options.automatic && !draft.autoDispatch) continue;
         const kind = draft.proposal?.kind;
+        if (options.automatic && !draft.submission && !draft.sendStarted && await checkAutomaticDuplicate(api, { ...draft, bytes: found.bytes })) {
+          draft.state = 'existing';
+          draft.issues = [];
+          draft.updatedAt = new Date().toISOString();
+          await save(store, draft);
+          continue;
+        }
         if (sales(kind)) {
           await prepareSales(api, draft, found.bytes);
           confirmation.items.push({ arrivalId: row.arrivalId, name: row.name, hash: row.hash, localVersion: draft.version,

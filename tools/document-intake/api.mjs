@@ -452,6 +452,49 @@ const invoiceEndpoint = '/supply/invoices';
 const invoiceIntake = `${invoiceEndpoint}/intake`;
 const INVOICE_RESOLVE = 'Откройте «Снабжение» → «Счета», сравните поставщика, плательщика, полный номер, дату, суммы и оригинал.';
 
+const printableNumber = number => nameKey(number).replace(/^№\s*/u, '').replace(/\s+/gu, '');
+const similarNumber = number => printableNumber(number).replace(/[^\p{L}\p{N}]/gu, '');
+
+export async function checkAutomaticDuplicate(api, doc) {
+  const p = doc.proposal;
+  const invoice = p.kind === 'supplier_invoice';
+  if (!invoice && p.kind !== 'contract') return false;
+  const endpoint = invoice ? invoiceEndpoint : '/salesorders';
+  const number = (row) => invoice ? row.no : row.orderNo;
+  const query = invoice ? { supplierId: doc.parties.supplierId } : { filter: 'all' };
+  const key = similarNumber(p.number);
+  if (!key) return false;
+  const matches = (await all(api, endpoint, query)).filter(row => similarNumber(number(row)) === key
+    && (invoice ? row.supplierId === doc.parties.supplierId
+      : row.companyId === doc.parties.companyId || row.counterpartyId === doc.parties.counterpartyId));
+  if (!matches.length) return false;
+  const resolve = invoice ? INVOICE_RESOLVE : RESOLVE;
+  if (matches.length !== 1 || printableNumber(number(matches[0])) !== printableNumber(p.number)) {
+    throw question('На сайте есть похожий номер. Сравните написание номера и исходный документ.', resolve);
+  }
+  const id = idOf(matches[0]);
+  if (!objectId(id)) throw question('Карточка с таким номером найдена, но её реквизиты недоступны.', resolve);
+  const row = await api.get(endpoint + '/' + id, undefined, true);
+  if (row && idOf(row) === id && !row.partial && !row.deletedAt && row.status !== 'cancelled' && row.stage !== 'cancelled'
+    && printableNumber(number(row)) === printableNumber(p.number)) {
+    if (invoice && row.supplierId === doc.parties.supplierId && row.payerCompanyId === doc.parties.payerCompanyId
+      && dayOf(row.date) === p.date && equalMoney(row.amount, p.gross)) {
+      if (row.intakeSourceSha256 === doc.hash) return true;
+      for (const file of (row.files || []).filter(file => file?.mime === 'application/pdf' || /\.pdf$/iu.test(file?.name || '')).slice(0, 5)) {
+        try {
+          if (sha256(await api.original(file.url, doc.bytes.length)) === doc.hash) return true;
+        } catch (error) {
+          if (!(error instanceof IntakeError) || error.code !== 'QUESTION') throw error;
+        }
+      }
+    }
+    if (!invoice && row.companyId === doc.parties.companyId && row.counterpartyId === doc.parties.counterpartyId
+      && dayOf(row.contractDate) === p.date && refFor(row, p.kind)?.sourceSha256 === doc.hash
+      && equalMoney(row.legal?.gross, p.gross)) return true;
+  }
+  throw question('Документ с этим номером уже есть. Проверьте оригинал, стороны и суммы.', resolve);
+}
+
 export function makeInvoicePayload(doc) {
   const p = doc.proposal;
   return {
