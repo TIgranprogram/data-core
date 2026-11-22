@@ -6,6 +6,9 @@
 
 ## ▶ Приоритет 22.11.2026 — приёмка локального выпуска
 
+- [x] C220: [управляемое восстановление из корзины](crew/C220-trash-restore/UI-REVIEW.md).
+- [x] C219: [детализация доходов, расходов и платежей](crew/C219-finance-drilldown/UI-REVIEW.md).
+- [x] C218: [личный рабочий стол](crew/C218-personal-desk/UI-REVIEW.md).
 - [x] C217: [очередь и компактная доска проектирования](crew/C217-design-board-space/UI-REVIEW.md).
 - [x] C216: [шапка шкалы Ганта](crew/C216-gantt-month-header/UI-REVIEW.md).
 - [x] C215: [пустые дни слева на шкале Ганта](crew/C215-gantt-leading-context/UI-REVIEW.md).

@@ -36,15 +36,15 @@ export class FinanceController {
   @ApiQuery({ name: 'to', required: false, description: 'ГГГГ-ММ-ДД (умолч. конец месяца); период ≤ 1 года' })
   @ApiQuery({ name: 'org', required: false, description: 'all | СИЮ | ССЮ | id организации' })
   @ApiQuery({ name: 'opening', required: false, description: 'Остаток на начало периода, ₽' })
-  cashflow(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null = null) {
-    return this.finance.cashflow(q, scope);
+  cashflow(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null = null, @CurrentUser() actor?: AuthenticatedUser) {
+    return this.finance.cashflow(q, scope, actor);
   }
 
   @Get('summary')
   @Roles('admin', 'accountant', 'manager')
   @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false }) @ApiQuery({ name: 'org', required: false })
-  summary(@Query() q: Record<string, string>) {
-    return this.finance.summary(q);
+  summary(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null = null, @CurrentUser() actor?: AuthenticatedUser) {
+    return this.finance.summary(q, scope, actor);
   }
 
   /** Прогноз (БЗ-1): ожидаемые выплаты и поступления вперёд, остаток по дням, кассовый разрыв. Отдельно от факта. */
@@ -53,8 +53,8 @@ export class FinanceController {
   @ApiQuery({ name: 'days', required: false, description: '7–180, по умолчанию 30' })
   @ApiQuery({ name: 'opening', required: false, description: 'Остаток денег на сегодня, ₽' })
   @ApiQuery({ name: 'org', required: false, description: 'all | СИЮ | ССЮ | id' })
-  forecast(@Query() q: Record<string, string>) {
-    return this.finance.forecast(q);
+  forecast(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null = null, @CurrentUser() actor?: AuthenticatedUser) {
+    return this.finance.forecast(q, scope, actor);
   }
 
   /** «По статьям»: статья → подстатья × месяцы года (только факт); режим «по объекту» — один заказ заказчика. */
@@ -64,6 +64,12 @@ export class FinanceController {
   @ApiQuery({ name: 'org', required: false, description: 'all | СИЮ | ССЮ | id' })
   @ApiQuery({ name: 'mode', required: false, description: 'company (вся фирма, умолч.) | object' })
   @ApiQuery({ name: 'salesOrderId', required: false, description: 'Объект — заказ заказчика (для mode=object)' })
+  @ApiQuery({ name: 'productionNo', required: false, description: 'Производственный заказ со всеми договорами' })
+  @ApiQuery({ name: 'salesOrderLineId', required: false, description: 'Позиция заказа' })
+  @ApiQuery({ name: 'personId', required: false, description: 'Получатель фактической выплаты ФОТ' })
+  @ApiQuery({ name: 'facets', required: false, enum: [0, 1], description: 'Доступные позиции и сотрудники по фильтрам' })
+  @ApiQuery({ name: 'counterparty', required: false, description: 'Точное имя заказчика или контрагента' })
+  @ApiQuery({ name: 'doc', required: false, description: 'Точное название из группировки операций по документам' })
   byArticles(@Query() q: Record<string, string>, @CurrentUser() user?: AuthenticatedUser, @StockScoped() scope: StockScope | null = null) {
     return this.operations!.byArticles(q, user, scope);
   }
@@ -76,8 +82,8 @@ export class FinanceController {
   @ApiQuery({ name: 'counterparty', required: false, description: 'Точное имя контрагента/заказчика; «Контрагент не указан» / «Заказчик не указан» — пустое' })
   @ApiQuery({ name: 'doc', required: false, description: 'Точный документ (для доходов — «заказ 123»); «Без заказа» — пустой' })
   @ApiQuery({ name: 'year', required: false }) @ApiQuery({ name: 'org', required: false }) @ApiQuery({ name: 'mode', required: false }) @ApiQuery({ name: 'salesOrderId', required: false })
-  byArticlesOps(@Query() q: Record<string, string>) {
-    return this.finance.byArticlesOps(q);
+  byArticlesOps(@Query() q: Record<string, string>, @StockScoped() scope: StockScope | null = null, @CurrentUser() actor?: AuthenticatedUser) {
+    return this.finance.byArticlesOps(q, scope, actor);
   }
 
   /** «Старт учёта»: дата и остатки на счетах наших компаний; от неё считаются остаток календаря и прогноз. */
@@ -97,7 +103,7 @@ export class FinanceController {
   /** Записи, которые не попадают в расчёт: чего не хватает. */
   @Get('needs-fill')
   @Roles('admin', 'accountant', 'manager')
-  needsFill(@StockScoped() scope: StockScope | null = null) {
-    return this.finance.needsFill(300, scope);
+  needsFill(@StockScoped() scope: StockScope | null = null, @CurrentUser() actor?: AuthenticatedUser) {
+    return this.finance.needsFill(300, scope, actor);
   }
 }

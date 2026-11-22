@@ -50,6 +50,10 @@ export interface Op extends ClassificationMetadata {
   articleId?: string;
   /** Объект — заказ заказчика (salesorders.id). */
   salesOrderId?: string;
+  /** Явная аналитическая связь денежного факта с позицией заказа. */
+  salesOrderLineId?: string;
+  /** Получатель выплаты ФОТ. Доступен в защищённой выдаче операций. */
+  personId?: string;
   /** Откуда операция: заявка, оплаченный счёт, ФОТ, прочий расход, платёж по заказу. */
   source?: 'request' | 'invoice' | 'payroll' | 'expense' | 'income';
 }

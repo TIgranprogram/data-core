@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { Types } from 'mongoose';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
@@ -57,6 +58,36 @@ describe('Roles hierarchy + money visibility', () => {
     await http().get('/api/finance/summary').set(as(tokens.director)).expect(200);
     await http().post('/api/supply/requests').set(as(tokens.director)).send({ title: 'Шайба', qty: 1, clientUid: 'rm-3' }).expect(201);
     await http().get('/api/admin/users').set(as(tokens.director)).expect(403);
+  });
+
+  it('C219: фильтр сотрудника, фасет и календарь используют единые права на ФОТ', async () => {
+    const database = ctx!.connection.db!, companyId = new Types.ObjectId(), personId = new Types.ObjectId();
+    await database.collection('organizations').insertOne({ _id: companyId, name: 'C219 Фирма', isOurCompany: true });
+    await database.collection('persons').insertOne({ _id: personId, firstName: 'Иван', lastName: 'Сотрудник219', companyId });
+    await database.collection('payroll_payments').insertOne({ personId, companyId, date: new Date('2026-10-15'), amount: 321, kind: 'salary', month: '2026-10' });
+    await database.collection('payroll_payments').insertOne({ personId, date: new Date('2026-10-16'), amount: 111, kind: 'salary', month: '2026-10' });
+    const period = { from: '2026-10-01', to: '2026-10-31', org: String(companyId) };
+    const facts = (role: string) => http().get('/api/finance/operations').set(as(tokens[role]))
+      .query({ ...period, personId: String(personId), facets: 1 }).expect(200);
+    const calendar = (role: string) => http().get('/api/finance/cashflow').set(as(tokens[role])).query(period).expect(200);
+
+    const restricted = (await facts('manager')).body;
+    expect(restricted).toMatchObject({ total: 0, facets: { people: [] }, excludedSources: expect.arrayContaining([expect.objectContaining({ source: 'payroll' })]) });
+    const allowed = (await facts('accountant')).body;
+    expect(allowed).toMatchObject({ totals: { expense: 321 }, facets: { people: [{ id: String(personId), label: 'Сотрудник219 Иван' }] } });
+    expect(allowed.items[0]).toMatchObject({ personId: String(personId), source: 'payroll' });
+    const hidden = (await calendar('manager')).body;
+    expect(hidden.totals.expense).toBe(0);
+    expect(hidden.needsFill.payrollNoCompany).toBe(0);
+    expect(JSON.stringify(hidden)).not.toContain('Сотрудник219');
+    const visible = (await calendar('accountant')).body;
+    expect(visible.totals.expense).toBe(321);
+    expect(visible.needsFill.payrollNoCompany).toBe(1);
+    expect(visible.days.flatMap((day: { ops: { source: string }[] }) => day.ops)).toEqual([expect.objectContaining({ source: 'payroll', amount: 321 })]);
+    const byArticles = (await http().get('/api/finance/by-articles').set(as(tokens.accountant)).query({ ...period, personId: String(personId) }).expect(200)).body;
+    expect(byArticles.head.totals.expense).toBe(321);
+    const legacy = (await http().get('/api/finance/by-articles/ops').set(as(tokens.manager)).query({ year: 2026, month: '2026-10', org: String(companyId), articleId: 'expense' }).expect(200)).body;
+    expect(legacy.total).toBe(0);
   });
 
   it('И.1/И.2: история записи «было → стало» (суммы — деньги-ролям и менеджеру), общая история — директору', async () => {

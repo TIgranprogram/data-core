@@ -279,11 +279,7 @@ test('Компактная шапка и боковая панель паузы:
       assert.ok(Math.max(...centers) - Math.min(...centers) < 2);
       assert.equal(await page.getByRole('tablist', { name: 'Раздел проектирования' }).count(), 0);
       assert.equal(await page.locator('.list-panel.compact').isVisible(), false);
-      const banner = page.locator('.main > [data-development-mode]');
-      await banner.getByText(/Разработка · копия данных/).waitFor();
-      await banner.getByText(/Архив datacore-/).waitFor();
-      const statusTitle = await banner.locator('.ntf-title').boundingBox(), statusSub = await banner.locator('.ntf-sub').boundingBox();
-      assert.ok(Math.abs(statusTitle.y - statusSub.y) < 5);
+      assert.equal(await page.locator('[data-development-mode]').count(), 0);
 
       await filters.click();
       await page.getByRole('complementary', { name: 'Фильтры' }).waitFor();

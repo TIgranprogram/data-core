@@ -3,11 +3,9 @@ import { moscowToday } from '../supply/invoice-financials';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { type Connection } from 'mongoose';
-import { canSeeMoney, canSeePayroll, effectiveRoles } from '../../common/roles-hierarchy';
-import { openSectionsFor, sectionOpen } from '../../common/app-sections';
+import { canSeeMoney, effectiveRoles } from '../../common/roles-hierarchy';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import type { StockScope } from '../../common/stock-scope';
-import { docScopeMatch } from '../../common/supply-scope';
 import { oid } from '../../common/list-query';
 import { ourCompanies } from '../incomes/incomes.service';
 import { parseDay } from '../expenses/expense-rules';
@@ -17,7 +15,12 @@ import { FinanceService } from './finance.service';
 import { FinancialClassificationService } from './financial-classification.service';
 import type { Op } from './cashflow';
 import { buildFinancialArticleReport } from './financial-article-report';
+import { NO_COUNTERPARTY, NO_CUSTOMER, NO_ORDER } from './by-articles';
+import { canReadFact, excludedFinanceSources, financeVisibility, visibleFinanceRequests } from './finance-visibility';
 type Query = Record<string, unknown>;
+const exactLabel = (value: unknown, blanks: string[]) => blanks.includes(String(value).trim()) ? '' : String(value).trim();
+const sortedOptions = (options: Map<string, string>) => [...options].map(([id, label]) => ({ id, label }))
+  .sort((a, b) => a.label.localeCompare(b.label, 'ru', { numeric: true }) || a.id.localeCompare(b.id));
 @Injectable()
 export class FinancialOperationsReader {
   constructor(@InjectConnection() private readonly connection: Connection, private readonly finance: FinanceService, private readonly articles: ExpenseArticlesService, private readonly classifications: FinancialClassificationService) {}
@@ -42,15 +45,20 @@ export class FinancialOperationsReader {
     const orderId = q.salesOrderId || (q.mode === 'object' ? q.order : undefined);
     if (orderId) oid(String(orderId), 'аналитического объекта');
     const groupIds=q.productionNo?new Set((await this.connection.db!.collection('salesorders').find({productionNo:String(q.productionNo),deletedAt:null},{projection:{_id:1}}).toArray()).map(o=>String(o._id))):null;
-    const originalIds = ops.filter(o => o.scopeRequestId).map(o => oid(o.scopeRequestId!, 'заявки'));
-    const visible = scope && originalIds.length ? new Set((await this.connection.db!.collection('supplyrequests').find({ _id: { $in: originalIds }, deletedAt: null, ...await docScopeMatch(this.connection, scope) }, { projection: { _id: 1 } }).toArray()).map(r => String(r._id))) : null;
-    const open = openSectionsFor(actor);
-    const excludedSources = [{ source: 'invoice', sections: ['requests'], allowed: true }, { source: 'request', sections: ['requests'], allowed: true }, { source: 'income', sections: ['orders', 'salesorders'], allowed: true }, { source: 'payroll', sections: ['payroll'], allowed: canSeePayroll(actor) }].filter(s => !s.allowed || !s.sections.some(id => sectionOpen(open, id))).map(s => ({ source: s.source, reason: 'Недоступен исходный раздел или его денежные права' }));
+    const lineId = q.salesOrderLineId ? String(oid(String(q.salesOrderLineId), 'позиции заказа')) : null;
+    const personId = q.personId ? String(oid(String(q.personId), 'сотрудника')) : null;
+    const counterparty = q.counterparty == null ? undefined : exactLabel(q.counterparty, [NO_COUNTERPARTY, NO_CUSTOMER]);
+    const doc = q.doc == null ? undefined : exactLabel(q.doc, [NO_ORDER]);
+    const access = financeVisibility(actor);
+    const excludedSources = excludedFinanceSources(access);
+    const visible = await visibleFinanceRequests(this.connection, scope, ops.flatMap((op) => op.scopeRequestId ? [op.scopeRequestId] : []));
+    const withFacets = Number(q.facets) === 1;
+    const orderLineIds = new Set<string>();
+    const personOptions = new Map<string, string>();
     const result: Op[] = [];
     for (const op of ops) {
       if (!op.operationId || op.date > today || !(op.amount > 0)) continue;
-      const sections = op.source === 'income' ? ['orders', 'salesorders'] : op.source === 'invoice' || op.source === 'request' ? ['requests'] : op.source === 'payroll' ? ['payroll'] : ['money'];
-      if (!sections.some(s => sectionOpen(open, s)) || (op.source === 'payroll' && !canSeePayroll(actor))) continue;
+      if (!canReadFact(op, access)) continue;
       if (visible && op.scopeRequestId && !visible.has(op.scopeRequestId)) continue;
       const canonicalSource = op.invoiceId && op.scopeRequestId ? 'invoice' : op.source;
       if (q.source && (q.source === 'supply' ? !['invoice', 'request'].includes(String(canonicalSource)) : q.source !== canonicalSource)) continue;
@@ -63,13 +71,28 @@ export class FinancialOperationsReader {
       if (q.costCenter && q.costCenter !== op.costCenterCode) continue;
       if (q.counterpartyId && String(q.counterpartyId) !== op.counterpartyId) continue;
       if (q.counterpartyName && String(q.counterpartyName).trim() !== String(op.counterpartyName || op.counterparty || '').trim()) continue;
+      if (counterparty !== undefined && (op.counterparty || '').trim() !== counterparty) continue;
+      if (doc !== undefined && (op.doc || '').trim() !== doc) continue;
+      const matchesLine = !lineId || (access.income && op.salesOrderLineId === lineId);
+      const matchesPerson = !personId || op.personId === personId;
+      if (withFacets && access.income && matchesPerson && (orderId || groupIds || lineId) && op.salesOrderLineId) orderLineIds.add(op.salesOrderLineId);
+      if (withFacets && matchesLine && op.personId) personOptions.set(op.personId, op.counterparty || 'Сотрудник');
+      if (!matchesLine || !matchesPerson) continue;
       const warnings = [...(op.warnings || [])];
       if (op.articleId && !node) warnings.push('Сохранённая статья удалена или отсутствует в справочнике');
       if (node && node.type !== op.type) warnings.push('Направление сохранённой статьи не совпадает с фактом');
       if (node?.archivedAt) warnings.push('Сохранённая статья в архиве');
-      result.push({ ...op, source: canonicalSource, warnings });
+      result.push({ ...op, source: canonicalSource, salesOrderLineId: access.income ? op.salesOrderLineId : undefined, warnings });
     }
-    return { ops: result, from, to, today, docs, tree: tree.items, diagnostics: tree.diagnostics, byId, excludedSources, filters: { ...q, from, to, companyId: q.companyId || null } };
+    const lines = orderLineIds.size ? await this.connection.db!.collection('incomes').find(
+      { _id: { $in: [...orderLineIds].map((id) => oid(id, 'позиции заказа')) }, deletedAt: null },
+      { projection: { orderNo: 1, lineNo: 1, title: 1 } },
+    ).toArray() : [];
+    const lineOptions = new Map(lines.map((line) => [String(line._id), [
+      groupIds && line.orderNo ? String(line.orderNo) : null, line.lineNo != null ? 'Поз. ' + String(line.lineNo) : null, line.title || 'Позиция заказа',
+    ].filter(Boolean).join(' · ')]));
+    const facets = withFacets ? { orderLines: sortedOptions(lineOptions), people: sortedOptions(personOptions) } : undefined;
+    return { ops: result, from, to, today, docs, tree: tree.items, diagnostics: tree.diagnostics, byId, excludedSources, facets, filters: { ...q, from, to, companyId: q.companyId || null } };
   }
   private async present(rows: Op[], context: Awaited<ReturnType<FinancialOperationsReader['filtered']>>, actor?: AuthenticatedUser, detail = false) {
     const ids = [...new Set(rows.map(r => r.salesOrderId).filter(Boolean) as string[])].map(id => oid(id, 'заказа'));
@@ -90,7 +113,7 @@ export class FinancialOperationsReader {
     const factor = dir === 'asc' ? 1 : -1;
     const sorted = [...context.ops].sort((a, b) => factor * (sort === 'amount' ? a.amount - b.amount : a.date.localeCompare(b.date)) || a.operationId!.localeCompare(b.operationId!));
     let income = 0, expense = 0; for (const op of sorted) if (op.type === 'income') income += Math.round(op.amount * 100); else expense += Math.round(op.amount * 100);
-    return { excludedSources: context.excludedSources, totalsScope: 'accessible-source-facts', items: await this.present(sorted.slice((page - 1) * limit, page * limit), context, actor), total: sorted.length, page, limit, totals: { income: income / 100, expense: expense / 100, net: (income - expense) / 100, currency: 'RUB' }, counts: { unassigned: sorted.filter(r => !r.articleId || !context.byId.has(r.articleId) || context.byId.get(r.articleId)?.type !== r.type).length }, filters: context.filters };
+    return { excludedSources: context.excludedSources, ...(context.facets ? { facets: context.facets } : {}), totalsScope: 'accessible-source-facts', items: await this.present(sorted.slice((page - 1) * limit, page * limit), context, actor), total: sorted.length, page, limit, totals: { income: income / 100, expense: expense / 100, net: (income - expense) / 100, currency: 'RUB' }, counts: { unassigned: sorted.filter(r => !r.articleId || !context.byId.has(r.articleId) || context.byId.get(r.articleId)?.type !== r.type).length }, filters: context.filters };
   }
   async detail(operationId: string, actor?: AuthenticatedUser, scope: StockScope | null = null) {
     const target = await this.classifications.locate(operationId); await this.classifications.assertAccess(target, actor, scope);
@@ -108,13 +131,13 @@ export class FinancialOperationsReader {
     const context = await this.filtered({ from: target.date, to: target.date, companyId: target.companyId }, actor, scope);
     const current = context.ops.find(o => o.operationId === target.operationId); if (!current) throw new NotFoundException('Активная операция не найдена');
     const after = event.after;
-    const row: Op = { ...current, articleId: after.articleId || undefined, salesOrderId: after.salesOrderId || undefined, costCenterCode: after.costCenter, costObject: after.costObject, classificationVersion: event.version, classificationOriginal: event.original || originalClassification(target.metadata), classificationOverride: event.override || {}, classificationEffective: after as Op['classificationEffective'], classificationHistory: (target.metadata.classificationHistory || []).filter((h: { version: number }) => h.version <= event.version) };
+    const row: Op = { ...current, articleId: after.articleId || undefined, salesOrderId: after.salesOrderId || undefined, salesOrderLineId: current.salesOrderId === (after.salesOrderId || undefined) ? current.salesOrderLineId : undefined, costCenterCode: after.costCenter, costObject: after.costObject, classificationVersion: event.version, classificationOriginal: event.original || originalClassification(target.metadata), classificationOverride: event.override || {}, classificationEffective: after as Op['classificationEffective'], classificationHistory: (target.metadata.classificationHistory || []).filter((h: { version: number }) => h.version <= event.version) };
     return (await this.present([row], context, actor, true))[0];
   }
 
   async byArticles(q: Query, actor?: AuthenticatedUser, scope: StockScope | null = null) {
     const context = await this.filtered(q, actor, scope);
     const options = await this.finance.articleReportOptions({ ...q, org: q.companyId || q.org, salesOrderId: q.salesOrderId || q.order });
-    return { ...buildFinancialArticleReport(context.ops, context.docs, context.from, context.to, context.today, context.diagnostics, options), excludedSources: context.excludedSources, totalsScope: 'accessible-source-facts' };
+    return { ...buildFinancialArticleReport(context.ops, context.docs, context.from, context.to, context.today, context.diagnostics, options), excludedSources: context.excludedSources, ...(context.facets ? { facets: context.facets } : {}), totalsScope: 'accessible-source-facts' };
   }
 }

@@ -49,7 +49,6 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--text); margin: 0; l
 .topbar-actions { display: flex; align-items: center; gap: inherit; flex: none; margin-inline-start: auto; }
 :root[data-theme='soft'] .topbar { backdrop-filter: none; }
 :root[data-theme='soft'] .login-art { background: var(--side); }
-:root[data-theme='soft'] .main > [data-development-mode] { margin: var(--s3) var(--gutter) 0; align-self: flex-start; }
 :root[data-theme='soft'] .main > .crumbs { padding-inline: var(--gutter); }
 .topbar .burger { display: none; }
 .gsearch { position: relative; flex: 1; max-width: 560px; min-width: 200px; }

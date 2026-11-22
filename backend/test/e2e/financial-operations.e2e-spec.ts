@@ -8,6 +8,7 @@ import { Types } from 'mongoose';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
 import { FinancialOperationsReader } from '../../src/modules/finance/financial-operations-reader.service';
+import { FinanceService } from '../../src/modules/finance/finance.service';
 
 describe('C161: канонические операции и типизированная классификация', () => {
   let ctx: TestContext, token: AuthTokens, sequence = 9900159000;
@@ -148,6 +149,11 @@ describe('C161: канонические операции и типизиров�
     const data = await reader.list({ from: '2026-11-01', to: '2026-11-19', companyId: String(payer) }, actor, scope);
     expect(data).toMatchObject({ total: 2, totals: { expense: 153000 } });
     expect(data.items.every((r: any) => r.scopeRequestId === String(inv.rows[0]))).toBe(true);
+    const service = ctx.app.get(FinanceService);
+    const calendar = await service.cashflow({ from: '2026-11-01', to: '2026-11-19', org: String(payer) }, scope, actor);
+    const paid = calendar.days.flatMap((day) => day.ops);
+    expect(paid.map((op) => op.scopeRequestId)).toEqual([String(inv.rows[0]), String(inv.rows[0])]);
+    expect(calendar.totals.expense).toBe(data.totals.expense);
   });
 
   it('историческийlegacyclassoverride переноситсявledger вместеoriginOperationId', async () => {
@@ -216,6 +222,60 @@ describe('C161: канонические операции и типизиров�
     await http().post('/api/expenses').set(auth()).send({date:'2026-11-17',amount:250,companyId:String(payer),articleId:String(a.a),title:'Часть цены',salesOrderId:String(order),costCenter:'order'}).expect(201);
     const result=(await http().get('/api/finance/by-articles').set(auth()).query({from:'2026-11-01',to:'2026-11-19',companyId:String(payer),mode:'object',salesOrderId:String(order)}).expect(200)).body;
     expect(result.scope).toMatchObject({mode:'object',salesOrderId:String(order),contractPrice:1000});expect(result.head.totals.expense).toBe(250);expect(result.rows.find((r:any)=>r.id===String(a.exp)).pct).toBe(25);expect(result.articleRows.find((r:any)=>r.id===String(a.exp)).total).toBe(250);
+  });
+
+  it('C219: производство, договор и позиция фильтруют доступные связанные факты и сводку одинаково', async () => {
+    const payer = await company(), a = await articles();
+    const orderA = new Types.ObjectId(), orderB = new Types.ObjectId(), lineA = new Types.ObjectId(), lineB = new Types.ObjectId();
+    const paidDate = new Date('2026-11-16'), productionNo = 'C219-Единый';
+    await db().collection('salesorders').insertMany([
+      { _id: orderA, orderNo: 'C219-A', productionNo, deletedAt: null },
+      { _id: orderB, orderNo: 'C219-B', productionNo, deletedAt: null },
+    ]);
+    await db().collection('incomes').insertMany([
+      { _id: lineA, lineNo: 1, title: 'Стелла', amount: 100, orderId: orderA, orderNo: 'C219-A', customer: 'Город', companyId: payer, paidDate },
+      { _id: lineB, lineNo: 2, title: 'Стойка', amount: 200, orderId: orderB, orderNo: 'C219-B', customer: 'Город', companyId: payer, paidDate },
+    ]);
+    await db().collection('supplyrequests').insertOne({ title: 'Металл', priceHint: 50, paid: true, paidAt: paidDate, companyId: payer, salesOrderId: orderA, salesOrderLineId: lineA, articleId: a.a });
+    await db().collection('expenses').insertOne({ title: 'Доставка договора', amount: 80, date: paidDate, companyId: payer, salesOrderId: orderB, articleId: a.b });
+
+    expect((await operations(payer, { productionNo })).totals).toMatchObject({ income: 300, expense: 130 });
+    expect((await operations(payer, { salesOrderId: String(orderB) })).totals).toMatchObject({ income: 200, expense: 80 });
+    const selection = { from: '2026-11-01', to: '2026-11-19', companyId: String(payer), productionNo, salesOrderLineId: String(lineA), facets: 1 };
+    const facts = await operations(payer, selection);
+    expect(facts.totals).toMatchObject({ income: 100, expense: 50 });
+    expect(facts.items.every((op: { salesOrderLineId: string }) => op.salesOrderLineId === String(lineA))).toBe(true);
+    expect(facts.facets.orderLines.map((row: { id: string }) => row.id).sort()).toEqual([String(lineA), String(lineB)].sort());
+    const report = (await http().get('/api/finance/by-articles').set(auth()).query(selection).expect(200)).body;
+    expect(report.head.totals).toMatchObject({ income: 100, expense: 50 });
+    expect(report.facets).toEqual(facts.facets);
+    expect((await operations(payer, { counterparty: 'Город', doc: 'заказ C219-B' })).totals).toMatchObject({ income: 200, expense: 0 });
+    expect((await operations(payer, { counterparty: 'Контрагент не указан', doc: 'Без заказа' })).totals).toMatchObject({ income: 0, expense: 130 });
+    await http().get('/api/finance/operations').set(auth()).query({ salesOrderLineId: 'не позиция' }).expect(400);
+    await http().get('/api/finance/by-articles').set(auth()).query({ personId: 'не сотрудник' }).expect(400);
+  });
+
+  it('C219: оплата снабжения сохраняет позицию и убирает её из факта при переносе аналитики в другой заказ', async () => {
+    const payer = await company(), a = await articles();
+    const order = new Types.ObjectId(), another = new Types.ObjectId(), line = new Types.ObjectId(), moved = new Types.ObjectId();
+    await db().collection('salesorders').insertMany([
+      { _id: order, orderNo: 'C219-Оплата', deletedAt: null }, { _id: another, orderNo: 'C219-Перенос', deletedAt: null },
+    ]);
+    await db().collection('incomes').insertMany([
+      { _id: line, orderId: order, title: 'Оплаченная позиция' }, { _id: moved, orderId: order, title: 'Новая позиция заявки' },
+    ]);
+    const invoiceId = new Types.ObjectId(), requestId = new Types.ObjectId(), date = new Date('2026-11-16');
+    await db().collection('supplyinvoices').insertOne({ _id: invoiceId, no: 'C219-01', date, amount: 99, status: 'issued', payerCompanyId: payer, version: 0 });
+    await db().collection('supplyrequests').insertOne({ _id: requestId, invoiceId, salesOrderId: order, salesOrderLineId: line, title: 'Крепление', qty: 1, unit: 'шт', priceHint: 99, companyId: payer, invoiceDate: date, articleId: a.a, status: 'ordered' });
+    await http().post('/api/supply/invoices/' + invoiceId + '/payments').set(auth()).send({ clientUid: 'c219-pay', amount: 99, date: '2026-11-16' }).expect(200);
+    const write = await db().collection('supplyinvoicepayments').findOne({ invoiceId });
+    expect(String(write!.allocations[0].salesOrderLineId)).toBe(String(line));
+    await db().collection('supplyrequests').updateOne({ _id: requestId }, { $set: { salesOrderLineId: moved } });
+    const target = (await operations(payer, { salesOrderLineId: String(line) })).items[0];
+    expect(target).toMatchObject({ amount: 99, salesOrderLineId: String(line) });
+    await classify(target.operationId, { salesOrderId: String(another), version: 0, clientUid: 'c219-reclassify', reason: 'Перенесли затраты на другой договор' }).expect(200);
+    expect((await operations(payer, { salesOrderLineId: String(line) })).total).toBe(0);
+    expect((await operations(payer, { salesOrderId: String(another) })).totals.expense).toBe(99);
   });
 
   it('bounded pipeline: чужая компания/дата и тяжёлая история не попадают в список',async()=>{

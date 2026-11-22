@@ -20,6 +20,7 @@ export type SupplyInvoicePaymentLine = {
   supplierId?: Types.ObjectId;
   supplierName?: string;
   salesOrderId?: Types.ObjectId;
+  salesOrderLineId?: Types.ObjectId | null;
   costCenter?: string;
   title?: string;
   num?: number | string;

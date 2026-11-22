@@ -1,3 +1,4 @@
+import { DESK } from './atlas-desk.js';
 import { STOCK } from './atlas-stock.js';
 import { SERVER_GUIDE } from './help-guide-data.js';
 // Данные «Карты сайта» (#atlas): слои сверху вниз, блоки-разделы, связи между ними и «что внутри» каждого блока.
@@ -32,6 +33,7 @@ export const BANDS = [
  * tplStatus: ok — собран по шаблону; legacy — долг (число не растёт, tools/tpl-baseline.json); plan — экрана ещё нет.
  */
 export const NODES = [
+  ...DESK,
   { id: 'fill', tpl: 'queue', tplStatus: 'ok', band: 'quality', col: 0, sec: 'fill', t: 'Требуют заполнения', l: ['неизвестные сведения', 'и пометки менеджеру'],
     inside: [
       { id: 'utochneniya-dokumentov', t: 'Уточнения договоров и КП', l: 'открыть документ, заполнить известное и проверить пометки', in: ['offers', 'customercontract', 'salesorders'] },
@@ -79,7 +81,7 @@ export const NODES = [
     tech: 'salesorders, incomes', code: ['backend/src/modules/salesorders', 'backend/pwa/sections/sales-legal.js', 'backend/pwa/sections/salesorders-unassigned.js'] },
   { id: 'salesorders', tpl: 'board', tplStatus: 'ok', band: 'sale', col: 3, sec: 'salesorders', t: 'Заказы', l: ['позиции, срок, этапы:', 'в работу → отгрузка'],
     seq: true, inside: [
-      { id: 'zakaz-i-dogovory', t: 'Договоры в заказе', l: 'менеджер включает один или несколько договоров в заказ под одним номером производства', in: ['customercontract', 'partners', 'offers'] },
+      { id: 'zakaz-i-dogovory', t: 'Договоры в заказе', l: 'менеджер включает один или несколько договоров в заказ под одним номером производства', in: ['customercontract', 'partners', 'offers'], out: ['desk'] },
       { id: 'komplekt-dogovora', t: 'Комплект договора', l: 'оригинал, исходящий счёт и план оплаты связаны с договором; неизвестное пустым и пометка «Требует заполнения»', out: ['fill'] },
       { id: 'pozicii', t: 'Позиции', l: 'изделие, новое изделие или услуга; таблица первой. В пустом договоре одна кнопка «+ Позиция» в его группе, в заполненном добавление через «⋯»; в карточке позиции «Выбрать изделие» или «⋯ → Сменить изделие»: найдите по фото, названию или артикулу, подтвердите привязку; в раскрытии строки — «Вложения»: папки, файл скачать, перетащить или загрузить; «Документы» — паспорт точной позиции заказа: шаблон изделия, образец без номера и отдельный выпуск; существующий паспорт открывается по своему id, старый образец только просматривается/печатается', in: ['products', 'matching'], out: ['matching'] },
       { id: 'raspredelenie', t: 'Распределение', l: 'все позиции распределены — задачи проектирования создаются сами', out: ['design'] },
@@ -128,7 +130,7 @@ export const NODES = [
   { id: 'products', tpl: 'card', tplStatus: 'ok', band: 'prod', col: 1, sec: 'products', t: 'ИЗДЕЛИЕ', big: true, l: ['артикул, фото, категория,', 'состав → модули → детали'],
     productMap: true,
     inside: [
-      { id: 'kartochka', t: 'Карточка', l: 'Артикул = обозначение PDM. «⋯ → Изменить»: название, фото, раздел из справочника, цена и характеристики', in: ['design', 'dicts', 'modules', 'parts'], out: ['offers', 'salesorders', 'docs', 'matching'] },
+      { id: 'kartochka', t: 'Карточка', l: 'Артикул = обозначение PDM. «⋯ → Изменить»: название, фото, раздел из справочника, цена и характеристики', in: ['design', 'dicts', 'modules', 'parts'], out: ['offers', 'salesorders', 'docs', 'matching', 'desk'] },
       { id: 'utochnenie', t: 'Уточнение изделий', l: '«Сегодня» → «Уточнить изделия» открывает ту же таблицу с фильтром: группа каталога, вид изделия или тип паспорта. Причины видны в строках; выделите совместимые изделия → «Изменить выбранные». Незаданные поля и выпущенные паспорта не меняются', in: ['dicts'], out: ['docs'] },
       { id: 'sostav', t: 'Состав', l: '«Что дальше → Заполнить» раскрывает блок правки; дерево: модули и детали; комплекс также содержит изделия; сырьё только в детали; старые покупные строки сохраняются', in: ['modules', 'parts', 'suppliercatalog'], out: ['needs', 'stock', 'design'] },
       { id: 'raboty', t: 'Работы', l: 'виды работ и часы на 1 шт.; сумма по модулям и деталям', in: ['work', 'modules', 'parts'], out: ['work'] },
@@ -175,7 +177,7 @@ export const NODES = [
   { id: 'design', tpl: 'board', tplStatus: 'legacy', band: 'paper', col: 0, sec: 'design', t: 'Проектирование', l: ['новые изделия', 'из заказов'],
     seq: true, inside: [
       { id: 'na-raspredelenii', t: 'На распределении', l: 'появляется, когда все позиции заказа распределены', in: ['salesorders'] },
-      { id: 'v-rabote', t: 'В проектировании', l: 'в карточке задание, требования, количество, исполнитель, срок и следующее действие' },
+      { id: 'v-rabote', t: 'В проектировании', l: 'в карточке задание, требования, количество, исполнитель, срок и следующее действие', out: ['desk'] },
       { id: 'sostav-modulya', t: 'Состав изделия', l: 'модули, вложенные детали, виды работ и файлы позиции', in: ['products'] },
       { id: 'peredat-modul', t: 'Передать модуль в работу', l: 'готовность отдельного модуля, снимок состава и маршрута', out: ['work'] },
       { id: 'obsuzhdenie-zadachi', t: 'Обсуждение', l: 'текст и фото по задаче, добавления в галерею видны в истории' },
@@ -264,7 +266,7 @@ export const NODES = [
     code: ['backend/src/modules/supply', 'backend/src/modules/material', 'backend/pwa/sections/supplier-catalog.js'] },
   { id: 'requests', tpl: 'board', tplStatus: 'legacy', band: 'supply', col: 2, sec: 'requests', t: 'Заявки', l: ['заявка → заказал →', 'счёт → оплачено → получено'],
     seq: true, inside: [
-      { id: 'zayavka', t: 'Заявка', l: 'что купить и сколько', in: ['suppliercatalog', 'needs', 'shortage'] },
+      { id: 'zayavka', t: 'Заявка', l: 'что купить и сколько', in: ['suppliercatalog', 'needs', 'shortage'], out: ['desk'] },
       { id: 'zakazal', t: '«Заказал»', l: 'у поставщика, по договору', in: ['partners', 'contracts'] },
       { id: 'schet', t: 'Счёт', l: 'валюта, НДС и неоплаченный остаток; полная оплата без даты попадает в очередь уточнения', out: ['money', 'fill'] },
       { id: 'oplacheno', t: 'Оплаты', l: 'каждый аванс и доплата — своей датой', out: ['money'] },

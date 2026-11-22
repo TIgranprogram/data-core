@@ -12,6 +12,7 @@ import { Model, Types } from 'mongoose';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import type { DeskLayout } from './desk-layout';
 import { UI_PREF_KEYS, UI_PREF_STR_KEYS, UiPrefs, User, UserDocument } from './user.schema';
 import { userActivityCache } from '../../common/guards/user-activity-cache';
 import { isBaseRole, isBuiltinRole } from '../../common/roles-hierarchy';
@@ -280,6 +281,26 @@ export class UserService {
     const doc = await q.select('uiPrefs').lean<{ uiPrefs?: UiPrefs } | null>().exec();
     if (!doc) throw new NotFoundException(`User ${id} not found`);
     return doc.uiPrefs ?? {};
+  }
+
+  async getDesk(id: string): Promise<DeskLayout> {
+    const user = await this.model.findOne({ _id: id, isActive: { $ne: false } }, { privateDesk: 1 }).lean().exec();
+    if (!user) throw new UnauthorizedException('Учётная запись недоступна');
+    return user.privateDesk ?? { version: 0, items: [] };
+  }
+
+  /** Сохранить один снимок только поверх прочитанной версии. */
+  async saveDesk(id: string, current: DeskLayout): Promise<DeskLayout> {
+    const next = { version: current.version + 1, items: current.items };
+    const version = current.version === 0 ? { $in: [0, null] } : current.version;
+    const user = await this.model.findOneAndUpdate(
+      { _id: id, isActive: { $ne: false }, 'privateDesk.version': version },
+      { $set: { privateDesk: next } },
+      { new: true, projection: { privateDesk: 1 } },
+    ).lean().exec();
+    if (user?.privateDesk) return user.privateDesk;
+    await this.getDesk(id);
+    throw new ConflictException('Рабочий стол изменился. Загрузите свежую версию');
   }
 
   /** Свой профиль: только имя, телефон, аватар. Пустая строка в phone/avatar — очистить. Фото аватара должно существовать. */

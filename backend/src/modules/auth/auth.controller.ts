@@ -3,10 +3,12 @@ import {
   Controller,
   ForbiddenException,
   GoneException,
+  Header,
   HttpCode,
   HttpStatus,
   Patch,
   Post,
+  Put,
   UseGuards,
   Get,
   Ip,
@@ -25,6 +27,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthService } from './auth.service';
 import { ConfirmDto } from './dto/confirm.dto';
+import { DeskLayoutDto, toDeskLayout } from './dto/desk-layout.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ProfileDto } from './dto/profile.dto';
@@ -123,6 +126,30 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async me(@CurrentUser() me: AuthenticatedUser) {
     return this.auth.getMe(me.id);
+  }
+
+  @Get('me/desk')
+  @Roles('user')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: 'Получить свой рабочий стол' })
+  @ApiResponse({ status: 200, type: DeskLayoutDto })
+  @ApiResponse({ status: 403, description: 'Вход по машинному ключу' })
+  async getDesk(@CurrentUser() me: AuthenticatedUser) {
+    if (me.keyScope) throw new ForbiddenException('Рабочий стол доступен из приложения');
+    return this.users.getDesk(me.id);
+  }
+
+  @Put('me/desk')
+  @Roles('user')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: 'Сохранить свой рабочий стол по прочитанной версии' })
+  @ApiResponse({ status: 200, type: DeskLayoutDto })
+  @ApiResponse({ status: 400, description: 'Недопустимые данные рабочего стола' })
+  @ApiResponse({ status: 403, description: 'Вход по машинному ключу' })
+  @ApiResponse({ status: 409, description: 'На сервере уже есть более новая версия' })
+  async saveDesk(@CurrentUser() me: AuthenticatedUser, @Body() dto: DeskLayoutDto) {
+    if (me.keyScope) throw new ForbiddenException('Рабочий стол доступен из приложения');
+    return this.users.saveDesk(me.id, toDeskLayout(dto));
   }
 
   /** Свой профиль: имя, телефон, аватар. Роль, логин, пароль не меняются (400 на лишние поля). */

@@ -115,6 +115,7 @@ export class SupplyInvoiceService {
       ...(line.supplierId ? { supplierId: line.supplierId as Types.ObjectId } : {}),
       ...(line.supplierName ? { supplierName: String(line.supplierName) } : {}),
       ...(line.salesOrderId ? { salesOrderId: line.salesOrderId as Types.ObjectId } : {}),
+      salesOrderLineId: (line.salesOrderLineId as Types.ObjectId | undefined) ?? null,
       ...(line.costCenter ? { costCenter: String(line.costCenter) } : {}),
       ...(line.title ? { title: String(line.title) } : {}), ...(line.num !== undefined ? { num: line.num as number | string } : {}),
       ...(inv.no ? { invoiceNo: String(inv.no) } : {}),

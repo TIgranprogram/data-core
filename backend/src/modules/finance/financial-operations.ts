@@ -10,6 +10,7 @@ export function classifiedOperation(base: Op, source: ClassificationInput & Clas
     classificationOrigin: Object.keys(source.classificationOverride || {}).length ? 'override' : source.classificationOriginal ? 'snapshot' : 'source',
     originOperationId: source.originOperationId, classificationProvenance: source.classificationProvenance,
     articleId: effective.articleId || undefined, salesOrderId: effective.salesOrderId || undefined, costObject: effective.costObject,
+    salesOrderLineId: base.salesOrderId === (effective.salesOrderId || undefined) ? base.salesOrderLineId : undefined,
     costCenterCode: effective.costCenter, costCenter: costCenterLabel({ costCenter: effective.costCenter, salesOrderId: effective.salesOrderId }),
   };
 }

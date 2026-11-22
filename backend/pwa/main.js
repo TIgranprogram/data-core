@@ -8,7 +8,6 @@ import { isDragging } from './ui/kit/drag.js';
 import { api, canEditSection, events, login, PREFIX, quietLoadFor, session, trackLoad } from './core/api.js';
 import { getViewAs, setViewAs, syncViewAsRoles, viewAsActive } from './core/view-as.js';
 import { $, h } from './core/dom.js';
-import { loadDevelopmentMode } from './core/development-mode.js';
 import { mark } from './ui/kit/mark.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg, modal } from './ui/kit/dialog.js';
@@ -34,7 +33,6 @@ import { serverPrefs, startPrefs } from './core/prefs.js';
 import { makeResizable } from './ui/resizer.js';
 import { reportError } from './core/errors.js';
 import { failBlock } from './ui/kit/busy.js';
-import { warnCard } from './ui/kit/warn-card.js';
 import { setCrumbs, crumbsEl } from './ui/kit/crumbs.js';
 // Неудачный запрос, включая 4xx: в журнал с методом и безопасным контекстом действий (C160).
 events.onFail = (e, { url, method }) => reportError(e, { kind: method === 'GET' ? 'background' : 'action', action: `${method} · ${method === 'GET' ? 'загрузка' : 'запись'}`, url });
@@ -47,6 +45,7 @@ const SECTIONS = {};   // имя раздела -> описание (запол�
 const FN = {};         // имя функции монтирования -> функция
 // ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
 const LAZY = {
+  desk: [() => import('./sections/desk.js'), [['@mountDesk', 'mountDesk']]],
   woodgrid: [() => import('./sections/wood-grid.js'), [['@mountWoodGrid', 'mountWoodGrid'], ['wooditem', 'woodItem']]],
   partwork: [() => import('./sections/part-work.js'), [['partwork','partWork']]], // C122: виды работ детали — правая панель
   requests: [() => import('./sections/requests.js'), [['requests','requests'],['reqreceive','reqReceive']]],
@@ -139,7 +138,7 @@ function needed(section, params) {
   if (section === 'money' && params?.tab === 'debts') keys.add('orders'); // «Долги» — список из orders.js
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
-const NAV = [['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог номенклатуры', 'partners'], ['contracts', 'Договоры поставщиков', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['workschedule', 'Гант', 'ops'], ['products', 'Продукция', 'stock'], ['modules', 'Модули', 'gallery'], ['parts', 'Детали', 'table'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Доходы и расходы', 'money'], ['expenses', 'Прочие расходы', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад · мобильный', 'stock']];
+const NAV = [['desk', 'Рабочий стол', 'board'], ['home', 'Сегодня', 'home'], ['requests', 'Заявки', 'requests'], ['stock', 'Остатки', 'stock'], ['suppliercatalog', 'Каталог номенклатуры', 'partners'], ['contracts', 'Договоры поставщиков', 'orders'], ['salesorders', 'Заказы', 'orders'], ['matching', 'Сопоставление', 'orders'], ['design', 'Проектирование', 'board'], ['work', 'В работе', 'ops'], ['workschedule', 'Гант', 'ops'], ['products', 'Продукция', 'stock'], ['modules', 'Модули', 'gallery'], ['parts', 'Детали', 'table'], ['offers', 'КП', 'orders'], ['docs', 'Документация', 'orders'], ['partners', 'Контрагенты', 'partners'], ['money', 'Доходы и расходы', 'money'], ['expenses', 'Прочие расходы', 'money'], ['payroll', 'ФОТ', 'partners'], ['staff', 'Сотрудники', 'partners'], ['stock-mobile', 'Склад · мобильный', 'stock']];
 /** Стартовый экран: роль «Ассистент кладовщика» — сразу своя страница. */
 const defaultSection = () => session.onlyStockMobile ? 'stock-mobile' : isStockRole() && allowed('stock') ? 'stock' : 'home';
 // ЦВ-1: раздел данных → цвет (--sec-*)
@@ -151,39 +150,6 @@ const GROUP_OF = { salesorders: 'Производство', matching: 'Прои�
 const NAV_IDS = new Set(NAV.map(([id]) => id));
 const allowed = (route, screen) => canOpen(session, route, screen) && (!['payroll', 'payout'].includes(route) || FEATURES.payroll);
 const root = $('#root');
-const developmentMode = loadDevelopmentMode(location.href);
-
-function placeDevelopmentMode(anchor, info, dialog = false) {
-  const card = warnCard({ tone: 'warn', title: info.title, sub: dialog ? null : info.sub });
-  card.setAttribute('data-development-mode', '');
-  if (dialog) card.title = info.sub;
-  anchor.after(card);
-}
-
-async function mountDevelopmentMode(anchor) {
-  const info = await developmentMode;
-  if (info && anchor.isConnected) placeDevelopmentMode(anchor, info);
-}
-
-/** Книжка и обычный диалог монтируют .modal-back прямым ребёнком body. */
-async function watchDevelopmentDialogs() {
-  const info = await developmentMode;
-  if (!info) return;
-
-  function mount(back) {
-    if (!back.isConnected || !back.matches?.('.modal-back')) return;
-    const head = back.querySelector(':scope > .modal > :is(.modal-head, .bk-head)');
-    if (head && !head.nextElementSibling?.hasAttribute('data-development-mode')) {
-      placeDevelopmentMode(head, info, true); // у книжки содержимое шапки обновляется при редактировании
-    }
-  }
-
-  const body = document.body;
-  new MutationObserver((records) => {
-    for (const { addedNodes } of records) for (const node of addedNodes) mount(node);
-  }).observe(body, { childList: true });
-  for (const dialog of body.querySelectorAll(':scope > .modal-back')) mount(dialog);
-}
 
 // ---------- Вход ----------
 /** Роли склада: свой экран (таблица как Excel) и фон — котики у «Труборез», собачки у «Лазер лист». */
@@ -200,6 +166,7 @@ function showLogin(message) {
   stopLiveSync();
   let last = ''; try { last = localStorage.getItem('dca_last_user') || ''; } catch { /* приватный режим */ }
   closeCard();
+  unmountList();
   const err = h('div', { class: 'form-error', hidden: !message }, message || '');
   const user = h('input', { name: 'username', autocomplete: 'username', required: true, value: last });
   const pass = h('input', { name: 'password', type: 'password', autocomplete: 'current-password', required: true });
@@ -221,7 +188,6 @@ function showLogin(message) {
       h('h2', null, 'Рабочее место — ', h('span', { class: 'gold' }, 'заявки, склад и учёт'), ' в одном окне'),
       h('p', null, 'Все данные — в единой базе компании: заявки снабжения, остатки и движения склада.')),
     h('div', { class: 'login-side' }, form)));
-  mountDevelopmentMode(heading);
   (last && message ? pass : user).focus(); // сессия завершилась: логин подставлен, фокус на пароле
 }
 events.onAuthLost = () => { session.clear(); showLogin('Сессия завершена — войдите снова'); };
@@ -284,7 +250,7 @@ function shell() {
   });
   const sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Меню' },
     h('a', { class: 'brand', href: '#' + defaultSection(), 'aria-label': 'Рабочее место — на главную' }, h('img', { src: 'icon.svg', alt: '' }), h('span', null, 'Рабочее место', h('small', null, 'единая база'))),
-    navLinks.home,
+    navLinks.desk, navLinks.home,
     // порядок разделов — пользователь 2026-10-28: Производство, Продукция, Склад, Снабжение, Деньги
     // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
     group('Производство', navLinks.salesorders, navLinks.design, navLinks.work), // Гант — один: «В работе → Гант» (C053); #workschedule — для старых ссылок
@@ -320,7 +286,6 @@ function shell() {
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
     h('div', { class: 'main' }, topbar, viewBar, crumbsEl, netBar, main));
   root.replaceChildren(shellEl);
-  mountDevelopmentMode(topbar);
   refreshCounts();
   return { main, gs, gsb };
 }
@@ -340,8 +305,8 @@ function rebuildShell() {
   if (!ui) return;
   stockTheme(); // «Смотреть как Труборез» / смена роли — котики и таблица труб, не обычные «Остатки»
   closeCard();
+  unmountList();
   ui = shell();
-  mounted = null;
   render(current());
 }
 // SW-6: запись ждёт сервер (переключение, обрыв) — полоса другим текстом: запрос не потерян, повторится сам
@@ -432,6 +397,7 @@ let mounted = null;       // { key, section, list }
 let card = null;          // { key, handle }
 
 function closeCard() { if (card) { card.handle.close(); card = null; } }
+function unmountList() { mounted?.list?.destroy?.(); mounted = null; }
 /** Экран пересоздаётся только при смене раздела (и поиска по всему — у него свой запрос); остальное — update(). */
 const screenKey = (section, params) => (section === 'passports' ? 'docs' : section) + (section === 'search' ? '?' + (params.q || '') : '') + (section === 'stock' && params.view ? ':' + params.view : '');
 
@@ -508,7 +474,7 @@ function render(c) {
   if (!mounted || mounted.key !== key) { const own = OWNER[section] || section; const group = GROUP_OF[own] || ''; const first = GROUP_FIRST[group]; setCrumbs({ group, groupHref: first && first !== own && session.sees(first) ? '#' + first : '', title: titleOf(own) || '', href: '#' + own }); }
   const sec = SECTIONS[section];
   if (!mounted || mounted.key !== key) {
-    mounted?.list?.destroy?.();
+    unmountList();
     let list = null;
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
@@ -534,6 +500,7 @@ function render(c) {
         onChanged: () => { /* счётчики и список обновит dc:changed после записи */ },
       });
     } else if (section === 'home') list = mountHome({ open: (of, id) => go('home', { ...current().params, of, open: id }, { replace: true }), refreshCounts });
+    else if (section === 'desk') list = FN.mountDesk();
     else if (section === 'money') list = FN.mountMoney(params);
     else if (section === 'payroll' && FEATURES.payroll && session.canMoney && session.canPayroll) list = FN.mountPayroll();
     else if (section === 'staff') list = FN.mountStaff(params);
@@ -779,6 +746,5 @@ window.addEventListener('online', () => events.onNet(true));
 window.addEventListener('offline', () => events.onNet(false));
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* без офлайн-оболочки */ });
-watchDevelopmentDialogs();
 watchUpdates(); // новая выкладка — уведомление «Вышла новая версия · Обновить»
 if (session.refresh) showApp(); else showLogin();

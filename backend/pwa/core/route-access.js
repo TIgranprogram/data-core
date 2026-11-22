@@ -15,7 +15,7 @@ export const OWNER = Object.freeze({
 });
 const sections = new Set(['requests', 'stock', 'suppliercatalog', 'salesorders', 'design', 'work',
   'products', 'offers', 'docs', 'partners', 'money', 'payroll', 'stock-mobile', 'my-tasks']);
-const general = new Set(['home', 'atlas', 'help', 'chat', 'search', 'trash', 'dicts', 'fill']);
+const general = new Set(['desk', 'home', 'atlas', 'help', 'chat', 'search', 'trash', 'dicts', 'fill']);
 const stockScreens = new Set(['home', 'stock', 'stock-mobile', 'movements', 'atlas', 'help', 'profile']);
 const aliases = { expenses: 'money', workschedule: 'work', contracts: 'requests', modules: 'products', parts: 'products' };
 

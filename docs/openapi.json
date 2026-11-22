@@ -925,6 +925,70 @@
         ]
       }
     },
+    "/api/auth/me/desk": {
+      "get": {
+        "operationId": "AuthController_getDesk",
+        "summary": "Получить свой рабочий стол",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeskLayoutDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Вход по машинному ключу"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      },
+      "put": {
+        "operationId": "AuthController_saveDesk",
+        "summary": "Сохранить свой рабочий стол по прочитанной версии",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeskLayoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeskLayoutDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые данные рабочего стола"
+          },
+          "403": {
+            "description": "Вход по машинному ключу"
+          },
+          "409": {
+            "description": "На сервере уже есть более новая версия"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/api/auth/me/prefs": {
       "patch": {
         "operationId": "AuthController_updatePrefs",
@@ -13519,6 +13583,51 @@
             }
           },
           {
+            "name": "salesOrderLineId",
+            "required": false,
+            "in": "query",
+            "description": "Позиция заказа, к которой привязан факт",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "personId",
+            "required": false,
+            "in": "query",
+            "description": "Получатель фактической выплаты ФОТ",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "facets",
+            "required": false,
+            "in": "query",
+            "description": "Списки доступных позиций и сотрудников по фильтрам",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "counterparty",
+            "required": false,
+            "in": "query",
+            "description": "Точное имя заказчика или контрагента",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "doc",
+            "required": false,
+            "in": "query",
+            "description": "Точное название из группировки операций по документам",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "costCenter",
             "required": false,
             "in": "query",
@@ -13773,6 +13882,54 @@
       "get": {
         "operationId": "FinanceController_byArticles",
         "parameters": [
+          {
+            "name": "doc",
+            "required": false,
+            "in": "query",
+            "description": "Точное название из группировки операций по документам",
+            "schema": {}
+          },
+          {
+            "name": "counterparty",
+            "required": false,
+            "in": "query",
+            "description": "Точное имя заказчика или контрагента",
+            "schema": {}
+          },
+          {
+            "name": "facets",
+            "required": false,
+            "in": "query",
+            "description": "Доступные позиции и сотрудники по фильтрам",
+            "schema": {
+              "enum": [
+                0,
+                1
+              ],
+              "type": "number"
+            }
+          },
+          {
+            "name": "personId",
+            "required": false,
+            "in": "query",
+            "description": "Получатель фактической выплаты ФОТ",
+            "schema": {}
+          },
+          {
+            "name": "salesOrderLineId",
+            "required": false,
+            "in": "query",
+            "description": "Позиция заказа",
+            "schema": {}
+          },
+          {
+            "name": "productionNo",
+            "required": false,
+            "in": "query",
+            "description": "Производственный заказ со всеми договорами",
+            "schema": {}
+          },
           {
             "name": "salesOrderId",
             "required": false,
@@ -27863,6 +28020,120 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
+      },
+      "DeskTaskDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180
+          },
+          "due": {
+            "type": "string",
+            "format": "date"
+          },
+          "done": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "done"
+        ]
+      },
+      "DeskCardDto": {
+        "type": "object",
+        "properties": {
+          "of": {
+            "type": "string",
+            "enum": [
+              "salesorders",
+              "salesorder",
+              "orders",
+              "design",
+              "work",
+              "products",
+              "modules",
+              "parts",
+              "requests",
+              "stock",
+              "offers",
+              "passarchive",
+              "passports",
+              "contract",
+              "suppliercatalog",
+              "partners",
+              "personal"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "lane": {
+            "type": "string",
+            "enum": [
+              "focus",
+              "next",
+              "waiting"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "description": "Название личной задачи (of: personal)"
+          },
+          "due": {
+            "type": "string",
+            "format": "date",
+            "description": "Срок личной задачи (of: personal)"
+          },
+          "done": {
+            "type": "boolean",
+            "description": "Готовность личной задачи (of: personal)"
+          },
+          "tasks": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskTaskDto"
+            }
+          }
+        },
+        "required": [
+          "of",
+          "id",
+          "lane"
+        ]
+      },
+      "DeskLayoutDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740990
+          },
+          "items": {
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskCardDto"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "items"
+        ]
       }
     }
   }

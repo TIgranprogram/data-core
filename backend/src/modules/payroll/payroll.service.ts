@@ -17,7 +17,7 @@ const personName = (p: Doc) => [p.lastName, p.firstName].map((x) => String(x ?? 
 /** Что платить: начислено минус выплачено за месяц, для прогноза календаря. */
 export interface PayrollDue { personId: string; person: string; month: string; amount: number; date: string; companyId: string }
 /** Выплата, уже сделанная, — расход календаря. */
-export interface PayrollPaid extends ClassificationMetadata { id: string; person: string; kind: string; date: string; amount: number; companyId: string; month: string }
+export interface PayrollPaid extends ClassificationMetadata { id: string; personId: string; person: string; kind: string; date: string; amount: number; companyId: string; month: string }
 
 /**
  * ФОТ (В-3, «на руки», без налогов). Табель по месяцам → начисление = ставка × табель; выплаты (дата, сумма, вид).
@@ -166,7 +166,7 @@ export class PayrollService {
       this.people(),
     ]);
     const pname = new Map(people.map((p) => [p.id, p.name]));
-    return docs.map((d) => ({ classificationOriginal: d.classificationOriginal as ClassificationMetadata['classificationOriginal'], classificationOverride: d.classificationOverride as ClassificationMetadata['classificationOverride'], classificationVersion: Number(d.classificationVersion || 0), classificationHistory: d.classificationHistory as ClassificationMetadata['classificationHistory'], id: String(d._id), person: pname.get(String(d.personId)) ?? '?', kind: PAY_KIND_LABEL[d.kind as PayKind] ?? 'Выплата', date: iso(d.date), amount: Number(d.amount), companyId: String(d.companyId), month: String(d.month) }));
+    return docs.map((d) => ({ classificationOriginal: d.classificationOriginal as ClassificationMetadata['classificationOriginal'], classificationOverride: d.classificationOverride as ClassificationMetadata['classificationOverride'], classificationVersion: Number(d.classificationVersion || 0), classificationHistory: d.classificationHistory as ClassificationMetadata['classificationHistory'], id: String(d._id), personId: String(d.personId), person: pname.get(String(d.personId)) ?? '?', kind: PAY_KIND_LABEL[d.kind as PayKind] ?? 'Выплата', date: iso(d.date), amount: Number(d.amount), companyId: String(d.companyId), month: String(d.month) }));
   }
 
   /** Выплаты без нашей компании — «требуют заполнения». */

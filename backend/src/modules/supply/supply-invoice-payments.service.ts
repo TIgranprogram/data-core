@@ -104,7 +104,7 @@ export class SupplyInvoicePaymentsService {
       requestId: line._id, amountRub: rub.get(id) || 0, sourceAmount: source.get(id) || 0,
       title: line.title, num: line.num, qty: line.qty, invoiceNo: inv.no,
       supplierId: line.supplierId || inv.supplierId, supplierName: line.supplierName || inv.supplierName,
-      categoryId: line.categoryId, articleId: articleId, salesOrderId: line.salesOrderId,
+      categoryId: line.categoryId, articleId: articleId, salesOrderId: line.salesOrderId, salesOrderLineId: line.salesOrderLineId ?? null,
       costCenter: line.costCenter, costObject: line.costObject, payerCompanyId: payer,
     }); }
     return result;

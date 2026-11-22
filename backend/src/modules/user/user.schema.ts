@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import type { DeskLayout } from './desk-layout';
 
 export type UserDocument = HydratedDocument<User>;
 
@@ -99,6 +100,10 @@ export class User {
    */
   @Prop({ type: Object })
   uiPrefs?: UiPrefs;
+
+  /** Личные задачи: префикс private маскирует поле даже в общих просмотрах коллекции. */
+  @Prop({ type: Object, select: false })
+  privateDesk?: DeskLayout;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

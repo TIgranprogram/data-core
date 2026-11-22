@@ -1,5 +1,6 @@
-import { api } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
+import { canFollow } from '../core/route-access.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
 import { dateTime } from '../core/format.js';
 import { go } from '../core/router.js';
@@ -11,17 +12,36 @@ import { actionLabel, changeList } from '../ui/history.js';
  * Только директор и администратор (сервер: GET /audit-logs/app). Строка → карточка: «было → стало» и ссылка на саму запись.
  */
 const TYPES = [
-  { value: 'SupplyRequest', label: 'Заявки', of: 'requests' }, { value: 'Material', label: 'Склад', of: 'stock' },
-  { value: 'StockMovement', label: 'Движения', of: 'movements' }, { value: 'SalesOrder', label: 'Заказы', of: 'salesorders' },
-  { value: 'Income', label: 'Позиции заказов', of: 'orders' }, { value: 'Partner', label: 'Контрагенты', of: 'partners' },
-  { value: 'DictItem', label: 'Справочники', of: null },
+  { value: 'SupplyRequest', label: 'Заявки', route: 'requests' },
+  { value: 'Material', label: 'Склад', route: 'stock' },
+  { value: 'StockMovement', label: 'Движения', route: 'movements' },
+  { value: 'SalesOrder', label: 'Договоры заказчиков', route: 'salesorders', of: 'salesorder' },
+  { value: 'Income', label: 'Позиции заказов', route: 'salesorders', of: 'orders' },
+  { value: 'Partner', label: 'Контрагенты', route: 'partners' },
+  { value: 'Counterparty', label: 'Контрагенты (архив)' },
+  { value: 'Product', label: 'Изделия', route: 'products' },
+  { value: 'DesignTask', label: 'Задачи проектирования', route: 'design' },
+  { value: 'WorkTask', label: 'Задания в работе', route: 'work' },
+  { value: 'CommercialOffer', label: 'Коммерческие предложения', route: 'offers' },
+  { value: 'Order', label: 'Заказы (архив)' },
+  { value: 'DictItem', label: 'Справочники' },
 ];
 const T = Object.fromEntries(TYPES.map((t) => [t.value, t]));
 const typeLabel = (t) => T[t]?.label || t;
 const who = (r) => r.actorName || r.userName || '';
 const whoNode = (r) => (who(r) ? h('span', { class: 'who-cell' }, r.actorAvatar ? avatarNode({ avatar: r.actorAvatar, displayName: who(r) }, 20) : null, who(r)) : '—');
 const actLabel = (r) => r.actionRu || actionLabel(r.action);
-const openRecord = (r) => { const of = T[r.entityType]?.of; if (of && r.entityId) go(of, { open: r.entityId }); };
+const restored = (r) => r.action === 'restore' || String(r.action || '').endsWith('restored');
+const recordTitle = (r) => r.title || (recordHref(r) ? 'Открыть запись' : '');
+
+function recordHref(r) {
+  const type = T[r.entityType];
+  if (!type?.route || !r.entityId) return '';
+  const params = new URLSearchParams({ open: r.entityId });
+  if (type.of) params.set('of', type.of);
+  const href = '#' + type.route + '?' + params;
+  return canFollow(session, href) ? href : '';
+}
 
 /** Изменения этой записи журнала — из истории самой записи (там посчитано «было → стало»). */
 function changesOf(r) {
@@ -59,13 +79,16 @@ export const history = {
     ],
     hints: { '': 'Все изменения в приложении: кто, что и когда. Откройте строку — увидите, какие поля как изменились, и саму запись.' },
     groupBy: (r) => new Date(r.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }),
-    rowAction: (r) => (T[r.entityType]?.of && r.entityId ? { label: 'Открыть', title: 'Открыть саму запись', run: (row) => openRecord(row) } : null),
+    rowAction: (r) => {
+      const href = recordHref(r);
+      return href ? { label: 'Открыть', title: 'Открыть саму запись', run: () => { location.hash = href; } } : null;
+    },
     columns: [
       { key: 'createdAt', label: 'Когда', cls: 'num nowrap', render: (r) => new Date(r.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) },
       { key: 'userName', label: 'Кто', cls: 'nowrap', render: whoNode },
       { key: 'entityType', label: 'Раздел', cls: 'nowrap md-hide', render: (r) => typeLabel(r.entityType) },
       { key: 'action', label: 'Что', cls: 'nowrap', render: (r) => h('span', null, actLabel(r)) },
-      { key: 'title', label: 'Запись', cls: 'clip', render: (r) => h('span', { title: r.title || '' }, r.title || h('span', { class: 'muted' }, '—')) },
+      { key: 'title', label: 'Запись', cls: 'clip', render: (r) => h('span', { title: r.title || '' }, recordTitle(r) || h('span', { class: 'muted' }, '—')) },
     ],
     card: {
       title: (r) => `${actLabel(r)}: ${r.title || typeLabel(r.entityType)}`,
@@ -77,11 +100,15 @@ export const history = {
   card: {
     heading: (r) => `${actLabel(r)}: ${r.title || typeLabel(r.entityType)}`,
     subheading: (r) => dateTime(r.createdAt),
-    view: (r) => [
-      ['Кто', whoNode(r)],
-      ['Раздел', typeLabel(r.entityType)],
-      ['Запись', T[r.entityType]?.of && r.entityId ? h('a', { href: `#${T[r.entityType].of}?open=${encodeURIComponent(r.entityId)}` }, (r.title || 'открыть') + ' →') : r.title],
-    ],
+    view: (r) => {
+      const href = recordHref(r);
+      return [
+        ['Кто', whoNode(r)],
+        ['Раздел', typeLabel(r.entityType)],
+        ['Запись', href ? h('a', { href }, recordTitle(r) + ' →') : r.title],
+        ...(href && restored(r) && session.canEdit ? [['Действия', 'Чтобы вернуть запись в корзину, откройте её и выберите «Удалить» в меню «⋯», если пункт доступен.']] : []),
+      ];
+    },
     extra: (r) => changesOf(r),
   },
 

@@ -1,6 +1,9 @@
 import { legalForecast } from './legal-forecast';
+import { originalClassification, type ClassificationInput, type ClassificationMetadata } from '../../common/financial-classification';
 import type { LegalBundleDto } from '../../common/legal/legal.dto';
 import type { StockScope } from '../../common/stock-scope';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { canReadFact, excludedFinanceSources, financeVisibility, supplyFact, visibleFinanceRequests } from './finance-visibility';
 import { docScopeMatch } from '../../common/supply-scope';
 import { classifiedOperation } from './financial-operations';
 import { temporaryIncomeOperationId } from '../incomes/income-payment-identities';
@@ -96,7 +99,7 @@ export class FinanceService {
   }
 
   /** Непогашенное обязательство периода. Неизвестные RUB — отдельный список, никогда не сумма0. */
-  private async invoiceObligations(from: string, to: string, companyIds: Types.ObjectId[], overdueBefore = false, today = iso(new Date())) {
+  private async invoiceObligations(from: string, to: string, companyIds: Types.ObjectId[], overdueBefore = false, today = iso(new Date()), scope: StockScope | null = null) {
     const db = this.connection.db!, lower = overdueBefore && invoiceStaleSince(today) < from ? invoiceStaleSince(today) : from;
     const invoices = await db.collection('supplyinvoices').find({ deletedAt: null, 'undatedPaymentEvidence.state': { $ne: 'pending' }, payerCompanyId: { $in: companyIds }, status: { $in: ['issued', 'paid'] }, date: { $gte: new Date(lower + 'T00:00:00Z'), $lt: new Date(Date.parse(to + 'T00:00:00Z') + 86400000) }, $or: [{ paymentAccountingVersion: 1 }, { currency: { $in: FOREIGN_INVOICE_CURRENCIES } }] },
       { projection: { no: 1, date: 1, status: 1, payerCompanyId: 1, amount: 1, currency: 1, currencyName: 1, financialLines: 1, exchangeRate: 1, confirmedAmountRub: 1, vatMode: 1, vatRate: 1, declaredVatAmount: 1, paymentAccountingVersion: 1, paymentSnapshot: 1 } }).toArray();
@@ -105,6 +108,7 @@ export class FinanceService {
       ids.length ? db.collection('supplyrequests').find({ invoiceId: { $in: ids }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { invoiceId: 1, title: 1, qty: 1, priceHint: 1, articleId: 1, categoryId: 1, salesOrderId: 1, costCenter: 1 } }).toArray() : [],
       invoicePaymentSummaries(this.connection, ids), ourCompanies(this.connection),
     ]);
+    const visible = await visibleFinanceRequests(this.connection, scope, rows.map((row) => String(row._id)));
     const byInvoice = new Map<string, FinancialRecord[]>();
     for (const row of rows) { const key = String(row.invoiceId); if (!byInvoice.has(key)) byInvoice.set(key, []); byInvoice.get(key)!.push(row); }
     const cname = new Map(companies.map((x) => [String(x.id), x.name])), pending: Op[] = [], needsConversion: FinancialRecord[] = [];
@@ -115,6 +119,7 @@ export class FinanceService {
       const context = { invoiceId: String(invoice._id), currency: f.currency, currencyName: f.currencyName, sourceAmount: f.sourceAmount, sourcePaidAmount: totals.sourcePaidAmount, sourceBalance: totals.sourceBalance, balanceEstimated: totals.balanceEstimated };
       const date = iso(invoice.date), company = cname.get(String(invoice.payerCompanyId)) || '?';
       if (totals.balanceDue === null) {
+        if (visible && (!lines.length || lines.some((line) => !visible.has(String(line._id))))) continue;
         needsConversion.push({ ...context, id: String(invoice._id), doc: String(invoice.no || ''), title: lines.map((r) => String(r.title || '')).join(', '), date, company, balanceDue: null, accountingState: 'unresolved' });
         continue;
       }
@@ -122,15 +127,16 @@ export class FinanceService {
       const distribution = allocate(totals.balanceDue, f.requests.map((x) => ({ id: x.id, weight: x.sourceGrossAmount || 0 })));
       const source = allocate(totals.sourceBalance, f.requests.map((x) => ({ id: x.id, weight: x.sourceGrossAmount || 0 })));
       for (const row of lines) {
+        if (visible && !visible.has(String(row._id))) continue;
         const amount = distribution.get(String(row._id)) || 0;
-        if (amount > 0) pending.push({ ...context, sourceBalance: source.get(String(row._id)) || 0, type: 'expense', id: String(row._id), date, amount, company, title: String(row.title || ''), doc: String(invoice.no || ''), source: 'invoice', ...(row.articleId ? { articleId: String(row.articleId) } : {}), ...(row.salesOrderId ? { salesOrderId: String(row.salesOrderId) } : {}), costCenter: costCenterLabel(row), overdue: date <= today });
+        if (amount > 0) pending.push({ ...context, ...(visible ? { sourceAmount: undefined, sourcePaidAmount: undefined } : {}), sourceBalance: source.get(String(row._id)) || 0, type: 'expense', id: String(row._id), date, amount, company, title: String(row.title || ''), doc: String(invoice.no || ''), source: 'invoice', ...(row.articleId ? { articleId: String(row.articleId) } : {}), ...(row.salesOrderId ? { salesOrderId: String(row.salesOrderId) } : {}), costCenter: costCenterLabel(row), overdue: date <= today });
       }
     }
     return { invoices: pending, needsConversion: { items: needsConversion, count: needsConversion.length } };
   }
 
   /** Операции периода по выбранным компаниям. `overdueBefore` — ещё неоплаченные счета раньше периода, не старше 90 дней (прогноз ставит их на сегодня). */
-  private async ops(from: string, to: string, companyIds: Types.ObjectId[], overdueBefore = false, onlySource?: string, factsOnly = false): Promise<{ ops: Op[]; invoices: Op[]; awaiting: Op[]; needsConversion: { items: FinancialRecord[]; count: number } }> {
+  private async ops(from: string, to: string, companyIds: Types.ObjectId[], overdueBefore = false, onlySource?: string, factsOnly = false, scope: StockScope | null = null): Promise<{ ops: Op[]; invoices: Op[]; awaiting: Op[]; needsConversion: { items: FinancialRecord[]; count: number } }> {
     const db = this.connection.db!;
     const includeSupply = !onlySource || ['invoice', 'request', 'supply'].includes(onlySource), includeIncome = !onlySource || onlySource === 'income';
     const includeInvoice = includeSupply && onlySource !== 'request';
@@ -144,13 +150,13 @@ export class FinanceService {
       ? [{ paid: { $ne: true }, invoiceDate: { $gte: new Date(invoiceStaleSince(today) + 'T00:00:00Z'), $lt: new Date(from + 'T00:00:00Z') } }]
       : [];
     const paymentProjection = Object.fromEntries(['date', 'amount', 'paymentId', 'articleId', 'companyId', 'method', 'note', 'warnings', 'classificationOriginal', 'classificationOverride', 'classificationVersion'].map(field => ['payments.' + field, 1]));
-    const allocationProjection = Object.fromEntries(['requestId', 'amountRub', 'sourceAmount', 'title', 'num', 'qty', 'invoiceNo', 'supplierId', 'supplierName', 'categoryId', 'articleId', 'salesOrderId', 'costCenter', 'costObject', 'payerCompanyId', 'classificationOriginal', 'classificationOverride', 'classificationVersion', 'classificationProvenance', 'originOperationId', 'warnings'].map(field => ['allocations.' + field, 1]));
+    const allocationProjection = Object.fromEntries(['requestId', 'amountRub', 'sourceAmount', 'title', 'num', 'qty', 'invoiceNo', 'supplierId', 'supplierName', 'categoryId', 'articleId', 'salesOrderId', 'salesOrderLineId', 'costCenter', 'costObject', 'payerCompanyId', 'classificationOriginal', 'classificationOverride', 'classificationVersion', 'classificationProvenance', 'originOperationId', 'warnings'].map(field => ['allocations.' + field, 1]));
     const [reqs, incs, shipped, payroll, cats, orgs, paidInvoices, tree, otherExpenses] = await Promise.all([
       // оплаченные — по дате оплаты (paidAt, нет — дата счёта); неоплаченные с датой счёта в периоде — «счета к оплате»;
       // раньше периода (не старше 90 дней) — те же просроченные, что прогноз ставит на сегодня
       includeSupply ? db.collection('supplyrequests').find({ ...(factsOnly ? { paid: true } : {}), ...(onlySource === 'request' ? { invoiceId: null } : onlySource === 'invoice' ? { invoiceId: { $ne: null } } : {}), deletedAt: null, status: { $ne: 'cancelled' }, priceHint: { $gt: 0 }, companyId: { $in: companyIds }, $or: [
         { paid: true, $or: [{ paidAt: range }, { paidAt: null, invoiceDate: range }] }, { paid: { $ne: true }, invoiceDate: range }, ...overdueClause] },
-        { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, costObject: 1, salesOrderId: 1, articleId: 1, photoIds: 1, paid: 1, paidAt: 1, invoiceId: 1 } }).toArray() : [],
+        { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, costObject: 1, salesOrderId: 1, salesOrderLineId: 1, articleId: 1, photoIds: 1, paid: 1, paidAt: 1, invoiceId: 1 } }).toArray() : [],
       includeIncome ? db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, $and: [{ $or: [{ companyId: { $in: companyIds } }, { 'payments.companyId': { $in: companyIds } }, { 'legacyPaymentMetadata.companyId': { $in: companyIds } }] }], $or: [{ 'payments.date': range }, { paidDate: range }] },
         { projection: { orderNo: 1, orderId: 1, title: 1, amount: 1, paidDate: 1, ...paymentProjection, 'legacyPaymentMetadata.warnings': 1, 'legacyPaymentMetadata.paymentId': 1, 'legacyPaymentMetadata.companyId': 1, 'legacyPaymentMetadata.classificationOriginal': 1, 'legacyPaymentMetadata.classificationOverride': 1, 'legacyPaymentMetadata.classificationVersion': 1, version: 1, articleId: 1, companyId: 1, customer: 1 } }).toArray() : [],
       includeIncome && !factsOnly ? db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, paidDate: null, shipDate: { $ne: null, $lt: end } },
@@ -165,7 +171,7 @@ export class FinanceService {
       !onlySource || onlySource === 'expense' ? db.collection('expenses').find({ deletedAt: null, amount: { $gt: 0 }, companyId: { $in: companyIds }, date: range }, { projection: { classificationHistory: 0 } }).toArray() : [],
     ]);
     const [managedInvoiceIds, obligations, periodFacts] = await Promise.all([
-      this.managedRequestInvoices(reqs), !factsOnly && includeSupply ? this.invoiceObligations(from, to, companyIds, overdueBefore) : { invoices: [], needsConversion: { items: [], count: 0 } },
+      this.managedRequestInvoices(reqs), !factsOnly && includeSupply ? this.invoiceObligations(from, to, companyIds, overdueBefore, today, scope) : { invoices: [], needsConversion: { items: [], count: 0 } },
       includeInvoice ? db.collection('supplyinvoicepayments').find({ state: 'active', deletedAt: null, payerCompanyId: { $in: companyIds }, date: { $gte: from, $lte: to } }, { projection: { invoiceId: 1, date: 1, payerCompanyId: 1, ...allocationProjection } }).toArray() : [],
     ]);
     const factInvoiceIds = [...new Map(periodFacts.map((x) => [String(x.invoiceId), x.invoiceId])).values()];
@@ -182,8 +188,15 @@ export class FinanceService {
       return (snapshot?.lines ?? []).map((line) => ({ invoice, snapshot, line }));
     });
     const snapshotRequestIds = new Set(snapshotLines.map(({ line }) => String(line.requestId)));
-    // статья и объект строки счёта — по её заявке (запасной путь: категория строки)
-    const lineReqs = snapshotRequestIds.size ? await db.collection('supplyrequests').find({ _id: { $in: [...snapshotRequestIds].filter((i) => Types.ObjectId.isValid(i)).map((i) => new Types.ObjectId(i)) } }, { projection: { articleId: 1, categoryId: 1, salesOrderId: 1, costCenter: 1, costObject: 1, supplierId: 1 } }).toArray() : [];
+    // Старые снимки могли не сохранить позицию. Читаем только подтверждаемую связь исходной заявки.
+    const sourceRequestIds = new Set(snapshotRequestIds);
+    if (factsOnly) for (const payment of ledgerFacts) {
+      for (const item of payment.allocations || []) if (item.salesOrderLineId === undefined) sourceRequestIds.add(String(item.requestId));
+    }
+    const lineReqs = sourceRequestIds.size ? await db.collection('supplyrequests').find(
+      { _id: { $in: [...sourceRequestIds].filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id)) } },
+      { projection: { articleId: 1, categoryId: 1, salesOrderId: 1, salesOrderLineId: 1, costCenter: 1, costObject: 1, supplierId: 1, deletedAt: 1, status: 1 } },
+    ).toArray() : [];
     const lineReq = new Map(lineReqs.map((r) => [String(r._id), r]));
     const articleOf = (articleId: unknown, categoryId: unknown) => (articleId ? String(articleId) : articleOfCategory(tree, categoryId)?.id);
     const payrollArticle = tree.flatMap((n) => n.children).find((c) => c.code === PAYROLL_CODE)?.id;
@@ -215,16 +228,28 @@ export class FinanceService {
       const reconciliation = invoice ? legacyReconciliation(invoice, financials(invoice, legacyRowMap.get(String(invoiceId)) || [])) : null;
       return { source, editable: !!invoice && !reconciliation, reason: reconciliation?.reason || (!invoice ? 'Источник счёта не найден' : null), warnings: source.classificationProvenance === 'current-request' || source.classificationProvenance === 'category-hint' ? ['Статья определена по текущей заявке/справочнику, исторического снимка статьи нет'] : [] };
     };
+    const attributedSupply = (
+      op: Op, source: ClassificationInput & ClassificationMetadata, snapshot?: FinancialRecord, request?: FinancialRecord,
+    ): Op => {
+      if (!factsOnly) return op;
+      const orderId = originalClassification(source).salesOrderId;
+      if (!orderId) return op;
+      const liveLine = request && request.deletedAt == null && request.status !== 'cancelled'
+        && String(request.salesOrderId || '') === orderId && request.salesOrderLineId;
+      const lineId = snapshot && snapshot.salesOrderLineId !== undefined ? snapshot.salesOrderLineId : liveLine;
+      if (!lineId || !Types.ObjectId.isValid(String(lineId))) return op;
+      return { ...op, salesOrderId: orderId, salesOrderLineId: String(lineId) };
+    };
     const canonicalize = (op: Op): Op => {
       if (op.operationId) return op;
       const ledger = op.source === 'invoice' ? ledgerById.get(op.id) : undefined;
-      if (ledger) return classifiedOperation({ ...op, counterpartyId: ledger.allocation.supplierId ? String(ledger.allocation.supplierId) : undefined }, ledger.allocation, { operationId: 'supply-payment:' + String(ledger.payment._id) + ':' + String(ledger.allocation.requestId), sourceId: String(ledger.payment._id), paymentId: String(ledger.payment._id), allocationId: String(ledger.allocation.requestId), invoiceId: String(ledger.payment.invoiceId), companyId: String(ledger.payment.payerCompanyId), sourceLink: '#requests?tab=invoices&open=' + String(ledger.payment.invoiceId), scopeRequestId: String(ledger.allocation.requestId), classificationEditable: true });
+      if (ledger) return classifiedOperation({ ...attributedSupply(op, ledger.allocation, ledger.allocation, lineReq.get(String(ledger.allocation.requestId))), counterpartyId: ledger.allocation.supplierId ? String(ledger.allocation.supplierId) : undefined }, ledger.allocation, { operationId: 'supply-payment:' + String(ledger.payment._id) + ':' + String(ledger.allocation.requestId), sourceId: String(ledger.payment._id), paymentId: String(ledger.payment._id), allocationId: String(ledger.allocation.requestId), invoiceId: String(ledger.payment.invoiceId), companyId: String(ledger.payment.payerCompanyId), sourceLink: '#requests?tab=invoices&open=' + String(ledger.payment.invoiceId), scopeRequestId: String(ledger.allocation.requestId), classificationEditable: true });
       const snapshot = op.source === 'invoice' ? snapshotByRequest.get(op.id) : undefined;
       const request = op.source === 'request' ? requestById.get(op.id) : undefined;
       if (snapshot || request) {
         const invoiceId = snapshot?.invoice._id || request?.invoiceId, source = legacyClassification(invoiceId, op.id, snapshot?.line);
         const companyId = String(snapshot?.line.companyId || snapshot?.invoice.payerCompanyId || request?.companyId || '');
-        return classifiedOperation({ ...op, counterpartyId: (snapshot?.line.supplierId || request?.supplierId) ? String(snapshot?.line.supplierId || request?.supplierId) : undefined }, source.source, { operationId: invoiceId ? 'supply-legacy:' + String(invoiceId) + ':' + op.id : 'supply-request:' + op.id, sourceId: invoiceId ? String(invoiceId) : op.id, allocationId: op.id, invoiceId: invoiceId ? String(invoiceId) : undefined, companyId, sourceLink: invoiceId ? '#requests?tab=invoices&open=' + String(invoiceId) : '#requests?open=' + op.id, scopeRequestId: op.id, classificationEditable: !!invoiceId && source.editable, classificationReason: invoiceId ? source.reason : 'Старая заявка без счёта: адресное уточнение пока недоступно', warnings: source.warnings });
+        return classifiedOperation({ ...attributedSupply(op, source.source, snapshot?.line, request || lineReq.get(op.id)), counterpartyId: (snapshot?.line.supplierId || request?.supplierId) ? String(snapshot?.line.supplierId || request?.supplierId) : undefined }, source.source, { operationId: invoiceId ? 'supply-legacy:' + String(invoiceId) + ':' + op.id : 'supply-request:' + op.id, sourceId: invoiceId ? String(invoiceId) : op.id, allocationId: op.id, invoiceId: invoiceId ? String(invoiceId) : undefined, companyId, sourceLink: invoiceId ? '#requests?tab=invoices&open=' + String(invoiceId) : '#requests?open=' + op.id, scopeRequestId: op.id, classificationEditable: !!invoiceId && source.editable, classificationReason: invoiceId ? source.reason : 'Старая заявка без счёта: адресное уточнение пока недоступно', warnings: source.warnings });
       }
       if (op.source === 'expense') { const expense = expenseById.get(op.id)! as FinancialRecord; return classifiedOperation({ ...op, counterpartyId: expense.counterpartyId ? String(expense.counterpartyId) : undefined }, expense, { operationId: 'expense:' + op.id, sourceId: op.id, companyId: String(expense.companyId), sourceLink: '#expenses?open=' + op.id, classificationEditable: true }); }
       if (op.source === 'payroll') { const payout = payrollById.get(op.id)!; return classifiedOperation(op, { ...payout, articleId: payrollArticle || null }, { operationId: 'payroll:' + op.id, sourceId: op.id, paymentId: op.id, companyId: payout.companyId, sourceLink: '#payroll', classificationEditable: true }); }
@@ -239,7 +264,7 @@ export class FinanceService {
     const inRange = (d: string) => d >= from && d <= to;
     const incomeOp = (i: (typeof incs)[number], p: IncomePayment, partial: boolean, index: number): Op => classifiedOperation({ type: 'income', id: String(i._id), date: iso(p.date), amount: p.amount, company: cname.get(String(p.companyId || i.companyId)) ?? '?',
       title: String(i.title ?? '') + (partial ? ' · частичная оплата' : ''), doc: i.orderNo ? `заказ ${i.orderNo}` : undefined, counterparty: i.customer ? String(i.customer) : undefined, ...(p.method ? { method: p.method } : {}),
-      source: 'income', ...((i.orderId ? String(i.orderId) : orderByNo.get(String(i.orderNo ?? ''))) ? { salesOrderId: i.orderId ? String(i.orderId) : orderByNo.get(String(i.orderNo)) } : {}) }, { ...p, salesOrderId: i.orderId ? String(i.orderId) : orderByNo.get(String(i.orderNo || '')) || null }, { operationId: p.paymentId ? 'income:' + String(i._id) + ':' + p.paymentId : temporaryIncomeOperationId(i, index), sourceId: String(i._id), paymentId: p.paymentId, companyId: String(p.companyId || i.companyId || ''), sourceLink: i.orderId ? '#salesorders?open=' + String(i.orderId) + '&item=' + String(i._id) : '#orders?open=' + String(i._id), classificationEditable: !!p.paymentId, classificationReason: p.paymentId ? null : 'У старого платежа нет устойчивого ID: сначала подготовьте историю оплат', warnings: p.paymentId ? [] : ['История оплаты не подготовлена для адресного уточнения'] });
+      source: 'income', ...(factsOnly ? { salesOrderLineId: String(i._id) } : {}), ...((i.orderId ? String(i.orderId) : orderByNo.get(String(i.orderNo ?? ''))) ? { salesOrderId: i.orderId ? String(i.orderId) : orderByNo.get(String(i.orderNo)) } : {}) }, { ...p, salesOrderId: i.orderId ? String(i.orderId) : orderByNo.get(String(i.orderNo || '')) || null }, { operationId: p.paymentId ? 'income:' + String(i._id) + ':' + p.paymentId : temporaryIncomeOperationId(i, index), sourceId: String(i._id), paymentId: p.paymentId, companyId: String(p.companyId || i.companyId || ''), sourceLink: i.orderId ? '#salesorders?open=' + String(i.orderId) + '&item=' + String(i._id) : '#orders?open=' + String(i._id), classificationEditable: !!p.paymentId, classificationReason: p.paymentId ? null : 'У старого платежа нет устойчивого ID: сначала подготовьте историю оплат', warnings: p.paymentId ? [] : ['История оплаты не подготовлена для адресного уточнения'] });
     const result = {
       ops: [
         ...reqs.filter((r) => !managedInvoiceIds.has(String(r.invoiceId)) && r.paid === true && !snapshotRequestIds.has(String(r._id)) && !(r.invoiceId && snapshotInvoiceIds.has(String(r.invoiceId)))).map((r) => exp(r, iso(r.paidAt) || iso(r.invoiceDate))).filter((o) => inRange(o.date)),
@@ -260,7 +285,7 @@ export class FinanceService {
           ...(a.articleId ? { articleId: String(a.articleId) } : {}), ...(a.salesOrderId ? { salesOrderId: String(a.salesOrderId) } : {}),
         }))),
         ...incs.flatMap((i) => { const pays = incomePayments(i as { amount?: number; paidDate?: Date; payments?: IncomePayment[] }); return pays.flatMap((p, index) => selectedCompanyIds.has(String(p.companyId || i.companyId)) ? [incomeOp(i, p, pays.length > 1 || p.amount < Number(i.amount), index)] : []); }).filter((o) => inRange(o.date)),
-        ...payroll.map((p): Op => ({ type: 'expense', id: p.id, date: p.date, amount: p.amount, company: cname.get(p.companyId) ?? '?', title: `${p.kind} · ${p.person}`, category: 'ФОТ', costCenter: 'ФОТ', counterparty: p.person, source: 'payroll', ...(payrollArticle ? { articleId: payrollArticle } : {}) })),
+        ...payroll.map((p): Op => ({ type: 'expense', id: p.id, date: p.date, amount: p.amount, company: cname.get(p.companyId) ?? '?', title: `${p.kind} · ${p.person}`, category: 'ФОТ', costCenter: 'ФОТ', counterparty: p.person, source: 'payroll', ...(factsOnly && Types.ObjectId.isValid(p.personId) ? { personId: p.personId } : {}), ...(payrollArticle ? { articleId: payrollArticle } : {}) })),
         ...otherExpenses.map((e): Op => ({ type: 'expense', id: String(e._id), date: iso(e.date), amount: Number(e.amount), company: cname.get(String(e.companyId)) ?? '?', title: String(e.title ?? ''),
           doc: e.docNo ? String(e.docNo) : undefined, category: 'Прочие расходы', counterparty: e.counterpartyName ? String(e.counterpartyName) : undefined, source: 'expense', articleId: String(e.articleId),
           ...(e.salesOrderId ? { salesOrderId: String(e.salesOrderId) } : {}) })).filter((o) => inRange(o.date)),
@@ -279,34 +304,43 @@ export class FinanceService {
 
   async operationsSource(from: string, to: string, companyIds: Types.ObjectId[], source?: string) { return (await this.ops(from, to, companyIds, false, source, true)).ops; }
 
+  private async reportFacts(ops: Op[], access: ReturnType<typeof financeVisibility>, scope: StockScope | null) {
+    const allowed = ops.filter((op) => canReadFact(op, access));
+    const requestId = (op: Op) => op.scopeRequestId || op.id;
+    const visible = await visibleFinanceRequests(this.connection, scope, allowed.filter(supplyFact).map(requestId));
+    return visible ? allowed.filter((op) => !supplyFact(op) || visible.has(requestId(op))) : allowed;
+  }
+
   /** Что мешает посчитать: заявки с датой счёта без суммы и т.п., доходы без суммы/даты/компании. */
-  async needsFill(limit = 300, scope: StockScope | null = null) {
+  async needsFill(limit = 300, scope: StockScope | null = null, actor?: AuthenticatedUser) {
+    const access = financeVisibility(actor);
+    const requestMatch = scope ? { $and: [await docScopeMatch(this.connection, scope)] } : {};
     const db = this.connection.db!;
     const ours = (await ourCompanies(this.connection)).map((c) => c.id);
     const noCompany = { $or: [{ companyId: null }, { companyId: { $exists: false } }, { companyId: { $nin: ours } }] };
     const tree = await this.articles.tree();
     const [reqs, incs, paidNoArticle] = await Promise.all([
-      db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, $or: [
+      access.supply ? db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, ...requestMatch, $or: [
         { invoiceDate: { $ne: null }, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] },
         { priceHint: { $gt: 0 }, $or: [{ invoiceDate: null }, { invoiceDate: { $exists: false } }] }, { paid: true, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] }, // оплачено без суммы — в календарь не попало
         { invoiceDate: { $ne: null }, priceHint: { $gt: 0 }, ...noCompany },
-      ] }, { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1 } }).sort({ invoiceDate: -1, num: -1 }).limit(limit).toArray(),
-      db.collection('incomes').find({ deletedAt: null, cancelledAt: null, $or: [{ amount: { $lte: 0 } }, { reportDate: null }, { reportDate: { $exists: false } }, ...noCompany.$or] },
-        { projection: { orderNo: 1, title: 1, amount: 1, reportDate: 1, companyId: 1 } }).limit(limit).toArray(),
+      ] }, { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1 } }).sort({ invoiceDate: -1, num: -1 }).limit(limit).toArray() : [],
+      access.income ? db.collection('incomes').find({ deletedAt: null, cancelledAt: null, $or: [{ amount: { $lte: 0 } }, { reportDate: null }, { reportDate: { $exists: false } }, ...noCompany.$or] },
+        { projection: { orderNo: 1, title: 1, amount: 1, reportDate: 1, companyId: 1 } }).limit(limit).toArray() : [],
       // оплачено, а статья не определилась ни заявкой, ни категорией
-      db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, paid: true, priceHint: { $gt: 0 }, articleId: null },
-        { projection: { num: 1, title: 1, priceHint: 1, paidAt: 1, invoiceDate: 1, invoiceNo: 1, categoryId: 1 } }).sort({ paidAt: -1, num: -1 }).toArray(),
+      access.supply ? db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, ...requestMatch, paid: true, priceHint: { $gt: 0 }, articleId: null },
+        { projection: { num: 1, title: 1, priceHint: 1, paidAt: 1, invoiceDate: 1, invoiceNo: 1, categoryId: 1 } }).sort({ paidAt: -1, num: -1 }).toArray() : [],
     ]);
     const undatedFilter: FinancialRecord = { deletedAt: null, payerCompanyId: { $in: ours }, 'undatedPaymentEvidence.state': 'pending' };
-    if (scope) {
-      const match = await docScopeMatch(this.connection, scope);
+    if (scope && access.supply) {
+      const match = requestMatch.$and![0];
       const visible = await db.collection('supplyrequests').distinct('invoiceId', { deletedAt: null, invoiceId: { $ne: null }, status: { $ne: 'cancelled' }, $and: [match] });
       const hidden = new Set((await db.collection('supplyrequests').distinct('invoiceId', { deletedAt: null, invoiceId: { $in: visible }, status: { $ne: 'cancelled' }, $nor: [match] })).map(String));
       undatedFilter._id = { $in: visible.filter(x => !hidden.has(String(x))) };
     }
     const [undatedTotal, undatedRows] = await Promise.all([
-      db.collection('supplyinvoices').countDocuments(undatedFilter),
-      db.collection('supplyinvoices').find(undatedFilter, { projection: { no: 1, date: 1, amount: 1 } }).sort({ date: -1, _id: -1 }).limit(limit).toArray(),
+      access.supply ? db.collection('supplyinvoices').countDocuments(undatedFilter) : 0,
+      access.supply ? db.collection('supplyinvoices').find(undatedFilter, { projection: { no: 1, date: 1, amount: 1 } }).sort({ date: -1, _id: -1 }).limit(limit).toArray() : [],
     ]);
     const needsPaymentDate = { total: undatedTotal, items: undatedRows.map(x => ({ type: 'invoice' as const, id: String(x._id), invoiceId: String(x._id), no: x.no || null, title: `Счёт № ${x.no || 'без номера'}`, date: iso(x.date), amount: Number(x.amount), sourceLink: '#requests?tab=invoices&of=invoicecard&open=' + String(x._id), missing: ['дата оплаты'] })) };
     const noArticle = paidNoArticle.filter((r) => !articleOfCategory(tree, r.categoryId));
@@ -319,10 +353,11 @@ export class FinanceService {
     ];
     return { total: items.length + needsPaymentDate.total, items, needsPaymentDate,
       noArticle: { total: noArticle.length, items: noArticle.slice(0, limit).map((r) => ({ type: 'expense' as const, id: String(r._id), title: (r.num ? `№${r.num} · ` : '') + String(r.title ?? ''), doc: r.invoiceNo ? String(r.invoiceNo) : null, date: iso(r.paidAt) || iso(r.invoiceDate) || null, amount: Number(r.priceHint), missing: ['статья расхода'] })) },
-      payrollNoCompany: await this.payroll.unassignedPayments(ours) };
+      payrollNoCompany: access.payroll ? await this.payroll.unassignedPayments(ours) : 0 };
   }
 
-  async cashflow(q: Record<string, unknown>, scope: StockScope | null = null) {
+  async cashflow(q: Record<string, unknown>, scope: StockScope | null = null, actor?: AuthenticatedUser) {
+    const access = financeVisibility(actor);
     const { from, to } = this.period(q);
     const opening = q.opening === undefined || q.opening === '' ? 0 : Number(String(q.opening).replace(',', '.'));
     if (!Number.isFinite(opening)) throw new BadRequestException('Начальный остаток — число');
@@ -331,21 +366,27 @@ export class FinanceService {
     const ids = used.map((c) => c.id);
     const today = iso(new Date());
     const periodHasToday = from <= today && today <= to;
-    const { ops, invoices, awaiting, needsConversion } = await this.ops(from, to, ids, periodHasToday);
+    const { ops, invoices, awaiting, needsConversion } = await this.ops(from, to, ids, periodHasToday, undefined, false, scope);
     const start = await this.start(names);
-    // со стартом учёта остаток на начало периода считается от старта, а не из запроса
-    const open = start && start.date < from ? openingFromStart(start, (await this.ops(start.date, iso(new Date(Date.parse(from + 'T00:00:00Z') - 86400000)), ids)).ops, from) : opening;
-    const { days, totals } = buildCashflow(ops, from, to, open, names, start);
-    // «Ещё не деньги» (В-1, В-2): в остаток не входит. Просроченные счета — на сегодня, не старше 90 дней, как в прогнозе.
-    const due = foldOverdueInvoices(invoices, from, to, today, invoiceStaleSince(today));
-    const pending = { needsConversion, invoices: buildPending(due, from, to, names), awaiting: buildPending(awaiting, '0000-01-01', to, names) };
+    // Со стартом учёта сальдо вычисляется по тем же доступным фактам, что показаны в периоде.
+    const previous = start && start.date < from
+      ? (await this.ops(start.date, iso(new Date(Date.parse(from + 'T00:00:00Z') - 86400000)), ids)).ops : null;
+    const open = previous && start ? openingFromStart(start, await this.reportFacts(previous, access, scope), from) : opening;
+    const { days, totals } = buildCashflow(await this.reportFacts(ops, access, scope), from, to, open, names, start);
+    // «Ещё не деньги» (В-1, В-2): в остаток не входит.
+    const due = foldOverdueInvoices(await this.reportFacts(invoices, access, scope), from, to, today, invoiceStaleSince(today));
+    const pending = {
+      needsConversion: access.supply ? needsConversion : { count: 0, items: [] },
+      invoices: buildPending(due, from, to, names),
+      awaiting: buildPending(access.income ? awaiting : [], '0000-01-01', to, names),
+    };
     // показатели периода для шапки экрана
     const metrics = {
       received: totals.income, paid: totals.expense, saldo: Math.round((totals.income - totals.expense) * 100) / 100,
       expectedIncome: pending.awaiting.total, invoicesToPay: pending.invoices.total,
       overdueInvoices: Math.round(due.filter((o) => o.overdue && o.date >= from && o.date <= to).reduce((s, o) => s + o.amount, 0) * 100) / 100,
     };
-    return { from, to, org: q.org || 'all', companies: names, opening: open, startDate: start?.date ?? null, days, totals, metrics, pending, needsFill: await this.needsFill(300, scope) };
+    return { from, to, org: q.org || 'all', companies: names, opening: open, startDate: start?.date ?? null, days, totals, metrics, pending, excludedSources: excludedFinanceSources(access), needsFill: await this.needsFill(300, scope, actor) };
   }
 
   /**
@@ -353,7 +394,8 @@ export class FinanceService {
    * Факт — только оплаченное, поэтому здесь всё неоплаченное: счета к оплате (просроченные — на сегодня, не старше 90 дней),
    * остаток по позициям заказов (за вычетом принятых платежей), ФОТ «начислено, не выплачено».
    */
-  async forecast(q: Record<string, unknown>) {
+  async forecast(q: Record<string, unknown>, scope: StockScope | null = null, actor?: AuthenticatedUser) {
+    const access = financeVisibility(actor);
     const days = q.days === undefined || q.days === '' ? 30 : Number(q.days);
     if (!Number.isInteger(days) || days < 7 || days > 180) throw new BadRequestException('Горизонт прогноза — от 7 до 180 дней');
     let opening = q.opening === undefined || q.opening === '' ? 0 : Number(String(q.opening).replace(',', '.'));
@@ -365,20 +407,27 @@ export class FinanceService {
     const ids = used.map((c) => c.id);
     const start = await this.start(names);
     // со стартом учёта остаток на сегодня = остаток на старт + факт [старт, сегодня] (завтра — уже прогноз)
-    if (start && start.date <= today) opening = openingFromStart(start, (await this.ops(start.date, today, ids)).ops, iso(new Date(Date.parse(today + 'T00:00:00Z') + 86400000)));
+    if (start && start.date <= today) {
+      const { ops } = await this.ops(start.date, today, ids);
+      opening = openingFromStart(start, await this.reportFacts(ops, access, scope), iso(new Date(Date.parse(today + 'T00:00:00Z') + 86400000)));
+    }
     const cname = new Map(used.map((c) => [String(c.id), c.name]));
     const db = this.connection.db!;
     const stale = new Date(invoiceStaleSince(today) + 'T00:00:00Z'); // старые неоплаченные счета — не прогноз, а чистка данных
+    const requestMatch = scope ? { $and: [await docScopeMatch(this.connection, scope)] } : {};
     const [reqs, incs, orgs, payDue] = await Promise.all([
-      db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, paid: { $ne: true }, priceHint: { $gt: 0 }, companyId: { $in: ids },
+      access.supply ? db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, paid: { $ne: true }, priceHint: { $gt: 0 }, companyId: { $in: ids }, ...requestMatch,
         $or: [{ invoiceDate: { $gte: stale } }, { invoiceDate: null, status: { $in: ['in_progress', 'requested', 'ordered'] } }, { invoiceDate: { $exists: false }, status: { $in: ['in_progress', 'requested', 'ordered'] } }] },
-      { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, supplierId: 1, status: 1, photoIds: 1, invoiceId: 1 } }).toArray(),
-      db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: ids }, paidDate: null },
-      { projection: { title: 1, amount: 1, companyId: 1, paymentForm: 1, shipDate: 1, orderId: 1, orderNo: 1, customer: 1, createdAt: 1, payments: 1, paidDate: 1 } }).toArray(),
+      { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, supplierId: 1, status: 1, photoIds: 1, invoiceId: 1 } }).toArray() : [],
+      access.income ? db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: ids }, paidDate: null },
+      { projection: { title: 1, amount: 1, companyId: 1, paymentForm: 1, shipDate: 1, orderId: 1, orderNo: 1, customer: 1, createdAt: 1, payments: 1, paidDate: 1 } }).toArray() : [],
       db.collection('organizations').find({}, { projection: { name: 1, shortName: 1 } }).toArray(),
-      this.payroll.dueItems(today, to, ids),
+      access.payroll ? this.payroll.dueItems(today, to, ids) : [],
     ]);
-    const [managedInvoiceIds, obligations] = await Promise.all([this.managedRequestInvoices(reqs), this.invoiceObligations(invoiceStaleSince(today), to, ids, false, today)]);
+    const [managedInvoiceIds, obligations] = await Promise.all([
+      this.managedRequestInvoices(reqs),
+      access.supply ? this.invoiceObligations(invoiceStaleSince(today), to, ids, false, today, scope) : { invoices: [], needsConversion: { count: 0, items: [] } },
+    ]);
     const orders = await db.collection('salesorders').find({ _id: { $in: incs.map((i) => i.orderId).filter(Boolean) } },
       { projection: { legal:1,orderNo:1,title:1,customer:1,companyId:1,stage: 1, deletedAt: 1, contractDate: 1, createdAt: 1, shipDate: 1, productionDeadline: 1, deliveryDeadline: 1, paymentForm: 1 } }).toArray();
     const ord = new Map(orders.map((o) => [String(o._id), o]));
@@ -409,7 +458,7 @@ export class FinanceService {
     const f = buildForecast(ops, today, to, opening, names);
     const sum = (t: string) => Math.round(noDate.filter((x) => x.type === t).reduce((s, x) => s + x.amount, 0) * 100) / 100;
     return { from: today, to, days: f.days, totals: f.totals, companies: names, opening, gapDays: f.gapDays, firstGap: f.firstGap, minBalance: f.minBalance, week: f.week,
-      needsConversion: obligations.needsConversion, noDate: { items: noDate, expense: sum('expense'), income: sum('income') } };
+      needsConversion: obligations.needsConversion, excludedSources: excludedFinanceSources(access), noDate: { items: noDate, expense: sum('expense'), income: sum('income') } };
   }
 
   /** Параметры «По статьям»: год, фирма, режим (вся фирма / объект) и объект. */
@@ -446,7 +495,7 @@ export class FinanceService {
   }
 
   /** Операции одной ячейки таблицы «По статьям» (articleId — подстатья, статья, `<статья>:self`, none, income, expense, unallocated; counterparty и doc — необязательные точные фильтры). */
-  async byArticlesOps(q: Record<string, unknown>) {
+  async byArticlesOps(q: Record<string, unknown>, scope: StockScope | null = null, actor?: AuthenticatedUser) {
     const { year, opts, ids, today } = await this.articlesScope(q);
     const articleId = String(q.articleId ?? '').trim();
     if (!articleId) throw new BadRequestException('Укажите статью');
@@ -455,14 +504,17 @@ export class FinanceService {
     if (month && month.slice(0, 4) !== String(year)) throw new BadRequestException('Месяц не из выбранного года');
     const [{ ops }, tree] = await Promise.all([this.ops(`${year}-01-01`, `${year}-12-31`, ids), this.articles.tree()]);
     const optional = (v: unknown) => (v === undefined || v === '' ? undefined : String(v));
-    const items = opsOfCell(ops, tree, year, today, opts, articleId, month, { counterparty: optional(q.counterparty), doc: optional(q.doc) });
+    const items = opsOfCell(await this.reportFacts(ops, financeVisibility(actor), scope), tree, year, today, opts, articleId, month, { counterparty: optional(q.counterparty), doc: optional(q.doc) });
     return { items, total: items.length };
   }
 
-  async summary(q: Record<string, unknown>) {
+  async summary(q: Record<string, unknown>, scope: StockScope | null = null, actor?: AuthenticatedUser) {
     const { from, to } = this.period(q);
     const { used } = await this.companies(q.org);
     const names = used.map((c) => c.name);
-    return { from, to, companies: names, ...buildSummary((await this.ops(from, to, used.map((c) => c.id))).ops, from, to, names, await this.articles.tree()) };
+    const access = financeVisibility(actor);
+    const { ops } = await this.ops(from, to, used.map((c) => c.id));
+    const visible = await this.reportFacts(ops, access, scope);
+    return { from, to, companies: names, excludedSources: excludedFinanceSources(access), ...buildSummary(visible, from, to, names, await this.articles.tree()) };
   }
 }

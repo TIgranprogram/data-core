@@ -1,8 +1,8 @@
 import { businessToday } from './invoice-workspace-state.js';
-export const FINANCE_FILTER_KEYS = ['from', 'to', 'type', 'companyId', 'articleId', 'salesOrderId', 'costCenter', 'counterpartyId', 'counterpartyName', 'source', 'unassigned'];
+export const FINANCE_FILTER_KEYS = ['from', 'to', 'type', 'companyId', 'articleId', 'salesOrderId', 'productionNo', 'salesOrderLineId', 'personId', 'costCenter', 'counterpartyId', 'counterpartyName', 'source', 'unassigned'];
 /** Частичный URL-patch: «Все заказы» снимает оба legacy alias, сохраняя другие условия. */
 export function financialFilterChanges(key, value) {
-  return { [key]: value || undefined, page: undefined, ...(key === 'companyId' ? { org: undefined } : {}), ...(key === 'type' ? { articleId: undefined } : {}), ...(key === 'articleId' ? { unassigned: undefined } : {}), ...(key === 'counterpartyName' ? { counterpartyId: undefined } : {}), ...(key === 'salesOrderId' ? { mode: undefined, order: undefined } : {}) };
+  return { [key]: value || undefined, page: undefined, ...(key === 'companyId' ? { org: undefined } : {}), ...(key === 'type' ? { articleId: undefined } : {}), ...(key === 'articleId' ? { unassigned: undefined } : {}), ...(key === 'counterpartyName' ? { counterpartyId: undefined } : {}), ...(['salesOrderId', 'productionNo'].includes(key) ? { mode: undefined, order: undefined, salesOrderLineId: undefined, [key === 'salesOrderId' ? 'productionNo' : 'salesOrderId']: undefined } : {}) };
 }
 export function financialQuery(params = {}) {
   const today = businessToday(), year = /^\d{4}-\d{2}$/.test(params.month || '') ? params.month.slice(0, 4) : today.slice(0, 4);

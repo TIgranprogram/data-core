@@ -13,6 +13,11 @@ export class OperationsQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 30) articleId?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsIn([0, 1]) includeDescendants?: number;
   @ApiPropertyOptional() @IsOptional() @IsMongoId() salesOrderId?: string;
+  @ApiPropertyOptional({ description: 'Позиция заказа, к которой привязан факт' }) @IsOptional() @IsMongoId() salesOrderLineId?: string;
+  @ApiPropertyOptional({ description: 'Получатель фактической выплаты ФОТ' }) @IsOptional() @IsMongoId() personId?: string;
+  @ApiPropertyOptional({ description: 'Списки доступных позиций и сотрудников по фильтрам' }) @IsOptional() @Type(() => Number) @IsIn([0, 1]) facets?: number;
+  @ApiPropertyOptional({ description: 'Точное имя заказчика или контрагента' }) @IsOptional() @IsString() @Length(0, 300) counterparty?: string;
+  @ApiPropertyOptional({ description: 'Точное название из группировки операций по документам' }) @IsOptional() @IsString() @Length(0, 300) doc?: string;
   @ApiPropertyOptional() @IsOptional() @IsIn(FINANCIAL_COST_CENTERS) costCenter?: string;
   @ApiPropertyOptional() @IsOptional() @IsMongoId() counterpartyId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 300) counterpartyName?: string;
