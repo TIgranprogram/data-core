@@ -944,7 +944,7 @@ body.is-resizing * { transition: none !important; cursor: col-resize !important;
 @media (max-width: 1100px) { .sidebar > .resizer { display: none; } }
 @media (max-width: 720px) { .resizer { display: none; } }
 /* Уведомления — колокольчик (2026-10-24, DESIGN §4): точка с числом только когда есть новое; стопка одинаковых карточек */
-.bell-wrap { position: relative; margin-left: auto; }
+.bell-wrap { position: relative; }
 .bell { position: relative; }
 .bell.has-new { color: var(--gold-deep); }
 .bell-badge { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--danger); color: var(--on-danger); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }

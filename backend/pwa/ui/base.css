@@ -46,6 +46,7 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--text); margin: 0; l
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--gold); color: #1b1f27; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
 .main { min-width: 0; display: flex; flex-direction: column; }
 .topbar { position: sticky; top: 0; z-index: 20; height: var(--topbar-h); background: var(--topbar-bg); backdrop-filter: saturate(1.4) blur(8px); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: var(--s3); padding: 0 var(--gutter); }
+.topbar-actions { display: flex; align-items: center; gap: inherit; flex: none; margin-inline-start: auto; }
 :root[data-theme='soft'] .topbar { backdrop-filter: none; }
 :root[data-theme='soft'] .login-art { background: var(--side); }
 :root[data-theme='soft'] .main > [data-development-mode] { margin: var(--s3) var(--gutter) 0; align-self: flex-start; }

@@ -312,11 +312,10 @@ function shell() {
       backBtn, fwdBtn),
     allowed('search') ? h('div', { class: 'gsearch' }, gsb.el, h('kbd', null, '/')) : null,
     allowed('chat') ? chatButton() : null,
-    bellButton(),
-    h('a', { class: 'btn btn-ghost btn-icon hide-sm', href: '#atlas', title: 'Карта сайта: как всё устроено и связано', 'aria-label': 'Карта сайта' }, icon('help')),
-    themeButton(),
-    recentCardsButton(id => (NAV_IDS.has(id) || Object.hasOwn(OWNER, id)) && allowed(id)),
-    avatarButton());
+    h('div', { class: 'topbar-actions' },
+      recentCardsButton(id => (NAV_IDS.has(id) || Object.hasOwn(OWNER, id)) && allowed(id)),
+      bellButton(),
+      avatarButton()));
   const main = h('main', { class: 'page', id: 'page' });
   makeResizable(sidebar, { prefKey: 'sidebarW', edge: 'right', label: 'Ширина меню' }); // ШП
   shellEl = h('div', { class: 'shell' }, sidebar, h('div', { class: 'side-back', onclick: () => shellEl.classList.remove('nav-open') }),
@@ -378,15 +377,7 @@ function settingsButton() {
 
 const historyButton = () => h('a', { class: 'btn btn-ghost btn-icon', href: '#history', title: 'История', 'aria-label': 'История' }, icon('history'));
 
-/** Иконка темы в шапке: система → светлая → тёмная (theme.js). */
-function themeButton() {
-  const btn = h('button', { class: 'btn btn-ghost btn-icon hide-sm', type: 'button', onclick: () => { window.dcTheme?.cycle(); upd(); } }, icon('theme'));
-  const upd = () => { const t = 'Тема: ' + (window.dcTheme?.name() || 'как в системе'); btn.title = t; btn.setAttribute('aria-label', t); };
-  upd();
-  return btn;
-}
-
-/** Аватар в шапке → меню: имя, роль, «Мой профиль», тема, «Выйти». */
+/** Аватар в шапке → «Мой профиль», карта сайта, тема и выход. */
 function avatarButton() {
   const btn = iconButton({ icon: null, label: 'Профиль', menu: true,
     onClick: () => {
