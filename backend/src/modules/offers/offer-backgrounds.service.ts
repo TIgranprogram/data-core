@@ -139,6 +139,13 @@ export class OfferBackgroundsService {
     return { ...NO_BG, jpeg: await this.jpeg(BUILTIN[page].id, join(assetsDir(), BUILTIN[page].file)) };
   }
 
+  async assertCompanyBlank(page: 1 | 2, id: string | null | undefined, companyId: unknown) {
+    if (!id || (id === 'none' && page === 2)) return;
+    if (!/^[a-f\d]{24}$/i.test(id) || !await this.model.exists({ _id: id, page, companyId })) {
+      throw new BadRequestException('Выберите бланк этой фирмы для указанной страницы');
+    }
+  }
+
   /** Пакет использует только бланки своей фирмы. Без читаемого бланка страница остаётся белой. */
   async resolveForPack(page: 1 | 2, id: string | null | undefined, companyId: unknown): Promise<ResolvedBg> {
     if (!companyId || (page === 2 && id === 'none')) return NO_BG;

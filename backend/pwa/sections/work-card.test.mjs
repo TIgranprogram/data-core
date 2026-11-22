@@ -17,7 +17,9 @@ function fixture(canEdit = true) {
   const sandbox = vm.createContext({
     session: { canEdit }, screenCard: (config) => config, requestAnimationFrame() {},
     h: (tag, props, ...children) => ({ tag, props, children }),
-    stack: (...children) => children, table: (config) => config,
+    stack: (...children) => Object.assign(children, { replaceChildren() {} }), table: (config) => config,
+    viewAsActive: () => false, busyBlock: () => null, section: (config) => config,
+    taskDiscussion: () => ({ title: 'Обсуждение' }), api: async () => ({ photos: [] }), taskPhotos: () => null,
     toneBadge: (label) => label, hint: (text) => text, readonlyGroup: ({ rows }) => rows, sku: (text) => text, qty: String,
   });
   const create = vm.runInContext(source + '\nworkCard;', sandbox);
@@ -64,11 +66,12 @@ test('редкие переходы остаются в меню, наблюда
 test('маршрут использует состояние операции, исполнитель и нулевое количество показаны явно', () => {
   const { card } = fixture(false);
   const row = task('work', 1, { assigneeId: 'missing', qty: null });
-  const [table, facts] = card.body(row, {}, []);
+  const [table, facts] = card.body(row, {}, []).filter(Boolean);
+  assert.deepEqual(Array.from(card.body(row, {}, []).slice(-2), (block) => block.title), ['Фото', 'Обсуждение']);
   assert.equal(table.rows[1].selected, true);
   assert.equal(table.rows[1].cells[1], 'Сейчас');
   assert.equal(facts[0][1], 'Имя недоступно');
   assert.equal(facts[1][1], '');
-  const [, zero] = card.body({ ...row, qty: 0, unit: 'шт' }, {}, []);
+  const [, zero] = card.body({ ...row, qty: 0, unit: 'шт' }, {}, []).filter(Boolean);
   assert.equal(zero[1][1], '0 шт');
 });

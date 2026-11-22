@@ -1,6 +1,7 @@
 import type { Connection, Types } from 'mongoose';
 import { shortProductName } from '../showcase/order-product-name';
 import { loadPhotos } from '../../common/photos';
+import { LEGACY_PHOTO_NOTE } from './design-note-rules';
 import { isMatched } from '../../common/line-match-state';
 import { loadSeq } from '../../common/text/production-seq';
 
@@ -59,7 +60,10 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
     incomeIds.length ? db.collection('incomes').find({ _id: { $in: incomeIds } }, { projection: { lineNo: 1, title: 1, productId: 1, qty: 1, unit: 1, matchStatus: 1 } }).toArray() : [],
     personIds.length ? db.collection('persons').find({ _id: { $in: personIds } }, { projection: { lastName: 1, firstName: 1 } }).toArray() : [],
     // счётчики обсуждения: всего записей и открытых вопросов — одним запросом на страницу
-    db.collection('designnotes').aggregate([{ $match: { taskId: { $in: docs.map((d) => d._id) }, deletedAt: null } }, { $group: { _id: '$taskId', n: { $sum: 1 }, q: { $sum: { $cond: ['$needsAnswer', 1, 0] } } } }]).toArray(),
+    db.collection('designnotes').aggregate([{ $match: {
+      taskId: { $in: docs.map((d) => d._id) }, deletedAt: null,
+      $nor: [{ kind: { $ne: 'question' }, photoIds: null, text: LEGACY_PHOTO_NOTE }],
+    } }, { $group: { _id: '$taskId', n: { $sum: 1 }, q: { $sum: { $cond: ['$needsAnswer', 1, 0] } } } }]).toArray(),
   ]);
   // сквозной № позиции по заказу производства (договоры с одним № заказа)
   const seqOf = await loadSeq(db, orderIds);
@@ -98,6 +102,7 @@ export async function presentTasks(connection: Connection, docs: Doc[]) {
       title: (d.title as string | undefined) || auto || 'Без названия',
       // карточка: фото задачи, иначе фото изделия позиции
       photo: own[0]?.thumb ?? (photoId ? photos.get(String(photoId))?.thumb ?? null : null),
+      productPhoto: photoId ? photos.get(String(photoId)) ?? null : null,
       photoIds: own.map((x) => x!.id), photos: own,
       notesCount: (notes.get(String(d._id))?.n as number | undefined) ?? 0, openQuestions: (notes.get(String(d._id))?.q as number | undefined) ?? 0,
       stickers: (d.stickers as Record<string, unknown> | undefined) ?? {},

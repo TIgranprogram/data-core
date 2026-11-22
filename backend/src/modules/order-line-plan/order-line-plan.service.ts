@@ -255,16 +255,16 @@ export class OrderLinePlanService implements OnModuleInit {
       const plan = await this.ensure(inc);
       const rows = (plan.steps as StepRow[]) ?? [];
       const names = await this.typeNames(rows.map((s) => s.workTypeId));
-      const partName = new Map(((plan.parts as PartRow[]) ?? []).map((p) => [String(p._id), p.name]));
+      const parts = new Map(((plan.parts as PartRow[]) ?? []).map((p) => [String(p._id), p]));
       const live = rows.filter((s) => names.has(String(s.workTypeId)));
       if (!live.length) continue;
       out.set(String(inc._id), {
         total: live.length, unchecked: live.filter((s) => !s.checked).length,
         steps: live.map((s): WorkStep => ({
           workTypeId: s.workTypeId, name: names.get(String(s.workTypeId))!, stepId: s._id,
-          partName: s.partRowId ? partName.get(String(s.partRowId)) ?? WHOLE_PRODUCT : WHOLE_PRODUCT,
+          partName: parts.get(String(s.partRowId))?.name ?? WHOLE_PRODUCT,
           ...(s.hours !== undefined ? { hours: s.hours } : {}), ...(s.assigneeId ? { assigneeId: s.assigneeId } : {}),
-          ...(s.plan ? { plan: { start: s.plan.start, days: Math.max(1, Math.round((s.plan.end.getTime() - s.plan.start.getTime()) / 86_400_000) + 1) } } : {}), ...(s.lineId ? { lineId: s.lineId } : {}), ...(s.note ? { note: s.note } : {}),
+          ...(s.plan ? { plan: { start: s.plan.start, days: Math.max(1, Math.round((s.plan.end.getTime() - s.plan.start.getTime()) / 86_400_000) + 1) } } : {}), ...((s.lineId ?? parts.get(String(s.partRowId))?.lineId) ? { lineId: s.lineId ?? parts.get(String(s.partRowId))?.lineId } : {}), ...(s.note ? { note: s.note } : {}),
         })),
       });
     }

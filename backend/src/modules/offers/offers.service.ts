@@ -1,12 +1,10 @@
 import { randomBytes } from 'crypto';
-import { promises as fs } from 'fs';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Types, type Connection, type Model } from 'mongoose';
-import sharp from 'sharp';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid, parseList } from '../../common/list-query';
-import { safeUploadPath } from '../../common/uploads/safe-path';
+import { offerPhotos } from './offer-photos';
 import { adminOverride, isAdminActor, overrideReason } from '../../common/admin-override';
 import { AuditService } from '../audit/audit.service';
 import { CounterService } from '../counter/counter.service';
@@ -19,8 +17,8 @@ import { agreedOfferTotal, assertOfferOrderMatch, cents, validateSourceItems } f
 import type { OfferLinkOrderDto, CreateOfferDto, OfferCopiesDto, OfferPackDto, OfferCopyDto, OfferCreateOrderDto, UpdateOfferDto } from './dto';
 import { OfferBackgroundsService } from './offer-backgrounds.service';
 import { offerProblems, packProblems } from './offer-ready';
-import { renderOfferPdf } from './offer-pdf';
-import { calcTotals, checkEditable, checkMove, markedUp, resolveVat } from './offer-rules';
+import { renderOfferPdf, newOfferPageMap, type OfferPageMap } from './offer-pdf';
+import { calcTotals, checkEditable, checkMove, markedLinePrice, offerLineKind, resolveVat } from './offer-rules';
 import { customerNameRegex, offerCustomerKey, pickLastOffer, presentLastOffer, type LastOfferRow } from './offer-last';
 import { CommercialOffer, OFFER_STATUSES, type OfferDocument, type OfferStatus } from './offer.schema';
 
@@ -54,6 +52,7 @@ export class OffersService {
       packId: o.packId ? String(o.packId) : null, packSize: packSize ?? null,
       status: o.status as OfferStatus,
       items: (o.items as Doc[]).map((i) => ({
+        lineKind: offerLineKind(i), pageBreakBefore: i.pageBreakBefore, photoMm: i.photoMm, rowMm: i.rowMm,
         sourceRowKey: i.sourceRowKey ?? null, sourceLine: i.sourceLine ?? null, scopeState: i.scopeState ?? 'included',
         exclusionReason: i.exclusionReason ?? null, exclusionConfirmedAt: i.exclusionConfirmedAt ?? null, exclusionEventDate: i.exclusionEventDate ?? null, matchStatus: i.matchStatus ?? (i.productId ? 'confirmed' : 'unmatched'),
         productId: i.productId ? String(i.productId) : null, productName: i.productName, productSku: i.productSku ?? null, description: i.description ?? null,
@@ -62,7 +61,7 @@ export class OffersService {
       agreedTotal: agreedOfferTotal(o.items || []), total: o.total ?? 0, prepaymentPercent: o.prepaymentPercent ?? null, productionDays: o.productionDays ?? null, deliveryDays: o.deliveryDays ?? null,
       terms: o.terms ?? null, notes: o.notes ?? null, bg1Id: o.bg1Id ?? null, bg2Id: o.bg2Id ?? null, orderId: o.orderId ? String(o.orderId) : null,
       legalSummary: o.legal ? legalSummary(o.legal, (o.items || []).filter((r: Doc) => r.scopeState !== 'excluded' && !r.productId).length) : null,
-      ...(detail ? { legal: o.legal, legalVersion: o.legalVersion ?? 0, readiness: legalPresentation({ ...o, unassignedCount: (o.items || []).filter((r: Doc) => r.scopeState !== 'excluded' && !r.productId).length }).readiness, versions: o.versions || [], legalHistory: o.legalHistory || [] } : {}),
+      ...(detail ? { layout: o.layout, legal: o.legal, legalVersion: o.legalVersion ?? 0, readiness: legalPresentation({ ...o, unassignedCount: (o.items || []).filter((r: Doc) => r.scopeState !== 'excluded' && !r.productId).length }).readiness, versions: o.versions || [], legalHistory: o.legalHistory || [] } : {}),
       versionCount: Number(o.versionCount ?? ((o.versions as Doc[]) ?? []).length),
       statusHistory: (o.statusHistory as Doc[]) ?? [], createdAt: o.createdAt ?? null, updatedAt: o.updatedAt ?? null,
     };
@@ -70,7 +69,7 @@ export class OffersService {
 
   private snapshot(o: Doc) {
     return {
-      customer: o.customer, companyId: String(o.companyId), counterpartyId: o.counterpartyId, date: o.date, sourceNumber: o.sourceNumber, legal: o.legal, title: o.title ?? null, items: o.items, total: o.total, agreedTotal: agreedOfferTotal(o.items || []),
+      layout: o.layout, bg1Id: o.bg1Id, bg2Id: o.bg2Id, validUntil: o.validUntil, customer: o.customer, companyId: String(o.companyId), counterpartyId: o.counterpartyId, date: o.date, sourceNumber: o.sourceNumber, legal: o.legal, title: o.title ?? null, items: o.items, total: o.total, agreedTotal: agreedOfferTotal(o.items || []),
       objectName: o.objectName ?? null, vatMode: o.vatMode ?? null, vatRate: o.vatRate ?? null, delivery: o.delivery ?? null,
       terms: o.terms ?? null, notes: o.notes ?? null, prepaymentPercent: o.prepaymentPercent ?? null, productionDays: o.productionDays ?? null, deliveryDays: o.deliveryDays ?? null,
     };
@@ -242,6 +241,7 @@ export class OffersService {
     const calculated = calcTotals(items.map((i) => ({
       productId: i.productId ? oid(i.productId, 'изделия') : undefined, productName: i.productName.trim(), productSku: clean(i.productSku) || undefined, description: clean(i.description) || undefined,
       color: clean(i.color) || undefined, size: clean(i.size) || undefined, photoUrl: clean(i.photoUrl) || undefined, quantity: i.quantity, unit: clean(i.unit) || 'шт', unitPrice: i.unitPrice,
+      lineKind: i.lineKind, pageBreakBefore: i.pageBreakBefore, photoMm: i.photoMm, rowMm: i.rowMm,
       sourceRowKey: i.sourceRowKey, sourceLine: i.sourceLine, scopeState: i.scopeState, exclusionReason: i.exclusionReason, exclusionConfirmedAt: i.exclusionConfirmedAt, exclusionEventDate: i.exclusionEventDate, matchStatus: i.matchStatus,
     })));
     for (const row of calculated.items) if (row.sourceLine?.lineAmount !== undefined) row.total = row.sourceLine.lineAmount;
@@ -326,7 +326,7 @@ export class OffersService {
       counterpartyId: dto.counterpartyId ? oid(dto.counterpartyId, 'контрагента') : undefined, title: clean(dto.title) || undefined,
       status: 'draft', items, total, prepaymentPercent: dto.prepaymentPercent, productionDays: dto.productionDays, deliveryDays: dto.deliveryDays,
       objectName: clean(dto.objectName) || undefined, vatMode: dto.vatMode, vatRate: dto.vatRate, delivery: dto.delivery,
-      terms: clean(dto.terms) || undefined, notes: clean(dto.notes) || undefined, bg1Id: dto.bg1Id, bg2Id: dto.bg2Id,
+      layout: dto.layout, terms: clean(dto.terms) || undefined, notes: clean(dto.notes) || undefined, bg1Id: dto.bg1Id, bg2Id: dto.bg2Id,
       statusHistory: [{ status: 'draft', at: now, by: user?.username }],
     }); } catch (error) {
       if (intakeKey && (error as { code?: number }).code === 11000) {
@@ -338,9 +338,14 @@ export class OffersService {
     return this.present(doc.toObject() as unknown as Doc, await this.companyName(companyId));
   }
 
-  async update(id: string, dto: UpdateOfferDto, user?: AuthenticatedUser) {
-    const cur = await this.find(id);
+  private async editedFields(cur: Doc, dto: UpdateOfferDto, editor = dto.expectedUpdatedAt !== undefined) {
+    if (dto.expectedUpdatedAt !== undefined && (cur.updatedAt ? new Date(cur.updatedAt).toISOString() : null) !== dto.expectedUpdatedAt) {
+      throw new ConflictException('КП изменилось — откройте актуальную версию');
+    }
     this.assertNoConversion(cur);
+    if (editor && dto.companyId !== undefined && String(cur.companyId) !== dto.companyId) {
+      throw new BadRequestException('Для другой фирмы создайте копию КП');
+    }
     if (dto.initialLegal !== undefined || dto.intakeUid !== undefined) throw new BadRequestException('Юридический комплект меняется отдельным действием с версией');
     if (cur.legal) {
       if (dto.version === undefined || dto.version !== (cur.legalVersion || 0)) throw new ConflictException('КП изменилось — откройте актуальную версию');
@@ -349,8 +354,6 @@ export class OffersService {
       if (dto.date !== undefined && dto.date.slice(0, 10) !== String(cur.legal.sourceDate)) throw new ConflictException('Исходная дата КП неизменяема');
       if (dto.items) validateSourceItems(dto.items, cur.items);
     }
-    const bypass = checkEditable(cur.status, { admin: isAdminActor(user), hasOrder: !!cur.orderId });
-    const reason = bypass ? overrideReason(dto.reason) : ''; // ЗЯ-1: оплаченное КП правит администратор только с причиной
     const set: Doc = {};
     if (dto.companyId !== undefined) set.companyId = await this.ourCompany(dto.companyId);
     if (dto.customer !== undefined) set.customer = dto.customer.trim();
@@ -363,14 +366,34 @@ export class OffersService {
     for (const k of ['title', 'terms', 'notes', 'objectName'] as const) if (dto[k] !== undefined) set[k] = clean(dto[k]) || null;
     for (const k of ['prepaymentPercent', 'productionDays', 'deliveryDays', 'bg1Id', 'bg2Id', 'vatMode', 'vatRate', 'delivery'] as const) if (dto[k] !== undefined) set[k] = dto[k] ?? null;
     if (dto.items !== undefined) { const m = this.mapItems(dto.items); set.items = m.items; set.total = m.total; }
+    if (dto.layout !== undefined) set.layout = dto.layout;
+    const company = set.companyId ?? cur.companyId;
+    for (const [page, field] of [[1, 'bg1Id'], [2, 'bg2Id']] as const) {
+      if (editor && dto[field] && dto[field] !== cur[field]) await this.bgs.assertCompanyBlank(page, dto[field], company);
+    }
+    return set;
+  }
+
+  async previewEdited(id: string, dto: UpdateOfferDto) {
+    const cur = await this.find(id);
+    const set = await this.editedFields(cur, dto, true);
+    const pageMap = newOfferPageMap();
+    return { buf: await this.render({ ...cur, ...set }, false, pageMap), pageMap, filename: this.pdfName(cur.number) };
+  }
+
+  async update(id: string, dto: UpdateOfferDto, user?: AuthenticatedUser) {
+    const cur = await this.find(id);
+    const bypass = checkEditable(cur.status, { admin: isAdminActor(user), hasOrder: !!cur.orderId });
+    const reason = bypass ? overrideReason(dto.reason) : '';
+    const set = await this.editedFields(cur, dto);
     if (!Object.keys(set).length) throw new BadRequestException('Нечего менять');
-    const versioned = !!cur.legal || ['sent', 'accepted'].includes(String(cur.status));
+    const versioned = !!cur.legal || bypass || ['sent', 'accepted'].includes(String(cur.status));
     const upd: Doc = { $set: set };
     if (set.items) set.agreedTotal = agreedOfferTotal(set.items);
     if (versioned) upd.$push = { versions: { at: new Date(), by: user?.username, reason: dto.reason || 'Ручная правка КП', snapshot: this.snapshot(cur) } };
     if (cur.legal) upd.$inc = { legalVersion: 1 };
-    const changed = await this.model.updateOne({ _id: cur._id, ...(cur.legal ? { legalVersion: dto.version } : {}) }, upd).exec();
-    if (cur.legal && !changed.matchedCount) throw new ConflictException('КП изменилось — откройте актуальную версию');
+    const changed = await this.model.updateOne({ _id: cur._id, deletedAt: null, ...(dto.expectedUpdatedAt !== undefined ? { updatedAt: cur.updatedAt ?? null } : {}), ...(cur.legal ? { legalVersion: dto.version } : {}) }, upd).exec();
+    if ((cur.legal || dto.expectedUpdatedAt !== undefined) && !changed.matchedCount) throw new ConflictException('КП изменилось — откройте актуальную версию');
     if (bypass) await adminOverride(this.audit, { rule: 'offer.paid_edit', entityType: 'CommercialOffer', entityId: cur._id, before: { status: cur.status, total: cur.total ?? 0, items: cur.items }, after: { fields: Object.keys(set) }, reason, actor: user });
     return this.get(id);
   }
@@ -403,19 +426,6 @@ export class OffersService {
     return this.get(id);
   }
 
-  /** C080: есть ли фото у каждой строки (своё или главное у изделия витрины). */
-  private async itemPhotos(items: Doc[]): Promise<boolean[]> {
-    return Promise.all(items.map(async (i) => {
-      if (i.photoUrl) return true;
-      if (!i.productId) return false;
-      const prod = await this.db().collection('showcaseitems').findOne(
-        { _id: i.productId, deletedAt: null },
-        { projection: { 'photo.thumb': 1, 'photo.url': 1 } },
-      );
-      return !!((prod as Doc | null)?.photo?.thumb || (prod as Doc | null)?.photo?.url);
-    }));
-  }
-
   /** C080: проверка перед отправкой — КП и (если есть) весь его пакет. Только чтение. */
   async check(id: string) {
     const cur = await this.find(id);
@@ -423,14 +433,16 @@ export class OffersService {
     const rows: Doc[] = packId
       ? await this.model.find({ packId, deletedAt: null }).lean().exec() as unknown as Doc[]
       : [cur];
-    const [names, companies] = await Promise.all([this.companyNames(rows.map((r) => r.companyId)), this.companies()]);
+    const [names, companies, images] = await Promise.all([this.companyNames(rows.map((r) => r.companyId)), this.companies(),
+      offerPhotos(this.db(), rows.flatMap((r) => r.items || []))]);
+    let photoIndex = 0;
     const blank = new Map(companies.items.map((c) => [c.id, c.hasBlank]));
     const today = day();
-    const offers = await Promise.all(rows.map(async (r) => ({
+    const offers = rows.map((r) => ({
       id: String(r._id), number: r.number as string, status: r.status as string, customer: r.customer as string,
       companyName: names.get(String(r.companyId)) ?? null,
-      problems: offerProblems(r as never, { hasBlank: !!blank.get(String(r.companyId)), photos: await this.itemPhotos((r.items as Doc[]) ?? []), today }),
-    })));
+      problems: offerProblems(r as never, { hasBlank: !!blank.get(String(r.companyId)), photos: (r.items || []).map(() => !!images[photoIndex++]), today }),
+    }));
     const own = offers.find((o) => o.id === String(cur._id))!;
     const pack = packId ? packProblems(offers) : own.problems;
     return {
@@ -453,28 +465,6 @@ export class OffersService {
     return { packId, sent: sent.length, ids: sent };
   }
 
-  /** Фото строки для PDF: `/uploads/…` → маленький JPEG; нет файла или не картинка — null. */
-  private async photo(url?: string): Promise<Buffer | null> {
-    const path = safeUploadPath(url);
-    if (!path) return null;
-    try {
-      await fs.access(path);
-      return await sharp(path).flatten({ background: '#ffffff' }).resize(240, 240, { fit: 'inside' }).jpeg({ quality: 80 }).toBuffer();
-    } catch { return null; }
-  }
-
-  /** Фото для строки КП: сначала сохранённый photoUrl, затем главное фото изделия по productId. */
-  private async photoForItem(item: Doc): Promise<Buffer | null> {
-    if (item.photoUrl) return this.photo(item.photoUrl as string);
-    if (!item.productId) return null;
-    const prod = await this.db().collection('showcaseitems').findOne(
-      { _id: item.productId, deletedAt: null },
-      { projection: { 'photo.thumb': 1, 'photo.url': 1 } },
-    );
-    const url = (prod as Doc | null)?.photo?.thumb || (prod as Doc | null)?.photo?.url;
-    return url ? this.photo(url as string) : null;
-  }
-
   /** Ставка НДС нашей фирмы (organizations.vatRate); только чтение. */
   private async companyVatRate(id: unknown): Promise<number | null> {
     const c = await this.db().collection('organizations').findOne({ _id: id as Types.ObjectId }, { projection: { vatRate: 1 } });
@@ -482,26 +472,31 @@ export class OffersService {
   }
 
   /** Общая сборка PDF для сохранённого КП и предпросмотра (`draft` — без номера). */
-  private async render(o: Doc, draft = false): Promise<Buffer> {
+  private async render(o: Doc, draft = false, pageMap?: OfferPageMap): Promise<Buffer> {
     const pages = o.packId
       ? [this.bgs.resolveForPack(1, o.bg1Id, o.companyId), this.bgs.resolveForPack(2, o.bg2Id, o.companyId)] as const
       : [this.bgs.resolve(1, o.bg1Id, o.companyId), this.bgs.resolve(2, o.bg2Id, o.companyId)] as const;
     const [companyName, orgVat, bg1, bg2, photos] = await Promise.all([
       this.companyName(o.companyId), this.companyVatRate(o.companyId), ...pages,
-      Promise.all((o.items as Doc[]).map((i) => this.photoForItem(i))),
+      offerPhotos(this.db(), o.items),
     ]);
     const vat = resolveVat(o.vatMode, o.vatRate, orgVat);
     return renderOfferPdf({
-      number: o.number, draft, date: o.date, validUntil: o.validUntil, customer: o.customer, objectName: o.objectName, companyName: companyName ?? undefined,
+      pageMap, layout: o.layout, number: o.number, draft, date: o.date, validUntil: o.validUntil, customer: o.customer, objectName: o.objectName, companyName: companyName ?? undefined,
       items: o.legal ? o.items.map((row: Doc) => row.scopeState === 'excluded' ? { ...row, productName: `Исключено: ${row.productName}`, description: [row.description, row.exclusionReason].filter(Boolean).join(' · ') } : row) : o.items, total: o.total ?? 0, prepaymentPercent: o.prepaymentPercent, productionDays: o.productionDays, deliveryDays: o.deliveryDays,
       ...vat, delivery: o.delivery, terms: o.terms, notes: o.legal ? [o.notes, `История предложения: исходная сумма ${Number(o.total || 0).toFixed(2)}; согласованный состав ${agreedOfferTotal(o.items || []).toFixed(2)}. Исключённые позиции не входят в согласованный состав. Оригинал документа сохранён отдельно.`].filter(Boolean).join('\n') : o.notes, bg1: bg1.jpeg, bg2: bg2.jpeg, zones: { first: bg1, next: bg2 },
       photos: new Map(photos.flatMap((b, k) => (b ? [[k, b] as [number, Buffer]] : []))),
     });
   }
 
+  private pdfName(number: string) {
+    return `КП-${String(number).replace(/^КП-?/, '').replace(/[^\p{L}\p{N}._-]+/gu, '_')}.pdf`;
+  }
+
   async pdf(id: string) {
     const o = await this.find(id);
-    return { buf: await this.render(o), filename: `КП-${String(o.number).replace(/^КП-?/, '').replace(/[^\p{L}\p{N}._-]+/gu, '_')}.pdf` };
+    const pageMap = newOfferPageMap();
+    return { buf: await this.render(o, false, pageMap), pageMap, filename: this.pdfName(o.number) };
   }
 
   /** Предпросмотр до сохранения: тот же PDF, без записи в базу и без номера («КП-черновик»). */
@@ -512,7 +507,7 @@ export class OffersService {
       number: 'КП-черновик', date: day(dto.date), validUntil: dto.validUntil ? day(dto.validUntil) : undefined, companyId, customer: dto.customer.trim(),
       items, total, prepaymentPercent: dto.prepaymentPercent, productionDays: dto.productionDays, deliveryDays: dto.deliveryDays,
       objectName: clean(dto.objectName) || undefined, vatMode: dto.vatMode, vatRate: dto.vatRate, delivery: dto.delivery,
-      terms: clean(dto.terms) || undefined, notes: clean(dto.notes) || undefined, bg1Id: dto.bg1Id, bg2Id: dto.bg2Id,
+      layout: dto.layout, terms: clean(dto.terms) || undefined, notes: clean(dto.notes) || undefined, bg1Id: dto.bg1Id, bg2Id: dto.bg2Id,
     };
     return { buf: await this.render(o, true), filename: 'КП-черновик.pdf' };
   }
@@ -630,7 +625,7 @@ export class OffersService {
     try {
       const out = [];
       for (const f of firms) {
-        const { items, total } = calcTotals(base.items.map((i) => ({ ...i, unitPrice: i.unitPrice === null || i.unitPrice === undefined ? i.unitPrice : markedUp(i.unitPrice, f.pct) })));
+        const { items, total } = calcTotals(base.items.map((i) => ({ ...i, unitPrice: markedLinePrice(i, f.pct) })));
         const defs = await this.defaults(String(f.companyId));
         const number = await this.counters.next('CommercialOffer', 'КП');
         const doc = await this.model.create({
@@ -661,7 +656,8 @@ export class OffersService {
   ) {
     const { items, total } = calcTotals((cur.items as Doc[]).map((i) => ({
       productId: i.productId, productName: i.productName, productSku: i.productSku, description: i.description, color: i.color, size: i.size, photoUrl: i.photoUrl,
-      quantity: i.quantity, unit: i.unit || 'шт', unitPrice: i.unitPrice === null || i.unitPrice === undefined ? i.unitPrice : markedUp(i.unitPrice, pct),
+      lineKind: i.lineKind, pageBreakBefore: i.pageBreakBefore, photoMm: i.photoMm, rowMm: i.rowMm,
+      quantity: i.quantity, unit: i.unit || 'шт', unitPrice: markedLinePrice(i, pct),
     })));
     const number = await this.counters.next('CommercialOffer', 'КП');
     const date = day();
@@ -679,7 +675,7 @@ export class OffersService {
       number, date, validUntil: span > 0 ? new Date(date.getTime() + span * 86400000) : undefined, companyId, customer: cur.customer,
       counterpartyId: cur.counterpartyId, title: cur.title, status: 'draft', items, total, prepaymentPercent: cur.prepaymentPercent,
       productionDays: cur.productionDays, deliveryDays: cur.deliveryDays, objectName: cur.objectName, delivery: cur.delivery,
-      vatMode, vatRate, terms, notes: cur.notes, copyOf: cur._id,
+      vatMode, vatRate, terms, layout: cur.layout, notes: cur.notes, copyOf: cur._id,
       ...(packId ? { packId } : {}),
       statusHistory: [{ status: 'draft', at: new Date(), by: user?.username }],
     });

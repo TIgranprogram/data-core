@@ -16,7 +16,12 @@ const FIELD = {
 const ACT = { created: 'Создано', updated: 'Изменено', deleted: 'Удалено', restored: 'Восстановлено', merged: 'Объединено', cancelled: 'Отменено', received: 'Оприходовано',
   cleaned: 'Чистка артикулов', added: 'Добавлено фото', removed: 'Убрано', batch: 'Операция склада', imported: 'Загружено', issued: 'Выдано по брони', list: 'Бронь по списку', moved: 'Движение', released: 'Бронь снята' };
 /** «supply.request.updated» → «Изменено». */
-export const actionLabel = (a) => ACT[String(a || '').split('.').pop()] || String(a || '');
+export const actionLabel = (a) => {
+  const action = String(a || '');
+  if (action.endsWith('.photo.main')) return 'Выбрано главное фото';
+  if (action.endsWith('.photo.removed')) return 'Убрано фото';
+  return ACT[action.split('.').pop()] || action;
+};
 
 /** Значения служебных полей: на экране только русские слова. */
 const CODE_FIELD = /^(status|stage|state|kind|priority|statusLabel)$/;

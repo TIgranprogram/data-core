@@ -1,11 +1,36 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, MaxLength, Min, Max, ValidateNested, Length } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Matches, MaxLength, Min, Max, ValidateNested, Length } from 'class-validator';
 import { IsObjectId } from '../../common/decorators/is-object-id.decorator';
 import { LegalBundleDto, SourceLineDto } from '../../common/legal/legal.dto';
 import { OFFER_STATUSES } from './offer.schema';
 
+export const OFFER_BLOCKS = ['table', 'info', 'terms', 'notes'] as const;
+export type OfferBlock = typeof OFFER_BLOCKS[number];
+
+export class OfferBlockPositionDto {
+  @ApiPropertyOptional({ description: 'Сдвиг вправо, мм' }) @IsOptional() @IsInt() @Min(-10) @Max(10) xMm?: number;
+  @ApiPropertyOptional({ description: 'Отступ перед блоком, мм' }) @IsOptional() @IsInt() @Min(0) @Max(40) gapMm?: number;
+}
+
+export class OfferLayoutDto {
+  @ApiPropertyOptional({ description: 'Ширина таблицы, мм', minimum: 160, maximum: 181 }) @IsOptional() @IsInt() @Min(160) @Max(181)
+  tableWidthMm?: number;
+  @ApiPropertyOptional({ type: OfferBlockPositionDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferBlockPositionDto) header?: OfferBlockPositionDto;
+  @ApiPropertyOptional({ type: OfferBlockPositionDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferBlockPositionDto) table?: OfferBlockPositionDto;
+  @ApiPropertyOptional({ type: OfferBlockPositionDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferBlockPositionDto) info?: OfferBlockPositionDto;
+  @ApiPropertyOptional({ type: OfferBlockPositionDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferBlockPositionDto) terms?: OfferBlockPositionDto;
+  @ApiPropertyOptional({ type: OfferBlockPositionDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferBlockPositionDto) notes?: OfferBlockPositionDto;
+  @ApiProperty({ enum: OFFER_BLOCKS, isArray: true })
+  @IsArray() @ArrayMinSize(4) @ArrayMaxSize(4) @ArrayUnique() @IsIn(OFFER_BLOCKS, { each: true })
+  blocks!: OfferBlock[];
+}
+
 export class OfferItemDto {
+  @ApiPropertyOptional({ enum: ['product', 'delivery'] }) @IsOptional() @IsIn(['product', 'delivery']) lineKind?: 'product' | 'delivery';
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() pageBreakBefore?: boolean;
+  @ApiPropertyOptional({ description: 'Размер фотографии, мм' }) @IsOptional() @IsInt() @Min(8) @Max(42) photoMm?: number;
+  @ApiPropertyOptional({ description: 'Минимальная высота строки, мм' }) @IsOptional() @IsInt() @Min(7) @Max(65) rowMm?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) sourceRowKey?: string;
   @ApiPropertyOptional({ type: SourceLineDto }) @IsOptional() @ValidateNested() @Type(() => SourceLineDto) sourceLine?: SourceLineDto;
   @ApiPropertyOptional({ enum: ['included', 'excluded'] }) @IsOptional() @IsIn(['included', 'excluded']) scopeState?: 'included' | 'excluded';
@@ -29,6 +54,7 @@ export class OfferItemDto {
 const BG_ID = /^([a-f\d]{24}|builtin-[12]|none)$/i;
 
 export class CreateOfferDto {
+  @ApiPropertyOptional({ type: OfferLayoutDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => OfferLayoutDto) layout?: OfferLayoutDto;
   @ApiPropertyOptional({ type: LegalBundleDto }) @IsOptional() @ValidateNested() @Type(() => LegalBundleDto) initialLegal?: LegalBundleDto;
   @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsString() @MaxLength(100) sourceNumber?: string | null;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 100) intakeUid?: string;
@@ -55,6 +81,8 @@ export class CreateOfferDto {
 
 /** Правка: любые поля из создания; статус меняется только через POST :id/status. */
 export class UpdateOfferDto extends PartialType(CreateOfferDto) {
+  @ApiPropertyOptional({ nullable: true, description: 'Дата изменения открытого КП для проверки одновременной правки' })
+  @IsOptional() @IsDateString() expectedUpdatedAt?: string | null;
   @ApiPropertyOptional({ description: 'Версия юридического комплекта для ручной правки импортированного КП' }) @IsOptional() @IsInt() @Min(0) version?: number;
 
   @ApiPropertyOptional({ description: 'Причина (от 3 символов) — нужна администратору для правки оплаченного КП; уходит в журнал' }) @IsOptional() @IsString() @MaxLength(500) reason?: string;

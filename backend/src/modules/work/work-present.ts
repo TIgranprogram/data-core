@@ -51,9 +51,12 @@ export async function presentWork(connection: Connection, docs: Doc[]) {
     const productionNo = (o?.productionNo as string | undefined) || null, lineNo = (inc?.lineNo as number | undefined) ?? null;
     const seqNo = seqOf.get(String(d.incomeId))?.seqNo ?? null, posNo = seqNo ?? lineNo;
     const customerTitle = (inc?.title as string | undefined) ?? null;
+    const moduleWork = d.moduleWork as import('./work-task.schema').ModuleWork | undefined;
     // «<название изделия> · <артикул> № <заказ> поз <№>» — человек узнаёт изделие по названию; без изделия — короткое название заказчика
     const where = [productName ? sku : null, productionNo ? `№ ${productionNo}` : '', posNo != null ? `поз ${posNo}` : ''].filter(Boolean).join(' ');
-    const title = prod
+    const title = moduleWork
+      ? [moduleWork.name, where].filter(Boolean).join(' · ')
+      : prod
       ? [productName ?? sku, where].filter(Boolean).join(' · ')
       : customerTitle ? shortProductName(customerTitle) : 'Без названия';
     const route = (d.route as WorkStep[] | undefined) ?? [];
@@ -63,12 +66,13 @@ export async function presentWork(connection: Connection, docs: Doc[]) {
       id: String(d._id), code: `W-${d.seq as number}`, seq: d.seq as number, status: d.status as string, title,
       photo: photoId ? photos.get(String(photoId))?.thumb ?? null : null,
       generic: !!d.generic, stepIndex, stepKey: (d.stepKey as string | undefined) ?? '',
+      hold: d.hold ?? null, moduleWork: moduleWork ?? null,
       currentStep: stepIndex !== null && stepIndex < route.length ? route[stepIndex].name : null,
       route: presentRoute(route, stepIndex),
       moves: ((d.moves as WorkMove[] | undefined) ?? []).map((m) => ({ at: m.at, to: m.to })),
-      plan: computePlan(route, (inc?.qty as number | undefined) ?? null, daysByType, (d.startedAt as Date | undefined) ?? new Date()),
+      plan: computePlan(route, moduleWork?.quantity ?? (inc?.qty as number | undefined) ?? null, daysByType, (d.startedAt as Date | undefined) ?? new Date()),
       orderId: d.orderId ? String(d.orderId) : null, orderNo: (o?.orderNo as string | undefined) ?? null, productionNo, customer: (o?.customer as string | undefined) ?? null,
-      incomeId: String(d.incomeId), lineNo, seqNo, qty: (inc?.qty as number | undefined) ?? null, unit: (inc?.unit as string | undefined) ?? null,
+      incomeId: String(d.incomeId), lineNo, seqNo, qty: moduleWork?.quantity ?? (inc?.qty as number | undefined) ?? null, unit: moduleWork ? 'шт' : (inc?.unit as string | undefined) ?? null,
       productId: d.productId ? String(d.productId) : null, sku, productName, customerTitle,
       deadline: orderDeadline(o), priority: (o?.priority as string | undefined) ?? 'normal',
       assigneeId: d.assigneeId ? String(d.assigneeId) : null, assignee: d.assigneeId ? person.get(String(d.assigneeId)) ?? null : null,

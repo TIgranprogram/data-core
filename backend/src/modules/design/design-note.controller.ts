@@ -25,7 +25,7 @@ export class DesignNoteController {
 
   @Post('design-tasks/:id/notes')
   @Roles('admin', 'director', 'manager', 'user')
-  @AuditAction({ action: 'designnote.created', entityType: 'DesignTask', idParam: 'id' })
+  @AuditAction({ action: 'designnote.created', entityType: 'DesignTask', idParam: 'id', details: () => ({}) })
   create(@Param('id') id: string, @Body() dto: DesignNoteDto, @CurrentUser() user: AuthenticatedUser) {
     return this.notes.create(id, dto, user);
   }

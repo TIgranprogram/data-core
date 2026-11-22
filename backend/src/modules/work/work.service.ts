@@ -1,19 +1,20 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, type OnApplicationBootstrap } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model, UpdateQuery } from 'mongoose';
 import { Types } from 'mongoose';
 import { legalHash } from '../../common/legal/legal-utils';
+import { ModuleWorkRelease, moduleWorkKey } from './module-work-release';
 import { claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
 import { personWorkTypeIds } from '../../common/catalog/person-work-types';
 import { oid, oids, parseList } from '../../common/list-query';
 import { CounterService } from '../counter/counter.service';
 import { OrderLinePlanService } from '../order-line-plan/order-line-plan.service';
 import { personView } from '../design/design-present';
-import type { CancelDto, LaunchDto, MoveDto, PlanDto, WorkTaskPatchDto } from './dto/work.dto';
+import type { CancelDto, DesignCompositionDto, LaunchDto, MoveDto, PlanDto, WorkHoldDto, WorkTaskPatchDto } from './dto/work.dto';
 import { DONE_DAYS, mergeColumns, nextIndex, planLaunch, positionAt, stepKeyOf, type LaunchProduct } from './work-flow';
 import { presentWork } from './work-present';
 import { WorkRouteService } from './work-route.service';
-import { WORK_STATUSES, WorkTask, type WorkMove, type WorkStep, type WorkTaskDocument } from './work-task.schema';
+import { WORK_STATUSES, WorkTask, type ModuleWork, type WorkMove, type WorkStep, type WorkTaskDocument } from './work-task.schema';
 
 type Doc = Record<string, unknown>;
 const isDup = (e: unknown) => (e as { code?: number }).code === 11000;
@@ -25,7 +26,7 @@ const DAY = 86400000;
  * Карточку двигает мастер / менеджер; сдельной оплаты и часов нет.
  */
 @Injectable()
-export class WorkService {
+export class WorkService implements OnApplicationBootstrap {
   constructor(
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(WorkTask.name) private readonly model: Model<WorkTaskDocument>,
@@ -33,6 +34,18 @@ export class WorkService {
     private readonly routes: WorkRouteService,
     private readonly plans: OrderLinePlanService,
   ) {}
+
+  async onApplicationBootstrap() {
+    await this.model.collection.createIndex({ moduleKey: 1 }, { unique: true, sparse: true });
+  }
+
+  private readonly modules = new ModuleWorkRelease(this.connection, this.model, this.counters);
+  listDesignModules(designId: string) { return this.modules.list(designId); }
+  changeDesignComposition(designId: string, dto: DesignCompositionDto, organizationId?: string) { return this.modules.compose(designId, dto, organizationId); }
+  readyDesignModule(designId: string, lineId: string, ready: boolean) { return this.modules.setReady(designId, lineId, ready); }
+  async launchDesignModule(designId: string, lineId: string, userId?: string) {
+    return this.get(await this.modules.launch(designId, lineId, userId));
+  }
 
   private db() { return this.connection.db!; }
   private userOid(userId?: string) { return userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined; }
@@ -44,13 +57,13 @@ export class WorkService {
       this.db().collection('products').find({ deletedAt: null, $or: [{ name: re }, { sku: re }] }, { projection: { _id: 1 } }).limit(200).toArray(),
       this.db().collection('incomes').find({ deletedAt: null, title: re }, { projection: { _id: 1 } }).limit(200).toArray(),
     ]);
-    const clauses: Doc[] = [];
+    const clauses: Doc[] = [{ 'moduleWork.name': re }, { 'moduleWork.article': re }];
     const num = text.match(/^w?-?(\d+)$/i);
     if (num) clauses.push({ seq: Number(num[1]) });
     if (orders.length) clauses.push({ orderId: { $in: orders.map((o) => o._id) } });
     if (prods.length) clauses.push({ productId: { $in: prods.map((x) => x._id) } });
     if (lines.length) clauses.push({ incomeId: { $in: lines.map((x) => x._id) } });
-    return clauses.length ? clauses : [{ _id: null }]; // ничего не нашли — пустая выдача, а не весь список
+    return clauses;
   }
 
   /**
@@ -119,6 +132,13 @@ export class WorkService {
       const line = await this.db().collection('incomes').findOne({ _id: fresh.incomeId as Types.ObjectId }, { session, projection: { orderId: 1 } });
       await claimWritableOrders(this.db(), session, [fresh.orderId, line?.orderId]);
       if (legalHash(fresh) !== legalHash(cur)) throw new ConflictException('Задание изменил другой человек — обновите');
+      const reactivatesModule = fresh.moduleWork && (update.$set?.moduleKey || ['waiting', 'work'].includes(update.$set?.status as string));
+      if (reactivatesModule && await this.model.findOne({ incomeId: fresh.incomeId, moduleWork: null, deletedAt: null, status: { $ne: 'cancelled' } }, { _id: 1 }, { session }).lean().exec()) {
+        throw new ConflictException('По позиции уже запущено целое изделие');
+      }
+      if (update.$set?.openIncomeId && !fresh.openIncomeId && await this.model.findOne({ incomeId: fresh.incomeId, moduleWork: { $ne: null }, deletedAt: null, status: { $in: ['waiting', 'work'] } }, { _id: 1 }, { session }).lean().exec()) {
+        throw new ConflictException('Модули позиции ещё в работе');
+      }
       const saved = await this.model.updateOne({ _id: fresh._id }, update, { session })
         .setOptions({ includeSoftDeleted: deleted }).exec();
       if (!saved.matchedCount) throw new ConflictException('Задание изменил другой человек — обновите');
@@ -168,8 +188,8 @@ export class WorkService {
       try {
         created.push(await this.insert(line._id, line.orderId, line.productId as Types.ObjectId, route, generic, userId));
       } catch (e) {
-        if (!(e instanceof ConflictException) || e.message !== 'Позиция уже в работе') throw e;
-        refused.push({ incomeId: String(line._id), lineNo: line.lineNo ?? null, title: String(line.title ?? ''), reason: 'Уже в работе' }); // параллельный запрос успел раньше
+        if (!(e instanceof ConflictException) || !['Позиция уже в работе', 'Модули позиции ещё в работе'].includes(e.message)) throw e;
+        refused.push({ incomeId: String(line._id), lineNo: line.lineNo ?? null, title: String(line.title ?? ''), reason: e.message });
       }
     }
     const warned = new Set(created.map((c) => String(c.incomeId)));
@@ -184,12 +204,18 @@ export class WorkService {
         if (!line || String(line.orderId ?? '') !== String(orderId ?? '') || String(line.productId) !== String(productId))
           throw new BadRequestException('Позиция изменилась после подготовки — обновите заказ');
         await claimWritableOrders(this.db(), session, [line.orderId]);
+        const modules = await this.model.find({ incomeId, moduleWork: { $ne: null }, deletedAt: null, status: { $ne: 'cancelled' } }, { moduleWork: 1, status: 1 }, { session }).lean().exec();
+        if (modules.some((job) => job.status !== 'done')) throw new ConflictException('Модули позиции ещё в работе');
+        const finished = new Set(modules.map((job) => String(job.moduleWork?.lineId)));
+        const remaining = route.filter((step) => !step.lineId || !finished.has(String(step.lineId)));
+        const effective = modules.length && (generic || !remaining.length)
+          ? [{ workTypeId: null, name: 'Окончательная сборка изделия' }] : remaining;
         const seq = await this.counters.nextSeq('WorkTask', 'W', session);
         const by = this.userOid(userId);
-        const pos = positionAt(route, 0);
+        const pos = positionAt(effective, 0);
         const [doc] = await this.model.create([{
-          seq, incomeId, ...(orderId ? { orderId } : {}), productId, route, generic, ...pos, openIncomeId: incomeId,
-          ...(route[0]?.assigneeId ? { assigneeId: route[0].assigneeId } : {}),
+          seq, incomeId, ...(orderId ? { orderId } : {}), productId, route: effective, generic: generic && !modules.length, ...pos, openIncomeId: incomeId,
+          ...(effective[0]?.assigneeId ? { assigneeId: effective[0].assigneeId } : {}),
           startedAt: new Date(), ...(by ? { createdBy: by } : {}), moves: [{ at: new Date(), ...(by ? { by } : {}), from: null, to: 0 }],
         }], { session });
         await this.plans.markLaunched([incomeId], session);
@@ -203,6 +229,7 @@ export class WorkService {
 
   /** Записать новое положение карточки (шаг; длина маршрута — «Готово»; null — «Ждёт запуска») и пополнить историю. */
   private async apply(cur: Doc, to: number | null, userId?: string) {
+    if (cur.hold) throw new ConflictException('Сначала возобновите задание');
     const route = cur.route as never as Array<{ workTypeId: Types.ObjectId | null; assigneeId?: Types.ObjectId }>;
     const pos = positionAt(route as never, to);
     const from = (cur.stepIndex as number | null | undefined) ?? null;
@@ -214,8 +241,8 @@ export class WorkService {
       unset.openIncomeId = '';
     } else {
       unset.completedAt = ''; unset.completedBy = '';
-      if (cur.status === 'done') await this.ensureNoOpen(incomeId, cur._id as Types.ObjectId);
-      set.openIncomeId = incomeId;
+      if (cur.status === 'done' && !cur.moduleWork) await this.ensureNoOpen(incomeId, cur._id as Types.ObjectId);
+      if (!cur.moduleWork) set.openIncomeId = incomeId;
       if (pos.status === 'work' && !cur.startedAt) set.startedAt = new Date();
       const stepWho = pos.status === 'work' && pos.stepIndex !== null ? route[pos.stepIndex]?.assigneeId : undefined;
       if (stepWho) set.assigneeId = stepWho; // исполнитель на шаг: переход на шаг переносит его исполнителя (C041 Э2)
@@ -266,7 +293,16 @@ export class WorkService {
     if (cur.status === 'done') throw new BadRequestException('Готовое задание отменить нельзя');
     const by = this.userOid(userId);
     const move: WorkMove = { at: new Date(), ...(by ? { by } : {}), from: (cur.stepIndex as number | null | undefined) ?? null, to: null };
-    await this.updateTask(cur, { $set: { status: 'cancelled', cancelReason: reason }, $unset: { openIncomeId: '' }, $push: { moves: { $each: [move], $slice: -100 } } });
+    await this.updateTask(cur, { $set: { status: 'cancelled', cancelReason: reason }, $unset: { openIncomeId: '', moduleKey: '', hold: '' }, $push: { moves: { $each: [move], $slice: -100 } } });
+    return this.get(id);
+  }
+
+  async hold(id: string, dto: WorkHoldDto) {
+    const cur = await this.findRaw(id);
+    if (cur.status !== 'work') throw new ConflictException('Можно приостановить только задание в работе');
+    const reason = dto.reason?.trim() || '';
+    if (dto.kind === 'materials' && !reason) throw new BadRequestException('Укажите, каких материалов не хватает');
+    await this.updateTask(cur, dto.kind === 'resume' ? { $unset: { hold: '' } } : { $set: { hold: { kind: dto.kind, reason } } });
     return this.get(id);
   }
 
@@ -301,16 +337,18 @@ export class WorkService {
   /** В корзину; замок позиции снимается — позицию можно запустить заново. */
   async remove(id: string) {
     const cur = await this.findRaw(id);
-    await this.updateTask(cur, { $set: { deletedAt: new Date() }, $unset: { openIncomeId: '' } });
+    await this.updateTask(cur, { $set: { deletedAt: new Date() }, $unset: { openIncomeId: '', moduleKey: '' } });
     return { id, deleted: true };
   }
 
   async restore(id: string) {
     const cur = await this.findRaw(id, true);
     const lock = cur.status === 'waiting' || cur.status === 'work';
-    if (lock) await this.ensureNoOpen(cur.incomeId as Types.ObjectId, cur._id as Types.ObjectId);
+    const moduleWork = cur.moduleWork as ModuleWork | undefined;
+    if (lock && !moduleWork) await this.ensureNoOpen(cur.incomeId as Types.ObjectId, cur._id as Types.ObjectId);
     try {
-      await this.updateTask(cur, { $set: { deletedAt: null, ...(lock ? { openIncomeId: cur.incomeId } : {}) } }, true);
+      const moduleKey = moduleWork && cur.status !== 'cancelled' ? moduleWorkKey(cur.incomeId, moduleWork.lineId) : undefined;
+      await this.updateTask(cur, { $set: { deletedAt: null, ...(lock && !moduleWork ? { openIncomeId: cur.incomeId } : {}), ...(moduleKey ? { moduleKey } : {}) } }, true);
     } catch (e) {
       if (isDup(e)) throw new ConflictException('Позиция уже в работе');
       throw e;

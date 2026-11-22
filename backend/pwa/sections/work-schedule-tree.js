@@ -66,7 +66,7 @@ export function buildModel({ bars: raw, people, lens, allBars = raw }) {
       start: day(b.start), end: day(b.end), title: work, sub: details,
       hue: b.hue || (typeOf(b) ? 1 : null), wt: typeOf(b), status: b.status, overdue: !!b.overdue, deadline: b.deadline || null,
       tone: b.status === 'done' ? 'ok' : !b.assigneeId && byPeople ? 'warn' : 'info',
-      hint: [`Заказ № ${b.orderNo || '—'}`, posLabel(b), partKey ? partName : partOf(b), who(b), isLegacyCommonWork(b) ? `По маршруту: ${b.workTypeName.trim()}` : '', b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · '),
+      hint: [`Заказ № ${b.orderNo || '—'}`, posLabel(b), partKey ? partName : partOf(b), who(b), b.hold?.kind === 'materials' ? 'Не хватает материалов' : b.hold ? 'Приостановлено' : '', isLegacyCommonWork(b) ? `По маршруту: ${b.workTypeName.trim()}` : '', b.inDesign ? 'в проектировании' : ''].filter(Boolean).join(' · '),
     });
   }
   const rows = [...seen.values()];

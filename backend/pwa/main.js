@@ -1,4 +1,4 @@
-import { canOpen, canViewStock, stockView, OWNER } from './core/route-access.js';
+import { allowsWoodPanel, canOpen, canViewStock, stockView, woodScreen, OWNER } from './core/route-access.js';
 import { startRain, stopRain } from './ui/cat-rain.js';
 import { startLiveSync, stopLiveSync } from './core/live-sync.js';
 import { resetHeldStock } from './core/stock-list.js';
@@ -47,7 +47,7 @@ const SECTIONS = {};   // имя раздела -> описание (запол�
 const FN = {};         // имя функции монтирования -> функция
 // ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
 const LAZY = {
-  woodgrid: [() => import('./sections/wood-grid.js'), [['@mountWoodGrid', 'mountWoodGrid']]],
+  woodgrid: [() => import('./sections/wood-grid.js'), [['@mountWoodGrid', 'mountWoodGrid'], ['wooditem', 'woodItem']]],
   partwork: [() => import('./sections/part-work.js'), [['partwork','partWork']]], // C122: виды работ детали — правая панель
   requests: [() => import('./sections/requests.js'), [['requests','requests'],['reqreceive','reqReceive']]],
   stock: [() => import('./sections/stock.js'), [['stock','stock'], ['@mountPipeGrid','mountPipeGrid'], ['@mountSheetGrid','mountSheetGrid']]],
@@ -134,7 +134,7 @@ function needed(section, params) {
   const keys = new Set();
   const add = (n) => { const k = LOADER_OF[n] || n; if (LAZY[k]) keys.add(k); };
   add(section); add(params?.of);
-  if (section === 'stock' && woodScreen(params)) keys.add('woodgrid');
+  if (section === 'stock' && woodScreen(session, params?.view)) keys.add('woodgrid');
   if (section === 'requests') keys.add('reqtabs');
   if (section === 'money' && params?.tab === 'debts') keys.add('orders'); // «Долги» — список из orders.js
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
@@ -190,7 +190,6 @@ async function watchDevelopmentDialogs() {
 const isPipeRole = () => stockView(session.user) === 'pipe';
 const isSheetRole = () => stockView(session.user) === 'sheet';
 const isStockRole = () => Boolean(stockView(session.user));
-const woodScreen = params => stockView(session.user) === 'wood' || params?.view === 'wood' && session.isAdmin;
 const adminSees = (params, v) => (session.role === 'admin' || session.user?.isOwner) && params?.view === v; // админ смотрит экраны ролей склада (2026-11-06)
 /** Фон и подпись меню склада: после входа, «Смотреть как» и обновления /me — иначе котики не появляются. */
 const stockTheme = () => { if (isPipeRole()) startRain('cats'); else if (isSheetRole()) startRain('dogs'); else stopRain(); };
@@ -471,8 +470,10 @@ function render(c) {
     toast('Этот раздел для вашей роли закрыт.');
     go(defaultSection(), {}, { replace: true }); return;
   }
-  if (section === 'stock' && woodScreen(params) && params.of !== 'profile' && (params.of || params.open || params.new)) {
-    go('stock', params.view ? { view: params.view } : {}, { replace: true }); return;
+  const isWood = section === 'stock' && woodScreen(session, params.view);
+  if ((isWood && !allowsWoodPanel(session, params)) || (params.of === 'wooditem' && !isWood)) {
+    const screen = Object.fromEntries(Object.entries(params).filter(([key]) => !CARD_PARAMS.includes(key)));
+    go(section, screen, { replace: true }); return;
   }
   if (params.of && !allowed(params.of, section)) {
     toast('Эта карточка для вашей роли закрыта.');
@@ -511,7 +512,7 @@ function render(c) {
     let list = null;
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
-    if (section === 'stock' && woodScreen(params)) list = FN.mountWoodGrid();
+    if (isWood) list = FN.mountWoodGrid();
     else if (section === 'stock' && (isPipeRole() || adminSees(params, 'pipe'))) list = FN.mountPipeGrid();
     else if (section === 'stock' && (isSheetRole() || adminSees(params, 'sheet'))) list = FN.mountSheetGrid();
     else if (section === 'docs') list = FN.mountDocs(params, { onChanged: () => refreshCounts() });

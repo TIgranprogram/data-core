@@ -126,8 +126,18 @@ export function blockers(f: Facts, evidenceUid?: string, preview = false): Block
   }
   if (f.passports.some(p => (p.salesOrderId && !same(p.salesOrderId, order._id)) || (p.incomeId && !known.has(id(p.incomeId)))))
     add('PASSPORT_CONFLICT', 'Паспорт ссылается на позицию другого договора');
-  if ([...f.design, ...f.work].some(t => !['done', 'cancelled'].includes(t.status))
-      || f.plans.some(p => p.launchedAt && p.steps?.some((s: Row) => !s.finishedAt)))
+  const wholeDone = new Set(f.work.filter(t => t.status === 'done' && !t.moduleWork).map(t => id(t.incomeId)));
+  const released = f.work.filter(t => t.moduleWork && t.status !== 'cancelled');
+  const doneModules = new Set(released.filter(t => t.status === 'done').map(t => [id(t.incomeId), id(t.moduleWork.lineId)].join(':')));
+  const planOpen = f.plans.some(p => {
+    if (!p.launchedAt) return false;
+    const partLines = new Map(((p.parts ?? []) as Row[]).map(part => [id(part._id), part.lineId]));
+    return p.steps?.some((step: Row) =>
+      !step.finishedAt && !doneModules.has([id(p.incomeId), id(step.lineId ?? partLines.get(id(step.partRowId)))].join(':')),
+    );
+  });
+  if ([...f.design, ...f.work].some(t => !['done', 'cancelled'].includes(t.status)) || planOpen
+      || released.some(t => !wholeDone.has(id(t.incomeId))))
     add('WORK_OPEN', 'Есть незавершённые работы по договору');
   if (f.requests.some(r => !['received', 'cancelled'].includes(r.status)) || f.reservations.some(r => r.status === 'active'))
     add('SUPPLY_OPEN', 'Остались открытые заявки снабжения или складские брони');

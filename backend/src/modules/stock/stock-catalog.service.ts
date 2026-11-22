@@ -125,7 +125,7 @@ export class StockCatalogService {
     return { ...dto, categoryId: String(hit._id) };
   }
 
-  async createItem(dto: StockItemInput, scope?: StockScope | null) {
+  async createItem(dto: StockItemInput, scope?: StockScope | null, createOnly = false) {
     const name = String(dto.name ?? '').trim();
     if (!name) throw new BadRequestException('Укажите наименование');
     if (scope) dto = await this.scopeNewItem(dto, scope);
@@ -134,10 +134,14 @@ export class StockCatalogService {
     if (preliminary && !inScope(scope, preliminary)) throw new ForbiddenException('Эта позиция не из вашего склада');
     const categoryId = await this.resolveItemCategory(dto);
     const result = await this.names.run([name], async (session) => {
+      if (createOnly && (!categoryId || !await this.connection.db!.collection('categories').findOne({ _id: categoryId, type: 'material', deletedAt: null }, { projection: { _id: 1 }, session }))) {
+        throw new BadRequestException('Выберите действующую категорию материалов этой зоны');
+      }
       // Только этот повторный поиск после записи revision решает, создавать ли Material.
       const existing = await this.findMaterialByName(name, session);
       if (existing) {
         if (!inScope(scope, existing)) throw new ForbiddenException('Эта позиция не из вашего склада');
+        if (createOnly) throw new ConflictException('Материал с таким названием уже есть. Найдите его в списке.');
         // ТИ-8: уже заполненное «название в счёте» не затираем; имя сохраняем.
         await this.patchMaterial(existing, { ...dto, name: undefined, ...(existing.invoiceName ? { invoiceName: undefined } : {}) }, categoryId, session);
         return { id: existing._id as Types.ObjectId, reused: true };
@@ -152,12 +156,14 @@ export class StockCatalogService {
         ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
         ...(typeof dto.washed === 'boolean' ? { washed: dto.washed } : {}),
       }], { session });
+      if (createOnly) await this.ensureStorage(mat._id as Types.ObjectId, dto, session);
       return { id: mat._id as Types.ObjectId, reused: false };
     });
-    // Остаток и QR не внутри повторяемой транзакции. Повтор create чинит оборванный шаг и для reuse.
-    await this.finishItem(result.id, dto, true, result.reused);
+    // У обычного POST повтор чинит оборванный шаг. При добавлении в зону дубль отклоняется, поэтому строка остатка создаётся вместе с материалом.
+    if (!createOnly) await this.finishItem(result.id, dto, true, result.reused);
+    else if (dto.weightG !== undefined) await this.core.setWeightG(result.id, dto.weightG);
     await this.qr?.ensureCode('S', result.id).catch((e) => this.logger.warn(`QR не выдан: ${e?.message ?? e}`));
-    return this.search.getItem(String(result.id));
+    return this.search.getItem(String(result.id), createOnly ? scope : undefined);
   }
 
   private async finishItem(_id: Types.ObjectId, dto: StockItemInput, ensureStorage: boolean, edited: boolean): Promise<void> {
@@ -166,18 +172,18 @@ export class StockCatalogService {
     if (edited) await this.core.markEdited(_id);
   }
 
-  private async ensureStorage(_id: Types.ObjectId, dto: StockItemInput): Promise<void> {
+  private async ensureStorage(_id: Types.ObjectId, dto: StockItemInput, session?: ClientSession): Promise<void> {
     const wh = await this.core.defaultWarehouse();
     const set = { ...(dto.minQuantity !== undefined ? { minQuantity: dto.minQuantity ?? 0 } : {}), ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) };
     const run = () => this.storage.updateOne(
       { warehouseId: wh._id, materialId: _id, zoneName: null },
       { $setOnInsert: { warehouseId: wh._id, materialId: _id, quantity: 0, reservedQty: 0, isActive: true, deletedAt: null, photos: [], ...(dto.minQuantity === undefined ? { minQuantity: 0 } : {}) },
         ...(Object.keys(set).length ? { $set: set } : {}) },
-      { upsert: true },
+      { upsert: true, ...(session ? { session } : {}) },
     ).exec();
     try { await run(); } catch (error) {
       const e = error as { code?: number; keyPattern?: Record<string, number> };
-      if (e.code !== 11000 || e.keyPattern?.warehouseId !== 1 || e.keyPattern?.materialId !== 1) throw error;
+      if (session || e.code !== 11000 || e.keyPattern?.warehouseId !== 1 || e.keyPattern?.materialId !== 1) throw error;
       await run(); // параллельный post-commit upsert уже вставил ту же строку
     }
   }

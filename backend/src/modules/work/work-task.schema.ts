@@ -8,6 +8,22 @@ export type WorkTaskDocument = HydratedDocument<WorkTask>;
 export const WORK_STATUSES = ['waiting', 'work', 'done', 'cancelled'] as const;
 export type WorkStatus = (typeof WORK_STATUSES)[number];
 
+export interface ModuleWork {
+  lineId: Types.ObjectId;
+  moduleId: Types.ObjectId;
+  designTaskId: Types.ObjectId;
+  designCode: string;
+  name: string;
+  article?: string;
+  quantity: number;
+  items?: Array<{ refId: Types.ObjectId; type: string; name: string; quantity: number; unit: string }>;
+}
+
+export interface WorkHold {
+  kind: 'pause' | 'materials';
+  reason: string;
+}
+
 export type { WorkStep };
 
 /** Запись истории движения карточки: с какого шага на какой (null — «Ждёт запуска», длина маршрута — «Готово»). */
@@ -36,6 +52,10 @@ export class WorkTask {
   /** Исполнитель — сотрудник (persons); необязательно. */
   @Prop({ type: Types.ObjectId }) assigneeId?: Types.ObjectId;
   @Prop({ trim: true }) note?: string;
+  @Prop({ type: [Types.ObjectId], default: undefined }) photoIds?: Types.ObjectId[];
+  @Prop({ type: Object }) moduleWork?: ModuleWork;
+  @Prop({ type: String }) moduleKey?: string;
+  @Prop({ type: Object }) hold?: WorkHold;
   @Prop({ trim: true }) cancelReason?: string;
   @Prop({ type: Date }) startedAt?: Date;
   @Prop({ type: Date }) completedAt?: Date;
@@ -51,6 +71,7 @@ export class WorkTask {
 
 export const WorkTaskSchema = SchemaFactory.createForClass(WorkTask);
 WorkTaskSchema.index({ seq: 1 }, { unique: true });
+WorkTaskSchema.index({ moduleKey: 1 }, { unique: true, sparse: true });
 WorkTaskSchema.index({ openIncomeId: 1 }, { unique: true, sparse: true });
 WorkTaskSchema.index({ status: 1, stepKey: 1, deletedAt: 1 });
 WorkTaskSchema.index({ assigneeId: 1, status: 1 });

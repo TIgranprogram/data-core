@@ -15,15 +15,15 @@ const DAY = 86_400_000;
  */
 export async function taskBars(db: Db, o: { incomeIds?: Types.ObjectId[] | null; person?: Types.ObjectId | null; today: Date;
   deadline: (order: Doc | undefined) => Date | null; overdue: (dl: Date | null, today: Date, status: 'plan' | 'work' | 'done') => boolean; hueOf: (id: string, accent?: number | null) => number }) {
-  const f: Doc = { deletedAt: null, status: { $in: ['waiting', 'work'] } };
+  const f: Doc = { deletedAt: null, $or: [{ status: { $in: ['waiting', 'work'] } }, { status: 'done', moduleWork: { $ne: null } }] };
   if (o.incomeIds) f.incomeId = { $in: o.incomeIds };
   if (o.person) f.assigneeId = o.person;
-  const tasks = ((await db.collection('worktasks').find(f, { projection: { seq: 1, incomeId: 1, orderId: 1, productId: 1, route: 1, stepIndex: 1, assigneeId: 1, startedAt: 1, createdAt: 1 } }).toArray()) as Doc[])
+  const tasks = ((await db.collection('worktasks').find(f, { projection: { seq: 1, incomeId: 1, orderId: 1, productId: 1, route: 1, stepIndex: 1, assigneeId: 1, moduleWork: 1, hold: 1, startedAt: 1, createdAt: 1 } }).toArray()) as Doc[])
     .filter((t) => Array.isArray(t.route) && t.route.length);
   if (!tasks.length) return [];
   // у позиции уже есть план (C041) — её шаги рисуются из плана, задание не дублируем
   const planned = new Set((await db.collection('orderlineplans').find({ incomeId: { $in: tasks.map((t) => t.incomeId) }, deletedAt: null }, { projection: { incomeId: 1 } }).toArray()).map((x) => String(x.incomeId)));
-  const live = tasks.filter((t) => !planned.has(String(t.incomeId)));
+  const live = tasks.filter((t) => t.moduleWork || !planned.has(String(t.incomeId)));
   if (!live.length) return [];
   const incomeIds = live.map((t) => t.incomeId as Types.ObjectId);
   const typeIds = [...new Set(live.flatMap((t) => (t.route as WorkStep[]).map((s) => String(s.workTypeId ?? ''))).filter((x) => Types.ObjectId.isValid(x)))].map((x) => new Types.ObjectId(x));
@@ -42,7 +42,8 @@ export async function taskBars(db: Db, o: { incomeIds?: Types.ObjectId[] | null;
     const i = inc.get(String(t.incomeId)); const route = t.route as WorkStep[];
     const orderId = String(t.orderId ?? i?.orderId ?? '') || null;
     const dl = orderId ? o.deadline(order.get(orderId)) : null;
-    const plan = computePlan(route, (i?.qty as number | undefined) ?? null, days, (t.startedAt as Date | undefined) ?? (t.createdAt as Date | undefined) ?? o.today);
+    const moduleWork = t.moduleWork as import('../work/work-task.schema').ModuleWork | undefined;
+    const plan = computePlan(route, moduleWork?.quantity ?? (i?.qty as number | undefined) ?? null, days, (t.startedAt as Date | undefined) ?? (t.createdAt as Date | undefined) ?? o.today);
     plan.forEach((p, k) => {
       const at = t.stepIndex as number | null;
       const status: 'plan' | 'work' | 'done' = at == null ? 'plan' : k < at ? 'done' : k === at ? 'work' : 'plan';
@@ -50,10 +51,10 @@ export async function taskBars(db: Db, o: { incomeIds?: Types.ObjectId[] | null;
       const wt = String(route[k].workTypeId ?? '') || null;
       out.push({
         stepId: `task:${String(t._id)}:${k}`, planId: '', taskId: String(t._id), stepIndex: k, locked: status === 'done', incomeId: String(t.incomeId), orderNo: ((orderId ? order.get(orderId)?.orderNo : null) as string | undefined) ?? (i?.orderNo as string | undefined) ?? null, productionNo: ((orderId ? order.get(orderId)?.productionNo : null) as string | undefined) || null,
-        title: String(i?.title ?? ''), partName: WHOLE_PRODUCT, workTypeName: route[k].name, workTypeId: wt, assigneeId: t.assigneeId ? String(t.assigneeId) : null,
+        title: String(i?.title ?? ''), partName: moduleWork?.name ?? WHOLE_PRODUCT, hold: t.hold ?? null, workTypeName: route[k].name, workTypeId: wt, assigneeId: t.assigneeId ? String(t.assigneeId) : null,
         start: isoDay(startAt), end: isoDay(endAt < startAt ? startAt : endAt), hours: 0, status, startedAt: null, finishedAt: null, hoursPerUnit: null,
         deadline: dl ? isoDay(dl) : null, overdue: o.overdue(dl, o.today, status), inDesign: false,
-        orderId, productName: String(i?.title ?? ''), partId: null, partRowId: null, hue: wt ? o.hueOf(wt, accent.get(wt)) : null,
+        orderId, productName: String(i?.title ?? ''), partId: moduleWork ? String(moduleWork.moduleId) : null, partRowId: moduleWork ? String(moduleWork.lineId) : null, hue: wt ? o.hueOf(wt, accent.get(wt)) : null,
         startAt, endAt: endAt < startAt ? startAt : endAt,
       });
     });

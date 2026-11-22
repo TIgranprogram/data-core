@@ -450,7 +450,9 @@ describe('DesignService', () => {
         action: 'designtask.photo.removed', entityType: 'DesignTask', entityId: t.id,
         details: { before: { photoId: String(ph[0]._id) }, after: { photoId: String(ph[2]._id) } },
       }));
-      expect(audit.log).toHaveBeenCalledTimes(1); // обычное добавление журнал руками не пишет
+      expect(audit.log.mock.calls.map(([event]) => event.action)).toEqual([
+        'designtask.photo.added', 'designtask.photo.added', 'designtask.photo.removed', 'designtask.photo.added',
+      ]);
       // заменяемого нет в задаче и файла нет — понятные отказы
       await expect(ex.addPhoto(t.id, String(ph[2]._id), undefined, String(ph[0]._id))).rejects.toThrow('Заменяемое фото не найдено');
       await expect(ex.addPhoto(t.id, String(id()), undefined, String(ph[1]._id))).rejects.toThrow('Фото не найдено');

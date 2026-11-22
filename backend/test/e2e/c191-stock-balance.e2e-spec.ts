@@ -30,6 +30,7 @@ describe('C191 — физический остаток в своей зоне', 
       (await http().post('/api/stock/items').set(admin).send({ name, categoryName, unit: 'шт' }).expect(201)).body;
     const purchased = await create('Покупное изделие C191', 'Зона крепежа C191');
     const foreign = await create('Посторонняя позиция C191', 'Чужая категория C191');
+    const excluded = await create('Материал исключён из зоны C191', 'Зона крепежа C191');
     const categoryId = new Types.ObjectId(purchased.categoryId);
     await materials.updateMany({ _id: { $in: [new Types.ObjectId(purchased.id), zero._id] } }, { $set: { materialKind: 'purchased', categoryId } });
     // Имитируем старое ошибочное размещение детали и сортамента, которые тоже надо скрыть.
@@ -49,7 +50,7 @@ describe('C191 — физический остаток в своей зоне', 
 
     const createZone = async (name: string, data: object) =>
       (await http().post('/api/stockzones').set(admin).send({ name, ...data }).expect(201)).body.id as string;
-    const ownZone = await createZone('C191 своя', { categoryIds: [purchased.categoryId], includeMaterialIds: [String(fastener._id)] });
+    const ownZone = await createZone('C191 своя', { categoryIds: [purchased.categoryId], includeMaterialIds: [String(fastener._id), String(part._id), String(profile._id)], excludeMaterialIds: [excluded.id] });
     const foreignZone = await createZone('C191 чужая', { categoryIds: [foreign.categoryId] });
     const role = (await http().post('/api/roles').set(admin).send({ label: 'Кладовщик C191', baseRole: 'manager', warehouseIds: [ownZone] }).expect(201)).body;
     const credentials = { username: 'stock-c191', password: 'stock-c191-test' };
@@ -79,6 +80,19 @@ describe('C191 — физический остаток в своей зоне', 
     expect(visible(await list({ ...held, search: 'SHP08.D125' }, keeper))).toEqual([String(fastener._id)]);
     expect(visible(await list({ ...held, search: 'PI.0003' }, keeper))).toEqual([]);
     expect(visible(await list({ search: 'PI.0003' }, keeper))).toEqual([String(zero._id)]);
+    const woodQuery = { zoneId: ownZone, withParts: '0' };
+    expect(visible(await list(woodQuery, keeper)).sort()).toEqual([purchased.id, String(zero._id), String(fastener._id)].sort());
+    expect((await list({ ...woodQuery, search: 'PI.0003' }, keeper)).items[0]).toMatchObject({ quantity: 0, free: 0 });
+    const newMaterial = { name: 'Доска зоны', categoryId: purchased.categoryId, dims: { length: 3000, width: 100, thickness: 25 } };
+    await http().post('/api/stock/items').query({ zoneId: foreignZone }).set(keeper).send(newMaterial).expect(403);
+    await http().post('/api/stock/items').query({ zoneId: ownZone }).set(admin).send({ ...newMaterial, categoryId: foreign.categoryId }).expect(403);
+    await http().post('/api/stock/items').query({ zoneId: ownZone }).set(admin).send({ ...newMaterial, name: foreign.name }).expect(403);
+    await http().post('/api/stock/items').query({ zoneId: ownZone }).set(admin).send({ ...newMaterial, name: excluded.name }).expect(403);
+    const { body: created } = await http().post('/api/stock/items').query({ zoneId: ownZone }).set(keeper).send(newMaterial).expect(201);
+    expect(created).toMatchObject({ categoryId: purchased.categoryId, quantity: 0, dims: newMaterial.dims });
+    await http().post('/api/stock/items').query({ zoneId: ownZone }).set(admin).send({ ...newMaterial, unit: 'л' }).expect(409);
+    expect((await list({ ...woodQuery, search: newMaterial.name }, keeper)).items[0]).toMatchObject({ id: created.id, quantity: 0, unit: 'шт' });
+    expect(visible(await list({ ...held, zoneId: ownZone }, keeper))).not.toContain(created.id);
     expect(visible(await list({ ...held, ids: [part._id, product._id, module._id].join(',') }))).toEqual([]);
     const parts = (await http().get('/api/materials').set(admin).query({ materialKind: 'part', search: part.article }).expect(200)).body;
     expect(visible(parts)).toContain(String(part._id));

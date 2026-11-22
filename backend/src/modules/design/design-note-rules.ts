@@ -1,5 +1,6 @@
 /** Правила обсуждения задачи (чистые функции, без базы). */
 export const EDIT_WINDOW_MS = 15 * 60 * 1000;
+export const LEGACY_PHOTO_NOTE = /^(\s*\[фото\]\s*)+$/i;
 
 /** Инициалы для кружка автора: до двух первых букв слов имени. */
 export function initialsOf(name: string): string {

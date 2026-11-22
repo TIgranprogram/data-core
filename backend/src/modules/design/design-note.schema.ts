@@ -21,7 +21,8 @@ export class DesignNote {
   @Prop({ type: Types.ObjectId }) orderId?: Types.ObjectId;
   @Prop({ type: Types.ObjectId }) incomeId?: Types.ObjectId;
   @Prop({ type: String, enum: NOTE_KINDS, default: 'comment' }) kind!: NoteKind;
-  @Prop({ type: String, required: true, trim: true, maxlength: 4000 }) text!: string;
+  @Prop({ type: String, default: '', trim: true, maxlength: 4000 }) text!: string;
+  @Prop({ type: [Types.ObjectId], default: undefined }) photoIds?: Types.ObjectId[];
   @Prop({ type: Types.ObjectId }) authorId?: Types.ObjectId;
   /** Имя автора, если его нет среди пользователей сайта (перенос из YouGile). */
   @Prop({ type: String, trim: true, maxlength: 120 }) authorName?: string;

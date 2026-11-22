@@ -7,7 +7,7 @@ type ObjectId = Types.ObjectId;
  * Готовность заказа к отгрузке — подсказка менеджеру, этап сам не меняется (решение 2026-10-28).
  * Считается из того, что уже есть: задачи проектирования, заявки снабжения, брони склада, позиции.
  */
-export interface ReadinessFacts { lines: number; openDesign: number; openRequests: number; activeReservations: number; issued: number; workTotal: number; openWork: number }
+export interface ReadinessFacts { lines: number; openDesign: number; openRequests: number; activeReservations: number; issued: number; workTotal: number; openWork: number; assemblyPending?: number }
 /** `state` — подробнее, чем `ok`: 'unknown' = проверить нечем (C068-1: броней и выдач по заказу не было — пункт не зелёный, но и не мешает). */
 export interface ReadinessCheck { key: string; label: string; ok: boolean; hint: string; href: string; state?: 'ok' | 'wait' | 'unknown' }
 export interface Readiness { ready: boolean; checks: ReadinessCheck[] }
@@ -27,7 +27,12 @@ export function readinessChecks(f: ReadinessFacts, key: string, firstId: string)
       : { key: 'issued', label: 'Материалы со склада выданы', ok: f.activeReservations === 0, hint: f.activeReservations ? `Не выдано: ${left(f.activeReservations, 'бронь', 'броней')}` : '', href: `#salesorders?open=${firstId}` },
   ];
   // «Изготовлено»: только если по заказу запускались задания «В работе»; нет заданий — пункта нет
-  if (f.workTotal > 0) checks.splice(2, 0, { key: 'made', label: 'Изделия изготовлены', ok: f.openWork === 0, hint: f.openWork ? `Ещё в работе: ${left(f.openWork, 'задание', 'заданий')}` : '', href: `#work?q=${encodeURIComponent(key)}` });
+  if (f.workTotal > 0) checks.splice(2, 0, {
+    key: 'made', label: 'Изделия изготовлены', ok: f.openWork === 0 && !f.assemblyPending,
+    hint: f.openWork ? `Ещё в работе: ${left(f.openWork, 'задание', 'заданий')}`
+      : f.assemblyPending ? `Завершите сборку изделий по позициям: ${f.assemblyPending}` : '',
+    href: `#work?q=${encodeURIComponent(key)}`,
+  });
   return { ready: checks.every((c) => c.ok), checks };
 }
 
@@ -48,7 +53,24 @@ export async function loadReadinessFacts(db: Db, groups: Map<string, ObjectId[]>
     const rows = await db.collection(coll).aggregate([{ $match: { [field]: { $in: all }, deletedAt: null, ...extra } }, { $group: { _id: `$${field}`, n: { $sum: 1 } } }]).toArray();
     for (const r of rows) { const f = out.get(owner.get(String(r._id)) ?? ''); if (f) f[into] += r.n as number; }
   };
+  const countAssembly = async () => {
+    const rows = await db.collection('worktasks').aggregate([
+      { $match: { orderId: { $in: all }, deletedAt: null, status: { $ne: 'cancelled' } } },
+      { $group: {
+        _id: { order: '$orderId', line: '$incomeId' },
+        hasModule: { $max: { $cond: [{ $ne: [{ $ifNull: ['$moduleWork', null] }, null] }, 1, 0] } },
+        wholeDone: { $max: { $cond: [{ $and: [{ $eq: [{ $ifNull: ['$moduleWork', null] }, null] }, { $eq: ['$status', 'done'] }] }, 1, 0] } },
+      } },
+      { $match: { hasModule: 1, wholeDone: 0 } },
+      { $group: { _id: '$_id.order', n: { $sum: 1 } } },
+    ]).toArray();
+    for (const row of rows) {
+      const f = out.get(owner.get(String(row._id)) ?? '');
+      if (f) f.assemblyPending = (f.assemblyPending ?? 0) + Number(row.n);
+    }
+  };
   await Promise.all([
+    countAssembly(),
     count('incomes', 'orderId', { cancelledAt: null }, 'lines'),
     count('designtasks', 'orderId', { status: { $in: ['queue', 'work', 'paused'] } }, 'openDesign'),
     count('worktasks', 'orderId', { status: { $ne: 'cancelled' } }, 'workTotal'),

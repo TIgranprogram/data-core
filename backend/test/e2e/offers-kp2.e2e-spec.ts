@@ -1,3 +1,7 @@
+import { promises as fs } from 'fs';
+import { join, basename } from 'path';
+import { Types } from 'mongoose';
+import { uploadsRoot } from '../../src/common/uploads/safe-path';
 import request from 'supertest';
 import sharp from 'sharp';
 import type { INestApplication } from '@nestjs/common';
@@ -127,5 +131,63 @@ describe('Offers KP-2 (шаблоны, предпросмотр, копия)', (
     });
     const r = await http().get(`/api/offers/${String(old.insertedId)}/pdf`).set(auth()).buffer(true).parse(pdf).expect(200);
     expect((r.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
+  });
+
+  it('номерной предпросмотр раскладки не пишет в КП, PATCH сохраняет версию и отклоняет старую правку', async () => {
+    const created = await http().post('/api/offers').set(auth()).send(body()).expect(201);
+    const url = '/api/offers/' + created.body.id;
+    await http().post(url + '/status').set(auth()).send({ status: 'sent' }).expect(200);
+    const before = (await http().get(url).set(auth()).expect(200)).body;
+    const changes = { expectedUpdatedAt: before.updatedAt, notes: 'Положение проверено',
+      layout: { blocks: ['notes', 'table', 'info', 'terms'], table: { gapMm: 3, xMm: 2 }, tableWidthMm: 163 },
+      items: [{ ...body().items[0], rowMm: 32, photoMm: 21, pageBreakBefore: true }] };
+    const preview = await http().post(url + '/preview').set(auth()).send(changes).buffer(true).parse(pdf).expect(200);
+    expect(preview.body.subarray(0, 4).toString()).toBe('%PDF');
+    expect(JSON.parse(preview.headers['x-offer-pages'])).toMatchObject({ count: 2, blocks: { document: 1, table: 2 }, rows: [2] });
+    expect((await http().get(url).set(auth()).expect(200)).body.updatedAt).toBe(before.updatedAt);
+    const saved = (await http().patch(url).set(auth()).send(changes).expect(200)).body;
+    expect(saved).toMatchObject({ layout: changes.layout, number: before.number, versionCount: 1 });
+    expect(saved.versions[0].snapshot.items[0].rowMm).toBeUndefined();
+    await http().patch(url).set(auth()).send(changes).expect(409);
+    await http().post(url + '/preview').set(auth()).send({ expectedUpdatedAt: saved.updatedAt,
+      layout: { blocks: ['table', 'table', 'info', 'terms'] } }).expect(400);
+  });
+
+  it('старые строки: печать и готовность используют читаемое фото изделия, снимок строки и прежнюю витрину', async () => {
+    await fs.mkdir(uploadsRoot(), { recursive: true });
+    const dir = await fs.mkdtemp(join(uploadsRoot(), 'c208-photo-'));
+    const files = ['main', 'gallery', 'legacy', 'explicit'];
+    const expected: Buffer[] = [];
+    const url = (name: string) => '/uploads/' + basename(dir) + '/' + name + '.png';
+    try {
+      for (const [n, name] of files.entries()) {
+        const path = join(dir, name + '.png');
+        await sharp({ create: { width: 24, height: 16, channels: 3, background: ['#ab1234', '#12ab34', '#1234ab', '#d08b15'][n] } }).png().toFile(path);
+        expected.push(await sharp(path).flatten({ background: '#ffffff' }).resize(240, 240, { fit: 'inside' }).jpeg({ quality: 80 }).toBuffer());
+      }
+      const main = new Types.ObjectId(), other = new Types.ObjectId(), deletedPhoto = new Types.ObjectId();
+      const product = new Types.ObjectId(), gallery = new Types.ObjectId(), legacy = new Types.ObjectId(), broken = new Types.ObjectId();
+      await db().collection('products').insertMany([
+        { _id: product, sku: 'c208-photo-main', mainPhotoId: main, photoIds: [other, main], deletedAt: null },
+        { _id: gallery, sku: 'c208-photo-gallery', photoIds: [deletedPhoto, other], deletedAt: null },
+        { _id: broken, sku: 'c208-photo-broken', mainPhotoId: deletedPhoto, deletedAt: null },
+      ]);
+      await db().collection('photos').insertMany([
+        { _id: main, storageUrl: url('main'), deletedAt: null }, { _id: other, storageUrl: url('gallery'), deletedAt: null },
+        { _id: deletedPhoto, storageUrl: url('gallery'), deletedAt: new Date() },
+      ]);
+      await db().collection('showcaseitems').insertOne({ _id: legacy, photo: { thumb: url('missing'), url: url('legacy') }, deletedAt: null });
+      const item = (productName: string, productId: Types.ObjectId, photoUrl?: string) => ({ productName, productId: String(productId), photoUrl, quantity: 1, unitPrice: 200 });
+      const items = [item('Главное', product), item('Из галереи', gallery, url('missing')), item('Прежний каталог', legacy),
+        item('Снимок строки', product, url('explicit')), item('Битое фото', broken, url('missing'))];
+      const record = (await http().post('/api/offers').set(auth()).send({ ...body(), items }).expect(201)).body;
+      const check = (await http().get('/api/offers/' + record.id + '/check').set(auth()).expect(200)).body;
+      expect(check.offer.problems.filter((s: string) => s.startsWith('Нет фото'))).toEqual(['Нет фото: «Битое фото»']);
+      const result = await http().get('/api/offers/' + record.id + '/pdf').set(auth()).buffer(true).parse(pdf).expect(200);
+      for (const jpeg of expected) expect(result.body.includes(jpeg)).toBe(true);
+    } finally {
+      await Promise.all(files.map((name) => fs.rm(join(dir, name + '.png'), { force: true })));
+      await fs.rmdir(dir);
+    }
   });
 });

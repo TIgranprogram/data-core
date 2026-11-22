@@ -71,7 +71,7 @@ export class WorkScheduleService {
     const orderIds = [...new Set(incomes.map((i) => i.orderId).filter(Boolean))] as Types.ObjectId[];
     const productIds = [...new Set(incomes.map((i) => i.productId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
     const [tasks, types, orders, designs, products] = await Promise.all([
-      this.db().collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, stepIndex: 1, route: 1, createdAt: 1 } }).sort({ createdAt: 1 }).toArray(),
+      this.db().collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, stepIndex: 1, route: 1, createdAt: 1, moduleWork: 1 } }).sort({ createdAt: 1 }).toArray(),
       this.workTypes(),
       orderIds.length ? this.db().collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionNo: 1, productionDeadline: 1, shipDate: 1 } }).toArray() : Promise.resolve([] as Doc[]),
       this.db().collection('designtasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $nin: ['done'] } }, { projection: { incomeId: 1 } }).toArray(),
@@ -79,7 +79,8 @@ export class WorkScheduleService {
     ]);
     const productName = new Map(products.map((p) => [String(p._id), String(p.name ?? '')]));
     const income = new Map(incomes.map((i) => [String(i._id), i as Doc]));
-    const task = new Map(tasks.map((t) => [String(t.incomeId), t as Doc])); // последнее задание перекрывает прежние
+    const task = new Map(tasks.filter((t) => !t.moduleWork).map((t) => [String(t.incomeId), t as Doc])); // последнее полное задание перекрывает прежние
+    const released = new Set(tasks.filter((t) => t.moduleWork).map((t) => [t.incomeId, t.moduleWork.lineId].join(':')));
     const typeName = new Map(types.map((t) => [String(t._id), String(t.name ?? '')]));
     const hueOf = new Map(types.map((t) => [String(t._id), workTypeHue(String(t._id), t.accentHue as number | null | undefined)]));
     const deadlineOf = new Map(orders.map((o) => [String(o._id), barDeadline(o as Doc)]));
@@ -94,7 +95,10 @@ export class WorkScheduleService {
       const partName = new Map(parts.map((p) => [String(p._id), p.name]));
       const partCatalog = new Map(parts.map((p) => [String(p._id), idOf(p.partId)]));
       const prodName = (inc.productId && productName.get(String(inc.productId))) || String(inc.title ?? '');
-      const steps = ((plan.steps as StepRow[]) ?? []).filter((s) => typeName.has(String(s.workTypeId)));
+      const partLine = new Map(parts.map((p) => [String(p._id), p.lineId]));
+      const steps = ((plan.steps as StepRow[]) ?? []).filter((s) =>
+        typeName.has(String(s.workTypeId)) && !released.has([plan.incomeId, s.lineId ?? partLine.get(String(s.partRowId))].join(':')),
+      );
       const anchor = plan.launchedAt ? dayOf(new Date(plan.launchedAt)) : today;
       const sched = scheduleSteps(steps.map((s) => ({
         id: String(s._id), part: s.partRowId ? String(s.partRowId) : null, hours: (s.hours ?? 0) * qty,

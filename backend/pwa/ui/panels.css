@@ -251,8 +251,6 @@
 .dn-dots { min-width: 32px; min-height: 32px; padding: 0; }
 .dn-form { position: sticky; bottom: 0; background: var(--surface); border-top: 1px solid var(--border); padding: var(--s2) 0; z-index: 2; }
 .dn-row { display: flex; justify-content: space-between; align-items: center; gap: var(--s2); margin-top: 6px; }
-.dn-ask { margin-top: 0; min-height: 44px; }
-.dn-ask input { width: 20px; height: 20px; flex: none; }
 .dn-row .btn-primary { min-height: 44px; }
 @media (max-width: 700px) { .dc-prod .fields { grid-template-columns: 1fr; gap: 2px; } .dc-prod .fields dd { margin-bottom: var(--s2); } .actions .btn { min-height: 44px; } }
 
@@ -342,11 +340,9 @@ body[data-sec] .page-head .ico { color: var(--sec); }
 .pgal-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pgal-th[aria-current="true"] { border-color: var(--primary); }
 .pgal-add { border: 1px dashed var(--border); }
-.pgal-arrow:focus-visible, .pgal-th:focus-visible, .pgal-img:focus-visible, .dn-photoline:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.pgal-arrow:focus-visible, .pgal-th:focus-visible, .pgal-img:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .pgal-empty { height: 120px; width: 100%; border: 1px dashed var(--border); cursor: pointer; font: inherit; }
-.dn-photoline { display: block; background: none; border: 0; padding: 4px 0 4px 32px; min-height: 32px; text-align: left; font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; }
-.dn-photoline:hover { color: var(--link); }
-@media (max-width: 700px) { .pgal-stage { max-height: none; } .pgal-th { width: 56px; height: 56px; } .dn-photoline { min-height: 44px; } }
+@media (max-width: 700px) { .pgal-stage { max-height: none; } .pgal-th { width: 56px; height: 56px; } }
 
 /* Заказ производства: группа договора в карточке заказа (ПЗ-2) */
 .so-grp { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin: var(--s3) 0; overflow: hidden; }

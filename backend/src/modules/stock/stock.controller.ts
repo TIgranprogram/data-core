@@ -52,6 +52,7 @@ export class StockController {
   @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   @ApiQuery({ name: 'zoneId', required: false, description: 'склад из GET /stock/zones; чужой — 403' })
   @ApiQuery({ name: 'held', required: false, description: '1 — только закупаемые позиции с положительным физическим остатком, включая полностью забронированные' })
+  @ApiQuery({ name: 'withParts', required: false, description: '0 — исключить детали и сортаменты, сохранив позиции с нулевым остатком' })
   @ApiQuery({ name: 'ids', required: false, description: 'только эти позиции (id через запятую, ≤ 2000) — кнопки-признаки «Остатков» передают точный набор' })
   list(@Query() q: Record<string, string>, @StockScoped() own: StockScope | null) {
     const scope = narrowToZone(own, q.zoneId);
@@ -127,8 +128,10 @@ export class StockController {
   @Post('items')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.created', entityType: 'Material' })
-  async create(@Body() dto: StockItemDto, @StockScoped() scope: StockScope | null) {
-    return this.stock.createItem(scope ? await this.stock.scopeNewItem(dto, scope) : dto, scope);
+  @ApiQuery({ name: 'zoneId', required: false, description: 'Создать новую позицию в категории выбранной доступной зоны; дубль имени — 409' })
+  create(@Body() dto: StockItemDto, @StockScoped() scope: StockScope | null, @Query('zoneId') zoneId?: string) {
+    const target = String(zoneId ?? '').trim();
+    return this.stock.createItem(dto, narrowToZone(scope, target), Boolean(target));
   }
 
   /**

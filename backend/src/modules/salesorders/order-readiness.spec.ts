@@ -33,6 +33,12 @@ describe('готовность заказа', () => {
     expect(readinessChecks({ ...ok, issued: 0, activeReservations: 1 }, 'k', 'id').checks.find((x) => x.key === 'issued')).toMatchObject({ ok: false, hint: 'Не выдано: 1 бронь' });
   });
 
+  it('готовый модуль не завершает сборку изделия', () => {
+    const result = readinessChecks({ ...ok, workTotal: 1, assemblyPending: 1 }, 'k', 'id');
+    expect(result.ready).toBe(false);
+    expect(result.checks.find((item) => item.key === 'made')?.hint).toBe('Завершите сборку изделий по позициям: 1');
+  });
+
   it('без позиций — не готов', () => {
     expect(readinessChecks(EMPTY_FACTS, 'k', 'id').ready).toBe(false);
   });
@@ -42,7 +48,7 @@ describe('готовность заказа', () => {
     const calls: string[] = [];
     const db = { collection: (c: string) => ({ aggregate: () => ({ toArray: async () => { calls.push(c); return c === 'designtasks' ? [{ _id: 'b', n: 2 }] : c === 'incomes' ? [{ _id: 'a', n: 1 }, { _id: 'b', n: 4 }] : []; } }) }) };
     const f = await loadReadinessFacts(db as never, new Map([['K1', [ids[0]]], ['K2', [ids[1]]]]));
-    expect(calls.sort()).toEqual(['designtasks', 'incomes', 'reservations', 'reservations', 'stockmovements', 'supplyrequests', 'worktasks', 'worktasks']);
+    expect(calls.sort()).toEqual(['designtasks', 'incomes', 'reservations', 'reservations', 'stockmovements', 'supplyrequests', 'worktasks', 'worktasks', 'worktasks']);
     expect(f.get('K1')).toEqual({ lines: 1, openDesign: 0, openRequests: 0, activeReservations: 0, issued: 0, workTotal: 0, openWork: 0 });
     expect(f.get('K2')).toEqual({ lines: 4, openDesign: 2, openRequests: 0, activeReservations: 0, issued: 0, workTotal: 0, openWork: 0 });
   });

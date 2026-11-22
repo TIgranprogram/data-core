@@ -123,6 +123,17 @@ export class OffersController {
     return new StreamableFile(r.buf);
   }
 
+  @Post(':id/preview')
+  @HttpCode(200)
+  @Roles('admin', 'manager')
+  async previewEdited(@Param('id') id: string, @Body() dto: UpdateOfferDto, @Res({ passthrough: true }) res: Response, @CurrentUser() user: AuthenticatedUser) {
+    if (!canSeeMoney(user)) throw new ForbiddenException('Недостаточно прав для просмотра денежного документа');
+    const r = await this.offers.previewEdited(id, dto);
+    res.set('X-Offer-Pages', JSON.stringify(r.pageMap));
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="offer.pdf"; filename*=UTF-8''${encodeURIComponent(r.filename)}` });
+    return new StreamableFile(r.buf);
+  }
+
   @Get(':id')
   @Roles('admin', 'director', 'manager', 'user')
   get(@Param('id') id: string) {
@@ -247,6 +258,7 @@ export class OffersController {
   async pdf(@Param('id') id: string, @Res({ passthrough: true }) res: Response, @CurrentUser() user: AuthenticatedUser) {
     if (!canSeeMoney(user)) throw new ForbiddenException('Недостаточно прав для просмотра денежного документа');
     const r = await this.offers.pdf(id);
+    res.set('X-Offer-Pages', JSON.stringify(r.pageMap));
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="offer.pdf"; filename*=UTF-8''${encodeURIComponent(r.filename)}` });
     return new StreamableFile(r.buf);
   }

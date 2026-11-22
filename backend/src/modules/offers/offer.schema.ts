@@ -11,6 +11,10 @@ export type OfferStatus = (typeof OFFER_STATUSES)[number];
 /** Строка КП: изделие каталога необязательно (бывает свободный текст). */
 @Schema({ _id: false })
 export class OfferItem {
+  @Prop({ type: String, enum: ['product', 'delivery'] }) lineKind?: string;
+  @Prop({ type: Boolean }) pageBreakBefore?: boolean;
+  @Prop({ type: Number, min: 8, max: 42 }) photoMm?: number;
+  @Prop({ type: Number, min: 7, max: 65 }) rowMm?: number;
   @Prop({ type: String, maxlength: 100 }) sourceRowKey?: string;
   @Prop({ type: SourceLineSchema }) sourceLine?: Record<string, unknown>;
   @Prop({ type: String, enum: ['included', 'excluded'] }) scopeState?: 'included' | 'excluded';
@@ -56,6 +60,7 @@ const OfferVersionSchema = SchemaFactory.createForClass(OfferVersion);
  */
 @Schema({ timestamps: true, collection: 'commercialoffers' })
 export class CommercialOffer {
+  @Prop({ type: Object }) layout?: { blocks: string[] };
   /** Внутренний журнал возобновления явной конверсии; наружу не выдаётся. */
   @Prop({ type: Object }) orderConversion?: Record<string, unknown>;
   @Prop({ type: String, maxlength: 100 }) sourceNumber?: string | null;

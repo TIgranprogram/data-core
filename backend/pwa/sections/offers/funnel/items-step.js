@@ -9,16 +9,23 @@ import { findProducts } from './api.js';
  */
 const many = (a) => Array.isArray(a) && a.length > 1;
 
-export function itemsStep(S, { onChange, onDone }) {
+export function offerProductSearch(onPick) {
   const found = stack();
-  const list = stack();
-  const sb = searchBox({ placeholder: 'Название или артикул изделия', minLength: 2, onSearch: async (q) => {
+  const sb = searchBox({ label: 'Поиск по каталогу', placeholder: 'Название или артикул изделия', minLength: 2, onSearch: async (q) => {
     if (q.trim().length < 2) { found.replaceChildren(); return; }
     const items = await findProducts(q.trim());
+    if (sb.input.value.trim() !== q.trim()) return;
     found.replaceChildren(...(items.length
-      ? items.map((p) => row({ title: p.name, meta: [p.sku, p.price ? money(p.price) : 'без цены'].filter(Boolean).join(' · '), onClick: () => add(p) }))
+      ? items.map((p) => row({ title: p.name, meta: [p.sku, p.price ? money(p.price) : 'без цены'].filter(Boolean).join(' · '), onClick: () => { sb.clear(); onPick(p); } }))
       : [hint('Ничего не найдено — уточните название или артикул.')]));
   } });
+
+  return stack(sb.el, found);
+}
+
+export function itemsStep(S, { onChange, onDone }) {
+  const list = stack();
+  const picker = offerProductSearch(add);
 
   function add(p) {
     const ex = S.lines.find((l) => l.id === p.id);
@@ -34,7 +41,7 @@ export function itemsStep(S, { onChange, onDone }) {
         photoUrl: p.photo?.thumb || p.photo?.url || '', description: String(p.description || '').trim(),
       });
     }
-    sb.input.value = ''; found.replaceChildren(); paint(); onChange();
+    paint(); onChange();
   }
 
   const warn = hint('', 'danger');
@@ -55,7 +62,7 @@ export function itemsStep(S, { onChange, onDone }) {
     }).el : null].filter(Boolean)));
     done.hidden = !S.lines.length; empty.hidden = !!S.lines.length; warn.hidden = true;
   }
-  const el = section({ title: 'Изделия', open: true, tone: 'main', body: [stack(sb.el, found, empty, list, warn, done)] });
+  const el = section({ title: 'Изделия', open: true, tone: 'main', body: [stack(picker, empty, list, warn, done)] });
   paint();
 
   /** Шаг 3: строки, у которых несколько цветов или размеров. Нет таких — null, шаг пропущен. */

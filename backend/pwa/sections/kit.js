@@ -8,6 +8,8 @@ const SRC_DEMO = { all: 'Общий — для всех изделий', type: '
 import { pad, hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, headbar, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, folderTile, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
 import { gallery } from '../ui/kit/card-gallery.js';
+import { taskDiscussion } from '../ui/kit/task-discussion.js';
+import { taskPhotos } from '../ui/kit/task-photos.js';
 import { atlasMap } from '../ui/kit/atlas-map.js';
 import { buildAtlasModel, traceAtlas } from './atlas-model.js';
 import { infoCard, nextCard, warnCard, positionsTable, boardCard, footerBar } from '../ui/kit/screens/blocks.js';
@@ -20,7 +22,6 @@ const PIC = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://
 const block = (title, note, ...kids) => h('section', { class: 'panel' }, h('h2', null, title), note ? h('p', { class: 'k-note' }, note) : null, ...kids);
 const sample = (...kids) => h('div', { class: 'k-sample' }, ...kids);
 const cards = (size) => TONES.map((tone) => card({ size, tone, title: 'Заголовок ' + tone, meta: 'Мета · 12 шт', badges: badge(SUPPLY_STATUS, 'ordered'), onClick: () => toast('Клик: ' + tone) }));
-
 function filterFacets() {
   const f = filter({ mode: 'facets' });
   f.update({});
@@ -33,7 +34,6 @@ function filterFunnel() {
   return f.el;
 }
 
-/** Локальная воронка (onChange, multi): выбор не в адресе — для панелей-мастеров (воронка паспорта). */
 function filterFunnelLocal() {
   const vals = { kind: [{ value: 'a', label: 'Силовой', n: 61 }, { value: 'b', label: 'Кардио', n: 19 }], muscle: [{ value: 'm1', label: 'Спина', n: 17 }, { value: 'm2', label: 'Пресс', n: 5 }, { value: 'm3', label: 'Ноги', n: 15 }] };
   const f = filter({ mode: 'funnel', title: 'Локальная воронка, несколько значений', steps: [{ key: 'kind', label: 'Вид', always: true }, { key: 'muscle', label: 'Мышцы', always: true, multi: true }],
@@ -351,6 +351,9 @@ export const kit = {
         })()),
       block('Фото в карточке · gallery (C118 W7)', 'Большое фото + миниатюры, ★ — главное. «Убрать фото» — кнопка под зоной загрузки (card.js), только при наличии фото и права правки; в витрине без правки.',
         sample(gallery([{ url: '/x.png' }], null, null))),
+      block('Обсуждение и фото задачи · taskDiscussion, taskPhotos', 'Обсуждение показывает текст и приложения. Главное фото задачи отмечено в отдельном блоке.',
+        taskDiscussion({ open: true, loadNotes: async () => [{ id: 'sample', text: 'Размер согласован.', author: { name: 'Учебный сотрудник', initials: 'УС' }, createdAt: new Date(), photos: [{ url: '/app/icon.svg' }] }] }),
+        taskPhotos({ initial: { photos: [{ url: '/app/icon.svg' }] } })),
       block('Информационная карточка · infoCard (C118 W2)', 'infoCard({ facts, more, max = 6 }) — сведения объекта: до 6 строк, остальное в «Подробнее»; пустые значения не показываются. Заголовок-сущность и этап (один раз) — в шапке панели через screenCard. Где используется: карточка заказа.',
         sample(infoCard({ facts: [['Заказчик', 'ООО «Ромашка»'], ['Наша компания', 'Тест-Фирма'], ['Срок', '20.11.2026'], ['Сумма', '120 000 ₽ · оплачено 40 000 ₽'], ['Приоритет', ''], ['Склад', 'Основной'], ['Менеджер', 'Иванов']], more: [['Срок изготовления, дн.', 14]] }))),
       block('Функциональная карточка · nextCard (C118 W2)', 'nextCard({ text, tone, primary: { label, run } }) — «Что дальше» и единственная главная кнопка (.btn-primary); пока run идёт, кнопка занята. Нет primary — только фраза.',

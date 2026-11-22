@@ -801,6 +801,7 @@ Write-paths, которые должны быть all-or-nothing, использ
 | completedAt, completedBy | Date, ObjectId | при done; пустой `products.designerId` получает исполнителя |
 | openIncomeId | ObjectId | замок «одна открытая задача на позицию» (= incomeId, пока не done и не удалена), unique sparse |
 | photoIds | [ObjectId] → photos | фото задачи (до 20); необязательное |
+| moduleReady | [{lineId, stamp}] | готовность вхождения модуля. Метка связана с актуальным составом и видами работ |
 | stickers | Mixed `{<_id стикера>: число \| id состояния}` | значения стикеров, пишутся точечно; необязательное |
 | deletedAt | Date | корзина |
 
@@ -880,7 +881,7 @@ C132: `textSnapshot.refs` хранит устойчивую запись ист�
 **`categories.passportCategory`** (PASSPORT-CATEGORY, 2026-10-29): необязательный код типа паспорта (в интерфейсе «Тип паспорта», ключ passportCategory) группы/раздела (DIO, DSP, TRN, WRK, BLG). Изделие наследует: своя `products.passportDefaults.passportCategory` (вручную, главнее) → группа → раздел → запасной `passportCategories.catalogNames`. CRM поле не читает.
 
 ### `WorkTask` (задание «В работе») — коллекция `worktasks`, модуль `modules/work` (AUDIT-PRODUCTION шаги 0–2, 2026-10-29)
-Одна карточка на позицию заказа целиком; шаги — виды работ маршрута изделия. Только data-core.
+Одна общая карточка на позицию заказа и по отдельному заданию для каждого переданного модуля. Шаги — сохранённый маршрут изделия или модуля. Только data-core.
 
 | Поле | Тип | Заметки |
 |--|--|--|
@@ -893,8 +894,13 @@ C132: `textSnapshot.refs` хранит устойчивую запись ист�
 | assigneeId, note | ObjectId → persons, string | исполнитель (необязательно), примечание |
 | startedAt, completedAt, completedBy | Date, Date, ObjectId | |
 | moves | [{at, by?, from, to}] | история движения, последние 100 |
-| openIncomeId | ObjectId | замок «одно открытое задание на позицию» (= incomeId, пока не done/cancelled/удалено), unique sparse |
+| openIncomeId | ObjectId | уникальный ключ для активного задания на позицию целиком |
+| moduleWork, moduleKey | object, string | снимок модуля с исходной D-задачей, вхождением в составе, количеством и деталями. Уникальный разреженный индекс по moduleKey предотвращает повторный выпуск |
+| hold | object | пауза или нехватка материалов с причиной |
+| photoIds | [ObjectId] → photos | первое фото показывается как главное |
 | deletedAt | Date | корзина |
+
+Обсуждения задач хранятся в `designnotes` и `worknotes`. Фото, приложенные к сообщению, указаны в `photoIds` сообщения. Самостоятельные загрузки входят в фото и историю задачи.
 
 **Новые необязательные поля в общих с CRM коллекциях** (CRM их не читает и не пишет; существующие поля не менялись):
 - `persons.workTypeIds[]` → `worktypes` — несколько видов работ сотрудника. Старое `workTypeId` пишется синхронно первым значением; нового нет — читать старое (`common/catalog/person-work-types.ts`). Правка — `PATCH /dicts/persons/:id` с `workTypeIds: [id…]` (форма со старым одиночным `workTypeId` чужие виды работ не стирает: меняется только если первое значение другое).
@@ -906,6 +912,8 @@ C132: `textSnapshot.refs` хранит устойчивую запись ист�
 ### `CommercialOffer` (Коммерческое предложение) — коллекция `commercialoffers`, модуль `modules/offers` (КП-1)
 
 Только data-core (CRM-овские `quotations` не трогаем). `number` («КП-год-n»), `date`, `validUntil?`, `companyId` (наша компания), `customer` + `counterpartyId?`, `title?`, `status` (`draft|sent|accepted|paid|rejected|cancelled`), `items[]` {`productId?`, `productName`, `productSku?`, `description?`, `color?`, `size?`, `photoUrl?`, `quantity`, `unit`, `unitPrice?`, `total`}, `total`, `prepaymentPercent?`, `productionDays?`, `deliveryDays?`, `terms?`, `notes?`, `bg1Id?`/`bg2Id?`, `orderId?` (этап 2), `statusHistory[]` {status, at, by}, `deletedAt`.
+
+Редактор C208 сохраняет порядок и положение блоков в `layout`, ширину таблицы в `layout.tableWidthMm`, тип строки в `lineKind`, размеры фото и строки в `photoMm` и `rowMm`, явный разрыв страницы в `pageBreakBefore`. Все поля необязательны.
 
 ### `OfferBackground` (Фон КП) — коллекция `offerbackgrounds`
 

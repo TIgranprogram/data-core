@@ -203,7 +203,7 @@ async function fileFetch(path, { query, fallback = 'file', timeout = 180000, met
   const name = m ? decodeURIComponent(m[1]) : fallback;
   let failed = []; // Р5: заголовок X-Failed-Passports = encodeURIComponent(JSON [{passportNumber,name,reason}])
   try { const hv = res.headers.get('x-failed-passports'); if (hv) failed = JSON.parse(decodeURIComponent(hv)); } catch { /* заголовок не разобран — PDF всё равно отдаём */ }
-  return { blob: await res.blob(), name, failed };
+  return { blob: await res.blob(), name, failed, headers: res.headers };
 }
 
 /** Проверка пароля текущего пользователя → токен подтверждения. Неверный пароль (401/403) не выбрасывает из системы. */

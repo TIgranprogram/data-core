@@ -2,8 +2,8 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { canFollow } from '../core/route-access.js';
 import { current } from '../core/router.js';
-import { badge, button, hint, section, sku, stack, toast } from '../ui/kit/index.js';
-import { openZoom } from '../ui/kit/gallery.js';
+import { badge, hint, section, sku, stack } from '../ui/kit/index.js';
+import { viewAsActive } from '../core/view-as.js';
 import { screenCard } from '../ui/kit/screens/card.js';
 import { positionsTable } from '../ui/kit/screens/blocks.js';
 import { askAssignee, clean } from './design-data.js';
@@ -78,32 +78,21 @@ function lazyBlock(title, open, make, count, tone = 'neutral') {
   return block;
 }
 
-function relatedBlocks(row, ctx, { discussionBlock, photosBlock, stickersBlock, visibleStickers }) {
+function relatedBlocks(row, ctx, { discussionBlock: discussion, photosBlock, stickersBlock, visibleStickers }) {
   const tab = current().params.tab;
-  const pictures = () => {
-    const photos = row.photos?.filter((photo) => photo.url) || [];
-    return [...new Map((photos.length ? photos : row.photo ? [{ url: row.photo }] : []).map((photo) => [photo.url, photo])).values()];
-  };
-  const talk = lazyBlock('Обсуждение', tab === 'talk', (body) => body.append(discussionBlock(row, ctx, () => {
-    const pics = pictures();
-    if (pics.length) openZoom(pics, Math.max(0, pics.findIndex((photo) => photo.source === 'note')));
-  })), row.notesCount || undefined, row.openQuestions ? 'warn' : 'neutral');
-  const media = lazyBlock('Фото и стикеры', tab === 'media', (body) => {
-    const can = session.canEdit;
-    if (pictures().length) body.append(button({ label: 'Открыть галерею', size: 'S', onClick: () => {
-      const pics = pictures();
-      if (pics.length) openZoom(pics);
-    } }));
+  const talk = discussion(row, ctx, { open: tab === 'talk' });
+  const media = lazyBlock('Фото и стикеры', tab !== 'talk', (body) => {
+    const can = session.canEdit && !viewAsActive();
     body.append(photosBlock(row, ctx, can));
     visibleStickers().then((list) => {
       const stickers = stickersBlock(row, list.filter((item) => item.kind !== 'system'), ctx, can);
       if (stickers) body.append(stickers);
     });
-  }, pictures().length || undefined);
-  return [talk, media];
+  });
+  return [media, talk];
 }
 
-export function designTaskCard({ title, dueNode, prioBadge, status, moveTask, people, blocks }) {
+export function designTaskCard({ title, dueNode, prioBadge, status, moveTask, people, blocks, composition }) {
   const move = (to, label) => ({ label, run: async (row, ctx) => {
     const saved = await moveTask(row, to);
     if (saved) ctx.setRow(saved);
@@ -118,7 +107,7 @@ export function designTaskCard({ title, dueNode, prioBadge, status, moveTask, pe
       const step = row.status === 'paused' && !row.assigneeId ? ['queue', 'Вернуть на распределение'] : steps[row.status];
       return { text: productionText(row), primary: step && session.canEdit ? { label: step[1], run: () => move(...step).run(row, ctx) } : null };
     },
-    body: (row, ctx, next) => stack(brief(row, title), ...next,
+    body: (row, ctx, next) => stack(brief(row, title), ...next, composition?.(row),
       (row.status === 'paused' || row.status === 'cancelled') && clean(row.pauseReason) ? hint(row.pauseReason, 'warn') : null,
       ...relatedBlocks(row, ctx, blocks)),
     menu: (row) => [
@@ -127,11 +116,6 @@ export function designTaskCard({ title, dueNode, prioBadge, status, moveTask, pe
         const id = await askAssignee(await people(), { okText: 'Назначить' });
         if (id) ctx.setRow(await api('/design-tasks/' + currentRow.id, { method: 'PATCH', body: { assigneeId: id } }));
       } },
-      row.orderId && !(row.qty ?? row.spec?.qty) ? { label: 'Уточнить количество у менеджера', run: async (currentRow, ctx) => {
-        await api('/design-tasks/' + currentRow.id + '/notes', { method: 'POST', body: { text: 'Уточните, пожалуйста, сколько изделий нужно изготовить.', kind: 'question' } });
-        toast('Вопрос менеджеру отправлен');
-        await ctx.reload();
-      } } : null,
       ['queue', 'work'].includes(row.status) && move('paused', 'Приостановить'),
       row.status === 'paused' && move('done', 'Завершить проектирование'),
       (row.status === 'work' || row.status === 'cancelled' || row.status === 'paused' && row.assigneeId) && move('queue', 'Вернуть на распределение'),
@@ -139,5 +123,7 @@ export function designTaskCard({ title, dueNode, prioBadge, status, moveTask, pe
       ['queue', 'work', 'paused'].includes(row.status) && { ...move('cancelled', 'Отменить задачу'), danger: true },
     ],
   });
-  return { ...view, editable: () => false };
+  return { ...view, editable: () => false, historyItems: async (row, items) => [
+    ...items.filter((item) => item.action !== 'designnote.created'), ...await blocks.designPhotoHistory(row).catch(() => []),
+  ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) };
 }

@@ -200,6 +200,7 @@ export const COLLECTIONS: Record<string, CollectionMeta> = {
   offerbackgrounds: { category: 'money', kind: 'core', doc: 'Фоны PDF коммерческих предложений (страница 1 / 2+), файлы в uploads/offers.' },
   passportlooks: { category: 'money', kind: 'core', doc: 'Вид паспорта нашей фирмы (C076): фон обложки и страниц, цвет, отступы. Файлы в uploads/passport-look. Нет картинок — PDF как раньше.' },
   worktasks: { category: 'money', kind: 'core', doc: 'Задания «В работе» (W-N): позиция заказа целиком, маршрут изделия (снимок шагов), текущий шаг, исполнитель, статус. Раздел «В работе» приложения.' },
+  worknotes: { category: 'money', kind: 'core', doc: 'Обсуждение заданий «В работе»: автор, сообщение и фотографии к сообщению.' },
   supplytasks: { category: 'crm-sales', kind: 'crm', doc: 'Задачи снабжения. Таблица CRM kppdf.' },
   cart_items: { category: 'crm-sales', kind: 'crm', doc: 'Позиции корзины (e-commerce). Таблица CRM kppdf.' },
   cart_sessions: { category: 'crm-sales', kind: 'crm', doc: 'Сессии корзины. Таблица CRM kppdf.' },

@@ -25,15 +25,15 @@ export const zoneOf = (page: number, zones?: Zones): Zone => {
  * Строка не разрывается; «Итого» не остаётся один: не влез — на новую страницу уходит и последняя строка.
  * Возвращает индексы строк по страницам (`pages.length` ≥ 1) и y конца таблицы на последней странице.
  */
-export function paginateRows(heights: number[], startY: number, headH: number, tailH: number, zones?: Zones): { pages: number[][]; endY: number } {
+export function paginateRows(heights: number[], startY: number, headH: number, tailH: number, zones?: Zones, startPage = 0, breaks: ReadonlySet<number> = new Set()): { pages: number[][]; endY: number } {
   const pages: number[][] = [[]];
   let y = startY + headH;
-  const bottom = (p: number) => zoneOf(p, zones).bottom;
+  const bottom = (p: number) => zoneOf(startPage + p, zones).bottom;
   heights.forEach((h, i) => {
     const p = pages.length - 1;
-    if (y + h > bottom(p) && pages[p].length) {
+    if (breaks.has(i) || y + h > bottom(p)) {
       pages.push([]);
-      y = zoneOf(p + 1, zones).top + headH;
+      y = zoneOf(startPage + p + 1, zones).top + headH;
     }
     pages[pages.length - 1].push(i);
     y += h;
@@ -43,12 +43,12 @@ export function paginateRows(heights: number[], startY: number, headH: number, t
     const last = pages[p].pop()!;
     pages.push([last]);
     p += 1;
-    y = zoneOf(p, zones).top + headH + heights[last];
+    y = zoneOf(startPage + p, zones).top + headH + heights[last];
   } else if (y + tailH > bottom(p)) {
     // одна строка на странице и «Итого» не влезает: «Итого» переносится вместе с началом блока условий на следующую
     p = pages.length;
     pages.push([]);
-    y = zoneOf(p, zones).top;
+    y = zoneOf(startPage + p, zones).top;
   }
   return { pages, endY: y };
 }

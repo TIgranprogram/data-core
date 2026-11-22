@@ -77,6 +77,16 @@ export const vatAmount = (total: number, rate: number): number => round2((Number
 /** Цена строки с наценкой, % (отрицательная — скидка): округление до рубля. */
 export const markedUp = (price: number, percent: number): number => Math.round((Number(price) * (100 + percent)) / 100);
 
+/** Старые свободные строки доставки сохраняют цену, классификацию можно уточнить в редакторе. */
+export function offerLineKind(row: { lineKind?: string; productName?: string; productId?: unknown }): 'product' | 'delivery' {
+  if (row.lineKind === 'product' || row.lineKind === 'delivery') return row.lineKind;
+  return !row.productId && /^(?:доставка|транспортные услуги|услуги (?:по )?доставк[еи])(?=$|[^а-яё])/iu.test(row.productName?.trim() || '') ? 'delivery' : 'product';
+}
+
+export function markedLinePrice(row: { lineKind?: string; productName?: string; productId?: unknown; unitPrice?: number | null }, pct: number) {
+  return row.unitPrice == null || offerLineKind(row) === 'delivery' || !pct ? row.unitPrice : markedUp(row.unitPrice, pct);
+}
+
 /** Срок действия в календарных днях: validUntil − date; нет даты или не больше нуля — null. */
 export function validDays(date: Date | string, validUntil?: Date | string | null): number | null {
   if (!validUntil) return null;

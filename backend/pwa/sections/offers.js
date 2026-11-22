@@ -1,3 +1,4 @@
+import { canOpenOfferEditor, offerEditorButton } from './offers/editor.js';
 import { api, apiFile, apiBlob, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, parseNum } from '../core/format.js';
@@ -28,7 +29,6 @@ const day = (v) => String(v || '').slice(0, 10);
 const num = (v) => { const n = parseNum(String(v ?? '')); return Number.isFinite(n) ? n : 0; };
 const lineSum = (l) => Math.round(num(l.quantity) * num(l.unitPrice) * 100) / 100;
 
-// ---------- фоны страниц ----------
 let bgP = null;
 const backgrounds = () => (bgP ||= api('/offers/backgrounds').then((r) => (Array.isArray(r) ? r : r?.items || [])).catch(() => { bgP = null; return []; }));
 
@@ -57,7 +57,6 @@ function bgWidget(page, initial, companies) {
   };
 }
 
-// ---------- строки ----------
 /** Таблица строк КП: название*, кол-во*, ед., цена, цвет, размер. Значение — JSON списка. */
 function itemsWidget(initial, ctx) {
   const rows = (Array.isArray(initial) ? initial : []).map((l) => ({ ...l }));
@@ -112,7 +111,7 @@ function itemsWidget(initial, ctx) {
         const o = { productName: String(l.productName || '').trim(), quantity: num(l.quantity), unit: String(l.unit || '').trim() || 'шт' };
         if (String(l.unitPrice ?? '') !== '' && num(l.unitPrice) > 0) o.unitPrice = num(l.unitPrice);
         for (const k of ['productId', 'productSku', 'description', 'color', 'size', 'photoUrl']) if (l[k]) o[k] = String(l[k]).trim();
-        for (const k of ['sourceRowKey', 'sourceLine', 'scopeState', 'exclusionReason', 'exclusionConfirmedAt', 'exclusionEventDate', 'matchStatus']) if (l[k] !== undefined) o[k] = l[k];
+        for (const k of ['sourceRowKey', 'sourceLine', 'scopeState', 'exclusionReason', 'exclusionConfirmedAt', 'exclusionEventDate', 'matchStatus', 'lineKind', 'photoMm', 'rowMm', 'pageBreakBefore']) if (l[k] !== undefined) o[k] = l[k];
         return o;
       }));
     },
@@ -126,7 +125,6 @@ function itemsWidget(initial, ctx) {
   };
 }
 
-// ---------- форма ----------
 let formItems = null; // виджет строк открытой формы — для подсветки при сохранении
 /** Наши фирмы для КП — с «только для КП» (Приват-деал и т. п.); в Деньгах их нет. */
 const ourCompanies = () => api('/offers/companies').then((r) => (Array.isArray(r) ? r : r?.items || [])).catch(() => []);
@@ -244,7 +242,6 @@ const toBody = (v) => {
 };
 const strip = (b) => Object.fromEntries(Object.entries(b).filter(([, x]) => x !== undefined && x !== ''));
 
-// ---------- карточка ----------
 const pdf = async (r) => { const name = await apiFile(`/offers/${r.id}/pdf`, { fallback: `КП-${r.number || 'без-номера'}.pdf` }); toast(`Скачан: ${name}`); };
 const setStatus = async (r, ctx, status) => {
   const res = await withReason((reason) => api(`/offers/${r.id}/status`, { method: 'POST', body: { status, ...(reason ? { reason } : {}) } }), 'Сменить статус КП');
@@ -282,6 +279,7 @@ async function copyDialog(r) {
 const actions = (r) => {
   const to = (status, label, extra = {}) => ({ label, run: (row, ctx) => setStatus(row, ctx, status), ...extra });
   const out = [{ label: 'Предпросмотр', run: (row) => preview(row) }, { label: '⇩ Скачать PDF', run: (row) => pdf(row), primary: r.status === 'paid' || r.status === 'rejected' || r.status === 'cancelled' }];
+  if (canOpenOfferEditor(r)) out.unshift({ label: 'Изменить реквизиты и состав', run: (_row, ctx) => ctx.edit() });
   if (r.orderId) out.unshift({ label: r.legal ? 'Открыть договор' : 'Открыть заказ', primary: true, run: () => go('salesorders', { open: r.orderId }) });
   else if (['accepted', 'paid'].includes(r.status)) out.push({ label: 'Сделать заказ', primary: r.status === 'accepted', run: (row, ctx) => makeOrder(row, ctx) });
   out.push({ label: 'Копия для другой фирмы', more: true, run: () => copyDialog(r) });
@@ -349,7 +347,7 @@ export const offers = {
       side: (r) => [badge(STATUS, r.status)],
     },
   },
-  card: screenCard({
+  card: { ...screenCard({
     title: (r) => r.number || 'КП',
     sub: (r) => [r.companyName, r.customer].filter(Boolean).join(' · '),
     side: (r) => [date(r.date), badge(STATUS, r.status)],
@@ -373,7 +371,7 @@ export const offers = {
       session.canEditOrders && r.legal && { label: 'Уточнить сведения', run: () => editLegal('offers', r, ctx) },
       session.canEditOrders && r.legal && !r.orderId && { label: 'Связать с договором', run: () => linkOfferContract(r, ctx) },
     ],
-  }),
+  }), editable: () => false, headStrip: offerEditorButton },
 
   form: {
     fields,

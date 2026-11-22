@@ -2,6 +2,23 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsDateString, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateIf, ValidateNested } from 'class-validator';
 
+export class DesignCompositionDto {
+  @ApiProperty({ enum: ['reorder', 'move', 'materialize'] }) @IsIn(['reorder', 'move', 'materialize']) action!: 'reorder' | 'move' | 'materialize';
+  @ApiPropertyOptional() @IsOptional() @IsMongoId() fromModuleId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsMongoId() toModuleId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsMongoId() lineId?: string;
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(1000) @IsMongoId({ each: true }) order?: string[];
+}
+
+export class ModuleReadyDto {
+  @ApiProperty() @IsBoolean() ready!: boolean;
+}
+
+export class WorkHoldDto {
+  @ApiProperty({ enum: ['pause', 'materials', 'resume'] }) @IsIn(['pause', 'materials', 'resume']) kind!: 'pause' | 'materials' | 'resume';
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 500) reason?: string;
+}
+
 /** Запуск в работу: все позиции заказа или выбранные. Нужен хотя бы один из двух. */
 export class LaunchDto {
   @ApiPropertyOptional({ description: 'Заказ (salesorders): запускаются все его позиции' }) @IsOptional() @IsMongoId() orderId?: string;

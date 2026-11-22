@@ -1,18 +1,15 @@
-import { api, PREFIX } from '../core/api.js';
+import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, qty } from '../core/format.js';
 import { ORDER_PRIORITY } from './kit/badges.js';
-import { confirmDlg } from './kit/dialog.js';
-import { photoDrop } from './kit/photos.js';
-import { openPopMenu } from './kit/pop-menu.js';
-import { toast, toastError } from './kit/toast.js';
+import { toastError } from './kit/toast.js';
+import { taskPhotos } from './kit/task-photos.js';
 import { section } from './kit/index.js';
 
 /**
  * Стикеры и фото задач проектирования (карточки как в YouGile). Сервер: GET /design-stickers (все), стикеры доски — в GET /design-board,
  * значения — task.stickers[id], фото — task.photos. Системные стикеры (assignee/deadline/priority/order/product) берут значение из полей задачи.
  */
-export const PHOTO_LIMIT = 20;
 export const CARD_STICKERS = 4;
 const hex = (c) => (/^#[0-9a-fA-F]{6}$/.test(String(c || '')) ? c : null);
 const text = (v) => (v === null || v === undefined ? '' : String(v).trim());
@@ -80,64 +77,20 @@ export function stickerRow(task, list, limit = CARD_STICKERS) {
 const block = (title, tone, count, ...kids) => section({ title, tone, count, open: true, body: kids });
 
 export function photosBlock(row, ctx, canEdit) {
-  const pics = () => row.photos || (row.photos = []);
-  const strip = h('div', { class: 'pf-strip' });
-  // «Заменить» (РУ-1): id фото, которое заменят; следующий загруженный файл (выбор, перетаскивание, Ctrl+V) встанет на его место
-  let replaceId = null;
-  let offPick = null; // клик мимо блока «Фото» — выйти из режима замены
-  const stopReplace = () => { replaceId = null; if (offPick) { document.removeEventListener('click', offPick); offPick = null; } };
-  const paint = () => {
-    strip.replaceChildren(...pics().map((p) => h('div', { class: 'pf-item' },
-      h('img', { src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', decoding: 'async', title: 'Открыть фото', onclick: () => window.open(PREFIX + p.url, '_blank') }),
-      canEdit ? h('button', { type: 'button', class: 'pf-del', title: 'Действия с фото', 'aria-label': 'Действия с фото', 'aria-haspopup': 'menu', onclick: (e) => photoMenu(e.currentTarget, p) }, '⋯') : null)));
-    strip.hidden = !pics().length;
-    hint.textContent = pics().length >= PHOTO_LIMIT ? `Загружено ${PHOTO_LIMIT} из ${PHOTO_LIMIT} — это предел. Уберите ненужные, чтобы добавить новые.` : '';
-    drop.hidden = pics().length >= PHOTO_LIMIT;
-  };
-  const hint = h('div', { class: 'db-hint' });
-  const remove = async (p) => {
-    if (!(await confirmDlg('Убрать фото?', 'Фото пропадёт из задачи.', { okText: 'Убрать' }))) return;
-    try { await api(`/design-tasks/${row.id}/photos/${p.id}`, { method: 'DELETE' }); row.photos = pics().filter((x) => x.id !== p.id); paint(); ctx.changed(); } catch (e) { toastError(e, 'убрать фото'); }
-  };
-  /** «Заменить»: сразу открывается выбор файла; перетащить в зону «Фото» или Ctrl+V заменят то же фото (до клика мимо блока). */
-  const replace = (p) => {
-    replaceId = p.id;
-    toast('Выберите новое фото — оно встанет на место старого');
-    drop.querySelector('input[type="file"]')?.click();
-    if (!offPick) {
-      offPick = (ev) => { if (!ev.target.closest || !ev.target.closest('.dc-photos')) stopReplace(); };
-      setTimeout(() => document.addEventListener('click', offPick), 0);
-    }
-  };
-  const photoMenu = (anchor, p) => openPopMenu({ anchor, side: 'down', groups: [{ items: [
-    { label: 'Заменить…', onSelect: () => replace(p) },
-    { label: 'Убрать', danger: true, onSelect: () => remove(p) },
-  ] }] });
-  const drop = canEdit ? photoDrop({
-    attach: async (photoId, p) => {
-      const oldId = replaceId;
-      const at = oldId ? pics().findIndex((x) => x.id === oldId) : -1;
-      if (oldId) stopReplace();
-      if (at >= 0) {
-        const old = pics()[at];
-        await api(`/design-tasks/${row.id}/photos`, { method: 'POST', body: { photoId, replacePhotoId: oldId } });
-        pics()[at] = { id: photoId, ...p };
-        toast('Фото заменено', { undo: async () => {
-          await api(`/design-tasks/${row.id}/photos`, { method: 'POST', body: { photoId: oldId, replacePhotoId: photoId } });
-          const i = pics().findIndex((x) => x.id === photoId);
-          if (i >= 0) pics()[i] = old;
-          paint(); ctx.changed();
-        } });
-        return pics();
-      }
-      await api(`/design-tasks/${row.id}/photos`, { method: 'POST', body: { photoId } });
-      pics().push({ id: photoId, ...p });
-      return pics();
+  const path = `/design-tasks/${row.id}/photos`;
+  return block('Фото', 'info', undefined, taskPhotos({
+    initial: { photos: row.photos, productPhoto: row.productPhoto || (row.photo ? { url: row.photo } : null) },
+    canEdit,
+    add: (photoId) => api(path, { method: 'POST', body: { photoId } }),
+    replace: (photoId, replacePhotoId) => api(path, { method: 'POST', body: { photoId, replacePhotoId } }),
+    remove: (id) => api(`${path}/${id}`, { method: 'DELETE' }),
+    main: (photoId) => api(`${path}/main`, { method: 'PATCH', body: { photoId } }),
+    changed: (saved) => {
+      Object.assign(row, { photo: saved.photo, photos: saved.photos, photoIds: saved.photoIds, productPhoto: saved.productPhoto });
+      ctx.changed();
+      ctx.refreshHistory?.();
     },
-    done: () => { paint(); ctx.changed(); },
-  }) : h('span');
-  paint();
-  return block('Фото', 'info', undefined, strip, !pics().length && !canEdit ? h('div', { class: 'db-hint' }, 'Фото нет.') : null, hint, canEdit ? drop : null);
+  }));
 }
 
 export function stickersBlock(row, list, ctx, canEdit) {

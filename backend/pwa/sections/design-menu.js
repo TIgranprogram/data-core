@@ -1,10 +1,10 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
-import { enhanceSelect, modal, confirmDlg, toast, toastError, ORDER_PRIORITY, DESIGN_STATUS } from '../ui/kit/index.js';
+import { enhanceSelect, modal, confirmDlg, toast, toastError, ORDER_PRIORITY, DESIGN_STATUS, uploadPhoto } from '../ui/kit/index.js';
 import { askAssignee, changed, clean } from './design-data.js';
 
-/** Пункты меню «⋯» на карточке доски «Проектирования» (kit.board cardMenu): исполнитель, срок, вопрос, фото, перенос, ссылка, удаление. */
+/** Пункты меню «⋯» на доске «Проектирования»: исполнитель, срок, фото, перенос, ссылка, удаление. */
 export async function copyLink(url) {
   try { await navigator.clipboard.writeText(url); toast('Ссылка скопирована'); }
   catch {
@@ -25,25 +25,16 @@ const askDue = async (t) => {
   toast('Сохранено');
   return true;
 };
-const askQuestion = async (t) => {
-  const ta = h('textarea', { rows: 4, maxlength: 2000, 'aria-label': 'Вопрос менеджеру', placeholder: 'Например: уточните, сколько изделий нужно изготовить' });
-  const text = await modal({ title: 'Вопрос менеджеру', okText: 'Отправить', body: h('label', { class: 'field' }, h('span', null, 'Текст вопроса'), ta),
-    onOk: () => { const s = ta.value.trim(); if (!s) throw new Error('Впишите вопрос.'); return s; } });
-  if (!text) return false;
-  await api(`/design-tasks/${t.id}/notes`, { method: 'POST', body: { text, kind: 'question' } });
-  toast('Вопрос отправлен');
-  return true;
-};
 const pickPhoto = (t) => new Promise((resolve) => {
   const inp = h('input', { type: 'file', accept: 'image/*', hidden: true });
+  inp.addEventListener('cancel', () => { inp.remove(); resolve(false); }, { once: true });
   inp.addEventListener('change', async () => {
     const f = inp.files[0]; inp.remove();
     if (!f) return resolve(false);
     try {
       if (!/^image\//.test(f.type)) throw new Error('Это не картинка — нужны JPG, PNG, WEBP');
-      const fd = new FormData(); fd.append('file', f, f.name);
-      const ph = await api('/photos/upload', { method: 'POST', body: fd });
-      await api(`/design-tasks/${t.id}/photos`, { method: 'POST', body: { photoId: String(ph._id || ph.id) } });
+      const { id: photoId } = await uploadPhoto(f);
+      await api(`/design-tasks/${t.id}/photos`, { method: 'POST', body: { photoId } });
       toast('Фото добавлено'); resolve(true);
     } catch (e) { toastError(e, 'добавить фото'); resolve(false); }
   });
@@ -64,8 +55,7 @@ export function taskMenu(t, { people, moveTask }) {
   return [
     can && { label: t.assignee ? 'Сменить исполнителя…' : 'Назначить исполнителя…', run: async () => { const who = await askAssignee(await people(), { okText: 'Назначить' }); if (!who) return false; await api(`/design-tasks/${t.id}`, { method: 'PATCH', body: { assigneeId: who } }); toast('Исполнитель назначен'); return true; } },
     can && { label: 'Изменить срок и приоритет…', run: () => askDue(t) },
-    { label: 'Задать вопрос менеджеру…', run: () => askQuestion(t) },
-    { label: 'Добавить фото…', run: () => pickPhoto(t) },
+    can && { label: 'Добавить фото…', run: () => pickPhoto(t) },
     SEP,
     t.orderId && { label: 'Открыть заказ', run: () => { go('design', { of: 'designorder', open: t.orderId }, { kind: 'card' }); return false; } },
     t.orderId && { label: 'Открыть в «Заказах»', run: () => { go('salesorders', { open: t.orderId }, { kind: 'card' }); return false; } },

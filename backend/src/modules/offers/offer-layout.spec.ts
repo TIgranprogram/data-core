@@ -29,6 +29,17 @@ describe('КП: раскладка таблицы по страницам', () =
     expect(r.pages).toEqual([[0], [1]]);
   });
 
+  it('принудительный разрыв и продолжение после текстовых блоков сохраняют порядок строк', () => {
+    const r = paginateRows([30, 30, 30], zoneOf(1).top + 20, 22, 46, undefined, 1, new Set([1]));
+    expect(r.pages).toEqual([[0], [1, 2]]);
+    expect(r.endY).toBeCloseTo(zoneOf(2).top + 22 + 60);
+  });
+
+  it('первая строка переносится целиком, если после шапки не хватает места', () => {
+    const r = paginateRows([60], zoneOf(0).bottom - 40, 22, 46);
+    expect(r.pages).toEqual([[], [0]]);
+  });
+
   it('текстовый блок, не влезающий в зону, переносится на следующую страницу', () => {
     const z = zoneOf(0);
     expect(placeBlock(0, z.bottom - 10, 30)).toEqual({ page: 1, y: zoneOf(1).top });

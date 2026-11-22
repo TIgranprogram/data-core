@@ -72,7 +72,7 @@ export class StockService {
   ) { return this.catalog.withRequestMaterial(input, scope, write); }
   autoArticle() { return this.catalog.autoArticle(); }
   skuFor(categoryId?: Types.ObjectId) { return this.catalog.skuFor(categoryId); }
-  createItem(dto: StockItemInput, scope?: StockScope | null) { return this.catalog.createItem(dto, scope); }
+  createItem(dto: StockItemInput, scope?: StockScope | null, createOnly = false) { return this.catalog.createItem(dto, scope, createOnly); }
   /** Запись по чужой позиции — 403 (null — доступ полный). */
   assertInScope(materialIds: string[], scope: StockScope | null) { return this.catalog.assertInScope(materialIds, scope); }
   scopeNewItem(dto: StockItemInput, scope: StockScope) { return this.catalog.scopeNewItem(dto, scope); }

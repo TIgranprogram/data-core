@@ -11,6 +11,15 @@ const samples = [
   { id: 'board', name: 'Доска сосновая', article: 'Д-01', categoryName: 'Дерево', unit: 'м', quantity: 24, reservedQty: 3, dims: { length: 3000, width: 100, thickness: 25 } },
   { id: 'ply', name: 'Фанера ФСФ', article: 'Ф-02', categoryName: 'Фанера', unit: 'лист', quantity: 6, reservedQty: 6, dims: { length: 1525, width: 1525, thickness: 12 } },
   { id: 'sheet', name: 'Лист МДФ', article: 'М-03', categoryName: 'Плиты', unit: 'м²', quantity: 10.5, reservedQty: 0, dims: { thickness: 16 } },
+  { id: 'zero', name: 'WOOD-04', article: 'WOOD-04', fullName: 'Доска берёзовая', categoryName: 'Дерево', unit: 'шт', quantity: 0, reservedQty: 0 },
+  { id: 'foreign', name: 'Доска чужой зоны', article: 'Д-05', quantity: 5, otherZone: true },
+  { id: 'part', name: 'Деталь PDM из дерева', article: 'Д-06', quantity: 5, materialKind: 'part' },
+  { id: 'profile', name: 'Сортамент', article: 'Д-07', quantity: 5, isProfile: true },
+];
+const categories = [
+  { id: 'wood', name: 'Дерево' },
+  { id: 'ply-wood', parentId: 'wood', name: 'Фанера' },
+  { id: 'foreign-category', name: 'Чужая категория' },
 ];
 let browser;
 before(async () => { browser = await chromium.launch({ executablePath: findBrowser(), headless: true }); });
@@ -22,10 +31,11 @@ async function fixture(t, { width = 1920, user = role, zone = true, items = samp
   const person = { id: 'test-wood', username: 'wood-test', displayName: 'Проверка', ...user };
   const calls = [], errors = [], records = structuredClone(items);
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(u => {
-    localStorage.setItem('dca_user', JSON.stringify(u));
+  await page.addInitScript(({ person, theme }) => {
+    localStorage.setItem('dc-theme', theme);
+    localStorage.setItem('dca_user', JSON.stringify(person));
     localStorage.setItem('dca_access', 'local-fixture'); localStorage.setItem('dca_refresh', 'local-fixture');
-  }, person);
+  }, { person, theme: width === 2560 ? 'dark' : 'light' });
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (url.origin !== origin) return route.abort();
@@ -36,10 +46,17 @@ async function fixture(t, { width = 1920, user = role, zone = true, items = samp
       if (pathname === '/api/auth/me') return route.fulfill({ json: person });
       if (pathname === '/api/roles') return route.fulfill({ json: { items: [{ name: role.role, label: role.roleLabel,
         baseRole: role.baseRole, appSections: role.sections, moneyAccess: false }] } });
-      if (pathname === '/api/stock/zones') return route.fulfill({ json: { items: zone ? [{ id: 'wood-zone', name: 'Деревообработка' }] : [] } });
+      if (pathname === '/api/stock/zones') return route.fulfill({ json: { items: zone ? [{ id: 'wood-zone', name: 'Деревообработка', categoryIds: ['wood'] }] : [] } });
+      if (pathname === '/api/categories') return route.fulfill({ json: categories });
       if (pathname === '/api/stock/items') {
-        if (query.zoneId !== 'wood-zone' || query.held !== '1') return route.fulfill({ status: 403, json: {} });
-        const found = records.filter(r => r.quantity > 0 && (r.name + r.article).toLowerCase().includes((query.search || '').toLowerCase()));
+        if (query.zoneId !== 'wood-zone' || query.held || query.withParts !== (method === 'GET' ? '0' : undefined)) return route.fulfill({ status: 403, json: {} });
+        if (method === 'POST') {
+          const item = { id: 'created', ...body, categoryName: categories.find(category => category.id === body.categoryId).name, quantity: 0, reservedQty: 0 };
+          records.push(item);
+          return route.fulfill({ json: item });
+        }
+        const found = records.filter(r => !r.otherZone && r.materialKind !== 'part' && !r.isProfile &&
+          [r.name, r.fullName, r.article].some(value => value?.toLowerCase().includes((query.search || '').toLowerCase())));
         return route.fulfill({ json: { items: found, total: found.length } });
       }
       if (pathname === '/api/stock/batch') {
@@ -62,14 +79,18 @@ for (const width of [1920, 2560]) {
     const { page, calls, errors } = await fixture(t, { width });
     const table = page.getByRole('table', { name: 'Материалы деревообработки' });
     await table.waitFor();
-    assert.equal(await table.locator('tbody tr').count(), 3);
+    assert.equal(await table.locator('tbody tr').count(), 4);
+    const zero = table.getByRole('row').filter({ hasText: 'Доска берёзовая' });
+    assert.equal(await zero.getByLabel('Фактически, Доска берёзовая').inputValue(), '0');
+    assert.equal(await zero.locator('td').nth(7).textContent(), '0');
+    assert.equal(await table.getByText('Доска чужой зоны').count(), 0);
     const plywood = table.getByRole('row').filter({ hasText: 'Фанера ФСФ' });
     assert.equal(await plywood.locator('td').nth(6).textContent(), '6');
     assert.equal(await plywood.locator('td').nth(7).textContent(), '0');
     assert.equal(await table.getByText(/Цена|Сумма|Стоимость/).count(), 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     if (process.env.C194_PROOF_DIR) {
-      await page.screenshot({ path: process.env.C194_PROOF_DIR + '/wood-' + width + '.png', animations: 'disabled' });
+      await page.screenshot({ path: process.env.C194_PROOF_DIR + '/wood-followup-' + width + '.png', animations: 'disabled' });
     }
     const search = page.getByRole('textbox', { name: 'Найти материал' });
     await search.fill('Ф-02'); await page.waitForFunction(() => document.querySelectorAll('tbody tr').length === 1);
@@ -81,7 +102,45 @@ for (const width of [1920, 2560]) {
     await note.fill('Проверено'); await note.press('Enter');
     await page.waitForFunction(() => document.querySelector('input.pg-note.saved'));
     assert.deepEqual(calls.find(c => c.pathname === '/api/stock/items/ply').body, { notes: 'Проверено' });
-    assert.ok(calls.filter(c => c.pathname === '/api/stock/items').every(c => c.query.held === '1' && c.query.zoneId === 'wood-zone'));
+    assert.ok(calls.filter(c => c.pathname === '/api/stock/items').every(c => !c.query.held && c.query.withParts === '0' && c.query.zoneId === 'wood-zone'));
+    assert.deepEqual(errors, []);
+  });
+  test('Правая форма добавления в зоне, ширина ' + width, async t => {
+    const { page, calls, errors } = await fixture(t, { width, items: [], user: width === 2560 ? { role: 'admin', sections: null } : role, hash: width === 2560 ? '#stock?view=wood' : '#stock' });
+    await page.getByRole('button', { name: 'Добавить материал' }).click();
+    const drawer = page.locator('aside.drawer');
+    await drawer.getByRole('heading', { name: 'Новый материал деревообработки' }).waitFor();
+    await drawer.getByRole('button', { name: 'Добавить материал' }).click();
+    assert.equal(calls.filter(c => c.method === 'POST' && c.pathname === '/api/stock/items').length, 0);
+    await drawer.getByText('Заполните поле').first().waitFor();
+    await drawer.getByRole('button', { name: 'Отмена' }).click();
+    await drawer.waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: 'Добавить материал' }).click();
+    const category = drawer.getByLabel('Категория');
+    await category.waitFor();
+    assert.deepEqual(await category.locator('option').allTextContents(), ['Выберите…', 'Дерево', 'Фанера']);
+    await category.selectOption('ply-wood');
+    await drawer.getByLabel('Название').fill('Фанера берёзовая 1525 × 1525 × 12');
+    await drawer.getByLabel('Ед. изм.').fill('лист');
+    await drawer.getByText('лист', { exact: true }).click();
+    await drawer.getByLabel('Артикул поставщика').fill('Ф-44');
+    await drawer.getByLabel('Длина').fill('1525');
+    await drawer.getByLabel('Ширина', { exact: true }).fill('1525');
+    await drawer.getByLabel('Толщина').fill('12');
+    await drawer.getByLabel('Примечание').fill('Проверочная позиция');
+    assert.ok(await drawer.evaluate(el => el.getBoundingClientRect().right <= window.innerWidth));
+    if (process.env.C194_PROOF_DIR) {
+      await page.screenshot({ path: process.env.C194_PROOF_DIR + '/wood-form-' + width + '.png', animations: 'disabled' });
+    }
+    await drawer.getByRole('button', { name: 'Добавить материал' }).click();
+    await drawer.waitFor({ state: 'detached' });
+    const actual = page.getByRole('textbox', { name: 'Фактически, Фанера берёзовая 1525 × 1525 × 12' });
+    await actual.waitFor();
+    assert.equal(await actual.inputValue(), '0');
+    const call = calls.find(c => c.method === 'POST' && c.pathname === '/api/stock/items');
+    assert.deepEqual(call.query, { zoneId: 'wood-zone' });
+    assert.deepEqual(call.body, { categoryId: 'ply-wood', name: 'Фанера берёзовая 1525 × 1525 × 12', unit: 'лист', article: 'Ф-44',
+      dims: { length: 1525, width: 1525, thickness: 12 }, notes: 'Проверочная позиция' });
     assert.deepEqual(errors, []);
   });
 }
@@ -90,8 +149,9 @@ test('Пустой остаток, роль только просмотра и �
   const read = await fixture(t, { user: { ...role, baseRole: 'user' } });
   await read.page.getByRole('table').waitFor();
   assert.equal(await read.page.locator('table input').count(), 0);
+  assert.equal(await read.page.getByRole('button', { name: 'Добавить материал' }).count(), 0);
   const empty = await fixture(t, { items: [] });
-  await empty.page.getByText('В зоне нет физических остатков').waitFor();
+  await empty.page.getByText('В зоне пока нет материалов').waitFor();
   const denied = await fixture(t, { zone: false, hash: '#stock?view=wood' });
   await denied.page.getByText('Зона «Деревообработка» недоступна').waitFor();
   assert.ok(!denied.calls.some(c => c.pathname === '/api/stock/items'));
@@ -117,4 +177,5 @@ test('Администратор открывает рабочий экран и
   await chooser.selectOption('r-wood', { force: true });
   await page.locator('.view-as').getByText('Деревообработка', { exact: true }).waitFor();
   assert.equal(await page.locator('table input').count(), 0);
+  assert.equal(await page.getByRole('button', { name: 'Добавить материал' }).count(), 0);
 });

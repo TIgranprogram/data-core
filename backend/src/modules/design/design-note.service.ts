@@ -3,9 +3,11 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Types, type Connection, type Model } from 'mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid, parseList } from '../../common/list-query';
+import { loadNotePhotos, notePhotoIds } from '../../common/task-note-photos';
+import { effectiveRoles } from '../../common/roles-hierarchy';
 import type { DesignNoteDto } from './dto/design-note.dto';
 import { DesignNote, type DesignNoteDocument } from './design-note.schema';
-import { canChangeNote, initialsOf } from './design-note-rules';
+import { canChangeNote, initialsOf, LEGACY_PHOTO_NOTE } from './design-note-rules';
 import { DesignTask, type DesignTaskDocument } from './design-task.schema';
 
 type Doc = Record<string, unknown>;
@@ -23,11 +25,15 @@ export class DesignNoteService {
   private async present(docs: Doc[], user?: AuthenticatedUser) {
     const ids = [...new Set(docs.map((d) => d.authorId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
     const users = ids.length ? await this.connection.db!.collection('users').find({ _id: { $in: ids } }, { projection: { displayName: 1, username: 1 } }).toArray() : [];
+    const photos = await loadNotePhotos(this.connection.db!, docs);
     const name = new Map(users.map((u) => [String(u._id), String(u.displayName || u.username || '')]));
     return docs.map((d) => {
       const n = (d.authorId ? name.get(String(d.authorId)) : '') || (d.authorName as string | undefined) || 'Без имени';
       return {
         id: String(d._id), taskId: String(d.taskId), kind: d.kind, text: d.text,
+        photos: Array.isArray(d.photoIds) ? d.photoIds.map((id) => photos.get(String(id))).filter(Boolean) : [],
+        legacyPhotoCount: d.kind !== 'question' && !d.photoIds && LEGACY_PHOTO_NOTE.test(String(d.text))
+          ? (String(d.text).match(/\[фото\]/gi) ?? []).length : 0,
         author: { id: d.authorId ? String(d.authorId) : null, name: n, initials: initialsOf(n) },
         replyTo: d.replyTo ? String(d.replyTo) : null, needsAnswer: !!d.needsAnswer,
         answeredAt: d.answeredAt ?? null, source: d.source ?? 'app', createdAt: d.createdAt ?? null,
@@ -37,7 +43,9 @@ export class DesignNoteService {
   }
 
   async list(taskId: string, user?: AuthenticatedUser) {
-    const docs = await this.model.find({ taskId: oid(taskId, 'задачи'), deletedAt: null }).sort({ createdAt: 1, _id: 1 }).lean().exec();
+    const id = oid(taskId, 'задачи');
+    if (!(await this.tasks.exists({ _id: id, deletedAt: null }))) throw new NotFoundException('Задача не найдена');
+    const docs = await this.model.find({ taskId: id, deletedAt: null }).sort({ createdAt: 1, _id: 1 }).lean().exec();
     return { items: await this.present(docs as unknown as Doc[], user) };
   }
 
@@ -59,6 +67,10 @@ export class DesignNoteService {
       }
     }
     const kind = dto.kind ?? 'comment';
+    const text = dto.text?.trim() ?? '';
+    if (!text && (!(dto.photoIds?.length) || kind === 'question')) throw new BadRequestException('Напишите текст сообщения');
+    if (dto.photoIds?.length && !user.isOwner && !effectiveRoles(user.role).includes('manager')) throw new ForbiddenException('У вашей роли нет права прикреплять фотографии');
+    const photoIds = await notePhotoIds(this.connection.db!, dto.photoIds ?? []);
     if (kind === 'question' && dto.replyTo) throw new BadRequestException('Ответ — это комментарий, а не вопрос');
     const at = admin && dto.createdAt ? new Date(dto.createdAt) : new Date();
     let replyTo: Types.ObjectId | undefined;
@@ -71,7 +83,8 @@ export class DesignNoteService {
     let doc;
     try {
       doc = await this.model.create({
-        taskId: _id, orderId: task.orderId, incomeId: task.incomeId, kind, text: dto.text.trim(),
+        taskId: _id, orderId: task.orderId, incomeId: task.incomeId, kind, text,
+        ...(admin && (dto.source === 'yougile' || dto.externalId) && !photoIds.length ? {} : { photoIds }),
         ...(imported ? { authorName: dto.authorName } : { authorId: oid(user.id, 'пользователя') }),
         replyTo, needsAnswer: kind === 'question',
         source: admin && dto.source ? dto.source : 'app',

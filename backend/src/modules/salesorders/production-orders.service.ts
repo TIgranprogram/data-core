@@ -302,7 +302,7 @@ export class ProductionOrdersService {
     const companyId = live.find((o) => o.companyId)?.companyId;
     const [org, works, designs, products] = await Promise.all([
       companyId && Types.ObjectId.isValid(String(companyId)) ? db.collection('organizations').findOne({ _id: new Types.ObjectId(String(companyId)) }, { projection: { name: 1, fullName: 1, shortName: 1, inn: 1, legalAddress: 1, phone: 1, assets: 1 } }) : null,
-      db.collection('worktasks').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, route: 1, stepIndex: 1, assigneeId: 1 } }).toArray(),
+      db.collection('worktasks').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, route: 1, stepIndex: 1, assigneeId: 1, moduleWork: 1 } }).toArray(),
       db.collection('designtasks').find({ incomeId: { $in: ids }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, assigneeId: 1, completedAt: 1 } }).toArray(),
       productIds.length ? db.collection('products').find({ _id: { $in: productIds } }, { projection: { workTypes: 1 } }).toArray() : [],
     ]);
@@ -316,7 +316,12 @@ export class ProductionOrdersService {
     const wtName = new Map(wts.map((w) => [String(w._id), String(w.name ?? '')]));
     const plan = new Map(products.map((p) => [String(p._id), ((p.workTypes as Array<{ workTypeId: Types.ObjectId }> | undefined) ?? []).map((w) => wtName.get(String(w.workTypeId))).filter(Boolean) as string[]]));
     const who = new Map(persons.map((p) => [String(p._id), [p.lastName, p.firstName].filter(Boolean).join(' ')]));
-    const workOf = new Map(works.map((w) => [String(w.incomeId), w]));
+    const workOf = new Map(works.filter((w) => !w.moduleWork).map((w) => [String(w.incomeId), w]));
+    const modulesOf = new Map<string, number>();
+    for (const w of works.filter((work) => work.moduleWork)) {
+      const id = String(w.incomeId);
+      modulesOf.set(id, (modulesOf.get(id) ?? 0) + 1);
+    }
     const designOf = new Map(designs.map((t) => [String(t.incomeId), t]));
     const DESIGN: Record<string, string> = { queue: 'в очереди', work: 'в работе', paused: 'на паузе', done: 'готово' };
     const logoUrl = ((org?.assets as Array<{ role: string; storageUrl: string }> | undefined) || []).find((a) => a.role === 'logo')?.storageUrl;
@@ -335,10 +340,10 @@ export class ProductionOrdersService {
         const steps = ((w?.route as Array<{ name: string }> | undefined) ?? []).map((s) => s.name);
         const at = w ? (w.status === 'done' ? steps.length : Number(w.stepIndex ?? -1)) : -1;
         let route = (w ? steps : plan.get(String(l.productId ?? '')) ?? []).map((name, k) => ({ name, state: (w && (w.status === 'done' || k < at) ? 'done' : w && k === at && w.status === 'work' ? 'now' : 'next') as 'done' | 'now' | 'next' }));
-        if (w?.status === 'done') ready++; else if (w) inWork++;
+        if (w?.status === 'done') ready++; else if (w || modulesOf.has(id)) inWork++;
         if (t && t.status !== 'done') inDesign++;
         const workText = w ? (w.status === 'done' ? 'изготовлено' : w.status === 'waiting' ? 'ждёт запуска' : '') + (w.assigneeId ? ` · ${who.get(String(w.assigneeId)) ?? ''}` : '')
-          : route.length ? 'ещё не запущено в работу' : 'маршрут не задан — запуск одной работой «Изготовление»';
+          : route.length ? 'ещё не запущено в работу' : modulesOf.has(id) ? 'В работу переданы модули. Изделие ещё не завершено.' : 'маршрут не задан — запуск одной работой «Изготовление»';
         if (!w && route.length) route = route.map((s) => ({ ...s, state: 'next' as const }));
         const sku = (l.product as { sku?: string } | null)?.sku;
         return {

@@ -8,8 +8,9 @@ import { staffOptions } from './passports/common.js';
 import { taskMenu } from './design-menu.js';
 import { askAssignee, askReason, batchMoveTasks } from './design-data.js';
 import { designTaskCard } from './design-card.js';
+import { designComposition } from './design-composition.js';
 import { boardCard } from '../ui/kit/screens/blocks.js';
-import { discussionBlock, questionBadge } from '../ui/design-notes.js';
+import { discussionBlock, designPhotoHistory, questionBadge } from '../ui/design-notes.js';
 import { photosBlock, stickerRow, stickersBlock, visibleStickers } from '../ui/design-stickers.js';
 import { targetPicker } from '../ui/kit/target-picker.js';
 import { withRequestsTab } from './design-requests.js';
@@ -190,8 +191,8 @@ export const design = {
     },
   },
 
-  card: designTaskCard({ title, dueNode, prioBadge, status: STATUS, moveTask, people,
-    blocks: { discussionBlock, photosBlock, stickersBlock, visibleStickers } }),
+  card: designTaskCard({ title, dueNode, prioBadge, status: STATUS, moveTask, people, composition: designComposition,
+    blocks: { discussionBlock, designPhotoHistory, photosBlock, stickersBlock, visibleStickers } }),
 
   form: {
     fields: async (row) => {

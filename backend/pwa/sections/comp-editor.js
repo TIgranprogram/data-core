@@ -19,6 +19,9 @@ const refOf = (line) => {
 };
 const lineKey = (line) => String(line.id || line._id || '');
 
+export const compositionCatalog = () => bag();
+export const describeCompositionLine = (line, catalog) => describe(line, catalog);
+
 let bagP = null;
 function bag() {
   if (!bagP) {

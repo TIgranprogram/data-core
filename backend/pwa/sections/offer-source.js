@@ -9,7 +9,7 @@ import { offerTotals } from './sales-legal-state.js';
 
 const parentPanel = () => [...document.querySelectorAll('aside[data-k="drawer"]:not([hidden])')].at(-1);
 const writable = () => session.canEditOrders && session.canMoney;
-const ITEM_KEYS = ['productName', 'quantity', 'unit', 'unitPrice', 'productId', 'productSku', 'description', 'color', 'size', 'photoUrl', 'sourceRowKey', 'sourceLine', 'scopeState', 'exclusionReason', 'exclusionConfirmedAt', 'exclusionEventDate', 'matchStatus'];
+const ITEM_KEYS = ['productName', 'quantity', 'unit', 'unitPrice', 'productId', 'productSku', 'description', 'color', 'size', 'photoUrl', 'sourceRowKey', 'sourceLine', 'scopeState', 'exclusionReason', 'exclusionConfirmedAt', 'exclusionEventDate', 'matchStatus', 'lineKind', 'photoMm', 'rowMm', 'pageBreakBefore'];
 /** GET-проекция содержит вычисленные total: в DTO записи уходят только поддержанные поля. */
 export const offerWriteItems = (items) => items.map((x) => Object.fromEntries(ITEM_KEYS.filter((k) => x[k] !== undefined).map((k) => [k, x[k]])));
 

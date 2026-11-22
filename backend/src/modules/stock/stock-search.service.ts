@@ -58,8 +58,9 @@ export class StockSearchService {
     const tokens = q.search ? searchTokens(q.search) : [];
     // скорость С9: строки склада считаются один раз, пока не менялись данные (кэш по версиям коллекций); строки общие — не менять
     const held = q.held === '1' && !p.deleted;
-    const make = () => this.itemRows(q, p.deleted, tokens, held);
-    const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens, ...(q.wash || q.pipeLength || q.noGrade ? [q.wash, q.pipeLength, q.noGrade] : []), ...(held ? ['held'] : [])]);
+    const hideParts = !held && q.withParts === '0';
+    const make = () => this.itemRows(q, p.deleted, tokens, held, hideParts);
+    const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens, ...(q.wash || q.pipeLength || q.noGrade ? [q.wash, q.pipeLength, q.noGrade] : []), ...(held ? ['held'] : []), ...(hideParts ? ['withoutParts'] : [])]);
     // Выборка по id (карточка позиции, ответ после записи, ids признаков — в т. ч. пустой список → 0 строк) — без кэша: версия коллекции растёт по потоку изменений
     // с задержкой, и сразу после правки/прихода кэш отдал бы старые цифры (находка qa 2026-10-24). Она и так быстрая.
     const { wh, rows: found } = this.versions && !q.materialIds ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
@@ -94,7 +95,7 @@ export class StockSearchService {
     ]);
     const items = page.map(({ photoIds, offcuts, ...r }) => ({
       ...r,
-      offcuts: offcuts.filter((o) => !held || inScope(scope, o)).map(({ id, name, qty, length }) => ({ id, name, qty, length })),
+      offcuts: offcuts.filter((o) => !(held || hideParts) || inScope(scope, o)).map(({ id, name, qty, length }) => ({ id, name, qty, length })),
       hangingQty: hang.get(r.materialId) ?? 0,
       photos: photoIds.map((id) => photos.get(String(id))).filter(Boolean),
     }));
@@ -117,9 +118,9 @@ export class StockSearchService {
   }
 
   /** Строки «Остатков» до фильтра по состоянию, сортировки и страниц: позиции, остатки, «уже заказано», обрезки. */
-  private async itemRows(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] }, deleted: boolean, tokens: string[], held = false) {
+  private async itemRows(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] }, deleted: boolean, tokens: string[], held = false, hideParts = false) {
     const wh = await this.core.defaultWarehouse();
-    const filter: Record<string, unknown> = { deletedAt: deleted ? { $ne: null } : null, ...(held ? STOCK_VISIBLE : {}) };
+    const filter: Record<string, unknown> = { deletedAt: deleted ? { $ne: null } : null, ...(held || hideParts ? STOCK_VISIBLE : {}) };
     if (q.categoryId) { const ids = oids(q.categoryId); filter.categoryId = { $in: [...ids, ...ids.map(String)] }; }
     if (q.materialIds) filter._id = { $in: q.materialIds };
 
@@ -145,7 +146,7 @@ export class StockSearchService {
       // «уже заказано» (ЗП.2): открытые заявки на позицию — по materialId или по тому же наименованию
       this.openRequests(mats as { _id: Types.ObjectId; name?: string }[]),
       // обрезки этих позиций (СМ.2): родитель → [{ id, name, qty }] с остатком > 0 — «сначала брать обрезки»
-      this.connection.db!.collection('materials').find({ offcutOf: { $in: ids }, deletedAt: null, ...(held ? STOCK_VISIBLE : {}) },
+      this.connection.db!.collection('materials').find({ offcutOf: { $in: ids }, deletedAt: null, ...(held || hideParts ? STOCK_VISIBLE : {}) },
         { projection: { name: 1, offcutOf: 1, dimensions: 1, categoryId: 1 } }).toArray(),
     ]);
     const catName = new Map(cats.map((c) => [String(c._id), String(c.name)]));

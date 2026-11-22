@@ -2535,6 +2535,13 @@
             "schema": {}
           },
           {
+            "name": "withParts",
+            "required": false,
+            "in": "query",
+            "description": "0 — исключить детали и сортаменты, сохранив позиции с нулевым остатком",
+            "schema": {}
+          },
+          {
             "name": "held",
             "required": false,
             "in": "query",
@@ -2635,7 +2642,17 @@
       },
       "post": {
         "operationId": "StockController_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "zoneId",
+            "required": false,
+            "in": "query",
+            "description": "Создать новую позицию в категории выбранной доступной зоны; дубль имени — 409",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -10191,6 +10208,39 @@
         ]
       }
     },
+    "/api/design-tasks/{id}/photos/main": {
+      "patch": {
+        "operationId": "DesignController_setMainPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskPhotoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Проектирование"
+        ]
+      }
+    },
     "/api/design-tasks/{id}/stickers": {
       "patch": {
         "operationId": "DesignController_setStickers",
@@ -11301,6 +11351,167 @@
         ]
       }
     },
+    "/api/work-tasks/design/{designId}/modules": {
+      "get": {
+        "operationId": "WorkController_designModules",
+        "parameters": [
+          {
+            "name": "designId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/api/work-tasks/design/{designId}/composition": {
+      "patch": {
+        "operationId": "WorkController_changeDesignComposition",
+        "parameters": [
+          {
+            "name": "designId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignCompositionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/api/work-tasks/design/{designId}/modules/{lineId}": {
+      "patch": {
+        "operationId": "WorkController_readyModule",
+        "parameters": [
+          {
+            "name": "designId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModuleReadyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/api/work-tasks/design/{designId}/modules/{lineId}/launch": {
+      "post": {
+        "operationId": "WorkController_launchModule",
+        "parameters": [
+          {
+            "name": "designId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/api/work-tasks/{id}/hold": {
+      "patch": {
+        "operationId": "WorkController_hold",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkHoldDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
     "/api/work-tasks/{id}": {
       "get": {
         "operationId": "WorkController_get",
@@ -11567,6 +11778,209 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/api/work-tasks/{id}/notes": {
+      "get": {
+        "operationId": "WorkMediaController_notes",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      },
+      "post": {
+        "operationId": "WorkMediaController_createNote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskNoteContentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/api/work-tasks/{id}/notes/{noteId}": {
+      "delete": {
+        "operationId": "WorkMediaController_removeNote",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/api/work-tasks/{id}/photos": {
+      "get": {
+        "operationId": "WorkMediaController_photos",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      },
+      "post": {
+        "operationId": "WorkMediaController_addPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskPhotoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/api/work-tasks/{id}/photos/main": {
+      "patch": {
+        "operationId": "WorkMediaController_setMainPhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskPhotoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "В работе"
+        ]
+      }
+    },
+    "/api/work-tasks/{id}/photos/{photoId}": {
+      "delete": {
+        "operationId": "WorkMediaController_removePhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "photoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -12015,6 +12429,39 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateOfferDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "КП"
+        ]
+      }
+    },
+    "/api/offers/{id}/preview": {
+      "post": {
+        "operationId": "OffersController_previewEdited",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOfferDto"
               }
             }
           }
@@ -23791,6 +24238,18 @@
           "photoId"
         ]
       },
+      "TaskPhotoDto": {
+        "type": "object",
+        "properties": {
+          "photoId": {
+            "type": "string",
+            "description": "Фото из POST /api/photos/upload"
+          }
+        },
+        "required": [
+          "photoId"
+        ]
+      },
       "StickerValuesDto": {
         "type": "object",
         "properties": {
@@ -23875,6 +24334,18 @@
       "DesignNoteDto": {
         "type": "object",
         "properties": {
+          "text": {
+            "type": "string",
+            "description": "Текст сообщения, до 4000 знаков"
+          },
+          "photoIds": {
+            "maxItems": 5,
+            "description": "Фото из POST /api/photos/upload",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "kind": {
             "type": "string",
             "enum": [
@@ -23882,10 +24353,6 @@
               "question"
             ],
             "description": "comment (по умолчанию) | question — вопрос менеджеру"
-          },
-          "text": {
-            "type": "string",
-            "description": "Текст, до 4000 знаков"
           },
           "replyTo": {
             "type": "string",
@@ -23912,10 +24379,7 @@
             "type": "string",
             "description": "Импорт, только admin: id сообщения в YouGile; повтор с тем же id вернёт уже созданную запись"
           }
-        },
-        "required": [
-          "text"
-        ]
+        }
       },
       "DesignNoteEditDto": {
         "type": "object",
@@ -24184,6 +24648,67 @@
           }
         }
       },
+      "DesignCompositionDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "reorder",
+              "move",
+              "materialize"
+            ]
+          },
+          "fromModuleId": {
+            "type": "string"
+          },
+          "toModuleId": {
+            "type": "string"
+          },
+          "lineId": {
+            "type": "string"
+          },
+          "order": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "ModuleReadyDto": {
+        "type": "object",
+        "properties": {
+          "ready": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready"
+        ]
+      },
+      "WorkHoldDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pause",
+              "materials",
+              "resume"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
       "MoveDto": {
         "type": "object",
         "properties": {
@@ -24325,6 +24850,23 @@
         "required": [
           "steps"
         ]
+      },
+      "TaskNoteContentDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Текст сообщения, до 4000 знаков"
+          },
+          "photoIds": {
+            "maxItems": 5,
+            "description": "Фото из POST /api/photos/upload",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "ShipmentLineDto": {
         "type": "object",
@@ -24482,9 +25024,81 @@
           "text"
         ]
       },
+      "OfferBlockPositionDto": {
+        "type": "object",
+        "properties": {
+          "xMm": {
+            "type": "number",
+            "description": "Сдвиг вправо, мм"
+          },
+          "gapMm": {
+            "type": "number",
+            "description": "Отступ перед блоком, мм"
+          }
+        }
+      },
+      "OfferLayoutDto": {
+        "type": "object",
+        "properties": {
+          "tableWidthMm": {
+            "type": "number",
+            "description": "Ширина таблицы, мм",
+            "minimum": 160,
+            "maximum": 181
+          },
+          "header": {
+            "$ref": "#/components/schemas/OfferBlockPositionDto"
+          },
+          "table": {
+            "$ref": "#/components/schemas/OfferBlockPositionDto"
+          },
+          "info": {
+            "$ref": "#/components/schemas/OfferBlockPositionDto"
+          },
+          "terms": {
+            "$ref": "#/components/schemas/OfferBlockPositionDto"
+          },
+          "notes": {
+            "$ref": "#/components/schemas/OfferBlockPositionDto"
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "table",
+                "info",
+                "terms",
+                "notes"
+              ]
+            }
+          }
+        },
+        "required": [
+          "blocks"
+        ]
+      },
       "OfferItemDto": {
         "type": "object",
         "properties": {
+          "lineKind": {
+            "type": "string",
+            "enum": [
+              "product",
+              "delivery"
+            ]
+          },
+          "pageBreakBefore": {
+            "type": "boolean"
+          },
+          "photoMm": {
+            "type": "number",
+            "description": "Размер фотографии, мм"
+          },
+          "rowMm": {
+            "type": "number",
+            "description": "Минимальная высота строки, мм"
+          },
           "sourceRowKey": {
             "type": "string"
           },
@@ -24559,6 +25173,9 @@
       "CreateOfferDto": {
         "type": "object",
         "properties": {
+          "layout": {
+            "$ref": "#/components/schemas/OfferLayoutDto"
+          },
           "initialLegal": {
             "$ref": "#/components/schemas/LegalBundleDto"
           },
@@ -24652,6 +25269,9 @@
       "UpdateOfferDto": {
         "type": "object",
         "properties": {
+          "layout": {
+            "$ref": "#/components/schemas/OfferLayoutDto"
+          },
           "initialLegal": {
             "$ref": "#/components/schemas/LegalBundleDto"
           },
@@ -24734,6 +25354,11 @@
           "bg2Id": {
             "type": "string",
             "description": "Фон стр. 2+: id; «none» — белая; пусто — по умолчанию"
+          },
+          "expectedUpdatedAt": {
+            "type": "object",
+            "nullable": true,
+            "description": "Дата изменения открытого КП для проверки одновременной правки"
           },
           "version": {
             "type": "number",

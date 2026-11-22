@@ -1,3 +1,4 @@
+import { markedLinePrice, offerLineKind } from './offer-rules';
 import { calcTotals, canMove, checkEditable, checkMove, markedUp, resolveVat, validDays, vatAmount } from './offer-rules';
 
 describe('КП: статусы и суммы', () => {
@@ -81,5 +82,15 @@ describe('КП: обход администратором (ЗЯ-1)', () => {
       expect(validDays('2026-11-06', null)).toBeNull();
       expect(validDays('2026-11-06', '2026-11-06')).toBeNull();
     });
+  });
+});
+
+describe('Наценка по составу КП', () => {
+  it('старые и явно отмеченные строки доставки сохраняют исходные копейки', () => {
+    expect(markedLinePrice({ productName: 'Доставка до склада', unitPrice: 32.55 }, 10)).toBe(32.55);
+    expect(markedLinePrice({ lineKind: 'delivery', productName: 'Рейс', unitPrice: 32.55 }, 10)).toBe(32.55);
+    expect(offerLineKind({ lineKind: 'product', productName: 'Доставка' })).toBe('product');
+    expect(markedLinePrice({ productName: 'Скамейка', unitPrice: 1100 }, 10)).toBe(1210);
+    expect(markedLinePrice({ productName: 'Скамейка', unitPrice: 1100.25 }, 0)).toBe(1100.25);
   });
 });

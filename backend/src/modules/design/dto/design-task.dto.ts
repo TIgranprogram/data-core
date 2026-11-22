@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsMongoId, IsObject, IsOptional, IsString, Length, Matches, Max, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { ORDER_PRIORITIES, type OrderPriority } from '../../../common/text/order-key';
+import { TaskPhotoDto } from '../../../common/dto/task-photo.dto';
 import { DESIGN_STATUSES, type DesignStatus } from '../design-task.schema';
 
 export class DesignSpecDto {
@@ -39,8 +40,7 @@ export class AddDesignOrderDto {
   @ApiPropertyOptional({ description: 'true — сразу создать задачи «Распределение» на все позиции без открытой задачи' }) @IsOptional() @IsBoolean() distribute?: boolean;
 }
 
-export class PhotoDto {
-  @ApiProperty({ description: 'Фото из POST /api/photos/upload' }) @IsMongoId() photoId!: string;
+export class PhotoDto extends TaskPhotoDto {
   @ApiPropertyOptional({ description: 'Заменяемое фото задачи: новое встанет на его место («Заменить» в карточке)' }) @IsOptional() @IsMongoId() replacePhotoId?: string;
 }
 

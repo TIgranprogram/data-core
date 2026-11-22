@@ -3,6 +3,7 @@ import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { TaskPhotoDto } from '../../common/dto/task-photo.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { DesignTaskDto, FromOrderDto, PhotoDto, StickerValuesDto } from './dto/design-task.dto';
 import { DesignExtrasService } from './design-extras.service';
@@ -64,16 +65,20 @@ export class DesignController {
   @Post(':id/photos')
   @HttpCode(200)
   @Roles('admin', 'manager', 'user')
-  @AuditAction({ action: 'designtask.photo.added', entityType: 'DesignTask', idParam: 'id' })
   addPhoto(@Param('id') id: string, @Body() dto: PhotoDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.extras.addPhoto(id, dto.photoId, user, dto.replacePhotoId);
   }
 
   @Delete(':id/photos/:photoId')
   @Roles('admin', 'manager', 'user')
-  @AuditAction({ action: 'designtask.photo.removed', entityType: 'DesignTask', idParam: 'id' })
   removePhoto(@Param('id') id: string, @Param('photoId') photoId: string, @CurrentUser() user?: AuthenticatedUser) {
     return this.extras.removePhoto(id, photoId, user);
+  }
+
+  @Patch(':id/photos/main')
+  @Roles('admin', 'manager', 'user')
+  setMainPhoto(@Param('id') id: string, @Body() dto: TaskPhotoDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.extras.setMainPhoto(id, dto.photoId, user);
   }
 
   /** Значения своих стикеров точечно; null / "" — очистить. */

@@ -2,7 +2,10 @@ import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { dateTime, qty } from '../core/format.js';
 import { canFollow } from '../core/route-access.js';
-import { actions, badge as toneBadge, buildForm, busyBlock, button, enhanceSelect, failBlock, field, hint, openCard, photoStrip, readonlyGroup, section, select, sku, stack, table, toast, toastError } from '../ui/kit/index.js';
+import { actions, badge as toneBadge, buildForm, busyBlock, button, enhanceSelect, failBlock, field, hint, openCard, readonlyGroup, section, select, sku, stack, table, toast, toastError } from '../ui/kit/index.js';
+import { viewAsActive } from '../core/view-as.js';
+import { taskDiscussion } from '../ui/kit/task-discussion.js';
+import { taskPhotos } from '../ui/kit/task-photos.js';
 import { badge } from '../ui/kit/badges.js';
 import { busyBtn } from '../ui/kit/busy.js';
 import { screenCard } from '../ui/kit/screens/card.js';
@@ -46,7 +49,7 @@ function routeTable(task) {
 /** Команда этапа меняет задание, отметки начала и конца относятся к операции плана. */
 function factBlock(task) {
   const stepId = task.status === 'work' && task.route?.[task.stepIndex]?.stepId;
-  if (!stepId || !task.incomeId || !session.canEdit) return null;
+  if (!stepId || !task.incomeId || !session.canEdit || task.hold) return null;
   const box = stack();
   const block = section({ title: 'Факт работы', tone: 'who', body: box });
   const stamp = (v) => v ? dateTime(v) : 'Не отмечено';
@@ -183,6 +186,63 @@ function cancel(task, ctx) {
   });
 }
 
+function workPhotos(task, ctx) {
+  const path = `/work-tasks/${task.id}/photos`;
+  const canEdit = session.canEdit && !viewAsActive();
+  const body = stack(busyBlock('фото задания'));
+  async function load() {
+    try {
+      const initial = await api(path);
+      body.replaceChildren(taskPhotos({ initial, canEdit,
+        add: (photoId) => api(path, { method: 'POST', body: { photoId } }),
+        main: (photoId) => api(`${path}/main`, { method: 'PATCH', body: { photoId } }),
+        remove: (id) => api(`${path}/${id}`, { method: 'DELETE' }),
+        changed: () => ctx.refreshHistory?.(),
+      }));
+    } catch (e) { body.replaceChildren(failBlock(e, load)); }
+  }
+  void load();
+  return section({ title: 'Фото', open: true, tone: 'info', body });
+}
+
+function workDiscussion(task) {
+  const path = `/work-tasks/${task.id}/notes`;
+  const canWrite = session.canEdit && !viewAsActive();
+  return taskDiscussion({ canWrite, canAttach: canWrite,
+    loadNotes: () => api(path).then(({ items }) => items || []), create: (body) => api(path, { method: 'POST', body }),
+    remove: (id) => api(`${path}/${id}`, { method: 'DELETE' }),
+  });
+}
+
+const holdLabel = (task) => task.hold?.kind === 'materials' ? 'Не хватает материалов' : 'Приостановлено';
+const setHold = (task, kind, reason) => api('/work-tasks/' + task.id + '/hold', { method: 'PATCH', body: { kind, ...(reason ? { reason } : {}) } });
+
+function recordHold(task, ctx, kind) {
+  const materials = kind === 'materials';
+  return openWorkForm(ctx, {
+    title: materials ? 'Не хватает материалов' : 'Приостановить задание',
+    form: {
+      fields: () => [{ key: 'reason', label: materials ? 'Каких материалов не хватает' : 'Причина паузы',
+        type: 'textarea', max: 500, required: materials, wide: true }],
+    },
+    save: ({ reason }) => setHold(task, kind, reason?.trim()),
+  });
+}
+
+function moduleOrigin(task) {
+  const module = task.moduleWork;
+  if (!module) return null;
+  const linkOrName = (name, sectionId, id) => {
+    const href = '#' + sectionId + '?open=' + encodeURIComponent(id || '');
+    return id && canFollow(session, href) ? h('a', { href }, name) : name;
+  };
+  return readonlyGroup({ rows: [
+    ['Проектирование', linkOrName(module.designCode, 'design', module.designTaskId)],
+    ['Изделие', linkOrName(task.productName || 'Изделие позиции', 'products', task.productId)],
+    ['Модуль', linkOrName([module.name, module.article].filter(Boolean).join(' · '), 'modules', module.moduleId)],
+  ] });
+}
+
 export function workCard({ status, clean, dueNode, prioBadge, people, call, nextStep }) {
   const taskOpen = (task) => task.status === 'waiting' || task.status === 'work';
   const after = (task, ctx, run) => async () => {
@@ -192,7 +252,8 @@ export function workCard({ status, clean, dueNode, prioBadge, people, call, next
   const nextOf = (task) => task.route?.[task.stepIndex + 1];
   return screenCard({
     title: (task) => {
-      const name = clean(task.productName) || clean(task.title);
+      const name = clean(task.moduleWork?.name) || clean(task.productName) || clean(task.title);
+      if (task.moduleWork) return [task.code, ' · ', name];
       const href = task.productId && '#products?open=' + encodeURIComponent(task.productId);
       return [task.code, name && ' · ', name && href && canFollow(session, href) ? h('a', { href, title: 'Открыть изделие' }, name) : name];
     },
@@ -206,12 +267,13 @@ export function workCard({ status, clean, dueNode, prioBadge, people, call, next
         clean(task.customer), clean(task.sku) && sku(clean(task.sku))].filter(Boolean);
       return refs.flatMap((ref, i) => i ? [' · ', ref] : [ref]);
     },
-    side: (task) => [dueNode(task), actions(badge(status, task.status), prioBadge(task))],
+    side: (task) => [dueNode(task), actions(task.hold ? toneBadge(holdLabel(task), 'warn') : badge(status, task.status), prioBadge(task))],
     bodyFirst: true,
     facts: () => [],
     warns: (task) => task.status === 'cancelled' && task.cancelReason ? [{ title: 'Причина отмены', sub: task.cancelReason }] : [],
     next: (task, ctx) => {
       if (!session.canEdit || !taskOpen(task)) return null;
+      if (task.hold) return { text: task.hold.reason || holdLabel(task), primary: { label: 'Возобновить работу', run: after(task, ctx, (row) => setHold(row, 'resume')) } };
       if (task.status === 'waiting') {
         const first = task.route?.[0]?.name;
         return { text: first ? `Первая операция — ${first}` : '', primary: { label: 'Взять в работу', run: after(task, ctx, nextStep) } };
@@ -221,8 +283,15 @@ export function workCard({ status, clean, dueNode, prioBadge, people, call, next
         ? { text: next.name, primary: { label: 'Перейти к операции', run: after(task, ctx, nextStep) } }
         : { text: 'Последняя операция маршрута.', primary: { label: 'Завершить задание', run: after(task, ctx, (row) => call(row, 'done')) } };
     },
-    body: (task, _ctx, notes) => stack(
+    body: (task, ctx, notes) => stack(
+      moduleOrigin(task),
+      task.moduleWork?.items?.length ? section({ title: 'Состав при передаче', count: task.moduleWork.items.length, body: table({
+        label: 'Состав модуля к изготовлению',
+        columns: [{ label: 'Деталь или сборка', wrap: true }, { label: 'На один модуль' }],
+        rows: task.moduleWork.items.map((item) => ({ cells: [item.name, qty(item.quantity) + ' ' + item.unit] })),
+      }) }) : null,
       routeTable(task),
+      task.hold?.reason && !session.canEdit ? hint(task.hold.reason, 'warn') : null,
       readonlyGroup({ rows: [
         ['Исполнитель', clean(task.assignee?.name) || (task.assigneeId ? 'Имя недоступно' : 'Без исполнителя')],
         ['Количество', task.qty == null ? '' : `${qty(task.qty)} ${clean(task.unit) || 'шт'}`],
@@ -230,7 +299,8 @@ export function workCard({ status, clean, dueNode, prioBadge, people, call, next
       ...notes,
       factBlock(task),
       task.note ? section({ title: 'Примечание', tone: 'neutral', body: hint(task.note) }) : null,
-      task.photo ? section({ title: 'Фото изделия', tone: 'neutral', body: photoStrip([{ thumb: task.photo }]) }) : null,
+      workPhotos(task, ctx),
+      workDiscussion(task),
     ),
     menu: (task, ctx) => {
       if (!session.canEdit || task.status === 'cancelled') return [];
@@ -240,8 +310,11 @@ export function workCard({ status, clean, dueNode, prioBadge, people, call, next
         return [edit, { label: 'Вернуть в работу', run: after(task, ctx, (row) => call(row, last ? last.workTypeId || 'generic' : 'waiting')) }];
       }
       if (!taskOpen(task)) return [edit];
+      if (task.hold) return [edit, { label: 'Отменить задание…', danger: true, run: () => cancel(task, ctx) }];
       return [
         edit,
+        task.status === 'work' && { label: 'Приостановить…', run: () => recordHold(task, ctx, 'pause') },
+        task.status === 'work' && { label: 'Не хватает материалов…', run: () => recordHold(task, ctx, 'materials') },
         (task.status === 'waiting' || nextOf(task)) && { label: 'Завершить всё задание', run: after(task, ctx, (row) => call(row, 'done')) },
         task.status === 'work' && { label: 'Вернуть в ожидание', run: after(task, ctx, (row) => call(row, 'waiting')) },
         { label: 'Отменить задание…', danger: true, run: () => cancel(task, ctx) },

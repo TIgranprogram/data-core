@@ -4,7 +4,7 @@ import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CancelDto, LaunchDto, MoveDto, PlanDto, WorkTaskPatchDto } from './dto/work.dto';
+import { CancelDto, DesignCompositionDto, LaunchDto, ModuleReadyDto, MoveDto, PlanDto, WorkHoldDto, WorkTaskPatchDto } from './dto/work.dto';
 import { WorkService } from './work.service';
 
 /**
@@ -47,6 +47,41 @@ export class WorkController {
   launch(@Body() dto: LaunchDto, @CurrentUser() user?: AuthenticatedUser) {
     return this.work.launch(dto, user?.id);
   }
+
+  @Get('design/:designId/modules')
+  @AppSection('design')
+  @Roles('admin', 'director', 'manager', 'user')
+  designModules(@Param('designId') designId: string) { return this.work.listDesignModules(designId); }
+
+  @Patch('design/:designId/composition')
+  @AppSection('design')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'designtask.composition.changed', entityType: 'DesignTask', idParam: 'designId' })
+  changeDesignComposition(@Param('designId') designId: string, @Body() dto: DesignCompositionDto, @CurrentUser() user?: AuthenticatedUser) {
+    return this.work.changeDesignComposition(designId, dto, user?.organizationId ?? undefined);
+  }
+
+  @Patch('design/:designId/modules/:lineId')
+  @AppSection('design')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'designtask.module.ready', entityType: 'DesignTask', idParam: 'designId' })
+  readyModule(@Param('designId') designId: string, @Param('lineId') lineId: string, @Body() dto: ModuleReadyDto) {
+    return this.work.readyDesignModule(designId, lineId, dto.ready);
+  }
+
+  @Post('design/:designId/modules/:lineId/launch')
+  @HttpCode(200)
+  @AppSection('design')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'designtask.module.launched', entityType: 'DesignTask', idParam: 'designId' })
+  launchModule(@Param('designId') designId: string, @Param('lineId') lineId: string, @CurrentUser() user?: AuthenticatedUser) {
+    return this.work.launchDesignModule(designId, lineId, user?.id);
+  }
+
+  @Patch(':id/hold')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'worktask.hold', entityType: 'WorkTask', idParam: 'id' })
+  hold(@Param('id') id: string, @Body() dto: WorkHoldDto) { return this.work.hold(id, dto); }
 
   @Get(':id')
   @Roles('admin', 'director', 'manager', 'user')

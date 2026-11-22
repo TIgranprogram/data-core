@@ -42,8 +42,16 @@ export function orderWork(orders) {
       tasks = (await api('/work-tasks', { query: { orderId: ids, status: 'waiting,work,done', limit: 500, sort: '-seq' } })).items || [];
     } catch (e) { box.replaceChildren(wrap(box, 'В работе', null, failBlock(e, () => load()))); return; }
     const byLine = new Map();
-    for (const t of tasks) if (t.incomeId && !byLine.has(t.incomeId)) byLine.set(t.incomeId, t);
-    const free = all.filter((l) => !byLine.has(String(l.id)));
+    const modules = new Map();
+    for (const t of tasks) {
+      if (!t.incomeId) continue;
+      if (t.moduleWork) {
+        if (!modules.has(t.incomeId)) modules.set(t.incomeId, []);
+        modules.get(t.incomeId).push(t);
+      } else if (!byLine.has(t.incomeId)) byLine.set(t.incomeId, t);
+    }
+    const blocked = (id) => (modules.get(String(id)) || []).some((job) => job.status !== 'done');
+    const free = all.filter((l) => !byLine.has(String(l.id)) && !blocked(l.id));
     for (const id of [...picked]) if (!free.some((l) => String(l.id) === id)) picked.delete(id);
     const can = session.canEdit;
     // запуск — через панель «Запуск в работу»: там видно и выбирается, как делается каждая позиция
@@ -51,12 +59,14 @@ export function orderWork(orders) {
       (res) => { picked.clear(); if (box.isConnected) load({ created: res.created || 0, refused: res.refused || [], warnings: res.warnings || [] }); }, openSide);
     const rows = all.map((l, i) => {
       const t = byLine.get(String(l.id));
-      const cb = can && !t ? h('input', { type: 'checkbox', 'aria-label': 'Запустить позицию в работу', checked: picked.has(String(l.id)),
+      const cb = can && !t && !blocked(l.id) ? h('input', { type: 'checkbox', 'aria-label': 'Запустить позицию в работу', checked: picked.has(String(l.id)),
         onchange: (e) => { if (e.target.checked) picked.add(String(l.id)); else picked.delete(String(l.id)); paint(); } }) : h('span');
       const st = t ? (t.status === 'done' ? 'готово' : t.status === 'waiting' ? 'ждёт запуска' : t.currentStep || 'в работе') : '';
       return h('li', { class: 'spec-row' }, cb,
         h('div', { class: 'spec-main' }, h('div', { class: 'clip', title: l.title }, (many ? `Договор ${l._order.orderNo || '—'} · ` : '') + lineName(l, i))),
-        t ? h('a', { href: '#work?open=' + t.id, title: 'Открыть карточку в работе' }, `${t.code} · ${st}`) : h('span', { class: 'muted' }, 'не запущена'),
+        t ? h('a', { href: '#work?open=' + t.id, title: 'Открыть карточку в работе' }, `${t.code} · ${st}`) : h('span', { class: 'muted' }, blocked(l.id) ? 'Модули в работе' : modules.has(String(l.id)) ? 'Изделие ждёт сборки' : 'не запущена'),
+        modules.has(String(l.id)) ? h('div', null, ...modules.get(String(l.id)).map((job) => h('div', null,
+          h('a', { href: '#work?open=' + encodeURIComponent(job.id) }, job.code + ' · ' + job.moduleWork.name + (job.status === 'done' ? ' · готово' : ''))))) : null,
         planLink(String(l.id), { title: lineName(l, i), orderNo: l._order.orderNo, qty: l.qty }, 'Состав'));
     });
     const sendSel = button({ label: 'Запустить выбранные', kind: 'primary', size: 'S', onClick: (e) => send([...picked], e.currentTarget) });

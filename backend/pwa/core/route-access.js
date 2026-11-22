@@ -30,10 +30,19 @@ export function mobileOnly(user) {
   return !user?.isOwner && user?.role !== 'admin' && user?.sections?.length === 1 && user.sections[0] === 'stock-mobile';
 }
 
+export function woodScreen(session, view) {
+  return stockView(session.user) === 'wood' || (session.isAdmin && view === 'wood');
+}
+
+export function allowsWoodPanel(session, { of, open, new: isNew }) {
+  return of === 'profile' || (of === 'wooditem' && isNew && !open && session.canEdit) || (!of && !open && !isNew);
+}
+
 export function canOpen(session, route, screen) {
   const user = session.user;
   if (!user || !route) return false;
   if (mobileOnly(user)) return route === 'stock-mobile' && !screen;
+  if (route === 'wooditem') return screen === 'stock' && session.canEdit && canOpen(session, 'stock');
   if (stockView(user) && !stockScreens.has(route)) return false;
   if (stockView(user) === 'wood' && (route === 'movements' || (screen && route === 'stock'))) return false;
   const permitted = (id) => user.isOwner || user.role === 'admin' || !Array.isArray(user.sections) || user.sections.includes(id);
@@ -63,8 +72,9 @@ export function canFollow(session, href) {
   const [route, query] = href.replace(/^#\/?/, '').split('?');
   const params = new URLSearchParams(query);
   const panel = params.get('of');
-  if (route === 'stock' && (params.get('view') === 'wood' || stockView(session.user) === 'wood') &&
-      panel !== 'profile' && (panel || params.get('open') || params.get('new'))) return false;
+  const isWood = route === 'stock' && woodScreen(session, params.get('view'));
+  if (panel === 'wooditem' && !isWood) return false;
+  if (isWood && !allowsWoodPanel(session, { of: panel, open: params.get('open'), new: params.get('new') })) return false;
   return canOpen(session, route) && (route !== 'stock' || canViewStock(session, params.get('view'))) &&
     (!panel || canOpen(session, panel, route));
 }
