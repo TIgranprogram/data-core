@@ -1,59 +1,60 @@
 import { DAY, day, dmy, iso } from './work-schedule-shared.js';
 
-const longDate = new Intl.DateTimeFormat('ru', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
-const monthName = new Intl.DateTimeFormat('ru', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-const capitalize = (text) => text[0].toUpperCase() + text.slice(1);
-
 export function validDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value || '') && Number.isFinite(Date.parse(value)) && iso(Date.parse(value)) === value;
 }
 
-export function ganttPeriod(scale, date) {
-  const t = Date.parse(date);
-  const d = new Date(t);
-  if (scale === 'month') return {
-    from: iso(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)),
-    to: iso(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)),
-  };
+function calendarPeriod(scale, time) {
+  const d = new Date(time);
+  if (scale === 'month') return [
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1),
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0),
+  ];
   if (scale === 'week') {
-    const monday = t - ((d.getUTCDay() + 6) % 7) * DAY;
-    return { from: iso(monday), to: iso(monday + 6 * DAY) };
+    const monday = time - ((d.getUTCDay() + 6) % 7) * DAY;
+    return [monday, monday + 6 * DAY];
   }
-  return { from: date, to: date };
+  return [time, time];
 }
 
-export function shiftGanttPeriod(scale, date, direction) {
-  const d = new Date(date);
-  if (scale !== 'month') return iso(d.getTime() + direction * (scale === 'week' ? 7 : 1) * DAY);
-  const y = d.getUTCFullYear(), m = d.getUTCMonth() + direction;
-  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-  return iso(Date.UTC(y, m, Math.min(d.getUTCDate(), lastDay)));
+function merge(ranges) {
+  const result = [];
+  for (const [from, to] of ranges.sort((a, b) => a[0] - b[0])) {
+    const last = result.at(-1);
+    if (last && from <= last[1] + DAY) last[1] = Math.max(last[1], to);
+    else result.push([from, to]);
+  }
+  return result;
 }
 
-export function workExtent(bars, window, fallback) {
-  if (!bars.length) return { from: fallback, to: fallback };
-  const from = bars.reduce((date, bar) => day(bar.start) < date ? day(bar.start) : date, window.to);
-  const to = bars.reduce((date, bar) => day(bar.end) > date ? day(bar.end) : date, window.from);
-  return { from: from < window.from ? window.from : from, to: to > window.to ? window.to : to };
-}
-
-export function nearestWork(bars, date) {
-  let closest = '', distance = Infinity;
-  for (const bar of bars) {
-    const start = day(bar.start), end = day(bar.end);
-    const candidate = start > date ? start : end < date ? end : date;
-    const offset = Math.abs(Date.parse(candidate) - Date.parse(date));
-    if (offset < distance || (offset === distance && candidate > closest)) {
-      closest = candidate;
-      distance = offset;
+/** Шкала состоит из отрезков с работами. Даты задач входят целиком в пределах загруженного набора. */
+export function workFocus(scale, bars, window, fallback) {
+  const min = Date.parse(window.from), max = Date.parse(window.to);
+  const active = merge(bars.map((bar) => [
+    Math.max(min, Date.parse(day(bar.start))),
+    Math.min(max, Date.parse(day(bar.end))),
+  ]).filter(([start, end]) => start <= end));
+  const bands = scale === 'day' ? active.map(([start, end]) => [start - DAY, end + DAY])
+    : active.map(([start, end]) => [calendarPeriod(scale, start)[0], calendarPeriod(scale, end)[1]]);
+  const segments = merge(bands).map(([start, end]) => ({ from: iso(start), to: iso(end) }));
+  const periods = [];
+  for (const [start, end] of active) {
+    for (let t = start; t <= end;) {
+      const [first, last] = calendarPeriod(scale, t);
+      if (periods.at(-1) !== iso(first)) periods.push(iso(first));
+      t = last + DAY;
     }
   }
-  return closest;
+  return { segments, periods, from: segments[0]?.from || fallback, to: segments.at(-1)?.to || fallback };
 }
 
-export function periodTitle(scale, date, range, hasWork) {
-  if (scale === 'day') return capitalize(longDate.format(Date.parse(date)));
-  if (scale === 'month') return capitalize(monthName.format(Date.parse(date)));
-  if (scale === 'fit' && !hasWork) return 'Обзор работ';
+export function shiftWorkFocus(scale, selection, periods, direction) {
+  if (!selection) return direction > 0 ? periods[0] : periods.at(-1);
+  const pivot = iso(calendarPeriod(scale, Date.parse(selection))[0]);
+  return direction > 0 ? periods.find((date) => date > pivot) : periods.findLast((date) => date < pivot);
+}
+
+export function workFocusTitle(range) {
+  if (!range.segments.length) return 'Работ нет';
   return range.from === range.to ? dmy(range.from) : dmy(range.from) + ' — ' + dmy(range.to);
 }

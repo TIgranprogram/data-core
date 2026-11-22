@@ -95,7 +95,7 @@ function plannerDemo() {
 }
 
 /** Дерево: заказ › позиция › шаги; человек с ёмкостью и перегрузкой. Масштаб/«Уместить»/«Сегодня» работают на месте (демо не ходит за данными). */
-// части эталона planner: plannerBar, buildTree, visible, fitPx
+// части эталона planner: plannerAxis, plannerBar, buildTree, visible, fitPx
 function plannerTreeDemo() {
   const d0 = Date.now(), iso = (k) => new Date(d0 + k * 864e5).toISOString().slice(0, 10);
   const rows = [{ id: 'o1', label: 'Заказ № 118', sub: 'ООО «Север»' }, { id: 'p1', parentId: 'o1', label: 'Стойки', sub: '2 шага' }, { id: 's1', parentId: 'p1', label: 'Сварка', drop: null }, { id: 's2', parentId: 'p1', label: 'Покраска', drop: null },

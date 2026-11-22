@@ -6,6 +6,7 @@
 
 ## ▶ Приоритет 22.11.2026 — приёмка локального выпуска
 
+- [x] C214: [фокус Ганта по работам](crew/C214-gantt-work-focus/UI-REVIEW.md).
 - [x] C213: [календарные периоды Ганта](crew/C213-gantt-calendar/UI-REVIEW.md).
 - [x] C212: [карточка и форма изделия](crew/C212-product-edit/UI-REVIEW.md).
 - [x] C211: [Гант — исполнители, шкала и длительность](crew/C211-gantt-precision/UI-REVIEW.md).
