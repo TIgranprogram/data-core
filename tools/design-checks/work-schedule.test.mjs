@@ -10,6 +10,7 @@ const proof = process.env.GANTT_PROOF_DIR;
 const app = new URL('../../backend/pwa/', import.meta.url);
 const day = 86_400_000;
 const date = (time) => new Date(time).toISOString().slice(0, 10);
+const now = Date.UTC(2026, 10, 18, 12);
 const user = { id: 'manager', username: 'fixture', displayName: 'Проверка', role: 'manager' };
 const people = [
   { id: 'anna', name: 'Анна Соколова', capacityHours: 8, workTypeIds: ['weld', 'cut'] },
@@ -18,7 +19,7 @@ const people = [
   { id: 'office', name: 'Офисный сотрудник', capacityHours: 8, workTypeIds: [] },
 ];
 const workTypes = [{ workTypeId: 'weld', name: 'Сварка', hue: 1 }, { workTypeId: 'cut', name: 'Резка', hue: 3 }];
-const plus = (n) => date(Date.now() + n * day);
+const plus = (n) => date(now + n * day);
 const isWorkday = (ms) => ![0, 6].includes(new Date(ms).getUTCDay());
 function endAfterShift(oldStart, oldEnd, newStart) {
   let duration = 0;
@@ -47,6 +48,7 @@ const initialBars = () => [
 async function fixture(viewport = { width: 1920, height: 1080 }, { theme = 'light', role = 'manager' } = {}) {
   const browser = await chromium.launch({ executablePath: findBrowser(), headless: true });
   const page = await browser.newPage({ viewport, serviceWorkers: 'block' });
+  await page.clock.setFixedTime(new Date(now));
   page.setDefaultTimeout(5000);
   const bars = initialBars(), requests = [], writes = [], errors = [], peopleQueries = [];
   const versions = new Map();
@@ -138,14 +140,35 @@ async function screenshot(page, name) {
   await page.screenshot({ path: join(proof, name), animations: 'disabled' });
 }
 
+const datePicker = (page) => page.getByLabel('Дата в Ганте', { exact: true });
+const chooseScale = (chart, name) => chart.getByRole('button', { name, exact: true }).click();
+const pressedScale = (chart, name) => chart.getByRole('button', { name, exact: true }).getAttribute('aria-pressed');
+
+async function timeline(chart) {
+  return chart.locator('.gt-scroll').evaluate((el) => {
+    const track = el.querySelector('.gt-head-track');
+    const dayWidth = parseFloat(track.style.getPropertyValue('--gt-day'));
+    return {
+      days: track.getBoundingClientRect().width / dayWidth,
+      occupied: track.offsetWidth + el.querySelector('.gt-head .gt-label').offsetWidth,
+      available: el.clientWidth,
+    };
+  });
+}
+
+async function expectDays(chart, count) {
+  const measured = await timeline(chart);
+  assert.ok(Math.abs(measured.days - count) < 0.01, `На шкале ${measured.days} дней вместо ${count}`);
+  assert.ok(Math.abs(measured.occupied - measured.available) <= 1, 'Шкала занимает всю ширину');
+}
+
 test('Гант: период, масштаб, дерево, легенда и переходы из «Что горит»', async () => {
-  const { browser, page, requests, open, errors } = await fixture();
+  const { browser, page, open, errors } = await fixture();
   try {
     await open();
     const graph = page.locator('.k-planner');
     const button = (name) => page.getByRole('button', { name, exact: true });
     const row = (id) => graph.locator(`[data-row="${id}"]`);
-    const scroller = graph.locator('.gt-scroll');
     await row('o:order1').waitFor();
     await button('Свернуть всё').click();
     assert.equal(await graph.locator('[data-bar]').count(), 0);
@@ -168,32 +191,6 @@ test('Гант: период, масштаб, дерево, легенда и п
     await button('Работа по позиции').click();
     assert.equal(await graph.locator('[data-bar].hl-on').getAttribute('data-bar'), 'task:old:0');
     await button('Работа по позиции').click();
-    for (const scale of ['Неделя', 'Месяц', 'Обзор работ', 'День']) {
-      await button(scale).click();
-      await graph.locator('.gt-scroll').waitFor();
-      assert.equal(await button(scale).getAttribute('aria-pressed'), 'true', scale);
-    }
-    const visibleX = () => scroller.evaluate((s) => s.querySelector('.gt-today').getBoundingClientRect().left - s.getBoundingClientRect().left);
-    const earlier = requests.at(-1).from, initialX = await visibleX();
-    const scheduleFrom = (response) => {
-      const url = new URL(response.url());
-      return url.pathname === '/api/work-schedule' ? url.searchParams.get('from') : null;
-    };
-    const previousPeriod = page.waitForResponse((response) => {
-      const from = scheduleFrom(response);
-      return from && from !== earlier;
-    });
-    await button('←').click();
-    await previousPeriod;
-    await scroller.waitFor();
-    assert.notEqual(requests.at(-1).from, earlier);
-    assert.notEqual(await visibleX(), initialX, '«Раньше» сдвигает видимую шкалу, даже когда сегодня остаётся в загруженном периоде');
-    const nextPeriod = page.waitForResponse((response) => scheduleFrom(response) === earlier);
-    await button('→').click();
-    await nextPeriod;
-    await scroller.waitFor();
-    await button('Сегодня').click();
-    await graph.locator('.gt-today').waitFor();
     await button('Свернуть всё').click();
     await button('Без исполнителя: 1').click();
     await row('_none').waitFor();
@@ -287,68 +284,136 @@ test('Гант: фильтры, правая панель шага, перено
   } finally { await browser.close(); }
 });
 
-test('Гант ограничивает период на широком мониторе и заполняет шкалу загруженными днями', async () => {
-  const { browser, page, open, requests, errors } = await fixture({ width: 3440, height: 1440 });
+test('C213: календарные границы, кэш, дата и переходы между масштабами', async () => {
+  const { browser, page, open, requests, errors } = await fixture({ width: 3440, height: 1440 }, { theme: 'soft' });
   try {
-    await open();
+    await open('#workschedule?from=2026-11-18');
     const chart = page.locator('.k-planner');
-    const month = chart.getByRole('button', { name: 'Месяц', exact: true });
-    await month.click();
-    await month.waitFor();
-    assert.equal(await month.getAttribute('aria-pressed'), 'true');
-    await chart.getByRole('button', { name: 'Раскрыть всё' }).click();
+    const picker = datePicker(page);
+    const headers = chart.locator('.gt-head-track button[data-date]');
+    const axisDates = () => headers.evaluateAll((nodes) => nodes.map((node) => node.dataset.date));
+    assert.equal(await pressedScale(chart, 'Обзор работ'), 'true');
+    await expectDays(chart, 12);
+    await chart.getByRole('heading', { name: '15.11.2026 — 26.11.2026', exact: true }).waitFor();
+    await chooseScale(chart, 'Раскрыть всё');
     assert.equal(await chart.locator('[data-bar]').count(), 5);
-    await screenshot(page, '3440-month.png');
+    const loaded = requests.length;
+    assert.ok(requests.every(({ from, to }) => (Date.parse(to) - Date.parse(from)) / day < 366));
 
-    await open('#workschedule');
-    assert.equal(await month.getAttribute('aria-pressed'), 'true');
-    const { from, to } = requests.at(-1);
-    const days = (Date.parse(to) - Date.parse(from)) / day + 1;
-    assert.ok(days > 0 && days <= 366);
-    const timeline = await chart.locator('.gt-scroll').evaluate(el => {
-      const track = el.querySelector('.gt-head-track');
-      const dayWidth = parseFloat(track.style.getPropertyValue('--gt-day'));
-      return { days: track.getBoundingClientRect().width / dayWidth, occupied: track.offsetWidth + el.querySelector('.gt-head .gt-label').offsetWidth, available: el.clientWidth };
+    await chooseScale(chart, 'Неделя');
+    assert.equal(await picker.inputValue(), '2026-11-18');
+    await expectDays(chart, 7);
+    await chart.getByRole('heading', { name: '16.11.2026 — 22.11.2026', exact: true }).waitFor();
+    assert.deepEqual(await axisDates(), Array.from({ length: 7 }, (_, n) => plus(n - 2)));
+    await chooseScale(chart, '←');
+    assert.equal(await picker.inputValue(), '2026-11-11');
+    await chooseScale(chart, '→');
+    assert.equal(await picker.inputValue(), '2026-11-18');
+    await chooseScale(chart, 'Сегодня');
+    assert.equal(await pressedScale(chart, 'Неделя'), 'true');
+    await expectDays(chart, 7);
+    await screenshot(page, 'c213-week-soft.png');
+    await chart.getByRole('button', { name: 'Открыть день 18.11.2026', exact: true }).click();
+    assert.equal(await pressedScale(chart, 'День'), 'true');
+    await expectDays(chart, 1);
+    await chart.getByRole('heading', { name: /18 ноября 2026/ }).waitFor();
+    assert.equal(await chart.locator('.gt-head-track .gt-n').count(), 1);
+    assert.deepEqual(await chart.locator('[data-bar]').evaluateAll((nodes) => nodes.map((el) => el.dataset.bar).sort()), ['step1', 'step4']);
+    const fill = await chart.locator('[data-bar="step1"]').evaluate((el) => {
+      const bar = el.getBoundingClientRect(), track = el.closest('.gt-track').getBoundingClientRect();
+      return Math.abs(bar.left - track.left) < 0.05 && Math.abs(bar.right - track.right) < 0.05;
     });
-    assert.ok(Math.abs(timeline.days - days) < 0.01, 'на шкале ровно загруженный период');
-    assert.ok(timeline.occupied >= timeline.available, 'даты занимают всю ширину');
-    await chart.getByRole('button', { name: '→', exact: true }).click();
-    await month.waitFor();
-    const next = requests.at(-1);
-    assert.ok(next.from > from);
-    assert.equal((Date.parse(next.to) - Date.parse(next.from)) / day + 1, days);
+    assert.equal(fill, true, 'В день совпавшая полоса занимает всю дату');
+    assert.equal(await chart.locator('[data-bar="step1"] .gt-h').count(), 0);
+    await screenshot(page, 'c213-day-soft.png');
+    await chart.locator('[data-bar="step1"]').press('Enter');
+    const drawer = page.locator('.drawer');
+    await drawer.locator('input[type=date]').first().waitFor();
+    assert.deepEqual(await drawer.locator('input[type=date]').evaluateAll((nodes) => nodes.map((node) => node.value)), ['2026-11-16', '2026-11-21']);
+    await drawer.getByRole('button', { name: 'Закрыть', exact: true }).click();
+    await drawer.waitFor({ state: 'hidden' });
+    await chooseScale(chart, '←');
+    assert.equal(await picker.inputValue(), '2026-11-17');
+    await chooseScale(chart, 'Сегодня');
+    assert.equal(await pressedScale(chart, 'День'), 'true');
+    assert.equal(await picker.inputValue(), '2026-11-18');
+
+    await chooseScale(chart, 'Месяц');
+    await expectDays(chart, 30);
+    await chart.getByRole('heading', { name: /Ноябрь 2026/ }).waitFor();
+    assert.deepEqual(await axisDates(), Array.from({ length: 30 }, (_, n) => plus(n - 17)));
+    await chooseScale(chart, '→');
+    assert.match(await picker.inputValue(), /^2026-12-/);
+    await chooseScale(chart, 'Сегодня');
+    assert.equal(await pressedScale(chart, 'Месяц'), 'true');
+    assert.equal(await picker.inputValue(), '2026-11-18');
+    await expectDays(chart, 30);
+    await chooseScale(chart, 'Раскрыть всё');
+    await screenshot(page, 'c213-month-soft.png');
+    await chart.getByRole('button', { name: 'Открыть день 20.11.2026', exact: true }).click();
+    assert.equal(await pressedScale(chart, 'День'), 'true');
+    await expectDays(chart, 1);
+    assert.equal(await picker.inputValue(), '2026-11-20');
+
+    await chooseScale(chart, 'Обзор работ');
+    await expectDays(chart, 12);
+    await chooseScale(chart, 'Сегодня');
+    assert.equal(await pressedScale(chart, 'День'), 'true');
+    assert.equal(await picker.inputValue(), '2026-11-18');
+    assert.match(page.url(), /[?&]date=2026-11-18/);
+    assert.match(page.url(), /[?&]from=2026-11-18/);
+    assert.equal(requests.length, loaded, 'Соседние даты и масштабы используют загруженный период');
+
+    await open('#work?view=gantt&date=2026-11-18&scale=day');
+    await page.locator('.list-screen .k-planner').waitFor();
+    assert.equal(await picker.inputValue(), '2026-11-18');
+    await picker.fill('2026-11-21');
+    await chart.locator('[data-bar="step3"]').waitFor();
+    assert.match(page.url(), /[?&]date=2026-11-21/);
+    await page.reload();
+    await chart.locator('[data-bar="step3"]').waitFor();
+    assert.equal(await picker.inputValue(), '2026-11-21');
+    assert.equal(await pressedScale(chart, 'День'), 'true');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
 
-test('Обзор работ и масштабы сохраняют операции до сегодняшней даты', async () => {
-  const { browser, page, bars, open, requests } = await fixture({ width: 2560, height: 1080 });
+test('C213: високосный месяц, пустой день и возврат к ближайшей операции', async () => {
+  const { browser, page, bars, open, requests, errors } = await fixture({ width: 2560, height: 1080 });
   try {
-    for (const bar of bars) {
-      bar.start = date(Date.parse(bar.start) - 34 * day);
-      bar.end = date(Date.parse(bar.end) - 34 * day);
-    }
-    await open();
+    bars.splice(2);
+    Object.assign(bars[0], { start: '2028-02-28', end: '2028-02-29' });
+    Object.assign(bars[1], { start: '2028-03-01', end: '2028-03-01' });
+    await open('#workschedule?from=2028-02-26&date=2028-02-28&scale=month');
     const chart = page.locator('.k-planner');
-    const button = (name) => chart.getByRole('button', { name, exact: true });
-    assert.equal(await button('Обзор работ').getAttribute('aria-pressed'), 'true');
-    await button('Раскрыть всё').click();
-    const loaded = structuredClone(requests);
-    for (const scale of ['Месяц', 'Обзор работ', 'День', 'Обзор работ']) {
-      await button(scale).click();
-      assert.equal(await chart.locator('[data-bar]').count(), 5);
-      assert.deepEqual(requests, loaded, 'масштаб меняет вид загруженного периода');
-      await chart.locator('[data-bar="step1"]').waitFor();
-      await page.waitForFunction(() => {
-        const bar = document.querySelector('[data-bar="step1"]').getBoundingClientRect();
-        const scroller = document.querySelector('.gt-scroll');
-        const left = scroller.getBoundingClientRect().left;
-        return bar.right > left + scroller.querySelector('.gt-label').offsetWidth && bar.left < left + scroller.clientWidth;
-      });
-    }
-    await button('Сегодня').click();
-    await chart.locator('.gt-today').waitFor();
-    assert.deepEqual(requests, loaded);
+    const picker = datePicker(page);
+    const headers = chart.locator('.gt-head-track button[data-date]');
+    await expectDays(chart, 29);
+    assert.equal(await picker.inputValue(), '2028-02-28');
+    assert.equal(await headers.first().getAttribute('data-date'), '2028-02-01');
+    assert.equal(await headers.last().getAttribute('data-date'), '2028-02-29');
+    await chooseScale(chart, 'Раскрыть всё');
+    assert.equal(await chart.locator('[data-bar="step2"]').count(), 0);
+    await chooseScale(chart, '→');
+    await expectDays(chart, 31);
+    assert.equal(await headers.first().getAttribute('data-date'), '2028-03-01');
+    assert.equal(await headers.last().getAttribute('data-date'), '2028-03-31');
+    await chooseScale(chart, 'Раскрыть всё');
+    assert.deepEqual(await chart.locator('[data-bar]').evaluateAll((nodes) => nodes.map((el) => el.dataset.bar)), ['step2']);
+
+    await chooseScale(chart, 'Обзор работ');
+    await picker.fill('2028-02-27');
+    await chart.getByRole('button', { name: 'К ближайшей работе', exact: true }).waitFor();
+    assert.equal(await pressedScale(chart, 'День'), 'true');
+    assert.equal(await chart.locator('[data-bar]').count(), 0);
+    await chooseScale(chart, 'К ближайшей работе');
+    await chart.locator('[data-bar="step1"]').waitFor();
+    await expectDays(chart, 1);
+    assert.equal(await picker.inputValue(), '2028-02-28');
+    assert.match(page.url(), /[?&]from=2028-02-26/);
+    assert.match(page.url(), /[?&]date=2028-02-28/);
+    assert.ok(requests.every(({ from, to }) => (Date.parse(to) - Date.parse(from)) / day < 366));
+    assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
 
@@ -427,7 +492,7 @@ test('Витрина сохраняет стандартное поведени�
 });
 
 test('Перенос сохраняет даты при назначении, старое задание делает один запрос с отменой', async () => {
-  const { browser, page, bars, writes, open, errors } = await fixture({ width: 2560, height: 1080 }, { theme: 'dark' });
+  const { browser, page, bars, writes, open, errors } = await fixture({ width: 2560, height: 1440 }, { theme: 'dark' });
   try {
     const old = bars.find((b) => b.taskId === 'old');
     old.locked = false;
@@ -444,6 +509,9 @@ test('Перенос сохраняет даты при назначении, с
       const row = await chart.locator(`[data-row="${person}"] .gt-track`).boundingBox();
       assert.ok(b && row);
       const x = b.x + b.width / 2;
+      const target = await page.evaluate(({ x, y }) => document.elementsFromPoint(x, y)
+        .find((node) => !node.closest('.toasts'))?.closest('[data-drop]')?.dataset.drop, { x: x + offset, y: row.y + row.height / 2 });
+      assert.equal(target, person, 'Целевая строка доступна в области прокрутки');
       await page.mouse.move(x, b.y + b.height / 2);
       await page.mouse.down();
       await page.mouse.move(x + offset, row.y + row.height / 2, { steps: 8 });
@@ -480,7 +548,6 @@ test('Перенос сохраняет даты при назначении, с
     assert.equal(old.assigneeId, 'anna');
     old.workTypeId = 'weld';
     old.workTypeName = 'Сварка';
-    await page.setViewportSize({ width: 2560, height: 1440 });
     await page.reload();
     await chart.locator('[data-row="pi:anna:item4"] button.gt-label').waitFor();
     await chart.getByRole('button', { name: 'Раскрыть всё' }).click();
@@ -537,15 +604,15 @@ test('C211: у каждого входа один набор фильтров, �
   } finally { await browser.close(); }
 });
 
-test('C211: границы шкалы и полос совпадают, завершение меняется отдельно от переноса', async () => {
-  const { browser, page, bars, open, requests, writes, errors } = await fixture(undefined, { theme: 'soft' });
+test('C213: границы календарной шкалы совпадают с полосами, срок редактируется в Месяце', async () => {
+  const { browser, page, bars, open, writes, errors } = await fixture(undefined, { theme: 'soft' });
   try {
-    const friday = (5 - new Date().getUTCDay() + 7) % 7;
+    const friday = (5 - new Date(now).getUTCDay() + 7) % 7;
     const [first] = bars;
     const legacy = bars.find((bar) => bar.taskId === 'old');
     Object.assign(first, { start: plus(friday - 1), end: plus(friday) });
     Object.assign(legacy, { start: first.start, end: first.end, status: 'work', locked: false });
-    await open('#workschedule');
+    await open('#workschedule?date=2026-11-19');
     const chart = page.locator('.k-planner');
     const button = (name) => chart.getByRole('button', { name, exact: true });
     const bar = (id) => chart.locator(`[data-bar="${id}"]`);
@@ -554,11 +621,11 @@ test('C211: границы шкалы и полос совпадают, заве
       await page.setViewportSize({ width, height: 1080 });
       for (const scale of ['День', 'Неделя', 'Месяц', 'Обзор работ']) {
         await button(scale).click();
+        await button('Раскрыть всё').click();
         await page.waitForFunction(() => {
           const header = document.querySelector('.gt-head-track'), scroller = document.querySelector('.gt-scroll');
           return header?.getBoundingClientRect().width + document.querySelector('.gt-head .gt-label').offsetWidth >= scroller?.clientWidth - 1;
         });
-        const period = requests.at(-1);
         const metrics = await bar('step1').evaluate((el) => {
           const track = el.closest('.gt-track'), row = track.parentElement;
           const header = document.querySelector('.gt-head-track');
@@ -569,14 +636,16 @@ test('C211: границы шкалы и полос совпадают, заве
             cellsEnd: Math.max(...cells.map((cell) => rect(cell).right)) - rect(header).left,
             y: Math.abs((rect(el).top + rect(el).bottom) / 2 - (rect(row).top + rect(row).bottom - 1) / 2) };
         });
-        const start = (Date.parse(first.start) - Date.parse(period.from)) / day;
-        if (scale !== 'Обзор работ') assert.ok(Math.abs(metrics.offset - start * metrics.px) < 0.08, `${width} ${scale}: начало`);
-        assert.ok(Math.abs(metrics.width - 2 * metrics.px) < 0.08, `${width} ${scale}: ширина двух дней`);
+        const startOffset = { День: 0, Неделя: 3, Месяц: 18, 'Обзор работ': 1 }[scale];
+        assert.ok(Math.abs(metrics.offset - startOffset * metrics.px) < 0.08, `${width} ${scale}: начало`);
+        assert.ok(Math.abs(metrics.width - (scale === 'День' ? 1 : 2) * metrics.px) < 0.08, `${width} ${scale}: ширина полосы`);
         assert.ok(Math.abs(metrics.track - metrics.header) < 0.08, `${width} ${scale}: общая шкала`);
         assert.ok(Math.abs(metrics.cellsEnd - metrics.header) < 0.08, `${width} ${scale}: край шкалы`);
         assert.ok(metrics.y < 1, `${width} ${scale}: строка и полоса на одной середине`);
       }
     }
+    await button('Месяц').click();
+    await button('Раскрыть всё').click();
     const handle = bar('step1').locator('.gt-h');
     const detailsFit = await bar('step2').evaluate((el) => {
       const sub = el.querySelector('.k-pl-sub');
@@ -588,7 +657,6 @@ test('C211: границы шкалы и полос совпадают, заве
     const rect = await handle.boundingBox();
     const px = await handle.evaluate((el) => parseFloat(el.closest('.gt-track').style.getPropertyValue('--gt-day')));
     await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
-    await screenshot(page, 'c211-resize-handle.png');
     await page.mouse.down();
     await page.mouse.move(rect.x + rect.width / 2 + px, rect.y + rect.height / 2 + 40, { steps: 6 });
     await page.mouse.up();

@@ -6,6 +6,7 @@
 
 ## ▶ Приоритет 22.11.2026 — приёмка локального выпуска
 
+- [x] C213: [календарные периоды Ганта](crew/C213-gantt-calendar/UI-REVIEW.md).
 - [x] C212: [карточка и форма изделия](crew/C212-product-edit/UI-REVIEW.md).
 - [x] C211: [Гант — исполнители, шкала и длительность](crew/C211-gantt-precision/UI-REVIEW.md).
 - [x] C210: [доска проектирования и архив задач](crew/C210-design-board/UI-REVIEW.md).

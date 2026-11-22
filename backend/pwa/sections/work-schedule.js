@@ -1,16 +1,17 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { patch } from '../core/router.js';
+import { current, patch } from '../core/router.js';
 import { actions, busyBlock, button, empty, failBlock, funnel, hint, openSide, planner, segmented, stack, toast, toastError } from '../ui/kit/index.js';
 import { filterPanel } from '../ui/kit/filter-panel.js';
 import { buildModel } from './work-schedule-tree.js';
-import { DAY, NONE, SCHEDULE, day, dmy, iso, partOf, pref, savePref, startOfWeek, steps, typeOf, workLabel, isLegacyCommonWork } from './work-schedule-shared.js';
+import { ganttPeriod, nearestWork, periodTitle, shiftGanttPeriod, validDate, workExtent } from './work-schedule-period.js';
+import { DAY, NONE, SCHEDULE, day, dmy, iso, partOf, pref, savePref, steps, typeOf, workLabel, isLegacyCommonWork } from './work-schedule-shared.js';
 export { wsStep } from './work-schedule-step.js';
 
 /*
  * Гант (C041 Э2, C053 Э3) — единственный: раздел «Гант» и вид «Гант» в «В работе». GET /work-schedule?from&to → { people, bars, load, legend }.
  * Дерево: «По заказам» — заказ › позиция › часть › шаги; «По людям» — человек › позиция › шаги. По умолчанию всё свёрнуто.
- * Линза, масштаб и раскрытое запоминаются (localStorage dc-gantt-lens / -scale / -open). Воронка фильтров (заказ → позиция → часть → рабочий → вид работ)
+ * Линза, период и раскрытое запоминаются (localStorage dc-gantt-lens / -scale / -open). Воронка фильтров (заказ → позиция → часть → рабочий → вид работ)
  * считается по загруженным полосам; перетаскивание полосы = даты, на строку другого человека = другой исполнитель (PATCH /orderline-plans/:id/steps/:stepId);
  * Правый край меняет конец, клик открывает шаг (of=wsstep).
  */
@@ -18,8 +19,8 @@ const LENSES = ['orders', 'people'];
 const SCALES = ['day', 'week', 'month', 'fit'];
 // Период загрузки не зависит от масштаба и ширины экрана.
 const PERIOD_DAYS = 182;
-const OVERVIEW_DAYS = 56;
-const SHIFT = { day: 7, week: 14, fit: 14, month: 30 };
+const today = () => iso(Date.now() - new Date().getTimezoneOffset() * 60000);
+const dateOf = (p) => [p.date, p.from].find(validDate) || '';
 const OPEN_MAX = 400;
 const FILTERS = ['order', 'incomeId', 'part', 'person', 'work'];
 const clearFilters = Object.fromEntries(FILTERS.map((key) => [key, undefined]));
@@ -65,7 +66,7 @@ const narrow = () => typeof matchMedia === 'function' && matchMedia('(max-width:
 /** Ядро экрана: рисует в el. set(изменения) — сменить параметры адреса (воронка, окно дат); extra — условия списка «В работе». */
 function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   let P = p0, data = null, seq = 0, extra = extra0, touched = false, chart = null;
-  let windowDates = null, renderedDates = null, viewport = null, focusDate = null, focusWork = false, loading = false, destroyed = false;
+  let windowDates = null, scrollTop = 0, loading = false, destroyed = false;
   let lens = LENSES.includes(P.mode) ? P.mode : pref('lens', 'orders');
   let scaleK = SCALES.includes(P.scale) ? P.scale : pref('scale', 'fit');
   if (!LENSES.includes(lens)) lens = 'orders';
@@ -85,10 +86,7 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   el.append(box);
 
   const F = () => ({ order: P.order || '', line: P.incomeId || '', part: P.part || '', person: P.person || '', work: P.work || '' });
-  const from = () => {
-    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(P.from) ? Date.parse(P.from) : NaN;
-    return Number.isFinite(parsed) && iso(parsed) === P.from ? P.from : iso(startOfWeek() - 84 * DAY);
-  };
+  const setPeriod = (date, scale = scaleK) => set({ date, scale });
   const fitW = () => Math.max(320, (chart?.scroller.isConnected ? chart.scroller.clientWidth
     : (chartBox.clientWidth || document.querySelector('main')?.clientWidth || innerWidth) - 2) - (narrow() ? 148 : 232));
 
@@ -101,27 +99,13 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
       return words.every((word) => line.includes(word));
     });
   };
-  const rememberViewport = () => {
-    const scroller = chart?.scroller;
-    if (!scroller?.isConnected) return;
-    const track = scroller.querySelector('.gt-head-track');
-    const label = scroller.querySelector('.gt-head .gt-label');
-    const px = parseFloat(getComputedStyle(track).getPropertyValue('--gt-day'));
-    const center = scroller.scrollLeft + (scroller.clientWidth - label.offsetWidth) / 2;
-    viewport = { date: iso(Date.parse(renderedDates.from) + Math.floor(center / px) * DAY), top: scroller.scrollTop };
+  const rememberScroll = () => {
+    if (chart?.scroller.isConnected) scrollTop = chart.scroller.scrollTop;
   };
 
-  function overviewDates(bars) {
-    if (!bars.length) return windowDates;
-    let first = Infinity, last = -Infinity;
-    for (const bar of bars) {
-      first = Math.min(first, Date.parse(day(bar.start)));
-      last = Math.max(last, Date.parse(day(bar.end)));
-    }
-    const start = Date.parse(windowDates.from), end = Date.parse(windowDates.to);
-    const padding = Math.max(2 * DAY, Math.ceil((OVERVIEW_DAYS - 1 - (last - first) / DAY) / 2) * DAY);
-    return { from: iso(Math.max(start, first - padding)), to: iso(Math.min(end, last + padding)) };
-  }
+  const selectedDate = (bars) => dateOf(P) || firstWork(bars) || today();
+  const inside = (bar, range) => day(bar.end) >= range.from && day(bar.start) <= range.to;
+  const covered = (range) => !!windowDates && range.from >= windowDates.from && range.to <= windowDates.to;
 
   function firstWork(bars) {
     let active = '', first = '';
@@ -130,26 +114,18 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
       if (!first || date < first) first = date;
       if (bar.status !== 'done' && (!active || date < active)) active = date;
     }
-    return active || first || windowDates.from;
-  }
-
-  function focusToday() {
-    const now = new Date();
-    focusDate = iso(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-    if (scaleK === 'fit') {
-      scaleK = 'day';
-      savePref('scale', scaleK);
-    }
-    if (focusDate < windowDates.from || focusDate > windowDates.to) set({ from: undefined });
-    else paint();
+    const result = active || first;
+    return result && result < windowDates.from ? windowDates.from : result;
   }
 
   async function load() {
     if (destroyed) return;
-    rememberViewport();
+    rememberScroll();
     const my = ++seq;
-    const first = from();
-    const dates = { from: first, to: iso(Date.parse(first) + (PERIOD_DAYS - 1) * DAY) };
+    const date = dateOf(P) || today();
+    const first = iso(Date.parse(date) - 84 * DAY);
+    const dates = covered(ganttPeriod(scaleK, date)) ? windowDates
+      : { from: first, to: iso(Date.parse(first) + (PERIOD_DAYS - 1) * DAY) };
     loading = true;
     chartBox.replaceChildren(busyBlock('Гант'));
     try {
@@ -185,7 +161,11 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     for (const bar of found) {
       for (let row = rows.get(bar.rowId); row?.parentId; row = rows.get(row.parentId)) open.add(row.parentId);
     }
-    saveOpen(); paint();
+    saveOpen();
+    const target = found[0];
+    const date = selectedDate(hit);
+    if (target && scaleK !== 'fit' && !inside(target, ganttPeriod(scaleK, date))) setPeriod(nearestWork([target], date));
+    else paint();
     requestAnimationFrame(() => {
       const bar = found[0] && chartBox.querySelector(`[data-bar="${CSS.escape(found[0].id)}"]`);
       const row = personIds[0] && chartBox.querySelector(`[data-row="${CSS.escape(personIds[0])}"]`);
@@ -202,14 +182,14 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
     });
   }
 
-  function paintBanner(bars) {
+  function paintBanner(bars, range) {
     const live = bars.filter((b) => b.status !== 'done');
     const over = live.filter((b) => b.overdue), none = live.filter((b) => !b.assigneeId), design = live.filter((b) => b.inDesign);
     const cap = new Map(data.people.map((x) => [String(x.id), Number(x.capacityHours) || 0]));
     const owners = new Set(bars.map((b) => String(b.assigneeId ?? NONE)));
     const heavy = [...new Set(data.load.filter((l) => {
       const id = String(l.personId);
-      return owners.has(id) && cap.get(id) && l.hours > cap.get(id);
+      return day(l.date) >= range.from && day(l.date) <= range.to && owners.has(id) && cap.get(id) && l.hours > cap.get(id);
     }).map((l) => String(l.personId)))];
     const items = [
       over.length && button({ label: `Просрочено: ${over.length}`, kind: 'danger', size: 'S', title: 'Показать просроченные шаги', onClick: () => reveal('orders', over) }),
@@ -239,53 +219,47 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   function saveOpen() { savePref('open', [...open].slice(-OPEN_MAX)); }
   const modelFor = (bars) => buildModel({ bars, people: data.people, lens, allBars: data.bars });
 
-  function paintChart(bars) {
-    rememberViewport();
+  function paintChart(matching) {
+    rememberScroll();
+    const date = selectedDate(matching), overview = scaleK === 'fit';
+    const range = overview ? workExtent(matching, windowDates, date) : ganttPeriod(scaleK, date);
+    const bars = overview ? matching : matching.filter((bar) => inside(bar, range));
     const loadBy = {};
     for (const l of data.load) { (loadBy[l.personId] ||= {})[day(l.date)] = l.hours; }
+    paintBanner(bars, range);
     const model = modelFor(bars);
     const filtersOn = !!P.q || Object.values(F()).some(Boolean);
-    const lensSeg = segmented({ items: [{ key: 'orders', label: 'По заказам' }, { key: 'people', label: 'По людям' }], value: lens, label: 'Что в строках', onChange: (k) => { lens = k; savePref('lens', k); paint(); } });
-    renderedDates = scaleK === 'fit' ? overviewDates(bars) : windowDates;
+    const lensSeg = segmented({ items: [{ key: 'orders', label: 'По заказам' }, { key: 'people', label: 'По людям' }], value: lens, label: 'Что в строках', onChange: (k) => set({ mode: k }) });
+    const nextWork = bars.length ? '' : nearestWork(matching, date);
     chartWidth = fitW();
-    shownBars = bars;
+    shownBars = matching;
     const defaultOpen = !savedOpen && !touched && bars.length <= 12
       ? new Set(model.rows.filter((row) => !row.parentId).map((row) => row.id)) : open;
     if (chart) resize.unobserve(chart.scroller);
     chart = planner({
       lead: lensSeg.el,
       rowsTitle: lens === 'people' ? 'Исполнитель и операции' : 'Заказы и операции',
-      rows: bars.length ? model.rows : [], bars: model.bars, load: loadBy, ...renderedDates, scale: scaleK, canEdit: !!session.canEdit, rowsMovable: lens === 'people',
-      fitWidth: chartWidth, autoScroll: false,
-      expanded: filtersOn && !touched ? new Set(model.nodeIds) : defaultOpen,
+      rows: model.rows, bars: model.bars, load: loadBy, ...range, scale: scaleK, canEdit: !!session.canEdit && scaleK !== 'day', rowsMovable: lens === 'people',
+      fitWidth: chartWidth, autoScroll: false, calendar: true,
+      period: { label: periodTitle(scaleK, date, range, !!bars.length), date, onChange: (pick) => { if (validDate(pick)) setPeriod(pick, overview ? 'day' : scaleK); } },
+      onPickDate: scaleK === 'week' || scaleK === 'month' ? (pick) => setPeriod(pick, 'day') : undefined,
+      expanded: (filtersOn || scaleK === 'day') && !touched ? new Set(model.nodeIds) : defaultOpen,
       onToggle: (_id, _isOpen, set2) => { touched = true; open = new Set(set2); saveOpen(); },
       legend: legendFor(bars, data.legend),
-      onScale: (k) => {
-        if (scaleK === k) return;
-        focusWork = scaleK === 'fit';
-        scaleK = k; savePref('scale', k);
-        paint();
-      },
-      onShift: (dir) => {
-        rememberViewport();
-        const offset = dir * SHIFT[scaleK] * DAY;
-        focusDate = iso(Date.parse(viewport?.date || windowDates.from) + offset);
-        set({ from: iso(Date.parse(windowDates.from) + offset) });
-      },
-      onToday: focusToday,
-      empty: empty({ title: filtersOn ? 'По этим фильтрам работ нет' : 'В этом периоде работ нет', hint: `${dmy(windowDates.from)} — ${dmy(windowDates.to)}. ${filtersOn ? 'Измените фильтры или поиск.' : 'Стрелки над шкалой показывают более ранние или поздние даты.'}` }),
+      onScale: (k) => { if (k !== scaleK) setPeriod(date, k); },
+      onShift: overview ? undefined : (dir) => setPeriod(shiftGanttPeriod(scaleK, date, dir)),
+      onToday: () => setPeriod(today(), overview ? 'day' : scaleK),
+      empty: empty({
+        title: !matching.length && filtersOn ? 'По этим фильтрам работ нет' : 'В этом периоде работ нет',
+        hint: !nextWork && (filtersOn ? 'Измените фильтры или поиск.' : 'Выберите другую дату.'),
+        ...(nextWork && { kind: 'notFound', onReset: () => reveal(lens, matching.filter((bar) => inside(bar, ganttPeriod('day', nextWork)))), resetLabel: 'К ближайшей работе' }),
+      }),
       onOpen: (b) => (b.taskId ? patch({ of: 'work', open: b.taskId }, { replace: false }) : openSide('wsstep', b.id)),
       onMove: (b, dest) => move(b.id, dest), onResize: (b, dest) => move(b.id, dest, true),
     });
     chartBox.replaceChildren(chart.el);
     resize.observe(chart.scroller);
-    if (chart.scroller.isConnected) {
-      chart.scroller.scrollTop = viewport?.top ?? 0;
-      const activity = P.from && !focusWork ? windowDates.from : firstWork(bars);
-      chart.scrollToDate(focusDate || (!focusWork && viewport?.date) || activity);
-    }
-    focusDate = null;
-    focusWork = false;
+    chart.scroller.scrollTop = scrollTop;
   }
 
   async function move(stepId, dest, resizeEnd = false) {
@@ -354,7 +328,7 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   function paint() {
     const matches = barsForSearch();
     const bars = matches.filter((b) => pass(b, F()));
-    paintTop(); paintBanner(bars); paintFilters(matches); paintChart(bars);
+    paintTop(); paintFilters(matches); paintChart(bars);
   }
   const resize = new ResizeObserver(() => {
     if (chart?.scroller.isConnected && fitW() !== chartWidth) paintChart(shownBars);
@@ -364,18 +338,17 @@ function createSchedule(el, p0, set, extra0 = {}, host = {}) {
   requestAnimationFrame(load);
   return {
     update(np, query = extra) {
-      const refetch = np.from !== P.from || query.personId !== extra.personId || query.orderId !== extra.orderId;
+      const changedScope = query.personId !== extra.personId || query.orderId !== extra.orderId;
       const changedFilter = [...FILTERS, 'q'].some((key) => np[key] !== P[key]);
+      const changedPeriod = dateOf(np) !== dateOf(P) || np.scale !== P.scale;
+      const changedLens = LENSES.includes(np.mode) && np.mode !== lens;
       P = np;
       extra = query;
-      if (changedFilter || refetch) {
-        touched = false;
-        focusWork = changedFilter || !focusDate;
-      }
-      if (refetch) {
-        paintTop();
-        load();
-      } else if (changedFilter && !loading && data) paint();
+      if (SCALES.includes(np.scale)) { scaleK = np.scale; if (changedPeriod) savePref('scale', scaleK); }
+      if (changedLens) { lens = np.mode; savePref('lens', lens); }
+      if (changedFilter || changedScope || (changedPeriod && scaleK === 'day')) touched = false;
+      if (changedScope || (changedPeriod && !covered(ganttPeriod(scaleK, dateOf(P) || today())))) load();
+      else if (!loading && data && (changedPeriod || changedFilter || changedLens)) paint();
     },
     resetFilters: () => set(clearFilters),
     reload: load,
@@ -393,7 +366,15 @@ export const workSchedule = {
 export function mountScheduleView(_cfg, _path, query = {}, host = {}) {
   const el = h('div');
   const pick = (q) => ({ ...(q?.assigneeId ? { personId: q.assigneeId } : {}), ...(q?.orderId ? { orderId: q.orderId } : {}) });
-  let P = { q: query.search };
-  const core = createSchedule(el, P, (c) => { P = { ...P, ...c }; for (const k of Object.keys(P)) if (P[k] === undefined) delete P[k]; core.update(P); }, pick(query), host);
-  return { el, setQuery: (q) => { P = { ...P, q: q.search }; core.update(P, pick(q)); }, reload: core.reload, resetFilters: core.resetFilters, destroy: core.destroy };
+  const address = () => {
+    const { date, from, scale, mode } = current().params;
+    return { date, from, scale, mode };
+  };
+  let P = { ...address(), q: query.search };
+  const core = createSchedule(el, P, (changes) => {
+    if ('date' in changes || 'mode' in changes) { patch(changes); return; }
+    P = { ...P, ...changes };
+    core.update(P);
+  }, pick(query), host);
+  return { el, setQuery: (q) => { P = { ...P, ...address(), q: q.search }; core.update(P, pick(q)); }, reload: core.reload, resetFilters: core.resetFilters, destroy: core.destroy };
 }
