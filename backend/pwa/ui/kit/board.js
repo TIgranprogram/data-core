@@ -20,6 +20,7 @@ import { getPref, setPref } from '../../core/prefs.js';
  *   perColumn: 30,
  *   columns[]: { compact — тонкие карточки, per — порция, portion — «ещё N →» дописывает порцию на месте }
  *   canDrop?(row, toKey) → bool — можно ли бросить карточку на колонку (по умолчанию да, кроме своей колонки)
+ *   externalDrop?(columnElement) → bool — принадлежит ли цель связанной доске; такой перенос обновляет данные через onChanged
  *   card(row, column) → ещё { body — свои узлы карточки вместо заголовка/мета, cls }; add(ключ колонки) + addLabel — «+ Добавить» в колонке;
  *   columns[].emptyText — строка или функция: что написать в пустой колонке (по умолчанию «Пусто»)
  *   headCount — сумма по колонкам уходит в onTotal (счётчик в шапке)
@@ -89,8 +90,10 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   function dropTo(card, row, from, target) {
     const to = target.dataset.key;
     // Карточка «приземляется» в колонку сразу; если перенос не состоялся — список перечитается
-    cols.find((x) => x.c.key === to)?.body.prepend(card);
-    card.classList.add('landed');
+    if (el.contains(target)) {
+      cols.find((x) => x.c.key === to)?.body.prepend(card);
+      card.classList.add('landed');
+    }
     Promise.resolve(board.move(row, to)).then((ok) => { if (ok) onChanged(); else load(); }).catch((ex) => { toastError(ex); load(); });
   }
   function bindDrag(card, row, from) {
@@ -98,7 +101,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       canStart: () => canMove,
       targetSel: '.col',
       scroller: el, scrollAxis: 'x',
-      canDrop: (t) => el.contains(t) && t.dataset.key !== from && (!board.canDrop || board.canDrop(row, t.dataset.key)),
+      canDrop: (t) => (el.contains(t) || board.externalDrop?.(t)) && t.dataset.key !== from && (!board.canDrop || board.canDrop(row, t.dataset.key)),
       onDrop: (t) => dropTo(card, row, from, t),
     });
   }

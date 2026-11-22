@@ -191,23 +191,23 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const loadTiles = (again) => Promise.resolve(L.tiles.load()).then((t) => { tiles = t; renderTiles(); }).catch(() => { if (!again) (tilesGroup || tilesBox).remove(); });
   if (tilesBox) loadTiles(false);
   function renderTiles() { paintTiles({ L, P, tiles, tilesBox, tileTagBox, side }); }
-
   const ganttFields = L.gantt ? h('div', { hidden: true }) : null;
   const filters = side ? filterPanel({ key: section.id, search: sb.el,
     fields: [tilesGroup, chipFilters.length && sideChips ? chipsBox : null, ...sideParts, resetBtn, ganttFields],
     content: [panel, boardBox, ganttBox] }) : null;
+  const inlineChipTools = L.board?.inlineChips && chipFilters.length && !sideChips ? filters?.el.querySelector(':scope > .filter-tools') : null;
   const el = mark(h('div', { class: 'list-screen' + (side ? ' has-side' : '') }, head,
     filters ? filters.el : [tilesBox, panel, boardBox, ganttBox]), 'list');
-
   function syncControls() {
     const { board: isBoard, gallery: isGallery, gantt: isGantt } = st();
+    const chipHost = inlineChipTools && (isBoard ? inlineChipTools : panel);
+    if (chipHost && chipsBox.parentElement !== chipHost) chipHost.insertBefore(chipsBox, isBoard ? null : panel.firstChild);
     sb.set(P.q || '');
     sb.input.placeholder = (isGantt && L.gantt.searchPlaceholder) || defaultSearch;
     for (const [k, c] of Object.entries(controls)) c.value = P[k] || '';
     resetBtn.hidden = !(anyFilter() || P.q);
     if (ganttFields) ganttFields.hidden = !isGantt;
     filters?.setCount(selCount() + (isGantt ? ganttCount : 0));
-    btnTable.classList.toggle('active', !isBoard);
     btnBoard.classList.toggle('active', isBoard);
     btnGallery.classList.toggle('active', isGallery);
     btnGantt?.classList.toggle('active', isGantt);

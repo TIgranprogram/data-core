@@ -36,7 +36,7 @@ export function draggable(el, { canStart = () => true, canDrop = () => true, onD
   el.addEventListener('click', clickGuard, true);
 
   const moveGhost = (d, x, y) => {
-    d.ghost.style.transform = `translate(${x - d.dx - d.left}px, ${y - d.dy - d.top}px) rotate(2deg)`;
+    d.ghost.style.transform = `translate(${x - d.dx - d.left}px, ${y - d.dy - d.top}px) rotate(var(--drag-rotation, 2deg))`;
     let t = document.elementFromPoint(x, y)?.closest?.(targetSel) || null;
     if (t && !canDrop(t)) t = null;
     if (d.over !== t) { d.over?.classList.remove('drop'); t?.classList.add('drop'); d.over = t; }
