@@ -1,130 +1,57 @@
-/* Единый промпт/файл для ИИ: вкладки «API-ключи» и «Подключение».
- * Не дублировать текст в admin.js — менять только здесь. */
+/* Один шаблон для вкладок «API-ключи» и «Подключение». */
 (function () {
-  const ACCESS_LABEL = { read: 'Только чтение', write: 'Чтение и запись', full: 'Полный доступ' };
-  const PUBLIC = {
-    api: 'https://kppdf-crm.ru/db/api',
-    app: 'https://kppdf-crm.ru/db/app/',
-    admin: 'https://kppdf-crm.ru/db/admin/',
-    lan: 'http://<IP-домашнего-сервера>:3001/api',
+  const ACCESS_LABEL = {
+    app: 'Только своё приложение',
+    read: 'Только чтение',
+    write: 'Запись в общую базу',
+    full: 'Права выдавшего ключ',
   };
+  const APP_NAME = /^[a-z][a-z0-9]{0,39}$/;
+  const isAppName = (name) => typeof name === 'string' && APP_NAME.test(name) && name !== 'control';
+  const quoted = (value) => '\x60' + value + '\x60';
 
-  function apiUrls(apiPath) {
-    const here = location.origin + (apiPath || '/api');
-    return { publicApi: PUBLIC.api, publicApp: PUBLIC.app, publicAdmin: PUBLIC.admin, here, lan: PUBLIC.lan };
-  }
+  function buildManagerFile({ access = 'app', apps = [], apiPath = '/api' } = {}) {
+    const base = location.origin + apiPath;
+    const privateApp = access === 'app';
+    const names = Array.isArray(apps) ? apps.filter(isAppName) : [];
+    const app = privateApp && names.length === 1 ? names[0] : '<имя-приложения>';
+    const store = base + '/apps/' + app + '/<коллекция>';
+    const permission = ACCESS_LABEL[access];
 
-  /** Markdown для ИИ: адреса, ключ, менеджер, куда писать, как не испортить, лог ошибок. */
-  function buildManagerFile({ apiKey, label, access, apps, apiPath } = {}) {
-    const u = apiUrls(apiPath);
-    const rights = ACCESS_LABEL[access] || ACCESS_LABEL.write;
-    const keyBlock = apiKey
-      ? apiKey
-      : 'kppd_…  ← ВСТАВЬТЕ ключ, сохранённый при выдаче (метка «' + (label || '…') + '»). На сервере только хеш — повторно не показывают.';
-    const appLine = Array.isArray(apps) && apps.length ? apps.join(', ') : 'все приложения /apps (если не ограничили при выдаче)';
     return [
-      '# Data Core — подключение ИИ / скрипта как менеджер',
+      '# DataCore — подключение приложения',
       '',
-      'Ты работаешь с личной базой пользователя **только через REST API**. Прямого MongoDB нет.',
-      'Роль по смыслу — **менеджер**: заполнять и править рабочие данные, **не ломая** общие справочники и чужие записи.',
+      'API ' + quoted(base),
+      'Доступ «' + (permission || 'не указан') + '».',
       '',
-      '## 1. Адреса (что куда)',
+      '## Ключ на стороне сервера',
       '',
-      '| Что | URL |',
-      '|--|--|',
-      `| API из интернета (основной) | \`${u.publicApi}\` |`,
-      `| Этот же сайт сейчас (origin) | \`${u.here}\` |`,
-      `| Из домашней сети (LAN) | \`${u.lan}\` |`,
-      `| Рабочее место (экраны) | \`${u.publicApp}\` |`,
-      `| Админка | \`${u.publicAdmin}\` |`,
+      'Владелец отдельно помещает ключ в хранилище секретов приложения, переменная DATACORE_API_KEY.',
+      'Добавляй на стороне сервера заголовок Authorization: Bearer со значением этой переменной.',
+      'Запрашивай имена переменных, а не их значения. Секреты должны оставаться вне промптов, кода, браузера, URL и журналов.',
       '',
-      'Базовый URL API = адрес без хвоста пути. Health без ключа: `GET <API>/health/ready` → 200.',
+      ...(privateApp ? [
+        '## Данные своего приложения',
+        '',
+        'Работай с коллекциями по адресу ' + quoted(store) + '.',
+        'Если имя ещё не согласовано, дождись его до настройки подключения.',
+        'GET /apps показывает доступное приложение и его коллекции.',
+        'GET по коллекции возвращает items, total, page, limit. У объекта есть строковый id.',
+        'POST создаёт запись. Для конкретного id доступны GET, PATCH, PUT и мягкое DELETE.',
+        'Физическое удаление, общая база и административные маршруты закрыты.',
+      ] : [
+        '## Контракт и общие данные',
+        '',
+        'Уточни нужные маршруты по GET /meta/guide, GET /meta/schema и GET /meta/openapi.json.',
+        ...(names.length ? ['Разрешённые имена в /apps: ' + names.map(quoted).join(', ') + '.'] : []),
+        access === 'read'
+          ? 'Используй операции чтения.'
+          : 'Любую запись в общую базу предварительно согласуй с владельцем по маршруту и полям.',
+        'Ищи существующую запись по id перед правкой. Для отдельных полей используй PATCH.',
+      ]),
       '',
-      '## 2. Ключ и права (отдельной роли «ИИ» нет — так задумано)',
-      '',
-      `- Метка: **${label || '—'}**`,
-      `- Права ключа: **${rights}**`,
-      `- Приложения /apps: **${appLine}**`,
-      '',
-      'Роль человека в системе не дублируем: для ИИ выдают ключ `kppd_` с **«Чтение и запись» (write)**.',
-      'Write ≈ менеджер: CRUD рабочих данных, **без** `/admin`, ролей, пользователей и выдачи ключей.',
-      'Не просите `full` — он шире, чем нужно агенту. Отдельный пользователь «ИИ» не обязателен.',
-      '',
-      '```',
-      keyBlock,
-      '```',
-      '',
-      'Заголовок: `Authorization: Bearer <ключ>` (или `X-Access-Token`). `Content-Type: application/json` при теле.',
-      '',
-      '## 3. Сначала контракт (тем же ключом)',
-      '',
-      `1. GET ${u.publicApi}/meta/guide`,
-      `2. GET ${u.publicApi}/meta/schema`,
-      `3. GET ${u.publicApi}/meta/openapi.json`,
-      '',
-      'Списки: `{ items, total, page, limit }`, у объекта строковый `id`. Лишнее поле → 400. ~10 запросов/с.',
-      '',
-      '## 4. Куда класть данные (не перепутай)',
-      '',
-      'Экраны: ' + u.publicApp + ' — те же данные, что API. Клади только в «свою» таблицу:',
-      '',
-      '| Задача человека | API | Не путать с |',
-      '|--|--|--|',
-      '| Контрагент (фирма, поставщик, заказчик) | `/partners`, `/organizations` | не в заявки и не в заказы |',
-      '| Заявка на закупку | `/supply/requests` (+ bulk) | не в расходы `/expenses` без нужды |',
-      '| Заказ клиенту | `/salesorders` | позиции заказа — `/incomes` |',
-      '| Строка заказа / оплата | `/incomes` | не создавать «левое» изделие вместо привязки |',
-      '| Изделие каталога | `/showcase`, `/products` | не дублировать по похожему имени — сначала поиск |',
-      '| Склад / материал | `/stock/...`, `/materials` | общие с CRM — только точечно |',
-      '| Значение выпадающего списка | `/dicts/<ключ>` | не писать код TRN в название |',
-      '| Свои заметки/таблицы агента | `/apps/<app>/<collection>` | не общие справочники |',
-      '',
-      'Перед **правкой** существующей записи: найди её `GET` (поиск/`id`), меняй только нужные поля `PATCH`. Не `DELETE` массово. Не выдумывай поля — только schema/OpenAPI.',
-      'Общие с CRM коллекции (материалы, организации, склад…) — не чисти и не переименовывай «на глаз».',
-      'Не делай: ключи, пользователи, роли, `/admin/*`.',
-      '',
-      '## 5. Ошибки — лог на сайте для разработчиков',
-      '',
-      'Если запрос вернул 4xx/5xx, данные неясны или ты чуть не испортил запись — **сохрани лог** (ключ `kppd_` для этого разрешён):',
-      '',
-      `POST ${u.publicApi}/client-errors`,
-      '',
-      'Тело (только эти поля):',
-      '```json',
-      '{',
-      '  "kind": "integration",',
-      '  "message": "кратко: что не вышло (без паролей и без полного ключа)",',
-      '  "name": "AiAgent",',
-      '  "section": "#ai-agent",',
-      '  "action": "что пытался сделать (например: создать заявку)",',
-      '  "status": 400,',
-      '  "url": "/api/supply/requests",',
-      '  "stack": "ответ сервера или стек, без секретов"',
-      '}',
-      '```',
-      '',
-      '- `kind` обязательно `"integration"` — иначе ключ получит 403.',
-      '- Не клади в лог ключ `kppd_…`, пароли, персональные полные тексты без нужды; сервер маскирует секреты, но не злоупотребляй.',
-      '- Ответ 204 = принято. Потом разработчик видит это в `dc errors` и в `GET /api/client-errors/top` (пометка «ИИ», section `#ai-agent`).',
-      '- После ошибки: остановись или исправь по schema; не повторяй тот же вредный PATCH в цикле.',
-      '',
-      '## 6. Мини-пример',
-      '',
-      '```bash',
-      `API="${u.publicApi}"`,
-      'KEY="kppd_…"',
-      'curl -s "$API/health/ready"',
-      'curl -s "$API/partners?limit=20" -H "Authorization: Bearer $KEY"',
-      'curl -s -X POST "$API/client-errors" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \\',
-      '  -d \'{"kind":"integration","message":"тест лога ИИ","name":"AiAgent","section":"#ai-agent","action":"smoke"}\'',
-      '```',
-      '',
-      '## 7. Безопасность',
-      '',
-      '- Один ключ — одна интеграция; не в открытый репозиторий.',
-      '- При сомнении — сначала GET/schema, потом маленькая запись, при сбое — лог `integration`.',
-      '',
-      'Файл из админки Data Core · ' + new Date().toISOString(),
+      'Перед запуском проверь один ожидаемый ответ на тестовой базе. При 401 или 403 остановись и сверь права.',
+      'Указывай в диагностике только адрес без параметров, код HTTP и название операции.',
     ].join('\n');
   }
 
@@ -132,10 +59,10 @@
     const safe = String(meta.label || 'key').replace(/[^\wа-яёА-ЯЁ-]+/gi, '_').slice(0, 40) || 'key';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([buildManagerFile(meta)], { type: 'text/markdown;charset=utf-8' }));
-    a.download = `datacore-manager-${safe}.md`;
+    a.download = 'datacore-connection-' + safe + '.md';
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  window.DcConnectPrompt = { ACCESS_LABEL, apiUrls, buildManagerFile, downloadManagerFile, PUBLIC };
+  window.DcConnectPrompt = { ACCESS_LABEL, isAppName, buildManagerFile, downloadManagerFile };
 })();

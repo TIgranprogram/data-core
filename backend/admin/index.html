@@ -142,7 +142,7 @@
         <h2>API-ключи</h2>
         <button id="key-create-btn" class="btn btn-accent">+ Выдать ключ</button>
       </div>
-      <p class="panel-note">Ключи вида <code>kppd_…</code>. Один ключ — одна интеграция с минимально нужными правами; показывается только один раз при выдаче. В строке — «Скачать промпт»: файл для ИИ с адресами и задачей менеджера (секретный ключ в файле — только если только что выдали в этой вкладке, иначе вставьте сохранённый).</p>
+      <p class="panel-note">Ключи вида <code>kppd_…</code>. Один ключ — одна интеграция с минимально нужными правами; показывается только один раз при выдаче. «Скачать инструкцию» даёт адрес API и разрешённые операции. Ключ добавляется в секреты приложения отдельно.</p>
 
       <div class="table-wrap">
         <table class="table" id="keys-table">
@@ -289,15 +289,15 @@
         </section>
         <section class="cx-card">
           <h3>2. Ключ</h3>
-          <p class="small">Одна интеграция — один ключ с минимальными правами. Для таблицы менеджера: «Чтение и запись»; для отчётов: «Только чтение». Ключ показывается <b>один раз</b>.</p>
+          <p class="small">Одна интеграция — один ключ с минимальными правами. Для своего интерфейса выберите «Только своё приложение». Для отчётов доступен режим «Только чтение». Ключ показывается <b>один раз</b>.</p>
           <button class="btn btn-accent" type="button" id="cx-issue-key">+ Выдать ключ</button>
           <p class="muted small">Каждый запрос: заголовок <code>Authorization: Bearer kppd_…</code></p>
         </section>
       </div>
 
       <section class="cx-card">
-        <h3>3. Для ИИ-агента — файл-промпт (менеджер)</h3>
-        <p class="small">Тот же текст, что при выдаче ключа: адреса (интернет / этот сайт / LAN), права менеджера, заявки и контрагенты. Схема таблиц агент читает сам: <code>/meta/guide</code> и <code>/meta/schema</code>. Ключ в файле — только если только что выдали в этой вкладке; иначе вставьте сохранённый <code>kppd_…</code>.</p>
+        <h3>3. Инструкция для ИИ</h3>
+        <p class="small">Инструкция содержит адрес API и разрешённые операции. Сам ключ добавляется в хранилище секретов приложения отдельно.</p>
         <textarea id="cx-prompt" class="cx-text" rows="14" readonly></textarea>
         <div class="cx-row">
           <button class="btn btn-primary" type="button" id="cx-dl-prompt">Скачать файл для ИИ</button>
@@ -342,22 +342,23 @@
         </label>
         <label>TTL
           <select id="k-ttl">
-            <option value="7d">7 дней</option>
-            <option value="30d" selected>30 дней</option>
+            <option value="7d" selected>7 дней</option>
+            <option value="30d">30 дней</option>
             <option value="90d">90 дней</option>
             <option value="never">без срока</option>
           </select>
         </label>
         <label>Права
           <select id="k-access">
+            <option value="app" selected>Только своё приложение</option>
             <option value="read">Только чтение</option>
-            <option value="write" selected>Чтение и запись</option>
-            <option value="full">Полный доступ (как у администратора)</option>
+            <option value="write">Запись в общую базу</option>
+            <option value="full">Права выдавшего ключ</option>
           </select>
         </label>
-        <p class="muted">«Только чтение» и «Чтение и запись» не дают управлять пользователями, ролями, ключами и устройствами.</p>
-        <label>Приложения (через запятую, необязательно)
-          <input id="k-apps" placeholder="например: inventory, tasks — пусто = все" />
+        <p id="k-access-help" class="muted"></p>
+        <label><span id="k-apps-label">Имя приложения</span>
+          <input id="k-apps" aria-describedby="k-access-help" spellcheck="false" />
         </label>
         <label>API Base URL <input id="k-apiBaseUrl" required /></label>
         <div class="dialog-actions">
@@ -371,7 +372,7 @@
     <dialog id="key-shown-dialog">
       <div class="dialog-form">
         <h3>Ключ выдан — сохраните его сейчас</h3>
-        <p class="muted">Больше он не будет показан: на сервере хранится только хеш. Скачайте файл для ИИ — в нём ключ, адреса и как заполнять сайт как менеджер.</p>
+        <p class="muted">Больше он не будет показан: на сервере хранится только хеш. Добавьте ключ в хранилище секретов приложения. Инструкцию для ИИ можно скачать отдельно.</p>
         <pre id="key-shown-value" class="key-reveal"></pre>
         <div class="dialog-actions">
           <button type="button" id="key-dl-prompt" class="btn btn-primary">Скачать файл для ИИ</button>

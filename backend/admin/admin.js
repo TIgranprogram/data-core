@@ -550,34 +550,29 @@
       list.forEach((k) => tbody.append(keyRow(k)));
     } catch (e) { toast(e.message); }
   }
-  /** P2: подпись прав ключа (scope). Нет scope = полный доступ (старые ключи). */
-  const ACCESS_LABEL = { read: 'Только чтение', write: 'Чтение и запись', full: 'Полный доступ' };
-  function scopeText(scope) {
-    const s = scope || { access: 'full' };
-    let t = ACCESS_LABEL[s.access] || ACCESS_LABEL.full;
-    if (Array.isArray(s.apps) && s.apps.length) t += ' · приложения: ' + s.apps.join(', ');
-    return t;
-  }
-  function parseApps(raw) {
-    return [...new Set(String(raw || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean))];
-  }
-  // Промпт ИИ — connect-prompt.js (ключи + «Подключение»)
   const CP = window.DcConnectPrompt;
-  let lastIssuedKey = null; // apiKey/label/access/apps этой вкладки
-  const promptMeta = (m) => ({ apiKey: m?.apiKey || '', label: m?.label || 'менеджер', access: m?.access || 'write', apps: m?.apps || [], apiPath: API });
-  const downloadKeyPromptFile = (m) => CP.downloadManagerFile(promptMeta(m));
+  let lastIssuedKey = null; // Метаданные последней выдачи для файла, без секрета.
+  const promptMeta = (meta) => ({ ...meta, apiPath: API });
+  const downloadKeyPromptFile = (meta) => CP.downloadManagerFile(promptMeta(meta));
+  function scopeText(scope) {
+    if (scope === null) return 'Доступ заблокирован';
+    const access = CP.ACCESS_LABEL[scope?.access ?? 'full'];
+    if (scope?.apps?.length) return access + ' · ' + scope.apps.join(', ');
+    return access;
+  }
   function keyRow(k) {
     const tr = el('tr');
     tr.append(el('td', '', k.label || k.tokenPrefix || '—'), el('td', '', scopeText(k.scope)), el('td', '', k.ttl || '—'),
       el('td', '', fmtDate(k.createdAt)), el('td', '', k.revokedAt ? fmtDate(k.revokedAt) : '—'), el('td', '', fmtDate(k.lastUsedAt)));
-    const td = el('td'), dl = el('button', 'btn btn-sm', 'Скачать промпт');
-    dl.title = 'Файл для ИИ: адреса, права, куда писать данные';
-    dl.onclick = () => {
-      const same = lastIssuedKey && lastIssuedKey.label === (k.label || '');
-      downloadKeyPromptFile({ apiKey: same ? lastIssuedKey.apiKey : '', label: k.label || k.tokenPrefix || '', access: k.scope?.access || 'full', apps: k.scope?.apps || [] });
-      toast(same ? 'Файл скачан (с ключом из этой сессии)' : 'Файл скачан — вставьте ключ, если сохраняли при выдаче');
-    };
-    td.append(dl);
+    const td = el('td');
+    if (!k.revokedAt && k.scope !== null) {
+      const dl = el('button', 'btn btn-sm', 'Скачать инструкцию');
+      dl.onclick = () => {
+        downloadKeyPromptFile({ label: k.label, access: k.scope?.access ?? 'full', apps: k.scope?.apps });
+        toast('Инструкция скачана');
+      };
+      td.append(dl);
+    }
     if (!k.revokedAt) { const rv = el('button', 'btn btn-sm btn-danger', 'Отозвать'); rv.onclick = () => revokeKey(k); td.append(rv); }
     tr.append(td); return tr;
   }
@@ -586,22 +581,42 @@
     try { await api(`/desktop/pairing-keys/${k._id || k.id}/revoke`, { method: 'POST' }); loadKeys(); }
     catch (e) { toast(e.message); }
   }
+  const keyAccessHelp = {
+    app: 'Чтение и запись в одном приложении. Общая база закрыта.',
+    read: 'Чтение общей базы в пределах прав выдавшего. Изменения закрыты.',
+    write: 'Ключ может менять рабочие данные общей базы в пределах прав выдавшего.',
+    full: 'Ключ получает все доступы выдавшего, включая администрирование.',
+  };
+  function updateKeyScopeForm() {
+    const access = $('#k-access').value;
+    const oneApp = access === 'app';
+    const input = $('#k-apps');
+    $('#k-access-help').textContent = keyAccessHelp[access];
+    $('#k-apps-label').textContent = oneApp ? 'Имя приложения' : 'Приложения, если нужно ограничить хранилище приложений';
+    input.placeholder = oneApp ? 'Например, inventory' : 'Через запятую, например inventory, tasks';
+    input.required = oneApp;
+    input.maxLength = oneApp ? 40 : 2200;
+  }
   function openKeyDialog() {
-    $('#k-label').value = ''; $('#k-ttl').value = '30d'; $('#k-access').value = 'write'; $('#k-apps').value = '';
+    $('#k-label').value = ''; $('#k-ttl').value = '7d'; $('#k-access').value = 'app'; $('#k-apps').value = '';
+    updateKeyScopeForm();
     $('#k-apiBaseUrl').value = location.origin + PREFIX; $('#key-form-error').hidden = true; $('#key-dialog').showModal();
   }
   async function createKey(ev) {
     ev.preventDefault();
     try {
-      const scope = { access: $('#k-access').value }, apps = parseApps($('#k-apps').value), label = $('#k-label').value;
+      const scope = { access: $('#k-access').value };
+      const raw = $('#k-apps').value.trim().toLowerCase();
+      if (scope.access === 'app' && !CP.isAppName(raw)) throw new Error('Укажите одно имя: до 40 латинских букв и цифр, первая — буква.');
+      const apps = [...new Set(raw.split(',').map((name) => name.trim()).filter(Boolean))];
       if (apps.length) scope.apps = apps;
+      const label = $('#k-label').value;
       const r = await api('/desktop/pairing-keys', { method: 'POST', body: JSON.stringify({ label, ttl: $('#k-ttl').value, apiBaseUrl: $('#k-apiBaseUrl').value, scope }) });
-      lastIssuedKey = { apiKey: r.apiKey, label, access: scope.access, apps };
+      lastIssuedKey = { label, access: scope.access, apps };
       $('#key-dialog').close(); $('#key-shown-value').textContent = r.apiKey; $('#key-shown-dialog').showModal();
-      downloadKeyPromptFile(lastIssuedKey); loadKeys();
+      loadKeys();
     } catch (e) { const p = $('#key-form-error'); p.textContent = e.message; p.hidden = false; }
   }
-
   // ---- Tables (справочник коллекций) ----
   const colState = { items: [], categories: [], search: '', cache: new Map() };
   /** Русские подписи типов таблиц (бейдж рядом с именем). */
@@ -1766,10 +1781,11 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   $('#key-create-btn').addEventListener('click', openKeyDialog);
   $('#key-form').addEventListener('submit', createKey);
   $('#key-cancel').addEventListener('click', () => $('#key-dialog').close());
+  $('#k-access').addEventListener('change', updateKeyScopeForm);
   $('#key-shown-close').addEventListener('click', () => $('#key-shown-dialog').close());
+  $('#key-shown-dialog').addEventListener('close', () => { $('#key-shown-value').textContent = ''; });
   $('#key-dl-prompt').addEventListener('click', () => {
-    if (!lastIssuedKey?.apiKey) { toast('Сначала выдайте ключ в этом окне'); return; }
-    downloadKeyPromptFile(lastIssuedKey); toast('Файл для ИИ скачан');
+    downloadKeyPromptFile(lastIssuedKey); toast('Инструкция скачана');
   });
   $('#key-copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#key-shown-value').textContent); toast('Скопировано'); } catch { /* ignore */ } });
   $('#col-search-form').addEventListener('submit', (e) => { e.preventDefault(); colState.search = $('#col-search').value.trim(); renderCollections(); });
@@ -1793,7 +1809,7 @@ curl -s "${BASE_URL}/meta/schema" -H "Authorization: Bearer $KEY"`;
   $('#cx-issue-key').addEventListener('click', openKeyDialog);
   $('#cx-dl-prompt').addEventListener('click', () => {
     downloadKeyPromptFile(lastIssuedKey);
-    toast(lastIssuedKey?.apiKey ? 'Файл скачан (с ключом из этой сессии)' : 'Файл скачан — вставьте ключ kppd_… в файл');
+    toast('Инструкция скачана');
     $('#cx-prompt').value = buildPrompt();
   });
   $('#cx-dl-schema').addEventListener('click', async () => { try { download('datacore-schema.json', await fetchText('/meta/schema'), 'application/json'); } catch (e) { toast(e.message); } });

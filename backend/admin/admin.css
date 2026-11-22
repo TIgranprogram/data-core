@@ -99,6 +99,7 @@ dialog::backdrop { background: rgba(10, 13, 20, .55); }
 .dialog-form h3 { margin: 0 0 6px; font-size: 19px; }
 .dialog-form label { display: flex; flex-direction: column; gap: 5px; margin: 12px 0 0; }
 .dialog-form label input, .dialog-form label select { width: 100%; }
+#key-dialog input::placeholder { color: var(--muted); opacity: 1; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .key-reveal { background: var(--side); color: var(--gold); padding: 14px; border-radius: 8px; border-left: 3px solid var(--gold); word-break: break-all; white-space: pre-wrap; font-size: 14px; }
 
