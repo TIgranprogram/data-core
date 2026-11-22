@@ -4,7 +4,7 @@ import { h } from '../core/dom.js';
 import { money, qty } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { pic } from './stock.js';
-import { kpAdd, kpCount } from './kp.js';
+import { kpAdd, kpCount } from './kp-cart.js';
 // УПР-1/Д11: issuePassport и passports.canEdit() убраны — вход только через панель паспорта
 import { previewPassport } from './passports/dialogs.js';
 import { openTechSheet } from './tech-sheet.js';

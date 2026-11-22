@@ -239,6 +239,6 @@ C164: `common/legal/` — общие typed DTO/subschemas, проверка ис
 `passport-bind.ts` не переносит income.title в passport.name; автоматические orderIssue/createDraftsForOrder не передают title как dto.name. Автоматическое имя с productId — из productPatch(products.name), настоящее manualname сохраняется binding/GET/issue. Исторические issued не обновляются при чтении, отдельный явный PATCH создаёт редакцию. API/роли/C170 источники PDF не изменены.
 
 ### Документация (C197/C198)
-- `GET /passports/registry`: выдача по договорам, включая отсутствующие паспорта в реестре; фильтр `state=work|handover|history`, `search`, `page`, `limit`.
-- `GET /passports/registry/:orderId` и `/pdf`: реестр и его печатная версия, только чтение. `POST /passports/registry/:orderId/handover` сохраняет передачу текущего комплекта под личной сессией, повтор по `clientUid`, сверка по `fingerprint`, защита архивного договора.
+- `GET /passports/registry`: выдача по договорам, включая отсутствующие паспорта в реестре; фильтр `state=work|handover|history`, `search`, `page`, `limit`. `handover` показывает договоры хотя бы с одним готовым непереданным паспортом; `handed` — число переданных актуальных позиций.
+- `GET /passports/registry/:orderId` и `/pdf`: реестр, построчные даты передачи и печатная версия. `POST /passports/registry/:orderId/handover` сохраняет одну ведомость под личной сессией. Необязательный `incomeIds` выбирает готовые непереданные позиции; без поля требуется полный готовый комплект. Повтор по `clientUid`, сверка `fingerprint`, защита архивного договора.
 - `GET /documents/acts`: сохранённые акты по договорам. Просмотр оригинала и архивной копии идёт по существующим разрешённым маршрутам.

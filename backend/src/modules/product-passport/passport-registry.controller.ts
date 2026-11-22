@@ -1,6 +1,6 @@
 import { Body, Controller, ForbiddenException, Get, HttpCode, Param, Post, Query, Res, StreamableFile } from '@nestjs/common';
-import { ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { IsString, IsUUID, Length, Matches } from 'class-validator';
+import { ApiOperation, ApiProperty, ApiPropertyOptional, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ArrayNotEmpty, ArrayUnique, IsArray, IsMongoId, IsString, IsUUID, Length, Matches, ValidateIf } from 'class-validator';
 import type { Response } from 'express';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -14,6 +14,10 @@ const WORK = ['admin', 'director', 'manager'] as const;
 class PassportHandoverDto {
   @ApiProperty() @IsUUID() clientUid!: string;
   @ApiProperty() @Matches(/^[a-f0-9]{64}$/) fingerprint!: string;
+  @ApiPropertyOptional({ type: [String], description: 'Готовые позиции этой ведомости. Без списка требуется готовность всего комплекта.' })
+  @ValidateIf((_dto, value) => value !== undefined) @IsArray() @ArrayNotEmpty()
+  @ArrayUnique((id: unknown) => typeof id === 'string' ? id.toLowerCase() : id) @IsMongoId({ each: true })
+  incomeIds?: string[];
   @ApiProperty() @IsString() @Length(1, 160) recipient!: string;
   @ApiProperty({ example: '2026-11-22' }) @Matches(/^\d{4}-\d{2}-\d{2}$/) handedOn!: string;
 }
@@ -54,7 +58,7 @@ export class PassportRegistryController {
 
   @Post(':orderId/handover')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Подтвердить передачу полного комплекта паспортов заказчику' })
+  @ApiOperation({ summary: 'Записать ведомость передачи выбранных готовых паспортов заказчику' })
   @AuditAction({ action: 'passport.handover', entityType: 'SalesOrder', idParam: 'orderId' })
   handover(@Param('orderId') orderId: string, @Body() dto: PassportHandoverDto, @CurrentUser() user: AuthenticatedUser) {
     if (user.keyScope) throw new ForbiddenException('Подтвердите передачу под личной учётной записью');

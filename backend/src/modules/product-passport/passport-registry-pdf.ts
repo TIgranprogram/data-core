@@ -10,13 +10,13 @@ interface RegistryPrintInput {
   customer: string;
   rows: RegistryLine[];
   ready: number;
-  current: { recipient: string; handedOn: string } | null;
+  handed: number;
 }
 
 const labels = { missing: 'Не выпущен', draft: 'Черновик', check: 'Нужно уточнить', issued: 'Выпущен', attached: 'Вложенный PDF' };
 const cols = [
-  { title: '№', width: 28 }, { title: 'Позиция', width: 229 }, { title: 'Кол-во', width: 50 },
-  { title: 'Номер / файл', width: 123 }, { title: 'Состояние', width: 93 },
+  { title: '№', width: 28 }, { title: 'Позиция', width: 160 }, { title: 'Кол-во', width: 45 },
+  { title: 'Номер / файл', width: 123 }, { title: 'Состояние', width: 89 }, { title: 'Передача', width: 78 },
 ];
 const margin = 36;
 
@@ -37,7 +37,7 @@ export function renderRegistryPdf(input: RegistryPrintInput): Promise<Buffer> {
     .filter(Boolean).join(' · ') || 'Без номера');
   if (input.customer) pdf.text('Заказчик: ' + input.customer);
   pdf.text('Готово ' + input.ready + ' из ' + input.rows.length);
-  pdf.text(input.current ? 'Передано ' + input.current.handedOn + ' · ' + input.current.recipient : 'Передача комплекта не зафиксирована');
+  pdf.text('Передано ' + input.handed + ' из ' + input.rows.length);
   pdf.text('Сформировано ' + new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow' }).format(new Date()));
   y = pdf.y + 12;
 
@@ -66,7 +66,7 @@ export function renderRegistryPdf(input: RegistryPrintInput): Promise<Buffer> {
     const doc = row.document;
     draw([String(row.lineNo ?? index + 1), row.title, row.qty == null ? '—' : String(row.qty),
       [doc?.number && '№ ' + doc.number, doc?.revision && 'ред. ' + doc.revision, doc?.fileName].filter(Boolean).join(' · ') || '—',
-      labels[row.state]]);
+      labels[row.state], row.handedOn?.split('-').reverse().join('.') || '—']);
   });
   if (!input.rows.length) pdf.text('Позиций для паспорта нет.', margin, y + 12);
   pdf.end();

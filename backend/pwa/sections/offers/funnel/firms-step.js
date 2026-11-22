@@ -8,7 +8,7 @@ import { loadFirms, readPrefs } from './api.js';
  * Фирмы без бланка названы строкой с кнопкой «Загрузить бланк». Прошлый выбор и наценки помнит браузер.
  *   firmsStep({ onChange }) → { el, picked() → [{ id, name, pct }], bad() → текст ошибки|'' }
  */
-export function firmsStep({ onChange }) {
+export function firmsStep({ onChange, companies, preferredCompanyId }) {
   const box = stack(hint('Загружаю фирмы…'));
   let firms = []; let tp = null; const pct = new Map();
   const inputs = stack();
@@ -24,7 +24,7 @@ export function firmsStep({ onChange }) {
     }).el));
   }
 
-  loadFirms().then((all) => {
+  (companies ? Promise.resolve(companies) : loadFirms()).then((all) => {
     firms = all.filter((c) => c.hasBlank);
     const noBlank = all.filter((c) => !c.hasBlank).map((c) => c.name);
     const prefs = readPrefs();
@@ -35,7 +35,8 @@ export function firmsStep({ onChange }) {
       onChange(); return;
     }
     const start = (prefs.companies || []).map((p) => String(p.id)).filter((id) => firms.some((c) => c.id === id));
-    tp = tagPick({ label: 'Фирмы', options: firms.map((c) => ({ value: c.id, label: c.name })), value: start.length ? start : [firms[0].id] });
+    const preferred = firms.find((c) => c.id === preferredCompanyId) || firms[0];
+    tp = tagPick({ label: 'Фирмы', options: firms.map((c) => ({ value: c.id, label: c.name })), value: start.length ? start : [preferred.id] });
     tp.el.addEventListener('change', () => { paintInputs(); onChange(); });
     box.replaceChildren(tp.el, inputs,
       ...(noBlank.length ? [hint(`Нет бланка КП: ${noBlank.join(', ')}.`), button({ label: 'Загрузить бланк', size: 'S', onClick: () => go('partners') })] : []));

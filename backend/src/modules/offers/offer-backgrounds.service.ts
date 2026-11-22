@@ -124,23 +124,36 @@ export class OfferBackgroundsService {
   /** Фон для страницы (1 / 2+): выбранный → бланк компании → общий «по умолчанию» → встроенный; «none» у стр. 2 — белая. Вместе с зоной текста бланка. */
   async resolve(page: 1 | 2, id?: string | null, companyId?: unknown): Promise<ResolvedBg> {
     if (page === 2 && id === 'none') return NO_BG;
-    const take = async (b: { _id: unknown; file: string; textTop?: number | null; textBottom?: number | null }): Promise<ResolvedBg | null> => {
-      const jpeg = await this.jpeg(String(b._id), safeUploadPath(b.file));
-      return jpeg ? { jpeg, textTop: b.textTop ?? null, textBottom: b.textBottom ?? null } : null;
-    };
     if (id && /^[a-f\d]{24}$/i.test(id)) {
       const b = await this.model.findById(id).lean().exec();
-      const r = b && (await take(b));
+      const r = b && (await this.readBackground(b));
       if (r) return r;
     }
     if (id !== `builtin-${page}`) {
       for (const owner of companyId ? [companyId, null] : [null]) {
         const def = await this.model.findOne({ page, isDefault: true, companyId: owner }).lean().exec();
-        const r = def && (await take(def));
+        const r = def && (await this.readBackground(def));
         if (r) return r;
       }
     }
     return { ...NO_BG, jpeg: await this.jpeg(BUILTIN[page].id, join(assetsDir(), BUILTIN[page].file)) };
+  }
+
+  /** Пакет использует только бланки своей фирмы. Без читаемого бланка страница остаётся белой. */
+  async resolveForPack(page: 1 | 2, id: string | null | undefined, companyId: unknown): Promise<ResolvedBg> {
+    if (!companyId || (page === 2 && id === 'none')) return NO_BG;
+    const rows = await this.model.find({ page, companyId }).sort({ isDefault: -1, createdAt: 1, _id: 1 }).lean().exec();
+    const selected = rows.find((row) => String(row._id) === id);
+    for (const row of selected ? [selected, ...rows.filter((row) => row !== selected)] : rows) {
+      const bg = await this.readBackground(row);
+      if (bg) return bg;
+    }
+    return NO_BG;
+  }
+
+  private async readBackground(b: { _id: unknown; file: string; textTop?: number | null; textBottom?: number | null }): Promise<ResolvedBg | null> {
+    const jpeg = await this.jpeg(String(b._id), safeUploadPath(b.file));
+    return jpeg ? { jpeg, textTop: b.textTop ?? null, textBottom: b.textBottom ?? null } : null;
   }
 
   /** PNG 2.6 МБ → JPEG q82 не шире 1654 px (≈200 dpi): PDF остаётся лёгким. */

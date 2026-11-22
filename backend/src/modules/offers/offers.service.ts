@@ -483,8 +483,11 @@ export class OffersService {
 
   /** Общая сборка PDF для сохранённого КП и предпросмотра (`draft` — без номера). */
   private async render(o: Doc, draft = false): Promise<Buffer> {
+    const pages = o.packId
+      ? [this.bgs.resolveForPack(1, o.bg1Id, o.companyId), this.bgs.resolveForPack(2, o.bg2Id, o.companyId)] as const
+      : [this.bgs.resolve(1, o.bg1Id, o.companyId), this.bgs.resolve(2, o.bg2Id, o.companyId)] as const;
     const [companyName, orgVat, bg1, bg2, photos] = await Promise.all([
-      this.companyName(o.companyId), this.companyVatRate(o.companyId), this.bgs.resolve(1, o.bg1Id, o.companyId), this.bgs.resolve(2, o.bg2Id, o.companyId),
+      this.companyName(o.companyId), this.companyVatRate(o.companyId), ...pages,
       Promise.all((o.items as Doc[]).map((i) => this.photoForItem(i))),
     ]);
     const vat = resolveVat(o.vatMode, o.vatRate, orgVat);

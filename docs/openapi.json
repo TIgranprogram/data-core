@@ -17473,7 +17473,7 @@
     "/api/passports/registry/{orderId}/handover": {
       "post": {
         "operationId": "PassportRegistryController_handover",
-        "summary": "Подтвердить передачу полного комплекта паспортов заказчику",
+        "summary": "Записать ведомость передачи выбранных готовых паспортов заказчику",
         "parameters": [
           {
             "name": "orderId",
@@ -26632,6 +26632,13 @@
           },
           "fingerprint": {
             "type": "string"
+          },
+          "incomeIds": {
+            "description": "Готовые позиции этой ведомости. Без списка требуется готовность всего комплекта.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "recipient": {
             "type": "string"

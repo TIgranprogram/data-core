@@ -12,27 +12,7 @@ import { errText } from '../ui/kit/errors.js';
 import { go } from '../core/router.js';
 import { createOffer } from './offers.js';
 import { lastOfferBanner, loadOfferParties, partyOptions, rubWas } from './offer-memory.js';
-
-const KEY = 'dc-kp';
-const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
-const save = (a) => { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch { /* приватный режим */ } };
-export const kpCount = () => load().length;
-export function kpAdd(r) {
-  const a = load();
-  const desc = String(r.description || '').trim();
-  const x = a.find((y) => y.id === r.id);
-  if (x) { x.qty += 1; if (!x.description && desc) x.description = desc; }
-  else a.push({
-    id: r.id, sku: r.sku, name: r.name, price: r.price ?? 0, qty: 1,
-    unit: r.unit || 'шт',
-    color: r.color || (Array.isArray(r.colors) && r.colors[0]) || '',
-    size: r.size || (Array.isArray(r.sizes) && r.sizes[0]) || '',
-    photoUrl: r.photo?.thumb || r.photo?.url || null,
-    description: desc,
-  });
-  save(a);
-}
-
+import { cartOfferItems, cartPack, fillCartDescriptions, kpAdd, loadCart as load, saveCart as save } from './kp-cart.js';
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const rub = (n) => esc(money(n));
 
@@ -69,18 +49,15 @@ async function buildKpForm() {
     loadOfferParties(),
   ]);
   let lines = load();
-  await Promise.all(lines.filter((l) => l.id && !l.description).slice(0, 20).map(async (l) => {
-    const p = await api(`/showcase/${l.id}`).catch(() => null);
-    const d = String(p?.description || '').trim();
-    if (d) l.description = d;
-  }));
+  await fillCartDescriptions(lines);
   const field = (label, el, cls = '') => {
     const span = h('span', null, label);
     if (el?.dataset?.src) span.dataset.src = el.dataset.src;
     return h('label', { class: 'field ' + cls }, span, el);
   };
   const cos = (offerCos.length ? offerCos : (il.companies || [])).map((c) => [c.id, c.name]);
-  const note = h('textarea', { rows: 3, placeholder: 'Срок изготовления, условия оплаты и доставки…' });
+  const termsPlaceholder = 'Срок изготовления, условия оплаты и доставки…';
+  const note = h('textarea', { rows: 3, placeholder: termsPlaceholder });
   const bare = (o) => textInput(o).input;
   const prepay = bare({ placeholder: '%', inputmode: 'decimal' });
   const prodDays = bare({ placeholder: 'дн.', inputmode: 'decimal' });
@@ -112,7 +89,7 @@ async function buildKpForm() {
     if (!id) return;
     try {
       const d = await api('/offers/defaults', { query: { companyId: id } });
-      if (!d) return;
+      if (!d || pack.active || company.value !== id) return;
       put('terms', note, d.terms, 'из шаблона фирмы');
       put('vatMode', vatMode, d.vatMode, 'из настроек фирмы');
       put('vatRate', vatRate, d.vatRate, 'из настроек фирмы');
@@ -175,11 +152,15 @@ async function buildKpForm() {
   searchDrop.addEventListener('mousedown', (e) => e.preventDefault()); // клик по пункту не снимает фокус с поля — blur не закрывает список раньше клика
   searchInput.addEventListener('blur', () => searchDrop.replaceChildren());
   const vatNote = () => {
+    if (pack.active) return '';
     if (vatMode.value === 'without') return ' · без НДС';
     if (vatMode.value === 'with') return vatRate.value ? ` · с НДС ${String(vatRate.value).replace('.', ',')} %` : ' · с НДС';
     return '';
   };
-  const paintTotal = () => { total.textContent = `Итого: ${money(lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0))}${vatNote()}`; };
+  const paintTotal = () => {
+    total.textContent = `Итого: ${money(lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0), 0))}${vatNote()}`;
+    pack.sync();
+  };
   let pastPrices = new Map();
   let extraOpen = false;
   const extraBox = h('div', { class: 'wide' });
@@ -239,36 +220,56 @@ async function buildKpForm() {
       return el.dataset.auto === '1';
     }),
   });
+  const companyField = field('Наша компания', company);
+  const vatFields = [field('НДС', vatMode), field('Ставка НДС, %', vatRate)];
+  const pack = cartPack({
+    companies: offerCos.length ? offerCos : undefined, companyId: () => company.value, lines: () => lines,
+    onMode: (enabled) => {
+      companyField.hidden = enabled;
+      vatFields.forEach((el) => { el.hidden = enabled; });
+      note.placeholder = enabled ? 'Пустое поле — подставятся условия каждой фирмы' : termsPlaceholder;
+      if (enabled && note.dataset.src === 'из шаблона фирмы') {
+        note.value = '';
+        delete note.dataset.auto;
+        delete note.dataset.src;
+        const label = note.closest('.field')?.querySelector(':scope > span');
+        if (label) delete label.dataset.src;
+      }
+      if (!enabled) applyDefaults(company.value);
+      paintTotal();
+    },
+  });
   render();
   paintExtra();
   const el = h('div', { class: 'kp-form' },
     h('p', { class: 'hint' }, 'Корзина КП хранится только в этом браузере (localStorage). На другом устройстве список будет пуст — перед созданием КП проверьте строки здесь.'),
     searchBox, list, total, h('div', { class: 'form-grid' },
-      field('Наша компания', company), field('Заказчик', custBox), banner.el,
+      companyField, field('Заказчик', custBox), banner.el,
       field('Предоплата, %', prepay), field('Изготовление, дн.', prodDays), field('Доставка, дн.', delDays),
-      field('НДС', vatMode), field('Ставка НДС, %', vatRate),
-      field('Условия', note, 'wide'), extraBox));
+      ...vatFields, field('Условия', note, 'wide'), extraBox),
+    pack.el);
   return {
     el, focus: () => customer.focus(), dirty: () => false,
+    bindSave: pack.bindSave,
     read: () => ({ values: { save: async () => {
       if (!lines.length) throw new Error('Добавьте изделия в КП');
       if (!customer.value.trim()) { customer.focus(); throw new Error('Впишите заказчика'); }
       const day = (add) => { const t = new Date(); t.setDate(t.getDate() + add); return t.toISOString().slice(0, 10); };
       const numOr = (el) => { const n = parseNum(el.value); return Number.isFinite(n) ? n : undefined; };
       const textOr = (el) => el.value.trim() || undefined;
-      const offer = await createOffer({
-        companyId: company.value || undefined, customer: customer.value.trim(), ...(partyId ? { counterpartyId: partyId } : {}),
+      const body = {
+        customer: customer.value.trim(), ...(partyId ? { counterpartyId: partyId } : {}),
         date: day(0), validUntil: day(10), terms: textOr(note), objectName: textOr(object),
-        delivery: delivery.value || undefined, vatMode: vatMode.value || undefined, vatRate: numOr(vatRate),
+        delivery: delivery.value || undefined,
         prepaymentPercent: numOr(prepay), productionDays: numOr(prodDays), deliveryDays: numOr(delDays),
-        items: lines.map((l) => ({
-          productId: l.id, productSku: l.sku, productName: l.name,
-          quantity: Number(l.qty) || 1, unit: l.unit || 'шт',
-          ...(Number(l.price) > 0 ? { unitPrice: Number(l.price) } : {}),
-          ...(l.color ? { color: l.color } : {}), ...(l.size ? { size: l.size } : {}),
-          ...(l.photoUrl ? { photoUrl: l.photoUrl } : {}),
-          ...(l.description ? { description: l.description } : {}),
-        })) });
+        items: cartOfferItems(lines),
+      };
+      if (pack.active) {
+        const id = await pack.submit(body);
+        go('offers', { open: id });
+        return { id, stay: true };
+      }
+      const offer = await createOffer({ ...body, companyId: company.value || undefined, vatMode: vatMode.value || undefined, vatRate: numOr(vatRate) });
       if (offer) { save([]); go('offers', { open: offer.id }); return { id: offer.id, stay: true }; }
       const d = await api('/showcase/kp', { method: 'POST', body: { items: lines.map((l) => ({ id: l.id, qty: Number(l.qty) || 1, price: Number(l.price) || 0 })), companyId: company.value || undefined, customer: customer.value.trim() || undefined, note: note.value.trim() || undefined } });
       printKp(d);

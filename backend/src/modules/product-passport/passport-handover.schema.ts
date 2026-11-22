@@ -9,6 +9,7 @@ export class PassportHandover {
   @Prop() actorName?: string;
   @Prop({ required: true }) clientUid!: string;
   @Prop({ required: true }) fingerprint!: string;
+  @Prop() selectionHash?: string;
   @Prop({ required: true }) recipient!: string;
   @Prop({ required: true }) handedOn!: string;
   @Prop({ type: [Object], required: true }) rows!: RegistryLine[];

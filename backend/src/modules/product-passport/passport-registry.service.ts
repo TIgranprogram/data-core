@@ -25,8 +25,16 @@ export interface RegistryLine {
   state: 'missing' | 'draft' | 'check' | 'issued' | 'attached';
   document?: { id: string; number?: string; revision?: number; fileName?: string; fileVersion?: string };
   note?: string;
+  handedOn?: string;
 }
-export interface HandoverInput { clientUid: string; fingerprint: string; recipient: string; handedOn: string }
+export interface HandoverInput { clientUid: string; fingerprint: string; recipient: string; handedOn: string; incomeIds?: string[] }
+
+function documentKey(line: RegistryLine) {
+  const doc = line.document;
+  if (!line.incomeId || !doc?.id || !stateReady(line)) return null;
+  if (line.state === 'issued' ? !doc.revision : !doc.fileVersion) return null;
+  return JSON.stringify([line.incomeId, line.state, doc.id, doc.revision, doc.fileVersion]);
+}
 
 function group(rows: Row[], key: string) {
   const result = new Map<string, Row[]>();
@@ -126,14 +134,30 @@ export class PassportRegistryService implements OnModuleInit {
     const { rows, unlinked } = await currentLines(db, orderId, session);
     const ready = rows.filter(stateReady).length;
     const fingerprint = legalHash(rows);
-    const history = await this.receipts.find({ orderId }).select(includeHistory ? '-__v -clientUid' : 'fingerprint handedOn')
-      .sort('-createdAt -_id').limit(includeHistory ? 0 : 1).session(session ?? null).lean().exec();
-    const complete = ready > 0 && ready === rows.length;
-    const current = complete && history[0]?.fingerprint === fingerprint ? history[0] : null;
+    const history = await this.receipts.find({ orderId }).select(includeHistory ? '-__v -clientUid -selectionHash' : 'rows handedOn')
+      .sort('-createdAt -_id').session(session ?? null).lean().exec();
+    const handedByVersion = new Map<string, number>();
+    for (const [index, receipt] of history.entries()) {
+      for (const line of receipt.rows) {
+        const key = documentKey(line);
+        if (key && !handedByVersion.has(key)) handedByVersion.set(key, index);
+      }
+    }
+    let handed = 0;
+    let lastReceipt = history.length;
+    for (const line of rows) {
+      const key = documentKey(line);
+      const index = key ? handedByVersion.get(key) : undefined;
+      if (index === undefined) continue;
+      line.handedOn = history[index].handedOn;
+      handed++;
+      lastReceipt = Math.min(lastReceipt, index);
+    }
+    const current = handed > 0 && handed === rows.length ? history[lastReceipt] : null;
     return {
       orderId: String(orderId), orderNo: order.orderNo || '', productionNo: order.productionNo || '', customer: order.customer || '',
-      rows, unlinked, ready, fingerprint, current, history,
-      canHandover: !order.activeArchiveVersion && !order.cancelledAt && complete && !current,
+      rows, unlinked, ready, handed, fingerprint, current, history,
+      canHandover: !order.activeArchiveVersion && !order.cancelledAt && ready > handed,
     };
   }
 
@@ -144,34 +168,29 @@ export class PassportRegistryService implements OnModuleInit {
       { sortable: ['createdAt'], defaultSort: '-createdAt', defaultLimit: 20, maxLimit: 50 });
     const mode = q.state;
     const work = mode === 'work' || mode === 'handover';
+    const history = mode === 'history';
     const db = this.connection.db!;
     const candidates = db.collection('salesorders');
     const pipeline: Row[] = [
       { $match: {
-        deletedAt: null, cancelledAt: null,
+        deletedAt: null, ...(history ? {} : { cancelledAt: null }),
         ...(work ? { activeArchiveVersion: null, stage: { $nin: ['closed', 'cancelled'] } } : {}),
         ...(search ? { $or: [{ orderNo: search }, { productionNo: search }, { customer: search }] } : {}),
       } },
       { $lookup: {
-        from: 'incomes', let: { orderId: '$_id' }, as: 'position',
+        from: history ? 'passporthandovers' : 'incomes', let: { orderId: '$_id' }, as: 'matched',
         pipeline: [
-          { $match: { $expr: { $eq: ['$orderId', '$orderId'] }, deletedAt: null, cancelledAt: null, lineType: { $ne: 'service' } } },
+          { $match: { $expr: { $eq: ['$orderId', '$$orderId'] },
+            ...(history ? {} : { deletedAt: null, cancelledAt: null, lineType: { $ne: 'service' } }) } },
           { $limit: 1 }, { $project: { _id: 1 } },
         ],
       } },
-      { $match: { 'position.0': { $exists: true } } },
+      { $match: { 'matched.0': { $exists: true } } },
     ];
-    if (mode === 'history') pipeline.push(
-      { $lookup: {
-        from: 'passporthandovers', let: { orderId: '$_id' }, as: 'handover',
-        pipeline: [{ $match: { $expr: { $eq: ['$orderId', '$orderId'] } } }, { $limit: 1 }, { $project: { _id: 1 } }],
-      } },
-      { $match: { 'handover.0': { $exists: true } } },
-    );
     pipeline.push({ $sort: { createdAt: -1, _id: -1 } }, { $project: { _id: 1 } });
     const renderRow = (view: Awaited<ReturnType<PassportRegistryService['view']>>) => ({
       id: view.orderId, orderNo: view.orderNo, productionNo: view.productionNo, customer: view.customer,
-      ready: view.ready, positions: view.rows.length, handedOn: view.current?.handedOn ?? null,
+      ready: view.ready, handed: view.handed, positions: view.rows.length, handedOn: view.current?.handedOn ?? null,
     });
     if (!work) {
       const [result] = await candidates.aggregate<{ items: { _id: Types.ObjectId }[]; total: { value: number }[] }>([
@@ -194,6 +213,8 @@ export class PassportRegistryService implements OnModuleInit {
   async handover(id: string, dto: HandoverInput, actorId: string, actorName: string) {
     const orderId = oid(id, 'заказа');
     const recipient = dto.recipient.trim();
+    const selected = dto.incomeIds && new Set(dto.incomeIds.map(id => id.toLowerCase()));
+    const selectionHash = selected && legalHash([...selected].sort());
     const day = new Date(dto.handedOn + 'T00:00:00.000Z');
     if (!recipient) throw new BadRequestException('Укажите получателя паспортов');
     if (!Number.isFinite(day.getTime()) || day.toISOString().slice(0, 10) !== dto.handedOn || dto.handedOn > moscowDay()) {
@@ -202,17 +223,21 @@ export class PassportRegistryService implements OnModuleInit {
     return withOrderWrite(this.connection, [orderId], async (session) => {
       const repeated = await this.receipts.findOne({ orderId, clientUid: dto.clientUid }).session(session).lean().exec();
       if (repeated) {
-        if (repeated.recipient !== recipient || repeated.handedOn !== dto.handedOn || repeated.fingerprint !== dto.fingerprint) {
+        if (repeated.recipient !== recipient || repeated.handedOn !== dto.handedOn ||
+          repeated.fingerprint !== dto.fingerprint || repeated.selectionHash !== selectionHash) {
           throw new ConflictException('Эта передача уже записана с другими данными');
         }
         return this.view(orderId, session);
       }
       const view = await this.view(orderId, session);
       if (view.fingerprint !== dto.fingerprint) throw new ConflictException('Комплект изменился. Откройте реестр заново.');
-      if (!view.canHandover) throw new ConflictException('Передачу можно отметить только для полного готового комплекта.');
+      if (!view.canHandover) throw new ConflictException('В этом договоре сейчас нет позиций, доступных для передачи.');
+      if (!selected && view.ready !== view.rows.length) throw new ConflictException('Комплект ещё не готов. Выберите готовые позиции.');
+      const rows = view.rows.filter(line => stateReady(line) && !line.handedOn && (!selected || selected.has(line.incomeId)));
+      if (selected && rows.length !== selected.size) throw new ConflictException('Часть выбранных позиций недоступна или уже передана. Обновите реестр.');
       await this.receipts.create([{
-        orderId, clientUid: dto.clientUid, fingerprint: dto.fingerprint, recipient, handedOn: dto.handedOn,
-        actorId: oid(actorId, 'пользователя'), actorName, rows: view.rows,
+        orderId, clientUid: dto.clientUid, fingerprint: dto.fingerprint, selectionHash, recipient, handedOn: dto.handedOn,
+        actorId: oid(actorId, 'пользователя'), actorName, rows,
       }], { session });
       return this.view(orderId, session);
     });
