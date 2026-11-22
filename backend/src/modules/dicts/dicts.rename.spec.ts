@@ -24,7 +24,8 @@ function fake(data: Record<string, Record<string, unknown>[]>, counts: Record<st
     },
   };
   const audit = { log: jest.fn(async () => undefined) };
-  const svc = new DictsService({ db } as never, undefined, audit as never);
+  const session = { withTransaction: async (write: () => Promise<unknown>) => write(), endSession: async () => undefined };
+  const svc = new DictsService({ db, startSession: async () => session } as never, undefined, audit as never);
   return { svc, calls, audit, db };
 }
 const oid = () => new Types.ObjectId();

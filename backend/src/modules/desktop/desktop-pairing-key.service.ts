@@ -8,19 +8,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Model, Types } from 'mongoose';
 import { UserService } from '../user/user.service';
+import { RoleService } from '../role/role.service';
 import {
   DesktopPairingKey,
   DesktopPairingKeyDocument,
   DesktopPairingTtl,
 } from './desktop-pairing-key.schema';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import {
-  KEY_SCOPE_ACCESS,
-  KEY_SCOPE_APP_RE,
-  KEY_SCOPE_MAX_APPS,
-  normalizeKeyScope,
-  type KeyScope,
-} from '../../common/guards/key-scope';
+import { normalizeKeyScope, type KeyScope } from '../../common/guards/key-scope';
 
 const MAX_ACTIVE = 10;
 const PREFIX = 'kppd_';
@@ -41,12 +36,19 @@ export function isPairingKeyBearer(token: string): boolean {
   return token.startsWith(PREFIX);
 }
 
+function storedKeyScope(row: { scope?: unknown }): KeyScope | null {
+  return Object.prototype.hasOwnProperty.call(row, 'scope')
+    ? normalizeKeyScope(row.scope ?? null)
+    : normalizeKeyScope(undefined);
+}
+
 @Injectable()
 export class DesktopPairingKeyService {
   constructor(
     @InjectModel(DesktopPairingKey.name)
     private readonly model: Model<DesktopPairingKeyDocument>,
     private readonly users: UserService,
+    private readonly roles: RoleService,
   ) {}
 
   async issue(
@@ -76,7 +78,12 @@ export class DesktopPairingKeyService {
       throw new BadRequestException('Invalid ttl');
     }
 
-    const scope = this.validateScope(opts.scope);
+    const scope = normalizeKeyScope(opts.scope);
+    if (!scope) {
+      throw new BadRequestException(
+        'Некорректный scope.access или scope.apps. Для режима app укажите одно доступное имя приложения.',
+      );
+    }
 
     const active = await this.countActive(user.id);
     if (active >= MAX_ACTIVE) {
@@ -104,7 +111,7 @@ export class DesktopPairingKeyService {
       revokedAt: null,
       lastUsedAt: null,
       // Без scope в запросе поле не пишем — ключ ведёт себя как раньше (full).
-      ...(opts.scope ? { scope } : {}),
+      ...(opts.scope === undefined ? {} : { scope }),
     });
 
     return {
@@ -132,7 +139,7 @@ export class DesktopPairingKeyService {
       revokedAt: string | null;
       createdAt: string | null;
       lastUsedAt: string | null;
-      scope: KeyScope;
+      scope: KeyScope | null;
     }>
   > {
     // Active keys only — revoked rows are deleted on revoke (PO: не висеть в UI).
@@ -149,7 +156,7 @@ export class DesktopPairingKeyService {
       revokedAt: null,
       createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
       lastUsedAt: r.lastUsedAt ? new Date(r.lastUsedAt).toISOString() : null,
-      scope: normalizeKeyScope(r.scope),
+      scope: storedKeyScope(r),
     }));
   }
 
@@ -173,7 +180,9 @@ export class DesktopPairingKeyService {
       throw new UnauthorizedException('Not a pairing key');
     }
     const tokenHash = hashPairingSecret(token);
-    const doc = await this.model.findOne({ tokenHash }).exec();
+    // Читаем scope как записан в Mongo, без приведения типов Mongoose:
+    // повреждённое поле не должно превратиться в отсутствующее или валидное.
+    const doc = await this.model.findOne({ tokenHash }).lean().exec();
     if (!doc) {
       throw new UnauthorizedException('Invalid pairing key');
     }
@@ -184,43 +193,38 @@ export class DesktopPairingKeyService {
       throw new UnauthorizedException('Pairing key expired');
     }
 
-    const user = await this.users.findById(doc.userId.toString());
+    const scope = storedKeyScope(doc);
+    if (!scope) {
+      throw new UnauthorizedException('Разрешения ключа повреждены. Обратитесь к администратору.');
+    }
+    const user = await this.users.findById(doc.userId.toString()).catch((error: unknown) => {
+      if (error instanceof NotFoundException) return null;
+      throw error;
+    });
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    void this.touchLastUsed(doc);
+    let rolePermissions: string[] | undefined;
+    if (scope.access === 'app') {
+      const { role, access } = await this.roles.resolveForAuth(user.role);
+      if (!role || role.isActive === false || !access || access.isActive === false) {
+        throw new UnauthorizedException('Роль выдавшего ключ отключена или удалена.');
+      }
+      rolePermissions = access.permissions ?? [];
+    }
+
+    void this.touchLastUsed(doc._id, doc.lastUsedAt);
 
     return {
       id: user.id,
       username: user.username,
       role: user.role,
       permissions: user.permissions ?? [],
+      ...(rolePermissions ? { rolePermissions } : {}),
       organizationId: user.organizationId?.toString() ?? null,
-      keyScope: normalizeKeyScope(doc.scope),
+      keyScope: scope,
     };
-  }
-
-  /** P2: проверка scope при выдаче (дублирует DTO — сервис зовут и не из HTTP). */
-  private validateScope(raw?: { access: string; apps?: string[] }): KeyScope {
-    if (!raw) return { access: 'full' };
-    if (!KEY_SCOPE_ACCESS.includes(raw.access as KeyScope['access'])) {
-      throw new BadRequestException('Invalid scope.access');
-    }
-    const scope: KeyScope = { access: raw.access as KeyScope['access'] };
-    if (raw.apps !== undefined) {
-      if (!Array.isArray(raw.apps) || raw.apps.length > KEY_SCOPE_MAX_APPS) {
-        throw new BadRequestException(`scope.apps: массив до ${KEY_SCOPE_MAX_APPS} имён`);
-      }
-      const apps = [...new Set(raw.apps)];
-      for (const a of apps) {
-        if (typeof a !== 'string' || !KEY_SCOPE_APP_RE.test(a)) {
-          throw new BadRequestException(`scope.apps: недопустимое имя приложения «${String(a)}»`);
-        }
-      }
-      if (apps.length > 0) scope.apps = apps;
-    }
-    return scope;
   }
 
   /** Constant-time compare helper for tests. */
@@ -242,12 +246,11 @@ export class DesktopPairingKeyService {
       .exec();
   }
 
-  private async touchLastUsed(doc: DesktopPairingKeyDocument): Promise<void> {
-    const last = doc.lastUsedAt?.getTime() ?? 0;
-    if (Date.now() - last < LAST_USED_THROTTLE_MS) return;
-    doc.lastUsedAt = new Date();
+  private async touchLastUsed(id: Types.ObjectId, previous: Date | null): Promise<void> {
+    const now = Date.now();
+    if (now - (previous?.getTime() ?? 0) < LAST_USED_THROTTLE_MS) return;
     try {
-      await doc.save();
+      await this.model.updateOne({ _id: id, lastUsedAt: previous }, { $set: { lastUsedAt: new Date(now) } }).exec();
     } catch {
       /* ignore race */
     }

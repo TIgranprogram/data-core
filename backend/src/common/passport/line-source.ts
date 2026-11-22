@@ -1,3 +1,4 @@
+import { claimPassportOwners, claimWritableOrders } from '../order-archive/write';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection } from 'mongoose';
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
@@ -32,11 +33,10 @@ export async function passportLine(db: Db, incomeId: unknown, orderId?: unknown,
 }
 /** Общая запись позиции сериализует выбор, создание и выдачу номера. Baseline не перечитывается при retry. */
 export async function claimPassportLine(db: Db, session: ClientSession, context: PassportLine, expectedEpoch: number, operation: 'select' | 'site') {
+  await claimWritableOrders(db, session, [context.orderId]);
   const d = await passportLine(db, context._id, context.orderId, session);
   if (epochOf(d) !== expectedEpoch || JSON.stringify(lineBaseline(d)) !== JSON.stringify(lineBaseline(context))) throw stalePassport();
   if (operation === 'site' && selectionOf(d).mode === 'attachment') throw new ConflictException({ code: 'SOURCE_ATTACHMENT', message: 'Для позиции выбран вложенный паспорт — измените источник явно' });
-  const order = await db.collection('salesorders').updateOne({ _id: d.orderId, deletedAt: null, cancelledAt: null, stage: { $ne: 'cancelled' } }, { $inc: { passportGuard: 1 } }, { session });
-  if (!order.modifiedCount) throw stalePassport();
   const r = await db.collection('incomes').updateOne({ _id: d._id, orderId: d.orderId, productId: d.productId ?? null, lineType: d.lineType ?? null, deletedAt: null, cancelledAt: null, ...epochFilter(expectedEpoch) }, { $inc: { passportEpoch: 1 } }, { session });
   if (!r.modifiedCount) throw stalePassport();
 }
@@ -45,11 +45,18 @@ export function passportContextStage(productChanged: unknown = false) {
   return { $set: { passportEpoch: { $add: [{ $ifNull: ['$passportEpoch', 0] }, 1] }, passportSelection: { $cond: [{ $and: [{ $eq: ['$passportSelection.mode', 'attachment'] }, productChanged] }, { $mergeObjects: ['$passportSelection', { revision: { $add: [{ $ifNull: ['$passportSelection.revision', 0] }, 1] }, invalidatedAt: '$$NOW', invalidReason: 'PRODUCT_CHANGED' }] }, { $ifNull: ['$passportSelection', '$$REMOVE'] }] } } };
 }
 /** Guard и запись паспорта атомарны; исходный epoch сохраняется при retry. */
-export async function withPassportSite<T>(connection: Connection, baseline: PassportLine | null, action: (session?: ClientSession) => Promise<T>): Promise<T> {
-  if (!baseline) return action();
-  const session = await connection.startSession(); let result!: T;
-  try { await session.withTransaction(async () => { await claimPassportLine(connection.db!, session, baseline, epochOf(baseline), 'site'); result = await action(session); }); }
-  finally { await session.endSession(); } return result;
+export async function withPassportSite<T>(connection: Connection, baseline: PassportLine | null, action: (session?: ClientSession) => Promise<T>, owners: readonly { salesOrderId?: unknown; incomeId?: unknown }[] = [], outer?: ClientSession): Promise<T> {
+  if (!baseline && !owners.some(d => d.salesOrderId || d.incomeId)) return action(outer);
+  const write = async (session: ClientSession) => {
+    if (owners.length) await claimPassportOwners(connection.db!, session, [...owners, { salesOrderId: baseline?.orderId }]);
+    if (baseline) await claimPassportLine(connection.db!, session, baseline, epochOf(baseline), 'site');
+    return action(session);
+  };
+  if (outer) return write(outer);
+  const session = await connection.startSession();
+  let result!: T;
+  try { await session.withTransaction(async () => { result = await write(session); }); return result; }
+  finally { await session.endSession(); }
 }
 export function assertSitePassport(baseline: PassportLine | null) {
   if (baseline && selectionOf(baseline).mode === 'attachment') throw new ConflictException({ code: 'SOURCE_ATTACHMENT', message: 'Для позиции выбран вложенный паспорт — измените источник явно' });

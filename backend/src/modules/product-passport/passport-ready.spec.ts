@@ -29,7 +29,7 @@ function mem(over: { twinNumber?: string; liveOnIncome?: boolean; noProduct?: bo
     startSession: async () => ({ withTransaction: async (fn: () => Promise<void>) => fn(), endSession: async () => undefined }),
     db: {
       collection: (name: string) => ({
-        updateOne: async () => ({ modifiedCount: 1 }),
+        updateOne: async () => ({ modifiedCount: 1, matchedCount: 1 }),
         findOne: async () => {
           if (name === 'products') return over.noProduct ? null : { _id: product, name: 'Стойка', article: 'A1' };
           if (name === 'organizations') return over.notOur ? null : { _id: firm, name: 'СИЮ' };

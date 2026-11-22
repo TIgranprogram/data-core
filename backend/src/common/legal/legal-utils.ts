@@ -1,7 +1,8 @@
+import { archiveOrderConflict } from '../order-archive/write';
 import { BadRequestException, ConflictException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { readFile, stat } from 'fs/promises';
-import { Connection, Model, Types } from 'mongoose';
+import { type ClientSession, Connection, Model, Types } from 'mongoose';
 import { safeUploadPath } from '../uploads/safe-path';
 import { LegalBundleDto, LegalPatchDto } from './legal.dto';
 type Row=Record<string,any>;
@@ -46,36 +47,38 @@ export function prepareLegal(next:LegalBundleDto,previous?:LegalBundleDto,actorI
  return out;
 }
 /** Проверка конкретных вложений, не всего хранилища. SHA считается по байтам оригинала. */
-export async function validateLegalFiles(connection:Connection,legal:LegalBundleDto){
+export async function validateLegalFiles(connection:Connection,legal:LegalBundleDto,session?:ClientSession){
  const ids=legal.documents.map(d=>new Types.ObjectId(d.fileId));
- const photos=ids.length?await connection.db!.collection('photos').find({_id:{$in:ids},deletedAt:null},{projection:{storageUrl:1,sha256:1,sizeBytes:1,variant:1}}).toArray():[];
+ const photos=ids.length?await connection.db!.collection('photos').find({_id:{$in:ids},deletedAt:null},{session,projection:{storageUrl:1,sha256:1,sizeBytes:1,variant:1}}).toArray():[];
  const byId=new Map(photos.map(x=>[String(x._id),x]));
  for(const d of legal.documents){const p=byId.get(String(d.fileId));if(!p||p.variant==='thumb')throw new BadRequestException('Оригинал файла не найден');const file=safeUploadPath(p.storageUrl);if(!file)throw new BadRequestException('Для договора нужен локальный оригинал');try{const info=await stat(file);if(info.size>30*1024*1024)throw new Error();const bytes=await readFile(file);if(createHash('sha256').update(bytes).digest('hex')!==d.sourceSha256)throw new BadRequestException('Контрольная сумма оригинала отличается');}catch(e){if(e instanceof BadRequestException)throw e;throw new BadRequestException('Не удалось проверить оригинал файла');}
- const reserved=await connection.model('Photo').updateOne({_id:p._id,deletedAt:null,sourceDeleting:{$ne:true}},{$set:{sourceProtected:true}}).exec();
+ const reserved=await connection.model('Photo').updateOne({_id:p._id,deletedAt:null,sourceDeleting:{$ne:true}},{$set:{sourceProtected:true}},{session}).exec();
  if(!reserved.matchedCount)throw new ConflictException('Файл уже удаляется или недоступен — оригинал не привязан');
- if(await connection.db!.collection('photos').findOne({storageUrl:p.storageUrl,sourceDeleting:true},{projection:{_id:1}}))throw new ConflictException('Файл уже удаляется через другую ссылку — оригинал не привязан');
+ if(await connection.db!.collection('photos').findOne({storageUrl:p.storageUrl,sourceDeleting:true},{session,projection:{_id:1}}))throw new ConflictException('Файл уже удаляется через другую ссылку — оригинал не привязан');
  }
  for(const i of legal.issues)if(i.responsibleId&&!(await connection.db!.collection('persons').findOne({_id:new Types.ObjectId(i.responsibleId),deletedAt:null},{projection:{_id:1}})))throw new BadRequestException('Ответственный сотрудник не найден');
 }
 /** Legal версия+история+receipt одной CAS записью. Не повторять unknown результат без чтения. */
-export async function patchLegal(model:Model<any>,id:string,dto:LegalPatchDto,actorId?:string){
+export async function patchLegal(model:Model<any>,id:string,dto:LegalPatchDto,actorId?:string,session?:ClientSession){
  if(!Types.ObjectId.isValid(id))throw new NotFoundException('Документ не найден');
- const cur=await model.findOne({_id:new Types.ObjectId(id),deletedAt:null}).lean().exec() as Row|null;if(!cur)throw new NotFoundException('Документ не найден');
+ const cur=await model.findOne({_id:new Types.ObjectId(id),deletedAt:null},undefined,{session}).lean().exec() as Row|null;if(!cur)throw new NotFoundException('Документ не найден');
+ const order = model.collection.name === 'salesorders';
+ if (order && cur.activeArchiveVersion != null) throw archiveOrderConflict();
  const hash=legalHash({version:dto.version,reason:dto.reason,legal:dto.legal});
  const receipt=(cur.legalReceipts||[]).find((x:Row)=>x.uid===dto.clientUid);if(receipt){if(receipt.hash!==hash)throw new ConflictException('Ключ операции уже использован с другими данными');return legalPresentation(cur);}
  if(Number(cur.legalVersion||0)!==dto.version)throw new ConflictException('Документ изменился — обновите карточку');
  if((cur.legalReceipts||[]).length>=200)throw new ConflictException('Достигнут лимит истории операций — обратитесь к администратору');
  const context={counterpartyId:cur.counterpartyId,productionNo:cur.productionNo,lineCount:0,unmatchedCount:0};
  if(dto.legal.issues.some(i=>i.state==='resolved'&&['catalogMatch','productMatching'].includes(i.field))){
-  if(model.collection.name==='salesorders'){context.lineCount=await model.db.db!.collection('incomes').countDocuments({orderId:cur._id,deletedAt:null,cancelledAt:null});context.unmatchedCount=await model.db.db!.collection('incomes').countDocuments({orderId:cur._id,deletedAt:null,cancelledAt:null,productId:null,matchStatus:{$ne:'none'},lineType:{$ne:'service'}});}
+  if(model.collection.name==='salesorders'){context.lineCount=await model.db.db!.collection('incomes').countDocuments({orderId:cur._id,deletedAt:null,cancelledAt:null},{session});context.unmatchedCount=await model.db.db!.collection('incomes').countDocuments({orderId:cur._id,deletedAt:null,cancelledAt:null,productId:null,matchStatus:{$ne:'none'},lineType:{$ne:'service'}},{session});}
   else{const lines=(cur.items||[]).filter((i:Row)=>i.scopeState!=='excluded');context.lineCount=lines.length;context.unmatchedCount=lines.filter((i:Row)=>!i.productId&&i.matchStatus!=='none').length;context.counterpartyId=cur.counterpartyId;}
  }
  const legal=prepareLegal(dto.legal,cur.legal,actorId,context);
  if((legal.companySnapshot&&!cur.legal?.companySnapshot)||(legal.counterpartySnapshot&&!cur.legal?.counterpartySnapshot)){if(!cur.companyId)throw new BadRequestException('Сначала выберите нашу компанию');await validateLegalParties(model.db,String(cur.companyId),cur.counterpartyId?String(cur.counterpartyId):undefined,legal);}
- await validateLegalFiles(model.db,legal);
- const version=dto.version+1;const guard={_id:cur._id,deletedAt:null,$or:[{legalVersion:dto.version},...(dto.version===0?[{legalVersion:{$exists:false}}]:[])]};
- const updated=await model.findOneAndUpdate(guard,{$set:{legal,legalVersion:version,editedInApp:true},$push:{legalReceipts:{uid:dto.clientUid,hash,version,at:new Date()},legalHistory:{version:dto.version,at:new Date(),by:actorId,reason:dto.reason,legal:cur.legal||null}}},{new:true}).lean().exec() as Row|null;
- if(!updated){const fresh=await model.findOne({_id:cur._id}).lean().exec()as Row|null;const done=fresh?.legalReceipts?.find((x:Row)=>x.uid===dto.clientUid);if(done?.hash===hash)return legalPresentation(fresh!);throw new ConflictException('Документ изменился — обновите карточку');}
+ await validateLegalFiles(model.db,legal,session);
+ const version=dto.version+1;const guard={_id:cur._id,deletedAt:null,...(order ? {activeArchiveVersion:null} : {}),$or:[{legalVersion:dto.version},...(dto.version===0?[{legalVersion:{$exists:false}}]:[])]};
+ const updated=await model.findOneAndUpdate(guard,{$set:{legal,legalVersion:version,editedInApp:true},$push:{legalReceipts:{uid:dto.clientUid,hash,version,at:new Date()},legalHistory:{version:dto.version,at:new Date(),by:actorId,reason:dto.reason,legal:cur.legal||null}}},{new:true,session}).lean().exec() as Row|null;
+ if(!updated){const fresh=await model.findOne({_id:cur._id},undefined,{session}).lean().exec()as Row|null;if(order&&fresh?.activeArchiveVersion!=null)throw archiveOrderConflict();const done=fresh?.legalReceipts?.find((x:Row)=>x.uid===dto.clientUid);if(done?.hash===hash)return legalPresentation(fresh!);throw new ConflictException('Документ изменился — обновите карточку');}
  return legalPresentation(updated);
 }
 

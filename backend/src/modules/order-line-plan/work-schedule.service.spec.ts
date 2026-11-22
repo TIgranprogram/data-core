@@ -31,7 +31,7 @@ describe('WorkScheduleService: люди Ганта и вид работ испо
 
   beforeEach(() => {
     c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans', 'salesorders', 'designtasks'].map((n) => [n, new Coll()]));
-    svc = new WorkScheduleService({ db: { collection: (n: string) => c[n] } } as never, {} as never);
+    svc = new WorkScheduleService({ startSession: async () => ({ withTransaction: async (run: () => unknown) => run(), endSession: async () => {} }), db: { collection: (n: string) => c[n] } } as never, {} as never);
     c.worktypes.rows.push({ _id: weld, name: 'Сварка', deletedAt: null }, { _id: cut, name: 'Резка', deletedAt: null });
     c.persons.rows.push(
       { _id: welder, lastName: 'Иванов', firstName: 'Иван', workTypeIds: [weld], hoursPerDay: 10, deletedAt: null },
@@ -71,7 +71,7 @@ describe('Гант-дерево (C053 Э1): фильтры в БД, поля, le
     const finds: Row[] = [];
     const orig = c.orderlineplans.find;
     c.orderlineplans.find = (f: Row = {}) => { finds.push(f); return orig(f); };
-    return { c, finds, svc: new WorkScheduleService({ db: { collection: (n: string) => c[n] } } as never, {} as never) };
+    return { c, finds, svc: new WorkScheduleService({ startSession: async () => ({ withTransaction: async (run: () => unknown) => run(), endSession: async () => {} }), db: { collection: (n: string) => c[n] } } as never, {} as never) };
   };
   const weld = id(), cut = id(), ann = id(), bob = id(), ord1 = id(), ord2 = id(), inc1 = id(), inc2 = id(), prod = id(), part = id(), row = id();
   const seed = (c: Record<string, Coll>) => {
@@ -140,7 +140,7 @@ describe('срок заказа и просрочка полосы (T6 ядро)
   it('полоса несёт deadline и overdue из заказа', async () => {
     const id = () => new Types.ObjectId();
     const c = Object.fromEntries(['persons', 'worktypes', 'incomes', 'worktasks', 'orderlineplans', 'salesorders', 'designtasks'].map((n) => [n, new Coll()])) as Record<string, Coll>;
-    const svc2 = new WorkScheduleService({ db: { collection: (n: string) => c[n] } } as never, {} as never);
+    const svc2 = new WorkScheduleService({ startSession: async () => ({ withTransaction: async (run: () => unknown) => run(), endSession: async () => {} }), db: { collection: (n: string) => c[n] } } as never, {} as never);
     const weld = id(), inc = id(), planId = id(), stepId = id(), orderId = id();
     const past = new Date(Date.now() - 10 * 86400000);
     c.worktypes.rows.push({ _id: weld, name: 'Сварка', deletedAt: null });

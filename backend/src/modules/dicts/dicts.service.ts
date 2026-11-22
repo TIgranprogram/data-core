@@ -10,6 +10,7 @@ import { Types } from 'mongoose';
 import { DICT, DICTS, DICT_UI, type DictDef, type Doc, norm, translit, uiFields } from './dicts.defs';
 import { AuditService } from '../audit/audit.service';
 import { trackMoved, type MovedLog } from './dicts.moved';
+import { withOrderWrite } from '../../common/order-archive/write';
 import { matchesAll, searchTokens } from '../../common/text/search-norm';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -221,7 +222,7 @@ export class DictsService {
 
   /**
    * Правка. У справочника со строковой связью (`refBy: 'name'`) смена названия сначала переносится по данным (каскад),
-   * и только потом пишется в сам справочник — упавший на полпути запрос повторяется тем же PATCH. Ответ: запись + `moved`.
+   * вместе с записью справочника. Ответ: запись, `moved` и число пропущенных архивных целей, если они встретились.
    */
   async update(key: string, id: string, body: Record<string, unknown>) {
     if (FINANCIAL_ARTICLE_KEYS.has(key) && this.articles) return { ...(await this.get(key, await this.articles.write(key, 'update', id, body))), moved: 0 };
@@ -233,12 +234,22 @@ export class DictsService {
     await this.checkDuplicate(d, next, id);
     const rk = d.renameKey ?? d.name;
     const renamed = d.refBy === 'name' && norm(rk(cur)) !== norm(rk(next));
-    const moved = renamed ? await d.reassign(this.db, cur, next) : 0;
     const unset = Object.fromEntries(emptyKeys(d, set).map((k) => [k, '']));
     for (const k of Object.keys(unset)) delete set[k];
-    await this.db.collection(d.coll).updateOne({ _id: cur._id }, Object.keys(unset).length ? { $set: set, $unset: unset } : { $set: set });
-    if (renamed) await this.audit?.log({ action: 'dict.renamed', entityType: 'DictItem', entityId: id, details: { meta: { dict: key, from: d.name(cur), to: d.name(next), moved } } });
-    return { ...(await this.get(key, id)), moved };
+    const update = Object.keys(unset).length ? { $set: set, $unset: unset } : { $set: set };
+    if (!renamed) {
+      await this.db.collection(d.coll).updateOne({ _id: cur._id }, update);
+      return { ...(await this.get(key, id)), moved: 0 };
+    }
+    const { moved, archiveSkipped } = await withOrderWrite(this.connection, [], async session => {
+      const log: MovedLog = { ids: [], truncated: false };
+      const moved = await d.reassign(trackMoved(this.db, log, session), cur, next);
+      const changed = await this.db.collection(d.coll).updateOne({ _id: cur._id, deletedAt: null, updatedAt: cur.updatedAt ?? null }, update, { session });
+      if (!changed.matchedCount) throw new ConflictException('Значение изменилось — обновите список');
+      return { moved, archiveSkipped: log.archiveSkipped ? { archiveSkipped: log.archiveSkipped } : {} };
+    });
+    await this.audit?.log({ action: 'dict.renamed', entityType: 'DictItem', entityId: id, details: { meta: { dict: key, from: d.name(cur), to: d.name(next), moved, ...archiveSkipped } } });
+    return { ...(await this.get(key, id)), moved, ...archiveSkipped };
   }
 
   /** Удалить (в корзину). Встроенное не удаляется; занятое — только администратор и только заменой («Объединить с…»). */
@@ -279,11 +290,16 @@ export class DictsService {
     const lock = d.locked?.(from);
     if (lock) throw new ConflictException(`«${d.name(from)}» — ${lock.toLowerCase()}: объединить нельзя`);
     if (!this.isAdmin(user) && (await this.isBusy(d, from))) throw new ForbiddenException('Удаление занятого значения доступно администратору');
-    const log: MovedLog = { ids: [], truncated: false };
-    const moved = await d.reassign(trackMoved(this.db, log), from, to);
-    await this.db.collection(d.coll).updateOne({ _id: from._id }, { $set: { deletedAt: new Date(), mergedInto: to._id, ...(d.softDelete ?? {}) } });
-    await this.audit?.log({ action: 'dict.merged', entityType: 'DictItem', entityId: id, details: { meta: { dict: key, into, moved, movedIds: log.ids, ...(log.truncated ? { movedIdsTruncated: true } : {}) } } });
-    return { ...(await this.get(key, into)), moved };
+    const { moved, log } = await withOrderWrite(this.connection, [], async session => {
+      const log: MovedLog = { ids: [], truncated: false };
+      const moved = await d.reassign(trackMoved(this.db, log, session), from, to);
+      const changed = await this.db.collection(d.coll).updateOne({ _id: from._id, deletedAt: null, updatedAt: from.updatedAt ?? null }, { $set: { deletedAt: new Date(), mergedInto: to._id, ...(d.softDelete ?? {}) } }, { session });
+      if (!changed.matchedCount) throw new ConflictException('Значение изменилось — обновите список');
+      return { moved, log };
+    });
+    const archiveSkipped = log.archiveSkipped ? { archiveSkipped: log.archiveSkipped } : {};
+    await this.audit?.log({ action: 'dict.merged', entityType: 'DictItem', entityId: id, details: { meta: { dict: key, into, moved, movedIds: log.ids, ...archiveSkipped, ...(log.truncated ? { movedIdsTruncated: true } : {}) } } });
+    return { ...(await this.get(key, into)), moved, ...archiveSkipped };
   }
 
   /** Значения из Google-таблицы и из самих данных, которых ещё нет в справочнике (СП.6): с подсказкой «похоже на». */

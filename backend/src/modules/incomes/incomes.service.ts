@@ -1,3 +1,4 @@
+import { archiveOrderConflict, claimWritableOrders, withLineWrite } from '../../common/order-archive/write';
 import { epochOf, epochFilter } from '../../common/passport/line-source';
 import { assertIntakeIndexes, intakeContentHash, legalHash } from '../../common/legal/legal-utils';
 import { createHash } from 'crypto';
@@ -75,9 +76,10 @@ export class IncomesService {
     const newPayments = ((fields.payments || []) as IncomePayment[]).filter(p => !oldIds.has(p.paymentId));
     const synthetic = !current.legacyPaymentMetadata && fields.legacyPaymentMetadata ? fields.legacyPaymentMetadata as Record<string, unknown> : null;
     const syntheticOriginal = synthetic?.classificationOriginal as { articleId?: string | null } | undefined;
-    if (!fields.articleId && !newPayments.some(p => p.articleId) && !syntheticOriginal?.articleId) return write();
+    if (!fields.orderId && !current.orderId && !fields.articleId && !newPayments.some(p => p.articleId) && !syntheticOriginal?.articleId) return write();
     const session = await this.connection.startSession(); let result!: T;
     try { await session.withTransaction(async () => {
+      await claimWritableOrders(this.connection.db!, session, [current.orderId, fields.orderId]);
       if (fields.articleId) await this.articles!.assertSelectable(String(fields.articleId), 'income', { session });
       for (const payment of newPayments) if (payment.articleId) {
         try { await this.articles!.assertSelectable(String(payment.articleId), 'income', { session }); }
@@ -345,8 +347,10 @@ export class IncomesService {
    * Без actor (вызов из кода) защита не применяется.
    */
   async assertCanChange(orderId: unknown, actor: AuthenticatedUser | undefined) {
-    if (!actor || !orderId || actor.role === 'admin' || actor.keyScope) return;
-    const o = await this.connection.db!.collection('salesorders').findOne({ _id: orderId as Types.ObjectId }, { projection: { stage: 1 } });
+    if (!orderId) return;
+    const o = await this.connection.db!.collection('salesorders').findOne({ _id: orderId as Types.ObjectId }, { projection: { stage: 1, activeArchiveVersion: 1 } });
+    if (o?.activeArchiveVersion != null) throw archiveOrderConflict();
+    if (!actor || actor.role === 'admin' || actor.keyScope) return;
     const stage = String(o?.stage || 'new');
     if (o && !['new', 'production'].includes(stage)) {
       throw new ConflictException(`Заказ уже на этапе «${STAGE_LABELS[stage as OrderStage] ?? stage}» — позиции меняет только администратор`);
@@ -425,6 +429,7 @@ export class IncomesService {
   async update(id: string, dto: IncomeDto, actor?: AuthenticatedUser, opts: { guard?: Record<string, unknown>; push?: Record<string, unknown>; allowRemovedPaymentId?: string } = {}) {
     const cur = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec();
     if (!cur) throw new NotFoundException('Запись дохода не найдена');
+    await this.assertCanChange(cur.orderId, undefined);
     if(dto.sourceLine&&legalHash(dto.sourceLine)!==legalHash(cur.sourceLine))throw new ConflictException('Исходная строка неизменяема');
     if(dto.matchingMode&&dto.matchingMode!==cur.matchingMode)throw new ConflictException('Режим источника фиксируется при создании');
     if(cur.matchingMode==='manual'&&(dto.lineType==='new_product'||dto.productRequestId||dto.orderId!==undefined&&String(dto.orderId||'')!==String(cur.orderId||'')))throw new ConflictException('Исходная строка остаётся в своём договоре без автоматического создания изделия');
@@ -501,20 +506,21 @@ export class IncomesService {
   async addPhoto(id: string, photoId: string) {
     const _id = oid(id, 'позиции'); const pid = oid(photoId, 'фото');
     if (!(await this.connection.db!.collection('photos').findOne({ _id: pid }))) throw new NotFoundException('Фото не найдено — загрузите ещё раз');
-    const res = await this.model.updateOne({ _id, deletedAt: null }, { $addToSet: { photoIds: pid }, $set: { editedInApp: true } }).exec();
+    const res = await withLineWrite(this.connection, _id, session => this.model.updateOne({ _id, deletedAt: null }, { $addToSet: { photoIds: pid }, $set: { editedInApp: true } }, { session }).exec());
     if (!res.matchedCount) throw new NotFoundException('Позиция не найдена');
     return this.get(id);
   }
 
   /** Сделать фото главным (первым). */
   async mainPhoto(id: string, photoId: string) {
-    await photoToFront((f, u) => this.model.updateOne(f, u).exec(), { _id: oid(id, 'позиции'), deletedAt: null }, oid(photoId, 'фото'));
+    const _id = oid(id, 'позиции');
+    await withLineWrite(this.connection, _id, session => photoToFront((f, u) => this.model.updateOne(f, u, { session }).exec(), { _id, deletedAt: null }, oid(photoId, 'фото')));
     return this.get(id);
   }
 
   async removePhoto(id: string, photoId: string) {
     const _id = oid(id, 'позиции'); const pid = oid(photoId, 'фото');
-    const res = await this.model.updateOne({ _id, deletedAt: null }, { $pull: { photoIds: pid }, $set: { editedInApp: true } }).exec();
+    const res = await withLineWrite(this.connection, _id, session => this.model.updateOne({ _id, deletedAt: null }, { $pull: { photoIds: pid }, $set: { editedInApp: true } }, { session }).exec());
     if (!res.matchedCount) throw new NotFoundException('Позиция не найдена');
     return this.get(id);
   }
@@ -526,6 +532,7 @@ export class IncomesService {
     if (incomePayments(first).length || Number(first.paidAmount) > 0) throw new ConflictException('У позиции есть оплата — сначала уберите платежи');
     const expectedVersion = Number(first.version || 0), session = await this.connection.startSession();
     try { await session.withTransaction(async () => {
+      await claimWritableOrders(this.connection.db!, session, [first.orderId]);
       const cur = await this.model.findOne({ _id: first._id, deletedAt: null }).session(session).lean().exec();
       if (!cur || Number(cur.version || 0) !== expectedVersion) throw staleError('Позицию');
       if (incomePayments(cur).length || Number(cur.paidAmount) > 0) throw new ConflictException('У позиции есть оплата — сначала уберите платежи');
@@ -543,6 +550,7 @@ export class IncomesService {
     await this.assertOrderOpen(first.orderId, actor);
     const expectedVersion = Number(first.version || 0), session = await this.connection.startSession();
     try { await session.withTransaction(async () => {
+      await claimWritableOrders(this.connection.db!, session, [first.orderId]);
       const fresh = await this.model.findOne({ _id: first._id, deletedAt: { $ne: null } }).setOptions({ includeSoftDeleted: true }).session(session).lean().exec();
       if (!fresh || Number(fresh.version || 0) !== expectedVersion) throw staleError('Позицию');
       const changed = await this.model.updateOne({ _id: fresh._id, deletedAt: { $ne: null }, ...versionFilter(expectedVersion) }, { $set: { deletedAt: null, editedInApp: true }, $inc: { version: 1, passportEpoch: 1 } }, { session }).setOptions({ includeSoftDeleted: true }).exec();

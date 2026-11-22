@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { withPlanWrite } from './plan-write';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
@@ -190,21 +191,23 @@ export class WorkScheduleService {
   /** «Отметить начало / конец» шага: ставит `startedAt` / `finishedAt` (повтор — не перезаписывает), конец пишет факт-часы. */
   async mark(planId: string, stepId: string, what: 'start' | 'finish') {
     const plans = this.db().collection('orderlineplans');
-    const plan = (await plans.findOne({ _id: oid(planId, 'плана'), deletedAt: null })) as Doc | null;
-    if (!plan) throw new NotFoundException('План не найден');
-    const sid = String(oid(stepId, 'шага'));
-    const at = ((plan.steps as StepRow[]) ?? []).findIndex((s) => String(s._id) === sid);
-    if (at < 0) throw new NotFoundException('Шага нет в плане');
-    const row = (plan.steps as StepRow[])[at];
-    const now = new Date();
-    if (what === 'finish' && row.startedAt && now < new Date(row.startedAt)) throw new BadRequestException('Конец работы раньше начала');
-    const key = what === 'start' ? 'startedAt' : 'finishedAt';
-    const set: Doc = { updatedAt: now };
-    if (!row[key]) set[`steps.${at}.${key}`] = now;
-    if (what === 'finish' && !row.startedAt) set[`steps.${at}.startedAt`] = now; // закончил без «начал» — начало = сейчас
-    await plans.updateOne({ _id: plan._id }, { $set: set, $inc: { rev: 1 } });
-    const fresh = (await plans.findOne({ _id: plan._id })) as Doc;
-    if (what === 'finish') await this.facts.recordStep(fresh, sid); // факт-часы шага для норм и себестоимости
+    const saved = await withPlanWrite(this.connection, planId, async (plan, _line, session) => {
+      const sid = String(oid(stepId, 'шага'));
+      const at = ((plan.steps as StepRow[]) ?? []).findIndex((s) => String(s._id) === sid);
+      if (at < 0) throw new NotFoundException('Шага нет в плане');
+      const row = (plan.steps as StepRow[])[at];
+      const now = new Date();
+      if (what === 'finish' && row.startedAt && now < new Date(row.startedAt)) throw new BadRequestException('Конец работы раньше начала');
+      const key = what === 'start' ? 'startedAt' : 'finishedAt';
+      const set: Doc = { updatedAt: now };
+      if (!row[key]) set[`steps.${at}.${key}`] = now;
+      if (what === 'finish' && !row.startedAt) set[`steps.${at}.startedAt`] = now; // закончил без «начал» — начало = сейчас
+      await plans.updateOne({ _id: plan._id }, { $set: set, $inc: { rev: 1 } }, { session });
+      const fresh = (await plans.findOne({ _id: plan._id }, { session })) as Doc;
+      if (what === 'finish') await this.facts.recordStep(fresh, sid, session); // факт-часы шага для норм и себестоимости
+      return { fresh, sid };
+    });
+    const { fresh, sid } = saved;
     const bar = (await this.barsOf([fresh], dayOf(new Date()))).find((b) => b.stepId === sid)!;
     return { bar, rev: fresh.rev as number };
   }
@@ -212,45 +215,47 @@ export class WorkScheduleService {
   /** Назначить исполнителя и/или сдвинуть шаг. Нет `end` — длительность сохраняется; `rev` старый — 409. Ответ: полоса и загрузка затронутых людей. */
   async patchStep(planId: string, stepId: string, dto: StepPatchDto) {
     const plans = this.db().collection('orderlineplans');
-    const plan = (await plans.findOne({ _id: oid(planId, 'плана'), deletedAt: null })) as Doc | null;
-    if (!plan) throw new NotFoundException('План не найден');
-    if (dto.rev !== undefined && dto.rev !== plan.rev) throw new ConflictException('План изменил другой человек — обновите');
-    const sid = String(oid(stepId, 'шага'));
-    const steps = (plan.steps as StepRow[]) ?? [];
-    const at = steps.findIndex((s) => String(s._id) === sid);
-    if (at < 0) throw new NotFoundException('Шага нет в плане');
-    const today = dayOf(new Date());
-    const before = (await this.barsOf([plan], today)).find((b) => b.stepId === sid);
-    if (!before) throw new NotFoundException('Позиция плана удалена или вид работ шага удалён');
+    const saved = await withPlanWrite(this.connection, planId, async (plan, _line, session) => {
+      if (dto.rev !== undefined && dto.rev !== plan.rev) throw new ConflictException('План изменил другой человек — обновите');
+      const sid = String(oid(stepId, 'шага'));
+      const steps = (plan.steps as StepRow[]) ?? [];
+      const at = steps.findIndex((s) => String(s._id) === sid);
+      if (at < 0) throw new NotFoundException('Шага нет в плане');
+      const today = dayOf(new Date());
+      const before = (await this.barsOf([plan], today)).find((b) => b.stepId === sid);
+      if (!before) throw new NotFoundException('Позиция плана удалена или вид работ шага удалён');
 
-    const set: Doc = {}, unset: Doc = {};
-    if (dto.assigneeId !== undefined) {
-      if (dto.assigneeId === null) unset[`steps.${at}.assigneeId`] = '';
-      else {
-        const p = await this.db().collection('persons').findOne({ _id: oid(dto.assigneeId, 'сотрудника'), deletedAt: null }, { projection: { status: 1, workTypeIds: 1, workTypeId: 1 } });
-        if (!p) throw new BadRequestException('Сотрудник не найден — выберите из списка');
-        if (p.status === 'fired') throw new BadRequestException('Сотрудник уволен — выберите другого');
-        const wt = steps[at].workTypeId; // шаг без вида работ — без проверки
-        if (wt && !personWorkTypeIds(p).some((x) => String(x) === String(wt))) {
-          const type = await this.db().collection('worktypes').findOne({ _id: wt as Types.ObjectId }, { projection: { name: 1 } });
-          throw new BadRequestException(`У сотрудника нет вида работ «${String(type?.name ?? 'шага')}»`);
+      const set: Doc = {}, unset: Doc = {};
+      if (dto.assigneeId !== undefined) {
+        if (dto.assigneeId === null) unset[`steps.${at}.assigneeId`] = '';
+        else {
+          const p = await this.db().collection('persons').findOne({ _id: oid(dto.assigneeId, 'сотрудника'), deletedAt: null }, { projection: { status: 1, workTypeIds: 1, workTypeId: 1 } });
+          if (!p) throw new BadRequestException('Сотрудник не найден — выберите из списка');
+          if (p.status === 'fired') throw new BadRequestException('Сотрудник уволен — выберите другого');
+          const wt = steps[at].workTypeId; // шаг без вида работ — без проверки
+          if (wt && !personWorkTypeIds(p).some((x) => String(x) === String(wt))) {
+            const type = await this.db().collection('worktypes').findOne({ _id: wt as Types.ObjectId }, { projection: { name: 1 } });
+            throw new BadRequestException(`У сотрудника нет вида работ «${String(type?.name ?? 'шага')}»`);
+          }
+          set[`steps.${at}.assigneeId`] = p._id;
         }
-        set[`steps.${at}.assigneeId`] = p._id;
       }
-    }
-    if (dto.hours !== undefined) set[`steps.${at}.hours`] = dto.hours; // норма часов на 1 шт.
-    if (dto.start !== undefined || dto.end !== undefined) {
-      const start = dto.start ? fromWorkday(new Date(dto.start)) : before.startAt;
-      const end = dto.end ? dayOf(new Date(dto.end)) : dto.start ? lastDay(start, workDays(before.startAt, before.endAt).length) : before.endAt;
-      if (end < start) throw new BadRequestException('Конец работы раньше начала');
-      set[`steps.${at}.plan`] = { start, end };
-    }
-    if (!Object.keys(set).length && !Object.keys(unset).length) throw new BadRequestException('Укажите исполнителя или даты');
-    const now = new Date();
-    const res = await plans.updateOne({ _id: plan._id, rev: plan.rev }, { $set: { ...set, updatedAt: now }, ...(Object.keys(unset).length ? { $unset: unset } : {}), $inc: { rev: 1 } });
-    if (!res.matchedCount) throw new ConflictException('План изменил другой человек — обновите');
+      if (dto.hours !== undefined) set[`steps.${at}.hours`] = dto.hours; // норма часов на 1 шт.
+      if (dto.start !== undefined || dto.end !== undefined) {
+        const start = dto.start ? fromWorkday(new Date(dto.start)) : before.startAt;
+        const end = dto.end ? dayOf(new Date(dto.end)) : dto.start ? lastDay(start, workDays(before.startAt, before.endAt).length) : before.endAt;
+        if (end < start) throw new BadRequestException('Конец работы раньше начала');
+        set[`steps.${at}.plan`] = { start, end };
+      }
+      if (!Object.keys(set).length && !Object.keys(unset).length) throw new BadRequestException('Укажите исполнителя или даты');
+      const now = new Date();
+      const res = await plans.updateOne({ _id: plan._id, rev: plan.rev }, { $set: { ...set, updatedAt: now }, ...(Object.keys(unset).length ? { $unset: unset } : {}), $inc: { rev: 1 } }, { session });
+      if (!res.matchedCount) throw new ConflictException('План изменил другой человек — обновите');
 
-    const fresh = (await plans.findOne({ _id: plan._id })) as Doc;
+      const fresh = (await plans.findOne({ _id: plan._id }, { session })) as Doc;
+      return { before, fresh, sid, today };
+    });
+    const { before, fresh, sid, today } = saved;
     const after = (await this.barsOf([fresh], today)).find((b) => b.stepId === sid)!;
     const who = [...new Set([before.assigneeId, after.assigneeId].filter(Boolean))] as string[];
     const from = new Date(Math.min(before.startAt.getTime(), after.startAt.getTime())), to = new Date(Math.max(before.endAt.getTime(), after.endAt.getTime()));

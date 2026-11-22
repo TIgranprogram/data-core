@@ -64,16 +64,16 @@ export class CounterService {
    * Сквозной номер без года и форматирования: атомарный `$inc` по (entity, prefix), год в ключе всегда 0.
    * Параллельные вызовы получают разные числа; при гонке первого upsert (E11000) — один повтор.
    */
-  async nextSeq(entity: string, prefix: string): Promise<number> {
+  async nextSeq(entity: string, prefix: string, session?: ClientSession): Promise<number> {
     const col = this.connection.collection<CounterDocShape>('counters');
     const run = async () => {
-      const r = await col.findOneAndUpdate({ entity, prefix, year: 0 }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: 'after' });
+      const r = await col.findOneAndUpdate({ entity, prefix, year: 0 }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: 'after', ...(session ? { session } : {}) });
       return r?.seq ?? 1;
     };
     try {
       return await run();
     } catch (err) {
-      if ((err as { code?: number }).code !== 11000) throw err;
+      if (session || (err as { code?: number }).code !== 11000) throw err;
       return run();
     }
   }

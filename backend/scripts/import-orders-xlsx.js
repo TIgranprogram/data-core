@@ -22,6 +22,7 @@ const path = require('path');
 const backend = path.join(__dirname, '..');
 // драйвер — из mongoose (pnpm не кладёт mongodb в корень node_modules)
 const { MongoClient, ObjectId } = require(require.resolve('mongoose', { paths: [process.cwd(), backend] })).mongo;
+const { claimOrderWrites, withArchiveWrite } = require('./order-archive-write');
 
 function loadFflate() {
   try { return require(require.resolve('fflate', { paths: [process.cwd(), backend] })); } catch { /* pnpm: только в .pnpm */ }
@@ -39,22 +40,24 @@ const xmlDec = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&qu
 /** → [{ r: номер строки, c: { A: значение, B: … } }] */
 const PHOTOS = process.argv.includes('--photos');
 /** Фото позиции: файл в UPLOAD_DIR (как загрузка в приложении) + запись photos; у позиции уже есть фото — пропуск. */
-async function attachPhotos(db, line, l, write, st) {
+async function attachPhotos(db, line, l, session, st, files) {
   if (!PHOTOS || !l.images?.length) return;
   if (line.photoIds?.length) { st.photosKept = (st.photosKept || 0) + 1; return; }
   st.photosNew = (st.photosNew || 0) + l.images.length;
-  if (!write || !line._id) return;
+  if (!session || !line._id) return;
   const dir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
   fs.mkdirSync(dir, { recursive: true });
   const ids = [];
   for (const [i, img] of l.images.entries()) {
     const filename = require('crypto').randomUUID() + '.' + img.ext;
-    fs.writeFileSync(path.join(dir, filename), img.buf);
+    const file = path.join(dir, filename);
+    fs.writeFileSync(file, img.buf, { flag: 'wx' });
+    files.push(file);
     const now = new Date();
-    const r = await db.collection('photos').insertOne({ storageUrl: '/uploads/' + filename, originalFilename: `${String(l.title).slice(0, 60)} ${i + 1}.${img.ext}`, mimeType: img.mime, sizeBytes: img.buf.length, variant: 'original', source: 'import-xlsx', deletedAt: null, createdAt: now, updatedAt: now });
+    const r = await db.collection('photos').insertOne({ storageUrl: '/uploads/' + filename, originalFilename: `${String(l.title).slice(0, 60)} ${i + 1}.${img.ext}`, mimeType: img.mime, sizeBytes: img.buf.length, variant: 'original', source: 'import-xlsx', deletedAt: null, createdAt: now, updatedAt: now }, { session });
     ids.push(r.insertedId);
   }
-  await db.collection('incomes').updateOne({ _id: line._id }, { $set: { photoIds: ids, updatedAt: new Date() } });
+  await db.collection('incomes').updateOne({ _id: line._id }, { $set: { photoIds: ids, updatedAt: new Date() } }, { session });
 }
 
 function readXlsx(file) {
@@ -256,10 +259,10 @@ function build(dir) {
 }
 
 // ───────────── запись в базу ─────────────
-async function apply(db, orders, write) {
+async function apply(client, db, orders, write) {
   const ours = await db.collection('organizations').find({ deletedAt: null, isOurCompany: true }, { projection: { name: 1, shortName: 1 } }).toArray();
   const ourId = (short) => ours.find((x) => clean(x.shortName || x.name).toUpperCase() === short)?._id;
-  const st = { ordersNew: 0, ordersFound: 0, ordersEnriched: 0, linesNew: 0, linesFound: 0, linesFromSheet: 0, linesEnriched: 0, linesLinked: 0, missingCompany: [] };
+  const totals = { ordersNew: 0, ordersFound: 0, ordersEnriched: 0, linesNew: 0, linesFound: 0, linesFromSheet: 0, linesEnriched: 0, linesLinked: 0, photosNew: 0, photosKept: 0, archivedSkipped: 0, missingCompany: [] };
   const shortOf = (id) => { const x = ours.find((c) => String(c._id) === String(id)); return x ? clean(x.shortName || x.name).toUpperCase() : ''; };
   const legacy = new Map();
   for (const d of await db.collection('incomes').find({ deletedAt: null, orderId: { $exists: false }, orderNo: { $nin: [null, ''] } }).toArray()) {
@@ -273,7 +276,9 @@ async function apply(db, orders, write) {
     for (const [k, v] of Object.entries(want)) if (v !== undefined && v !== null && v !== '' && (doc[k] === undefined || doc[k] === null || doc[k] === '')) set[k] = v;
     return set;
   };
-  for (const o of orders) {
+  const importOrder = async (o, session, files) => {
+    const st = Object.fromEntries(Object.keys(totals).map(key => [key, key === 'missingCompany' ? [] : 0]));
+    const opts = { session };
     const companyId = o.company.known ? ourId(o.company.short) : undefined;
     if (o.company.known && !companyId) st.missingCompany.push(`${o.key}: в organizations нет нашей компании ${o.company.short}`);
     const notes = [...o.notes, ...(o.company.known ? [] : [`Поставщик в файле: ${o.company.label} — компания не определена (TASKS З.9)`])].join('\n') || undefined;
@@ -281,43 +286,47 @@ async function apply(db, orders, write) {
       orderNo: o.orderNo, companyId, customer: o.customer, title: o.title, paymentForm: o.paymentForm, contractNo: o.contractNo,
       contractDate: o.contractDate, shipDate: o.shipDate, productionDeadline: o.productionDeadline, deliveryDeadline: o.deliveryDeadline, notes,
     };
-    let header = await db.collection('salesorders').findOne({ importKey: o.key });
+    let header = await db.collection('salesorders').findOne({ importKey: o.key }, opts);
     if (!header) {
       st.ordersNew++;
       header = { _id: new ObjectId(), ...want, stage: 'new', importKey: o.key, source: 'import-xlsx', importFiles: o.files, deletedAt: null, createdAt: now, updatedAt: now };
       for (const k of Object.keys(header)) if (header[k] === undefined) delete header[k];
-      if (write) await db.collection('salesorders').insertOne(header);
+      if (session) await db.collection('salesorders').insertOne(header, opts);
     } else {
+      if (session) await claimOrderWrites(db, session, [header._id]);
       st.ordersFound++;
       const set = fillEmpty(header, want);
       if (Object.keys(set).length) {
         st.ordersEnriched++;
         Object.assign(header, set);
-        if (write) await db.collection('salesorders').updateOne({ _id: header._id }, { $set: { ...set, updatedAt: now }, $addToSet: { importFiles: { $each: o.files } } });
+        if (session) await db.collection('salesorders').updateOne({ _id: header._id }, { $set: { ...set, updatedAt: now }, $addToSet: { importFiles: { $each: o.files } } }, opts);
       }
     }
     // строки листа «Заказы», загруженные до З.2 (без шапки), с тем же «компания|номер» — это позиции этого заказа
-    const orphans = (legacy.get(o.key) || []).filter((d) => !d.orderId);
+    const orphans = (legacy.get(o.key) || []).map(d => ({ ...d }));
     for (const d of orphans) {
       d.orderId = header._id; st.linesLinked++;
-      if (write) await db.collection('incomes').updateOne({ _id: d._id, orderId: { $exists: false } }, { $set: { orderId: header._id, updatedAt: now } });
+      if (session) await db.collection('incomes').updateOne({ _id: d._id, orderId: { $exists: false } }, { $set: { orderId: header._id, updatedAt: now } }, opts);
     }
     // позиции: по importKey; иначе — строка листа «Заказы» в этом заказе с тем же наименованием; иначе — новая
-    const existing = await db.collection('incomes').find({ orderId: header._id, deletedAt: null }).toArray();
-    for (const d of orphans) if (!existing.some((e) => String(e._id) === String(d._id))) existing.push(d); // dry-run: привязка не записана
+    const existing = await db.collection('incomes').find({ orderId: header._id, deletedAt: null }, opts).toArray();
+    if (!session) for (const d of orphans) if (!existing.some((e) => String(e._id) === String(d._id))) existing.push(d);
     const claimed = new Set();
     for (const l of o.lines) {
       const lineWant = { lineNo: l.lineNo, qty: l.qty, unit: l.unit, kind: l.kind, color: l.color, notes: l.notes };
-      let cur = existing.find((d) => d.importKey === l.key) || await db.collection('incomes').findOne({ importKey: l.key });
-      if (cur) { st.linesFound++; claimed.add(String(cur._id)); await attachPhotos(db, cur, l, write, st); continue; }
+      let cur = existing.find((d) => d.importKey === l.key) || await db.collection('incomes').findOne({ importKey: l.key }, opts);
+      if (cur) {
+        if (session && cur.orderId && String(cur.orderId) !== String(header._id)) throw new Error(`Позиция ${l.key} уже отнесена к другому договору`);
+        st.linesFound++; claimed.add(String(cur._id)); await attachPhotos(db, cur, l, session, st, files); continue;
+      }
       cur = existing.find((d) => !d.importKey && !claimed.has(String(d._id)) && normTitle(d.title) === normTitle(l.title));
       if (cur) {
         claimed.add(String(cur._id));
         st.linesFromSheet++;
         const set = { importKey: l.key, ...fillEmpty(cur, lineWant) };
         if (Object.keys(set).length > 1) st.linesEnriched++;
-        if (write) await db.collection('incomes').updateOne({ _id: cur._id }, { $set: { ...set, updatedAt: now } });
-        await attachPhotos(db, cur, l, write, st);
+        if (session) await db.collection('incomes').updateOne({ _id: cur._id }, { $set: { ...set, updatedAt: now } }, opts);
+        await attachPhotos(db, cur, l, session, st, files);
         continue;
       }
       st.linesNew++;
@@ -327,11 +336,30 @@ async function apply(db, orders, write) {
         notes: l.notes, amount: 0, reportDate: header.shipDate, importKey: l.key, source: 'import-xlsx', deletedAt: null, createdAt: now, updatedAt: now,
       };
       for (const k of Object.keys(doc)) if (doc[k] === undefined) delete doc[k];
-      if (write) { const ins = await db.collection('incomes').insertOne(doc); doc._id = ins.insertedId; }
-      await attachPhotos(db, doc, l, write, st);
+      if (session) { const ins = await db.collection('incomes').insertOne(doc, opts); doc._id = ins.insertedId; }
+      await attachPhotos(db, doc, l, session, st, files);
+    }
+    return st;
+  };
+  for (const order of orders) {
+    const files = [];
+    // Файлы без записи Mongo остаются только сиротами при сбое процесса. При повторе транзакции убираем старую подготовку.
+    const clear = () => { for (const file of files.splice(0)) fs.rmSync(file, { force: true }); };
+    let st;
+    try {
+      st = write ? await withArchiveWrite(client, async session => { clear(); return importOrder(order, session, files); }) : await importOrder(order);
+    } catch (error) {
+      // При неопределённом результате commit файлы сохраняем: ссылки могли записаться.
+      if (!error.hasErrorLabel?.('UnknownTransactionCommitResult')) clear();
+      if (error.code === 'ORDER_ARCHIVED') { totals.archivedSkipped++; continue; }
+      throw error;
+    }
+    for (const field of Object.keys(totals)) {
+      if (field === 'missingCompany') totals[field].push(...st[field]);
+      else totals[field] += st[field];
     }
   }
-  return st;
+  return totals;
 }
 
 (async () => {
@@ -395,11 +423,12 @@ async function apply(db, orders, write) {
   const client = await MongoClient.connect(uri);
   try {
     const db = client.db(process.env.MONGO_DB || undefined);
-    const st = await apply(db, orders, write);
+    const st = await apply(client, db, orders, write);
     console.log(`База: ${db.databaseName}. Режим: ${write ? 'ЗАПИСЬ' : 'только отчёт (dry-run)'}`);
     console.log(out.join('\n'));
     console.log(`Итог в базе${write ? '' : ' (если запустить с --apply)'}:`);
     console.log(`  заказы: новых ${st.ordersNew}, уже есть ${st.ordersFound} (дополнено пустых полей: ${st.ordersEnriched})`);
+    if (st.archivedSkipped) console.log(`  архивных договоров пропущено: ${st.archivedSkipped}`);
     console.log(`  позиции: новых ${st.linesNew}, уже импортированы ${st.linesFound}, найдены с листа «Заказы» ${st.linesFromSheet} (дополнено: ${st.linesEnriched})`);
     if (PHOTOS) console.log(`  фото позиций: ${write ? "загружено" : "будет загружено"} ${st.photosNew || 0}, у позиций уже есть фото — ${st.photosKept || 0}`);
     if (st.linesLinked) console.log(`  строк листа «Заказы» без шапки привязано к заказам: ${st.linesLinked}`);

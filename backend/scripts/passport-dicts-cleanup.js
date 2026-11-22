@@ -16,7 +16,7 @@
  *
  *   План (ничего не пишет):  MONGO_URI=… [MONGO_DB=…] node scripts/passport-dicts-cleanup.js [--out plan.json]
  *   Записать:                … --apply      (НА ПРОДЕ — только координатор, после бэкапа и «да» пользователя)
- *   На VM: docker cp backend/scripts/passport-dicts-cleanup.js backend/scripts/seed-passport-phrases.js datacore-backend:/app/scripts/
+ *   На VM: рядом со скриптом в /app/scripts/ нужен order-archive-write.js.
  */
 const path = require('path');
 const fs = require('fs');
@@ -275,36 +275,45 @@ async function buildPlan(db) {
 }
 
 // ───────── запись ─────────
-async function applyPlan(db, plan, { ObjectId, now = new Date() }) {
+async function applyPlan(db, plan, { ObjectId, now = new Date(), session }) {
+  if (!session?.inTransaction()) throw new Error('Запись справочников требует общей транзакции с архивом');
+  const { claimPassportWrites } = require('./order-archive-write');
   const dv = db.collection('dict_values');
+  const opts = { session };
   const oid = (x) => new ObjectId(String(x));
   const out = { sets: 0, merged: 0, deleted: 0, products: 0, drafts: 0 };
-  for (const x of plan.sets) out.sets += (await dv.updateOne({ _id: oid(x.id), deletedAt: null }, { $set: { ...x.set, updatedAt: now } })).modifiedCount;
+  for (const x of plan.sets) out.sets += (await dv.updateOne({ _id: oid(x.id), deletedAt: null }, { $set: { ...x.set, updatedAt: now } }, opts)).modifiedCount;
   for (const m of plan.merges) {
     const from = oid(m.dropId), to = oid(m.keepId);
     for (const [coll, filter, p] of ID_REFS[m.dict] || []) {
       const top = topField(p);
-      const docs = await db.collection(coll).find({ ...filter, [p.replace(/\[\]/g, '')]: from }).toArray();
-      for (const doc of docs) if (replaceAt(doc, p, from, to)) { await db.collection(coll).updateOne({ _id: doc._id }, { $set: { [top]: doc[top], updatedAt: now } }); out[coll === 'products' ? 'products' : 'drafts']++; }
+      const docs = await db.collection(coll).find({ ...filter, [p.replace(/\[\]/g, '')]: from }, opts).toArray();
+      if (coll === 'productpassports') await claimPassportWrites(db, session, docs);
+      for (const doc of docs) if (replaceAt(doc, p, from, to)) { await db.collection(coll).updateOne({ _id: doc._id }, { $set: { [top]: doc[top], updatedAt: now } }, opts); out[coll === 'products' ? 'products' : 'drafts']++; }
     }
     if (m.dict === 'passportSortament' && m.sizeFrom !== m.sizeTo) { // размер — строкой в таблице материалов
-      const mats = (await dv.find({ dict: 'passportMaterials', code: m.material }).toArray()).map((d) => String(d._id));
+      const mats = (await dv.find({ dict: 'passportMaterials', code: m.material }, opts).toArray()).map((d) => String(d._id));
       for (const [coll, filter] of [['products', {}], ['productpassports', DRAFT]]) {
-        for (const doc of await db.collection(coll).find({ ...filter, 'materialsSpec.rows.sizes': m.sizeFrom }).toArray()) {
+        const targets = await db.collection(coll).find({ ...filter, 'materialsSpec.rows.sizes': m.sizeFrom }, opts).toArray();
+        if (coll === 'productpassports') await claimPassportWrites(db, session, targets);
+        for (const doc of targets) {
           let n = 0;
           for (const row of doc.materialsSpec?.rows || []) if (mats.includes(String(row.materialId)) && Array.isArray(row.sizes) && row.sizes.includes(m.sizeFrom)) { row.sizes = [...new Set(row.sizes.map((z) => (z === m.sizeFrom ? m.sizeTo : z)))]; n++; }
-          if (n) { await db.collection(coll).updateOne({ _id: doc._id }, { $set: { materialsSpec: doc.materialsSpec, updatedAt: now } }); out[coll === 'products' ? 'products' : 'drafts']++; }
+          if (n) { await db.collection(coll).updateOne({ _id: doc._id }, { $set: { materialsSpec: doc.materialsSpec, updatedAt: now } }, opts); out[coll === 'products' ? 'products' : 'drafts']++; }
         }
       }
     }
     if (m.dict === 'passportPhrases' && m.textFrom && m.textFrom !== m.textTo) { // черновики хранят сам текст
       const f = m.section === 'installation' ? 'installationMethod' : 'purpose';
       const q = { ...DRAFT, deletedAt: null, [f]: m.textFrom, ...(m.cats?.length ? { passportCategory: { $in: m.cats } } : {}) };
-      out.drafts += (await db.collection('productpassports').updateMany(q, { $set: { [f]: m.textTo, updatedAt: now } })).modifiedCount;
+      const passports = db.collection('productpassports');
+      const targets = await passports.find(q, opts).toArray();
+      await claimPassportWrites(db, session, targets);
+      out.drafts += (await passports.updateMany({ _id: { $in: targets.map(doc => doc._id) } }, { $set: { [f]: m.textTo, updatedAt: now } }, opts)).modifiedCount;
     }
-    out.merged += (await dv.updateOne({ _id: from, deletedAt: null }, { $set: { deletedAt: now, mergedInto: to, updatedAt: now } })).modifiedCount;
+    out.merged += (await dv.updateOne({ _id: from, deletedAt: null }, { $set: { deletedAt: now, mergedInto: to, updatedAt: now } }, opts)).modifiedCount;
   }
-  for (const d of plan.deletes) out.deleted += (await dv.updateOne({ _id: oid(d.id), deletedAt: null }, { $set: { deletedAt: now, updatedAt: now } })).modifiedCount;
+  for (const d of plan.deletes) out.deleted += (await dv.updateOne({ _id: oid(d.id), deletedAt: null }, { $set: { deletedAt: now, updatedAt: now } }, opts)).modifiedCount;
   return out;
 }
 
@@ -334,7 +343,8 @@ if (require.main === module) (async () => {
     printPlan(plan);
     if (outFile) { fs.writeFileSync(outFile, JSON.stringify(plan, null, 2)); console.log(`\nПлан записан: ${outFile}`); }
     if (!apply) { console.log('\nНичего не записано. Записать: --apply'); return; }
-    const r = await applyPlan(db, plan, { ObjectId });
+    const { withArchiveWrite } = require('./order-archive-write');
+    const r = await withArchiveWrite(client, session => applyPlan(db, plan, { ObjectId, session }));
     console.log(`\nГотово: дописано ${r.sets}, объединено ${r.merged}, в корзину ${r.deleted}; ссылки переведены — изделий ${r.products}, черновиков ${r.drafts}`);
   } finally { await client.close(); }
 })().catch((e) => { console.error(e.message || e); process.exit(1); });

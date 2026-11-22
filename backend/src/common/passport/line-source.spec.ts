@@ -11,16 +11,16 @@ describe('C170 барьер позиции', () => {
   });
   it('делает настоящую запись общей позиции внутри session', async () => {
     const inc = line(), updateOne=jest.fn().mockResolvedValue({modifiedCount:1}), session={} as never;
-    const db={collection:(name:string)=>name==='incomes'?{findOne:async()=>inc,updateOne}:{findOne:async()=>({_id:inc.orderId}),updateOne:async()=>({modifiedCount:1})}} as never;
+    const db={collection:(name:string)=>name==='incomes'?{findOne:async()=>inc,updateOne}:{findOne:async()=>({_id:inc.orderId}),updateOne:async()=>({matchedCount:1,modifiedCount:1})}} as never;
     await claimPassportLine(db,session,inc,0,'site'); expect(updateOne).toHaveBeenCalledWith(expect.objectContaining({_id:inc._id}),{$inc:{passportEpoch:1}},{session});
   });
   it('параллельный выбор/изменённый epoch не подменяет исходный baseline', async () => {
-    const inc=line(), updateOne=jest.fn(); const db={collection:(name:string)=>name==='incomes'?{findOne:async()=>({...inc,passportEpoch:1}),updateOne}:{findOne:async()=>({_id:inc.orderId}),updateOne:async()=>({modifiedCount:1})}} as never;
+    const inc=line(), updateOne=jest.fn(); const db={collection:(name:string)=>name==='incomes'?{findOne:async()=>({...inc,passportEpoch:1}),updateOne}:{findOne:async()=>({_id:inc.orderId}),updateOne:async()=>({matchedCount:1,modifiedCount:1})}} as never;
     await expect(claimPassportLine(db,{} as never,inc,0,'site')).rejects.toMatchObject({response:{code:'STALE_CONTEXT'}}); expect(updateOne).not.toHaveBeenCalled();
   });
   it('attachment даже невалидный запрещает новый номер', async () => {
     const inc={...line(),passportSelection:{mode:'attachment' as const,revision:2,invalidReason:'PRODUCT_CHANGED'}}, updateOne=jest.fn();
-    const db={collection:(name:string)=>name==='incomes'?{findOne:async()=>inc,updateOne}:{findOne:async()=>({_id:inc.orderId}),updateOne:async()=>({modifiedCount:1})}} as never;
+    const db={collection:(name:string)=>name==='incomes'?{findOne:async()=>inc,updateOne}:{findOne:async()=>({_id:inc.orderId}),updateOne:async()=>({matchedCount:1,modifiedCount:1})}} as never;
     await expect(claimPassportLine(db,{} as never,inc,0,'site')).rejects.toMatchObject({response:{code:'SOURCE_ATTACHMENT'}}); expect(updateOne).not.toHaveBeenCalled();
     expect(lineBaseline(inc).selectionRevision).toBe(2); expect(passportContextStage(true).$set.passportEpoch).toEqual({$add:[{$ifNull:['$passportEpoch',0]},1]});
   });

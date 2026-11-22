@@ -47,15 +47,16 @@ describe('Dicts', () => {
     expect((await http().get(`/api/dicts/units/${a.id}/usage`).set(auth()).expect(200)).body).toEqual({ busy: false, sections: [], tracked: true, locked: null });
     await http().post('/api/dicts/units').set(auth()).send({ symbol: 'ПОГ.М' }).expect(409);
     const b = (await http().post('/api/dicts/units').set(auth()).send({ symbol: 'мп' }).expect(201)).body;
-    await http().post('/api/supply/requests').set(auth()).send({ title: 'Труба 40×20', qty: 6, unit: 'мп', clientUid: 'd-1' }).expect(201);
+    const request = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Труба 40×20', qty: 6, unit: 'мп', clientUid: 'd-1' }).expect(201)).body;
     const list = (await http().get('/api/dicts/units').set(auth()).expect(200)).body;
     expect(list.items.find((x: { id: string }) => x.id === b.id)).not.toHaveProperty('used');
     expect((await http().get(`/api/dicts/units/${b.id}/usage`).set(auth()).expect(200)).body).toEqual({ busy: true, sections: ['Остатки', 'Заявки'], tracked: true, locked: null });
     expect((await http().delete(`/api/dicts/units/${b.id}`).set(auth()).expect(409)).body.message).toContain('замените');
     const m = (await http().post(`/api/dicts/units/${b.id}/merge`).set(auth()).send({ intoId: a.id }).expect(200)).body;
-    expect(m).toMatchObject({ id: a.id, moved: 1 });
+    expect(m).toMatchObject({ id: a.id, moved: 2 });
     const reqs = (await http().get('/api/supply/requests').set(auth()).expect(200)).body.items;
     expect(reqs.find((x: { title: string }) => x.title === 'Труба 40×20').unit).toBe('пог.м');
+    expect((await http().get('/api/stock/items/' + request.materialId).set(auth()).expect(200)).body.unit).toBe('пог.м');
     const c = (await http().post('/api/dicts/units').set(auth()).send({ symbol: 'рул' }).expect(201)).body;
     await http().delete(`/api/dicts/units/${c.id}`).set(auth()).expect(200);
     await http().get(`/api/dicts/units/${c.id}`).set(auth()).expect(404);
@@ -68,11 +69,12 @@ describe('Dicts', () => {
 
   it('переименование занятой единицы идёт каскадом: заявки получают новое название, ответ несёт moved', async () => {
     const u = (await http().post('/api/dicts/units').set(auth()).send({ symbol: 'бух' }).expect(201)).body;
-    await http().post('/api/supply/requests').set(auth()).send({ title: 'Канат', qty: 1, unit: 'бух', clientUid: 'd-3' }).expect(201);
+    const request = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Канат', qty: 1, unit: 'бух', clientUid: 'd-3' }).expect(201)).body;
     const r = (await http().patch(`/api/dicts/units/${u.id}`).set(auth()).send({ symbol: 'бухта' }).expect(200)).body;
-    expect(r).toMatchObject({ name: 'бухта', moved: 1 });
+    expect(r).toMatchObject({ name: 'бухта', moved: 2 });
     const reqs = (await http().get('/api/supply/requests').set(auth()).expect(200)).body.items;
     expect(reqs.find((x: { title: string }) => x.title === 'Канат').unit).toBe('бухта');
+    expect((await http().get('/api/stock/items/' + request.materialId).set(auth()).expect(200)).body.unit).toBe('бухта');
     // паспорт справочника в ответе списка
     const cats = (await http().get('/api/dicts/passportCategories').set(auth()).expect(200)).body;
     expect(cats.dict.sections).toEqual(['Документация', 'Продукция']);

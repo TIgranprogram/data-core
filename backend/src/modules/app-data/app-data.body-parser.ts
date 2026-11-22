@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import { HttpException, type INestApplication } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import { json } from 'express';
 
@@ -17,6 +17,15 @@ export const APP_DATA_BODY_LIMIT = '16mb';
 export function registerAppDataBodyParser(app: INestApplication): void {
   const parser = json({ limit: APP_DATA_BODY_LIMIT });
   app.use('/api/apps', function appDataJsonParser(req: Request, res: Response, next: NextFunction) {
-    parser(req, res, next);
+    parser(req, res, (error?: Error & { status?: number }) => {
+      const status = error?.status;
+      if (status === 413) {
+        next(new HttpException('Тело запроса больше 16 МБ', status));
+      } else if (status && status >= 400 && status < 500) {
+        next(new HttpException('Не удалось прочитать JSON-тело запроса', status));
+      } else {
+        next(error);
+      }
+    });
   });
 }

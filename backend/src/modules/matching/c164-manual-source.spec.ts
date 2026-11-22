@@ -6,7 +6,8 @@ describe('C164: ручной источник не запускает auto desig
   const row={_id:lineId,orderId,title:'Строка',...(manualPicked?{matchingMode:'manual'}:{})};
   const collection={find:jest.fn((q:any)=>({toArray:async()=>q.matchingMode?(manualSibling?[{orderId,matchingMode:'manual'}]:[]):[row]})),updateOne:jest.fn(async()=>({matchedCount:1}))};
   const design={autoFromOrderIfReady:jest.fn(async()=>({}))};const audit={log:jest.fn(async()=>({}))};
-  const service=new MatchingService({db:{collection:()=>collection}} as any,{} as any,audit as any,undefined,design as any);
+  const session = { withTransaction: async (write: () => Promise<unknown>) => write(), endSession: async () => undefined };
+  const service=new MatchingService({db:{collection:()=>collection},startSession:async()=>session} as any,{} as any,audit as any,undefined,design as any);
   await service.none(String(lineId));return {design,collection};
  };
  it('none для manual строки сохраняет matching, проектирование0',async()=>{const {design,collection}=await run(true,false);expect(collection.updateOne).toHaveBeenCalled();expect(design.autoFromOrderIfReady).not.toHaveBeenCalled();});

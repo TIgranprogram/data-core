@@ -1,3 +1,4 @@
+import { claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
 import { BadRequestException, Logger, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -23,7 +24,7 @@ import { renderOrderPdf, ruDate, ruNum } from './order-pdf';
 type Doc = Record<string, unknown>;
 type See = { requests?: boolean; stock?: boolean };
 const SORT = ['productionNo', 'deadline', 'customer', 'createdAt'];
-const FIELDS = { 'legal.state':1, orderNo: 1, customer: 1, companyId: 1, stage: 1, priority: 1, productionNo: 1, productionAddedAt: 1, createdAt: 1, shipDate: 1, productionDeadline: 1, deliveryDeadline: 1 };
+const FIELDS = { activeArchiveVersion: 1, cancelledAt: 1, 'legal.state':1, orderNo: 1, customer: 1, companyId: 1, stage: 1, priority: 1, productionNo: 1, productionAddedAt: 1, createdAt: 1, shipDate: 1, productionDeadline: 1, deliveryDeadline: 1 };
 const ts = (d: unknown) => (d ? new Date(d as Date).getTime() : Infinity);
 
 /**
@@ -128,6 +129,7 @@ export class ProductionOrdersService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        await claimWritableOrders(this.connection.db!, session, ids);
         // повторная проверка внутри транзакции: параллельная привязка того же договора → 409
         const res = await this.model.updateMany({ _id: { $in: found.map((d) => d._id) }, deletedAt: null, $and:[{$or:found.map(d=>({_id:d._id,...(d.updatedAt?{updatedAt:d.updatedAt}:{}),...(d.legalVersion!==undefined?{legalVersion:d.legalVersion}:{})}))}], $or: [{ productionNo: null }, { productionNo: '' }, { productionNo: { $exists: false } }] }, { $set: { productionNo: no, productionAddedAt: now, editedInApp: true } }, { session }).exec();
         if (res.modifiedCount !== found.length) throw new ConflictException('Договор уже занят другим заказом, обновите список');
@@ -150,8 +152,11 @@ export class ProductionOrdersService {
     if (!from || from !== String(fromKey).trim()) throw new ConflictException(`Договор не входит в заказ ${fromKey}`);
     if (from === to) throw new ConflictException('Договор уже в этом заказе');
     if (!(await this.byNo(to)).length) throw new NotFoundException(`Заказ ${to} не найден`);
-    await this.orders.ensureDetachable(cur._id as Types.ObjectId);
-    await this.model.updateOne({ _id: cur._id }, { $set: { productionNo: to, productionAddedAt: new Date(), editedInApp: true } }).exec();
+    await withOrderWrite(this.connection, [cur._id], async session => {
+      await this.orders.ensureDetachable(cur._id as Types.ObjectId, session);
+      const changed = await this.model.updateOne({ _id: cur._id, productionNo: from }, { $set: { productionNo: to, productionAddedAt: new Date(), editedInApp: true } }, { session }).exec();
+      if (!changed.matchedCount) throw new ConflictException('Договор уже сменил заказ — перечитайте карточку');
+    });
     await this.audit.log({ action: 'salesorder.updated', entityType: 'SalesOrder', entityId: String(cur._id), details: { partial: true, before: { productionNo: from }, after: { productionNo: to }, meta: { via: 'production-orders.move-contract' } } as never });
     return { contractId, from, productionNo: to };
   }
@@ -192,7 +197,7 @@ export class ProductionOrdersService {
         orderIds: g.docs.map((d) => String(d._id)), orderNos: g.docs.map((d) => (d.orderNo as string | undefined) ?? ''),
         customers: uniq(g.docs.map((d) => d.customer)), companyNames: uniq(g.docs.map((d) => (d.companyId ? cname.get(String(d.companyId)) : null))),
         lineCount: part.reduce((a, s) => a + (s?.lines ?? 0), 0), amount: part.reduce((a, s) => a + (s?.amount ?? 0), 0), paidAmount: part.reduce((a, s) => a + (s?.paid ?? 0), 0),
-        deadline: g.deadline, stage: g.stage, stageLabel: STAGE_LABELS[g.stage], stagesDiffer: g.stagesDiffer, priority: g.priority,
+        archived: g.archived, deadline: g.deadline, stage: g.stage, stageLabel: STAGE_LABELS[g.stage], stagesDiffer: g.stagesDiffer, priority: g.priority,
         createdAt: new Date(created(g)), coverPhoto: null,
         readiness: { ready: readinessChecks(facts.get(g.key)!, g.key, String(g.docs[0]._id)).ready },
         unassignedCount: part.reduce((a, s) => a + (s?.unassigned ?? 0), 0),
@@ -403,8 +408,13 @@ export class ProductionOrdersService {
     const target = ORDER_STAGES.indexOf(stage as OrderStage);
     await this.orders.assertHasLines(docs as never, stage);
     const todo = docs.filter((d) => d.stage !== 'cancelled' && ORDER_STAGES.indexOf((d.stage as OrderStage) || 'new') < target);
+    if (todo.length) await withOrderWrite(this.connection, todo.map(d => d._id), async session => {
+      for (const d of todo) {
+        const changed = await this.model.updateOne({ _id: d._id, stage: d.stage ?? null }, { $set: { stage, editedInApp: true } }, { session }).exec();
+        if (!changed.matchedCount) throw new ConflictException('Этап договора изменился — перечитайте заказ');
+      }
+    });
     for (const d of todo) {
-      await this.model.updateOne({ _id: d._id }, { $set: { stage, editedInApp: true } }).exec();
       await this.audit.log({ action: 'salesorder.updated', entityType: 'SalesOrder', entityId: String(d._id), details: { partial: true, before: { stage: d.stage }, after: { stage }, meta: { via: 'production-orders', key } } as never });
     }
     // «Готов к отгрузке» — решение человека: не всё готово — разрешаем, но предупреждаем

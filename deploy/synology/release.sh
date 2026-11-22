@@ -248,9 +248,9 @@ fi
 if [[ $DATA == 1 ]]; then
   echo "== 5. Данные (в контейнере datacore-backend, его MONGO_URI)"
   "${SSH[@]}" 'mkdir -p /tmp/dc-scripts /tmp/dc-orders'
-  scp -i "$KEY" -o BatchMode=yes backend/scripts/import-orders-xlsx.js backend/scripts/add-our-company.js "$VM:/tmp/dc-scripts/"
+  scp -i "$KEY" -o BatchMode=yes backend/scripts/import-orders-xlsx.js backend/scripts/add-our-company.js backend/scripts/order-archive-write.js "$VM:/tmp/dc-scripts/"
   scp -i "$KEY" -o BatchMode=yes "$ORDERS_DIR"/*.xlsx "$VM:/tmp/dc-orders/"
-  "${SSH[@]}" 'set -e; docker exec datacore-backend mkdir -p /app/scripts /tmp/orders
+  "${SSH[@]}" 'set -eo pipefail; docker exec datacore-backend mkdir -p /app/scripts /tmp/orders
     docker cp /tmp/dc-scripts/. datacore-backend:/app/scripts/; docker cp /tmp/dc-orders/. datacore-backend:/tmp/orders/
     echo "-- наша компания «Спортсет» и её заказы"; docker exec -w /app datacore-backend node scripts/add-our-company.js --name Спортсет --key СПОРТСЕТ --apply | tail -3
     echo "-- заказы из Excel (+фото)"; docker exec -w /app datacore-backend node scripts/import-orders-xlsx.js /tmp/orders --photos --apply | tail -6

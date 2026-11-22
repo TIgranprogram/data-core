@@ -1,15 +1,17 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
-import { Types } from 'mongoose';
+import { Types, type Connection } from 'mongoose';
+import { writableCascadeRows } from '../../common/order-archive/cascade';
+import { withOrderWrite } from '../../common/order-archive/write';
 import { normalizePassportDefaults } from './passport-defaults';
 import { inheritedPassportCategory } from '../../common/passport/passport-inherit';
 import { candidateGroups, modelKey, passportScore, type PassportModel } from './passport-models';
-import { clean, type Db, type Doc } from './showcase-common';
+import { clean, type Doc } from './showcase-common';
 
 /** Изделия из паспортов без дублей (БЗ-8); вызывается из ShowcaseService. */
 export class ShowcaseFromPassports {
-  constructor(private readonly dbOf: () => Db, private readonly create: (dto: Record<string, unknown>) => Promise<{ id: string }>) {}
-  private get db() { return this.dbOf(); }
+  constructor(private readonly connection: Connection, private readonly create: (dto: Record<string, unknown>) => Promise<{ id: string }>) {}
+  private get db() { return this.connection.db!; }
 
   /** Модели паспортов без изделия («наименование + артикул», лучший паспорт по полноте) и группы-кандидаты на объединение. */
   async passportGroups() {
@@ -38,10 +40,16 @@ export class ShowcaseFromPassports {
    * паспортов группы. Выданные паспорта (номера, текст, PDF) не меняются. rest — изделие на каждую оставшуюся одиночную модель.
    */
   async fromPassports(dto: { groups?: { keys?: string[]; main?: string; name?: string }[]; rest?: boolean }) {
-    let created = 0, linked = 0;
+    let created = 0, linked = 0, archiveSkipped = 0;
     const link = async (keys: string[], productId: Types.ObjectId) => {
       const or = keys.map((k) => { const [name, article] = k.split('\u0000'); return { name, ...(article ? { article } : { article: { $in: [null, ''] } }) }; });
-      linked += (await this.db.collection('productpassports').updateMany({ deletedAt: null, productId: null, $or: or }, { $set: { productId } })).modifiedCount;
+      const result = await withOrderWrite(this.connection, [], async session => {
+        const targets = await writableCascadeRows(this.db, session, 'productpassports', { deletedAt: null, productId: null, $or: or });
+        const changed = await this.db.collection('productpassports').updateMany({ _id: { $in: targets.ids } }, { $set: { productId }, $inc: { __v: 1 } }, { session });
+        return { linked: changed.modifiedCount, skipped: targets.skipped };
+      });
+      linked += result.linked;
+      archiveSkipped += result.skipped;
     };
     const fromBest = async (key: string, name?: string) => {
       const state = await this.passportGroups();
@@ -64,7 +72,7 @@ export class ShowcaseFromPassports {
         created++;
       }
     }
-    return { created, linked };
+    return { created, linked, ...(archiveSkipped ? { archiveSkipped } : {}) };
   }
 
   private async singleModels() {

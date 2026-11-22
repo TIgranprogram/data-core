@@ -27,6 +27,7 @@ function setup(opts: { stock: Record<string, [number, number]> }) {
   const materials = { find: (q: Record<string, any>) => ({ lean: () => ({ exec: async () => (q._id ? mats.filter((m) => q._id.$in.some((i: Types.ObjectId) => i.equals(m._id))) : mats) }) }) }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const wh = { _id: id() };
   const coll = (name: string) => ({
+    updateOne: async () => ({ matchedCount: 1 }),
     findOne: async (q: { _id: Types.ObjectId }) => (name === 'salesorders' && q._id.equals(order._id) ? order : null),
     find: (q: Record<string, any>) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
       sort: () => ({ toArray: async () => mats.map((m) => ({ materialId: m._id, quantity: items.get(String(m._id))!.quantity, reservedQty: items.get(String(m._id))!.reservedQty })) }),

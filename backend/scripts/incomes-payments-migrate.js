@@ -9,6 +9,7 @@
  */
 const path = require('path');
 const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
+const { claimOrderWrites, withArchiveWrite } = require('./order-archive-write');
 
 /** Способ из формы оплаты: «нал» -> нал, «б/р…» -> безнал, иначе не указан. Чистая функция. */
 function methodOf(form) {
@@ -29,14 +30,21 @@ async function main() {
   const apply = process.argv.includes('--apply');
   if (!process.env.MONGO_URI) { console.error('Нужен MONGO_URI'); process.exit(2); }
   const c = await MongoClient.connect(process.env.MONGO_URI);
-  const coll = c.db(process.env.MONGO_DB || 'datacore').collection('incomes');
+  const db = c.db(process.env.MONGO_DB || 'datacore');
+  const coll = db.collection('incomes');
   let todo = 0, skipped = 0;
   for await (const d of coll.find({ paidDate: { $ne: null }, deletedAt: null })) {
     if (d.payments && d.payments.length) continue;
     const p = planFor(d);
     if (!p) { skipped++; console.log('пропуск (нет суммы):', String(d._id), d.title); continue; }
     todo++;
-    if (apply) await coll.updateOne({ _id: d._id }, { $set: p });
+    if (apply) await withArchiveWrite(c, async session => {
+      const current = await coll.findOne({ _id: d._id, deletedAt: null }, { session });
+      const next = current && planFor(current);
+      if (!next) return;
+      await claimOrderWrites(db, session, [current.orderId]);
+      await coll.updateOne({ _id: d._id }, { $set: next }, { session });
+    });
   }
   console.log(`${apply ? 'Записано' : 'План (ничего не записано; --apply — записать)'}: платежей ${todo}, пропущено ${skipped}`);
   await c.close();

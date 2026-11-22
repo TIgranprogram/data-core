@@ -1,8 +1,9 @@
+import { archiveOrderConflict, withLineWrite } from '../../common/order-archive/write';
 import { randomUUID } from 'crypto';
 import { BadRequestException, ConflictException, HttpException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { promises as fs } from 'fs';
-import { Connection, Model, Types } from 'mongoose';
+import { type ClientSession, Connection, Model, Types } from 'mongoose';
 import * as path from 'path';
 import { Product, ProductDocument } from '../../common/catalog/product.schema';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -87,14 +88,14 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
   async purgeDeleted(now: Date = new Date()): Promise<number> {
     const before = new Date(now.getTime() - PURGE_DAYS * 86400_000);
     // Ограниченный reconcile: истёкший владелец не возвращает файл в live, новый token только завершает удаление.
-    const docs = await this.model.find({ deletedAt: { $ne: null, $lt: before }, fileRemovedAt: null, $or: [{ purgeState: { $ne: 'purging' } }, { purgeLeaseUntil: { $lte: now } }, { purgeLeaseUntil: { $exists: false } }] }).limit(500).exec();
+    const docs = await this.model.find({ archiveProtected: { $ne: true }, deletedAt: { $ne: null, $lt: before }, fileRemovedAt: null, $or: [{ purgeState: { $ne: 'purging' } }, { purgeLeaseUntil: { $lte: now } }, { purgeLeaseUntil: { $exists: false } }] }).limit(500).exec();
     let n = 0;
     for (const d of docs) {
       const token = randomUUID();
       try {
         const abs = resolveInside(UPLOAD_DIR, d.storedPath);
         const generation = d.selectionGeneration ? { selectionGeneration: d.selectionGeneration } : { $or: [{ selectionGeneration: 0 }, { selectionGeneration: { $exists: false } }] };
-        const claim = await this.model.updateOne({ _id: d._id, deletedAt: d.deletedAt, fileRemovedAt: null, purgeState: d.purgeState ?? null, purgeToken: d.purgeToken ?? null, purgeLeaseUntil: d.purgeLeaseUntil ?? null, ...generation }, { $set: { purgeState: 'purging', purgeToken: token, purgeLeaseUntil: new Date(now.getTime() + PURGE_LEASE_MS) } });
+        const claim = await this.model.updateOne({ _id: d._id, archiveProtected: { $ne: true }, deletedAt: d.deletedAt, fileRemovedAt: null, purgeState: d.purgeState ?? null, purgeToken: d.purgeToken ?? null, purgeLeaseUntil: d.purgeLeaseUntil ?? null, ...generation }, { $set: { purgeState: 'purging', purgeToken: token, purgeLeaseUntil: new Date(now.getTime() + PURGE_LEASE_MS) } });
         if (!claim.modifiedCount) continue;
         const stat = await fs.stat(abs).catch((e: NodeJS.ErrnoException) => { if (e.code === 'ENOENT') return null; throw e; });
         if (stat && !stat.isFile()) throw new Error('Путь вложения не является файлом');
@@ -125,11 +126,14 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
       await fs.rm(file.path, { force: true });
       throw new BadRequestException(MSG_SIGNATURE);
     }
-    const doc = await this.model.create({
+    const payload = {
       productId: new Types.ObjectId(productId), typeId: new Types.ObjectId(typeId), incomeId: incomeId ? new Types.ObjectId(incomeId) : null,
       originalName: file.originalname, storedPath: rel, size: file.size, mime: file.mimetype, ext,
       uploadedBy: user?.id, uploadedByName: user?.username, uploadedAt: new Date(), deletedAt: null,
-    }).catch(async (e) => { await fs.rm(file.path, { force: true }); throw e; });
+    };
+    const doc = await (incomeId
+      ? withLineWrite(this.connection, new Types.ObjectId(incomeId), async session => (await this.model.create([payload], { session }))[0])
+      : this.model.create(payload)).catch(async (e) => { await fs.rm(file.path, { force: true }); throw e; });
     return this.present(doc, typeName);
   }
 
@@ -150,7 +154,9 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
   async remove(productId: string, id: string, user: AuthenticatedUser, incomeId?: string) {
     const doc = await this.find(productId, id);
     if (incomeId && String(doc.incomeId ?? '') !== incomeId) throw new NotFoundException('Вложение не найдено.');
-    const r = await this.model.updateOne({ _id: doc._id, deletedAt: null, purgeState: { $ne: 'purging' } }, { $set: { deletedAt: new Date(), deletedBy: user?.id }, $inc: { selectionGeneration: 1 } });
+    if (doc.archiveProtected) throw archiveOrderConflict();
+    const write = (session?: ClientSession) => this.model.updateOne({ _id: doc._id, archiveProtected: { $ne: true }, deletedAt: null, purgeState: { $ne: 'purging' } }, { $set: { deletedAt: new Date(), deletedBy: user?.id }, $inc: { selectionGeneration: 1 } }, { session }).exec();
+    const r = await (doc.incomeId ? withLineWrite(this.connection, doc.incomeId, write) : write());
     if (!r.modifiedCount) throw new ConflictException('Вложение изменилось — обновите список');
     return this.present(doc, (await this.typeNames()).get(String(doc.typeId)) ?? '');
   }
@@ -158,7 +164,9 @@ export class ProductAttachmentsService implements OnModuleInit, OnModuleDestroy 
   async restore(productId: string, id: string) {
     const doc = await this.find(productId, id, true);
     if (doc.fileRemovedAt || doc.purgeState === 'purging') throw new BadRequestException(`Файл уже стёрт с сервера (прошло больше ${PURGE_DAYS} дней). Загрузите его заново.`);
-    const r = await this.model.updateOne({ _id: doc._id, deletedAt: doc.deletedAt, fileRemovedAt: null, purgeState: { $ne: 'purging' } }, { $set: { deletedAt: null }, $unset: { deletedBy: 1 }, $inc: { selectionGeneration: 1 } }).setOptions({ includeSoftDeleted: true });
+    if (doc.archiveProtected) throw archiveOrderConflict();
+    const write = (session?: ClientSession) => this.model.updateOne({ _id: doc._id, archiveProtected: { $ne: true }, deletedAt: doc.deletedAt, fileRemovedAt: null, purgeState: { $ne: 'purging' } }, { $set: { deletedAt: null }, $unset: { deletedBy: 1 }, $inc: { selectionGeneration: 1 } }, { session }).setOptions({ includeSoftDeleted: true }).exec();
+    const r = await (doc.incomeId ? withLineWrite(this.connection, doc.incomeId, write) : write());
     if (!r.modifiedCount) throw new ConflictException('Вложение изменилось или стирается — обновите список');
     return this.present(doc, (await this.typeNames()).get(String(doc.typeId)) ?? '');
   }

@@ -7,6 +7,7 @@ import {
 } from './desktop-pairing-key.service';
 import { DesktopPairingKey } from './desktop-pairing-key.schema';
 import { UserService } from '../user/user.service';
+import { RoleService } from '../role/role.service';
 
 describe('DesktopPairingKeyService (TZD-21)', () => {
   let service: DesktopPairingKeyService;
@@ -58,8 +59,9 @@ describe('DesktopPairingKeyService (TZD-21)', () => {
         }
         return null;
       };
-      return { exec };
+      return { lean: () => ({ exec }) };
     }),
+    updateOne: jest.fn(() => ({ exec: async () => ({ modifiedCount: 1 }) })),
     deleteOne: jest.fn((q: Record<string, unknown>) => ({
       exec: async () => {
         const idx = docs.findIndex((x) => {
@@ -105,6 +107,7 @@ describe('DesktopPairingKeyService (TZD-21)', () => {
         DesktopPairingKeyService,
         { provide: getModelToken(DesktopPairingKey.name), useValue: model },
         { provide: UserService, useValue: users },
+        { provide: RoleService, useValue: { resolveForAuth: jest.fn() } },
       ],
     }).compile();
     service = module.get(DesktopPairingKeyService);

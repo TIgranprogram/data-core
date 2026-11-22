@@ -1,3 +1,4 @@
+import { claimWritableOrders } from '../../common/order-archive/write';
 import { versionFilter } from '../../common/versioned';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
@@ -107,6 +108,7 @@ export class IncomeCancelService {
     await this.incomes.assertCanChange(first.orderId, actor);
     const session = await this.connection.startSession(); let released: LineDeps | undefined;
     try { await session.withTransaction(async () => {
+      await claimWritableOrders(this.connection.db!, session, [first.orderId]);
       const fresh = await this.coll('incomes').findOne({ _id: oidOf(first._id), deletedAt: null }, { session });
       if (!fresh || Number(fresh.version || 0) !== expectedVersion) throw new ConflictException('Позиция уже изменена — перечитайте');
       if (fresh.cancelledAt) throw new ConflictException('Позиция уже отменена');
@@ -136,6 +138,7 @@ export class IncomeCancelService {
     await this.incomes.assertCanChange(first.orderId, actor);
     const session = await this.connection.startSession();
     try { await session.withTransaction(async () => {
+      await claimWritableOrders(this.connection.db!, session, [first.orderId]);
       const cur = await this.coll('incomes').findOne({ _id: oidOf(first._id), deletedAt: null }, { session });
       if (!cur || Number(cur.version || 0) !== expectedVersion) throw new ConflictException('Позиция уже изменена — перечитайте');
       if (!cur.cancelledAt) throw new ConflictException('Позиция не отменена');
@@ -169,6 +172,7 @@ export class IncomeCancelService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        await claimWritableOrders(this.connection.db!, session, [cur.orderId, target]);
         const fresh = await this.coll('incomes').findOne({ _id: oidOf(cur._id), deletedAt: null }, { session });
         if (!fresh || fresh.cancelledAt || Number(fresh.version || 0) !== expectedVersion) throw new ConflictException('Позиция уже изменена — перечитайте');
         const [actualDeps] = await this.depsOfLines([fresh], session);

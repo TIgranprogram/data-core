@@ -51,6 +51,7 @@ export class StockController {
   @ApiQuery({ name: 'grade', required: false, description: 'марка стали' }) @ApiQuery({ name: 'section', required: false, description: 'сортамент / сечение' }) @ApiQuery({ name: 'thickness', required: false, description: 'толщина, мм' })
   @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
   @ApiQuery({ name: 'zoneId', required: false, description: 'склад из GET /stock/zones; чужой — 403' })
+  @ApiQuery({ name: 'held', required: false, description: '1 — только закупаемые позиции с положительным физическим остатком, включая полностью забронированные' })
   @ApiQuery({ name: 'ids', required: false, description: 'только эти позиции (id через запятую, ≤ 2000) — кнопки-признаки «Остатков» передают точный набор' })
   list(@Query() q: Record<string, string>, @StockScoped() own: StockScope | null) {
     const scope = narrowToZone(own, q.zoneId);
@@ -70,8 +71,10 @@ export class StockController {
   /** Сводка по категориям: позиций всего / к закупке / нет на складе. */
   @Get('categories')
   @Roles('admin', 'director', 'manager', 'user')
-  categories(@Query('zoneId') zoneId: string | undefined, @StockScoped() own: StockScope | null) {
-    return this.stock.categorySummary(narrowToZone(own, zoneId));
+  @ApiQuery({ name: 'zoneId', required: false, description: 'склад из GET /stock/zones; чужой — 403' })
+  @ApiQuery({ name: 'held', required: false, description: '1 — категории позиций с положительным физическим остатком' })
+  categories(@Query('zoneId') zoneId: string | undefined, @StockScoped() own: StockScope | null, @Query('held') held?: string) {
+    return this.stock.categorySummary(narrowToZone(own, zoneId), held === '1');
   }
 
   /** Журнал движений по всем позициям. */

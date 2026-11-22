@@ -1,3 +1,4 @@
+import { withDesignWrite } from './design-write';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -50,25 +51,25 @@ export class DesignExtrasService {
       if (at < 0) throw new NotFoundException('Заменяемое фото не найдено в задаче — обновите карточку');
       const next = have.filter((x) => String(x) !== String(rid));
       next.splice(at, 0, pid);
-      await this.model.updateOne({ _id, deletedAt: null }, { $set: { photoIds: next } }).exec();
+      await withDesignWrite(this.connection, t, null, session => this.model.updateOne({ _id, deletedAt: null }, { $set: { photoIds: next } }, { session }).exec());
       // «добавлено» пишет @AuditAction контроллера; сюда — парное «убрано», как при замене вручную
       await this.audit?.log({ action: 'designtask.photo.removed', entityType: 'DesignTask', entityId: id, userId: user?.id, userName: user?.username, details: { before: { photoId: String(rid) }, after: { photoId: String(pid) } } });
       return this.present(_id);
     }
     if (have.length >= MAX_PHOTOS && !have.some((x) => String(x) === String(pid))) throw new BadRequestException(`К задаче можно прикрепить не больше ${MAX_PHOTOS} фото`);
-    await this.model.updateOne({ _id, deletedAt: null }, { $addToSet: { photoIds: pid } }).exec();
+    await withDesignWrite(this.connection, t, null, session => this.model.updateOne({ _id, deletedAt: null }, { $addToSet: { photoIds: pid } }, { session }).exec());
     return this.present(_id);
   }
 
   async removePhoto(id: string, photoId: string, user?: AuthenticatedUser) {
-    const { _id } = await this.editable(id, user);
-    await this.model.updateOne({ _id, deletedAt: null }, { $pull: { photoIds: oid(photoId, 'фото') } }).exec();
+    const { _id, t } = await this.editable(id, user);
+    await withDesignWrite(this.connection, t, null, session => this.model.updateOne({ _id, deletedAt: null }, { $pull: { photoIds: oid(photoId, 'фото') } }, { session }).exec());
     return this.present(_id);
   }
 
   /** Значения пишем точечно ($set/$unset stickers.<id>): две вкладки не затирают друг друга. */
   async setStickers(id: string, values: Record<string, unknown>, user?: AuthenticatedUser) {
-    const { _id } = await this.editable(id, user);
+    const { _id, t } = await this.editable(id, user);
     const keys = Object.keys(values ?? {});
     if (!keys.length) throw new BadRequestException('Нет значений стикеров');
     if (keys.length > 50) throw new BadRequestException('Слишком много стикеров в одном запросе');
@@ -94,7 +95,7 @@ export class DesignExtrasService {
     const upd: Doc = {};
     if (Object.keys($set).length) upd.$set = $set;
     if (Object.keys($unset).length) upd.$unset = $unset;
-    await this.model.updateOne({ _id, deletedAt: null }, upd).exec();
+    await withDesignWrite(this.connection, t, null, session => this.model.updateOne({ _id, deletedAt: null }, upd, { session }).exec());
     return this.present(_id);
   }
 }

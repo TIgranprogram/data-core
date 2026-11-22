@@ -1,3 +1,4 @@
+import { claimWritableOrders } from '../../common/order-archive/write';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, Types, type ClientSession } from 'mongoose';
@@ -155,7 +156,7 @@ export class PassportImportService {
             : passport.incomeId && (!line || line.deletedAt || line.cancelledAt) ? 'line_missing'
             : line && (String(line.productId) !== String(productId) || !line.orderId || passport.salesOrderId && String(passport.salesOrderId) !== String(line.orderId)) ? 'order_mismatch'
             : orderId && (!order || order.deletedAt || order.cancelledAt || order.stage === 'cancelled') ? 'order_missing'
-            : order?.stage === 'closed' ? 'order_closed'
+            : order?.activeArchiveVersion != null || order?.stage === 'closed' ? 'order_closed'
             : (line?.passportSelection as { mode?: string } | undefined)?.mode === 'attachment' ? 'source_attachment' : null;
           if (reason) {
             const messages: Record<string, string> = { annulled: 'аннулирован', printFile: 'прикреплён готовый PDF', line_missing: 'позиция удалена, отменена или не найдена', order_mismatch: 'связи изделия и заказа противоречат друг другу', order_missing: 'договор удалён, отменён или не найден', order_closed: 'договор закрыт', source_attachment: 'для позиции выбран вложенный паспорт' };
@@ -188,6 +189,7 @@ export class PassportImportService {
         if (current.token !== dto.contextToken) throw new ConflictException('Изделие или паспорта изменились после начала отправки. Перечитайте контекст и повторите импорт');
         for (const old of current.links) if (changedLinks.includes(String(old.kind))) await hash(old.photoId);
         // Запись общей точки изделия исключает незаметное пересечение двух импортов.
+        await claimWritableOrders(db, session, changes.map(change => change.order?._id));
         const productWrite = await db.collection('products').updateOne({ _id: productId, deletedAt: null }, { $set: { ...productSet, updatedAt: new Date() }, $inc: { __v: 1 } }, { session });
         if (!productWrite.matchedCount) throw new ConflictException('Изделие изменено или удалено');
         for (const kind of changedLinks) {
@@ -203,10 +205,6 @@ export class PassportImportService {
             if (change.line && !claimedLines.has(String(change.line._id))) {
               await claimPassportLine(db, session, change.line, epochOf(change.line), 'site');
               claimedLines.add(String(change.line._id));
-            }
-            else if (change.order) {
-              const claimed = await db.collection('salesorders').updateOne({ _id: change.order._id as Types.ObjectId, deletedAt: null, cancelledAt: null, stage: { $nin: ['cancelled', 'closed'] } }, { $inc: { passportGuard: 1 } }, { session });
-              if (!claimed.matchedCount) throw new ConflictException('Договор закрыт или изменён');
             }
             const prepared = await this.passports.prepareImportedPassport(passport, change.patch, session);
             const set: Doc = { ...prepared, updatedAt: new Date() };

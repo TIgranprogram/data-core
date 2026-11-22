@@ -1,3 +1,4 @@
+import { claimStockLinks } from '../../common/order-archive/write';
 import { hasUndatedPayment, undatedBasis, undatedLocked } from './undated-payment';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
 import { originalClassification } from '../../common/financial-classification';
@@ -137,6 +138,8 @@ export class SupplyInvoicePaymentsService {
     // Маркер фиксируется общей CAS-записью вместе с новой операцией; чтение не меняет данные.
   }
   private async synchronize(inv: Row, lines: Row[], session: ClientSession) {
+    const linked = await this.requests.find({ invoiceId: inv._id, deletedAt: null, status: { $ne: 'cancelled' } }, { salesOrderId: 1, salesOrderLineId: 1 }).session(session).lean().exec();
+    await claimStockLinks(this.connection.db!, session, linked);
     const facts = await this.payments.find({ invoiceId: inv._id }).session(session).lean().exec() as Row[];
     const totals = paymentTotals({ ...inv, paymentAccountingVersion: 1 }, financials(inv, lines), facts);
     const active = facts.filter((p) => p.state === 'active').sort((a, b) => a.date.localeCompare(b.date));

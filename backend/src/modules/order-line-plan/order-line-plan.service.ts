@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
-import type { Connection } from 'mongoose';
+import type { ClientSession, Connection } from 'mongoose';
 import { Types } from 'mongoose';
+import { withLineWrite } from '../../common/order-archive/write';
+import { withPlanWrite } from './plan-write';
 import { oid } from '../../common/list-query';
 import type { WorkStep } from '../../common/work-step';
 import {
@@ -74,24 +76,25 @@ export class OrderLinePlanService implements OnModuleInit {
   async ensure(inc: Income): Promise<Doc> {
     const found = await this.plans().findOne({ incomeId: inc._id });
     if (found) return found as Doc;
-    const prod = await this.product(inc.productId);
-    const rows = await this.rowsOf(prod);
-    const now = new Date();
-    await this.plans().updateOne({ incomeId: inc._id }, {
-      $setOnInsert: { incomeId: inc._id, productId: prod ? prod._id : null, origin: prod ? 'product' : 'manual', rev: 1, ...rows, productRevAtCopy: prod?.updatedAt ?? null, deletedAt: null, createdAt: now, updatedAt: now },
-    }, { upsert: true });
-    return (await this.plans().findOne({ incomeId: inc._id }))! as Doc;
+    return withLineWrite(this.connection, inc._id, async session => {
+      const again = await this.plans().findOne({ incomeId: inc._id }, { session });
+      if (again) return again as Doc;
+      const line = await this.db().collection('incomes').findOne({ _id: inc._id, deletedAt: null }, { session, projection: { productId: 1 } });
+      if (!line) throw new NotFoundException('Позиция заказа не найдена');
+      const prod = await this.product(line.productId);
+      const rows = await this.rowsOf(prod);
+      const now = new Date();
+      await this.plans().updateOne({ incomeId: inc._id }, {
+        $setOnInsert: { incomeId: inc._id, productId: prod ? prod._id : null, origin: prod ? 'product' : 'manual', rev: 1, ...rows, productRevAtCopy: prod?.updatedAt ?? null, deletedAt: null, createdAt: now, updatedAt: now },
+      }, { session, upsert: true });
+      return (await this.plans().findOne({ incomeId: inc._id }, { session }))! as Doc;
+    });
   }
 
   private async findPlan(id: string): Promise<Doc> {
     const plan = await this.plans().findOne({ _id: oid(id, 'плана'), deletedAt: null });
     if (!plan) throw new NotFoundException('План не найден');
     return plan as Doc;
-  }
-
-  /** Позиция плана жива (не в корзине) — иначе план не читаем и не правим. */
-  private async incomeOf(plan: Doc): Promise<Income> {
-    return this.income(String(plan.incomeId));
   }
 
   /** Ответ по контракту: названия, «Изделие целиком», сравнение с изделием, задание «В работе». */
@@ -163,16 +166,16 @@ export class OrderLinePlanService implements OnModuleInit {
   }
 
   /** Часть без записи в справочнике: найти по названию или завести (новое имя из позиции попадает в справочник). */
-  private async linkDict(parts: PartRow[]): Promise<PartRow[]> {
+  private async linkDict(parts: PartRow[], session: ClientSession): Promise<PartRow[]> {
     const dict = this.db().collection('dict_values');
     const out: PartRow[] = [];
     for (const p of parts) {
       if (p.partId) { out.push(p); continue; }
       const esc = p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const hit = await dict.findOne({ dict: PARTS_DICT, deletedAt: null, name: new RegExp(`^\\s*${esc}\\s*$`, 'i') }, { projection: { _id: 1 } });
+      const hit = await dict.findOne({ dict: PARTS_DICT, deletedAt: null, name: new RegExp(`^\\s*${esc}\\s*$`, 'i') }, { session, projection: { _id: 1 } });
       if (hit) { out.push({ ...p, partId: hit._id as Types.ObjectId }); continue; }
       const now = new Date();
-      const ins = await dict.insertOne({ dict: PARTS_DICT, name: p.name, deletedAt: null, createdAt: now, updatedAt: now });
+      const ins = await dict.insertOne({ dict: PARTS_DICT, name: p.name, deletedAt: null, createdAt: now, updatedAt: now }, { session });
       out.push({ ...p, partId: ins.insertedId });
     }
     return out;
@@ -180,58 +183,66 @@ export class OrderLinePlanService implements OnModuleInit {
 
   /** Записать части и шаги целиком. Версия не совпала — 409. */
   async save(id: string, dto: SavePlanDto, userId?: string) {
-    const plan = await this.findPlan(id);
-    const inc = await this.incomeOf(plan);
-    if (plan.rev !== dto.rev) throw new ConflictException('План изменил другой человек — обновите');
-    const now = new Date();
-    const parts = await this.withDictNames(dto.parts);
-    const rows = normalizeRows({ parts, steps: dto.steps }, { parts: plan.parts ?? [], steps: plan.steps ?? [] }, { typeNames: await this.typeNames(dto.steps.map((s) => s.workTypeId)), by: this.by(userId), now, keepLinks: true });
-    rows.parts = await this.linkDict(rows.parts);
-    const res = await this.plans().updateOne({ _id: plan._id, rev: dto.rev }, { $set: { parts: rows.parts, steps: rows.steps, rev: dto.rev + 1, updatedAt: now } });
-    if (!res.matchedCount) throw new ConflictException('План изменил другой человек — обновите');
-    return this.present(await this.findPlan(id), inc);
+    const saved = await withPlanWrite(this.connection, id, async (plan, line, session) => {
+      const inc = line as unknown as Income;
+      if (plan.rev !== dto.rev) throw new ConflictException('План изменил другой человек — обновите');
+      const now = new Date();
+      const parts = await this.withDictNames(dto.parts);
+      const rows = normalizeRows({ parts, steps: dto.steps }, { parts: plan.parts ?? [], steps: plan.steps ?? [] }, { typeNames: await this.typeNames(dto.steps.map((s) => s.workTypeId)), by: this.by(userId), now, keepLinks: true });
+      rows.parts = await this.linkDict(rows.parts, session);
+      const res = await this.plans().updateOne({ _id: plan._id, rev: dto.rev }, { $set: { parts: rows.parts, steps: rows.steps, rev: dto.rev + 1, updatedAt: now } }, { session });
+      if (!res.matchedCount) throw new ConflictException('План изменил другой человек — обновите');
+      return { inc };
+    });
+    return this.present(await this.findPlan(id), saved.inc);
   }
 
   /** «Проверено» у части или шага — одним касанием. */
   async check(id: string, dto: CheckDto, userId?: string) {
-    const plan = await this.findPlan(id);
-    const inc = await this.incomeOf(plan);
-    const key = dto.kind === 'part' ? 'parts' : 'steps';
-    const next = setChecked((plan[key] as Array<PartRow | StepRow>) ?? [], dto.rowId, dto.checked, { by: this.by(userId), now: new Date() });
-    if (!next) throw new NotFoundException(dto.kind === 'part' ? 'Части нет в плане' : 'Работы нет в плане');
-    await this.plans().updateOne({ _id: plan._id }, { $set: { [key]: next, updatedAt: new Date() }, $inc: { rev: 1 } });
-    return this.present(await this.findPlan(id), inc);
+    const saved = await withPlanWrite(this.connection, id, async (plan, line, session) => {
+      const inc = line as unknown as Income;
+      const key = dto.kind === 'part' ? 'parts' : 'steps';
+      const next = setChecked((plan[key] as Array<PartRow | StepRow>) ?? [], dto.rowId, dto.checked, { by: this.by(userId), now: new Date() });
+      if (!next) throw new NotFoundException(dto.kind === 'part' ? 'Части нет в плане' : 'Работы нет в плане');
+      await this.plans().updateOne({ _id: plan._id }, { $set: { [key]: next, updatedAt: new Date() }, $inc: { rev: 1 } }, { session });
+      return { inc };
+    });
+    return this.present(await this.findPlan(id), saved.inc);
   }
 
   /** Перенос плана в изделие (части и маршрут). Изделие менялось после того, как человек его видел, — 409. */
   async applyToProduct(id: string, dto: ApplyToProductDto) {
-    const plan = await this.findPlan(id);
-    const inc = await this.incomeOf(plan);
-    if (!inc.productId || idOf(plan.productId) !== idOf(inc.productId)) throw new ConflictException('У позиции нет изделия или оно сменилось — нажмите «Взять заново из изделия»');
-    const prod = await this.product(inc.productId);
-    if (!prod) throw new NotFoundException('Изделие не найдено');
-    const current = (prod.updatedAt as Date | undefined) ?? null;
-    if (ms(dto.productUpdatedAt ?? null) !== ms(current)) throw new ConflictException('Изделие изменили после копии — обновите план');
-    const { set, unset } = productFields(plan.parts ?? [], plan.steps ?? []);
-    const stamp = new Date();
-    const res = await this.db().collection('products').updateOne({ _id: prod._id, updatedAt: current }, { $set: { ...set, updatedAt: stamp }, ...(Object.keys(unset).length ? { $unset: unset } : {}) });
-    if (!res.matchedCount) throw new ConflictException('Изделие изменили после копии — обновите план');
-    await this.plans().updateOne({ _id: plan._id }, { $set: { productRevAtCopy: stamp, origin: 'product', updatedAt: stamp }, $inc: { rev: 1 } });
-    return { product: { id: String(prod._id), updatedAt: stamp }, plan: await this.present(await this.findPlan(id), inc) };
+    const saved = await withPlanWrite(this.connection, id, async (plan, line, session) => {
+      const inc = line as unknown as Income;
+      if (!inc.productId || idOf(plan.productId) !== idOf(inc.productId)) throw new ConflictException('У позиции нет изделия или оно сменилось — нажмите «Взять заново из изделия»');
+      const prod = await this.product(inc.productId);
+      if (!prod) throw new NotFoundException('Изделие не найдено');
+      const current = (prod.updatedAt as Date | undefined) ?? null;
+      if (ms(dto.productUpdatedAt ?? null) !== ms(current)) throw new ConflictException('Изделие изменили после копии — обновите план');
+      const { set, unset } = productFields(plan.parts ?? [], plan.steps ?? []);
+      const stamp = new Date();
+      const res = await this.db().collection('products').updateOne({ _id: prod._id, updatedAt: current }, { $set: { ...set, updatedAt: stamp }, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session });
+      if (!res.matchedCount) throw new ConflictException('Изделие изменили после копии — обновите план');
+      await this.plans().updateOne({ _id: plan._id }, { $set: { productRevAtCopy: stamp, origin: 'product', updatedAt: stamp }, $inc: { rev: 1 } }, { session });
+      return { inc, product: { id: String(prod._id), updatedAt: stamp } };
+    });
+    return { product: saved.product, plan: await this.present(await this.findPlan(id), saved.inc) };
   }
 
   /** «Взять заново из изделия»: план пересобирается, отметки «Проверено» берутся из изделия. */
   async resetFromProduct(id: string) {
-    const plan = await this.findPlan(id);
-    const inc = await this.incomeOf(plan);
-    const prod = await this.product(inc.productId);
-    const rows = await this.rowsOf(prod);
-    const now = new Date();
-    await this.plans().updateOne({ _id: plan._id }, {
-      $set: { ...rows, productId: prod ? prod._id : null, origin: prod ? 'product' : 'manual', productRevAtCopy: prod?.updatedAt ?? null, updatedAt: now },
-      $inc: { rev: 1 },
+    const saved = await withPlanWrite(this.connection, id, async (plan, line, session) => {
+      const inc = line as unknown as Income;
+      const prod = await this.product(inc.productId);
+      const rows = await this.rowsOf(prod);
+      const now = new Date();
+      await this.plans().updateOne({ _id: plan._id }, {
+        $set: { ...rows, productId: prod ? prod._id : null, origin: prod ? 'product' : 'manual', productRevAtCopy: prod?.updatedAt ?? null, updatedAt: now },
+        $inc: { rev: 1 },
+      }, { session });
+      return { inc };
     });
-    return this.present(await this.findPlan(id), inc);
+    return this.present(await this.findPlan(id), saved.inc);
   }
 
   /**
@@ -261,9 +272,9 @@ export class OrderLinePlanService implements OnModuleInit {
   }
 
   /** Пометить, что по планам позиций создано задание (дальше правки плана задание не меняют). */
-  async markLaunched(incomeIds: Types.ObjectId[]) {
+  async markLaunched(incomeIds: Types.ObjectId[], session?: ClientSession) {
     if (!incomeIds.length) return;
     const now = new Date();
-    await this.plans().updateMany({ incomeId: { $in: incomeIds } }, { $set: { launchedAt: now, updatedAt: now } });
+    await this.plans().updateMany({ incomeId: { $in: incomeIds } }, { $set: { launchedAt: now, updatedAt: now } }, { session });
   }
 }

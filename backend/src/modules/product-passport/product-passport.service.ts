@@ -1,3 +1,4 @@
+import { withStoredPassportWrite } from '../../common/order-archive/write';
 import { passportProductVersion, withPassportProductWrite } from './passport-product-write';
 import { assertSitePassport, copyPassportValue, lineBaseline, passportLine, stalePassport, withPassportSite } from '../../common/passport/line-source';
 import { parseModules } from '../../common/passport/modules';
@@ -80,7 +81,7 @@ export class ProductPassportService {
   ) {
     // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
     this.queries = new PassportQueries({ model, connection, versions, categoryRules: () => this.categoryRules(), installs: () => this.installs(), withSchemes: (d, i) => this.withSchemes(d, i), oid: (v) => this.oid(v), forest: (c) => this.forest(c) });
-    this.bulkOps = new PassportBulk({ model, findById: (id) => this.findById(id), update: (id, p) => this.update(id, p), snapshot: (id) => this.snapshot(id), oid: (v) => this.oid(v) });
+    this.bulkOps = new PassportBulk({ model, connection, findById: (id, session) => this.findById(id, session), update: (id, p, session) => this.update(id, p, { session }), snapshot: (id, session) => this.snapshot(id, session), oid: (v) => this.oid(v) });
     this.issueOps = new PassportIssue({ model, connection, findById: (id) => this.findById(id), readiness: (d, session) => this.readiness(d, session), effectiveImages: (d, session) => this.effectiveImages(d, session), freezeImages: (id) => this.freezeImages(id), refresh: (id) => this.refreshDraftText(id), preparePresentation: (d, session) => this.preparePresentation(d, session), allocate: (set, date, session) => this.allocate(set, date, session), assertFree: (set, selfId, session) => this.assertFree(set, selfId, session) });
     this.numbers = new PassportNumbers({
       connection, maxOf: (f, s) => this.maxOf(f, s),
@@ -142,9 +143,9 @@ export class ProductPassportService {
   duplicates(q: Record<string, unknown>) { return this.issueOps.duplicates(q); }
 
   // ─── карточка ────────────────────────────────────────────────────────────────────────────────────
-  async findById(id: string): Promise<ProductPassportDocument> {
+  async findById(id: string, session?: ClientSession): Promise<ProductPassportDocument> {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException(`Паспорт ${id} не найден`);
-    const doc = await this.model.findById(id).exec();
+    const doc = await this.model.findById(id, undefined, { session }).exec();
     if (!doc) throw new NotFoundException(`Паспорт ${id} не найден`);
     return doc;
   }
@@ -257,7 +258,18 @@ export class ProductPassportService {
 
   /** Запоздавшая пересборка не может затереть ручную правку или уже выпущенный снимок. */
   private async saveCurrent(doc: ProductPassportDocument, previous: Doc, session?: ClientSession): Promise<ProductPassportDocument> {
-    doc.$where = { ...doc.$where, status: previous.status ?? { $exists: false },
+    if (!session && (previous.incomeId || previous.salesOrderId)) {
+      const set = doc.toObject({ minimize: false });
+      const unset = Object.keys(doc.getChanges().$unset ?? {});
+      return withStoredPassportWrite(this.connection, previous._id, tx => {
+        const attempt = this.model.hydrate(copyPassportValue(previous));
+        attempt.$where = { ...doc.$where };
+        attempt.set(copyPassportValue(set));
+        for (const path of unset) attempt.set(path, undefined);
+        return this.saveCurrent(attempt, previous, tx);
+      });
+    }
+    doc.$where = { ...doc.$where, salesOrderId: previous.salesOrderId ?? null, incomeId: previous.incomeId ?? null, status: previous.status ?? { $exists: false },
       ...(previous.updatedAt ? { updatedAt: previous.updatedAt } : {}),
       textSnapshot: previous.textSnapshot === undefined ? { $exists: false } : previous.textSnapshot };
     try { return await doc.save({ session }); }
@@ -372,7 +384,7 @@ export class ProductPassportService {
         if (attempt.status === 'issued') await this.allocate(attempt, date, session);
         await this.assertFree(attempt, undefined, session);
         return session ? (await this.model.create([attempt], { session }))[0] : await this.model.create(attempt);
-      }));
+      }), [{ salesOrderId: set.salesOrderId }]);
       // v2: паспорт с категорией — сразу снимок текста (правка справочников потом его не меняет)
       if (!baseline && set.passportCategory) return (await this.snapshot(String(doc._id))) ?? doc;
       return doc;
@@ -430,7 +442,7 @@ export class ProductPassportService {
     const draft = new this.model(set);
     await this.applySnapshot(draft, { ...set });
     const prepared = draft.toObject({ minimize: false });
-    try { return await withPassportSite(this.connection, baseline, outer => withPassportProductWrite(this.connection, productVersion, outer, session => new this.model(copyPassportValue(prepared)).save({ session }))); }
+    try { return await withPassportSite(this.connection, baseline, outer => withPassportProductWrite(this.connection, productVersion, outer, session => new this.model(copyPassportValue(prepared)).save({ session })), [{ salesOrderId: bound.salesOrderId }]); }
     catch (e) {
       const stale = e instanceof ConflictException && (e.getResponse() as { code?: string }).code === 'STALE_CONTEXT';
       if (!isScopeDuplicate(e) && !stale) throw e;
@@ -512,10 +524,11 @@ export class ProductPassportService {
           { projection: { name: 1, shortName: 1 } },
         );
         if (!org) throw new BadRequestException('Выберите фирму');
-        await this.model.updateOne(
+        await withStoredPassportWrite(this.connection, passportId, session => this.model.updateOne(
           { _id: new Types.ObjectId(passportId), status: 'draft', deletedAt: null, ...expected, supplierOrgId: null },
           { $set: { supplierOrgId: org._id, supplier: String(org.shortName || org.name || '') } },
-        ).exec();
+          { session },
+        ).exec());
       },
       hasOurSupplier: async () => !!(await ourSupplierId(this.connection.db!)),
       issue: (id, expected) => this.issue(id, expected),
@@ -550,8 +563,8 @@ export class ProductPassportService {
     return this.create({ ...(dto as unknown as CreateProductPassportDto), ...over });
   }
 
-  async update(id: string, dto: UpdateProductPassportDto, opts: { newRevision?: boolean; user?: { id?: string; role?: string; isOwner?: boolean } } = {}): Promise<ProductPassportDocument> {
-    const doc = await this.findById(id);
+  async update(id: string, dto: UpdateProductPassportDto, opts: { session?: ClientSession; newRevision?: boolean; user?: { id?: string; role?: string; isOwner?: boolean } } = {}): Promise<ProductPassportDocument> {
+    const doc = await this.findById(id, opts.session);
     // Выпуск пишет снимок транзакционным updateOne. Пустые maps в нём нужны для точного сравнения с BSON при сохранении.
     const cur = doc.toObject({ minimize: doc.presentationVersion !== 1 }) as unknown as Doc;
     if (cur.status === 'annulled') throw new ConflictException('Паспорт аннулирован — изменить его нельзя');
@@ -655,24 +668,29 @@ export class ProductPassportService {
     }
     const prepared = doc.toObject({ minimize: false });
     // toObject опускает undefined: переносим явные удаления в каждую новую попытку отдельно.
-    const unsetPaths = baseline ? Object.keys(doc.getChanges().$unset ?? {}) : [];
+    const unsetPaths = baseline || cur.salesOrderId || cur.incomeId || set.salesOrderId ? Object.keys(doc.getChanges().$unset ?? {}) : [];
     try { return await withPassportSite(this.connection, baseline, session => {
       if (!session) return this.saveCurrent(doc, cur);
       const attempt = this.model.hydrate(copyPassportValue(cur));
       attempt.set(copyPassportValue(prepared));
       for (const path of unsetPaths) attempt.set(path, undefined);
       return this.saveCurrent(attempt, cur, session);
-    }); }
+    }, [{ salesOrderId: cur.salesOrderId, incomeId: cur.incomeId }, { salesOrderId: set.salesOrderId }], opts.session); }
     catch (e) { if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт'); throw e; }
   }
 
   /** Черновик, который не удалось выпустить сразу (паспорт для CRM — только с номером): убрать, чтобы не копились. Только status draft. */
   async discardDraft(id: string) {
-    await this.model.deleteOne({ _id: this.oid(id), status: 'draft' }).setOptions({ includeSoftDeleted: true }).exec();
+    await withStoredPassportWrite(this.connection, id, session => this.model.deleteOne({ _id: this.oid(id), status: 'draft' }, { session }).setOptions({ includeSoftDeleted: true }).exec());
   }
 
   async markIssued(id: Types.ObjectId | string) {
-    await this.model.updateOne({ _id: new Types.ObjectId(String(id)) }, { $set: { pdfIssuedAt: new Date() } }).exec();
+    try {
+      await withStoredPassportWrite(this.connection, id, session => this.model.updateOne({ _id: new Types.ObjectId(String(id)) }, { $set: { pdfIssuedAt: new Date() } }, { session }).exec());
+    } catch (e) {
+      // Чтение архивной печати разрешено; отметка скачивания остаётся частью зафиксированного комплекта.
+      if (!(e instanceof ConflictException) || (e.getResponse() as { code?: string }).code !== 'ORDER_ARCHIVED') throw e;
+    }
   }
 
   /** C062: свой PDF к номеру. Ответ — карточка, `printFile: { name, hasFile }`, без пути на диск. */
@@ -681,8 +699,12 @@ export class ProductPassportService {
     const buf = assertPdf(file);
     const stored = await storePrintPdf(buf, file?.originalname, userId);
     const prev = (doc.toObject() as unknown as Doc).printFile as { path?: string } | undefined;
-    doc.set('printFile', stored);
-    await doc.save();
+    try {
+      await withStoredPassportWrite(this.connection, id, async session => {
+        const r = await this.model.updateOne({ _id: doc._id, 'printFile.path': prev?.path ?? null }, { $set: { printFile: stored } }, { session }).exec();
+        if (!r.matchedCount) throw new ConflictException('Файл печати уже изменился');
+      });
+    } catch (error) { await unlinkPrint(stored.path); throw error; }
     if (prev?.path && prev.path !== stored.path) await unlinkPrint(prev.path);
     return this.get(id);
   }
@@ -692,7 +714,10 @@ export class ProductPassportService {
     const doc = await this.findById(id);
     const prev = (doc.toObject() as unknown as Doc).printFile as { path?: string } | undefined;
     if (prev?.path) {
-      await this.model.updateOne({ _id: doc._id }, { $unset: { printFile: '' } }).exec();
+      await withStoredPassportWrite(this.connection, id, async session => {
+        const r = await this.model.updateOne({ _id: doc._id, 'printFile.path': prev.path }, { $unset: { printFile: '' } }, { session }).exec();
+        if (!r.matchedCount) throw new ConflictException('Файл печати уже изменился');
+      });
       await unlinkPrint(prev.path);
     }
     return this.get(id);
@@ -709,15 +734,15 @@ export class ProductPassportService {
   async removeRevision(id: string, revision: number) {
     const doc = await this.findById(id);
     assertRevisionRemovable(doc.toObject() as unknown as Doc, revision);
-    await this.model.updateOne({ _id: doc._id }, { $pull: { revisions: { revision } } }).exec();
+    await withStoredPassportWrite(this.connection, id, session => this.model.updateOne({ _id: doc._id }, { $pull: { revisions: { revision } } }, { session }).exec());
     return this.get(id);
   }
 
   async remove(id: string): Promise<void> {
     const doc = await this.findById(id);
     if (isIssued(doc.toObject() as unknown as Doc) || doc.status === 'annulled') throw new ConflictException('Выпущенный паспорт не удаляется — «Аннулировать» (номер останется занятым)');
-    const result = await this.model.updateOne({ _id: doc._id, status: doc.status ?? { $exists: false } },
-      { $set: { deletedAt: new Date() }, ...(doc.incomeId ? { $unset: { creationScopeKey: '' } } : {}) }).exec();
+    const result = await withStoredPassportWrite(this.connection, id, session => this.model.updateOne({ _id: doc._id, status: doc.status ?? { $exists: false } },
+      { $set: { deletedAt: new Date() }, ...(doc.incomeId ? { $unset: { creationScopeKey: '' } } : {}) }, { session }).exec());
     if (!result.matchedCount) throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
   }
 
@@ -729,7 +754,7 @@ export class ProductPassportService {
     const scope = gone.incomeId && gone.status !== 'annulled';
     if (scope) await assertOneLive(this.model, gone.incomeId, _id);
     try {
-      await this.model.updateOne({ _id, deletedAt: { $ne: null } }, { $set: { deletedAt: null, ...(scope ? { creationScopeKey: lineScopeKey(gone.incomeId) } : {}) } }).setOptions({ includeSoftDeleted: true }).exec();
+      await withStoredPassportWrite(this.connection, id, session => this.model.updateOne({ _id, deletedAt: { $ne: null } }, { $set: { deletedAt: null, ...(scope ? { creationScopeKey: lineScopeKey(gone.incomeId) } : {}) } }, { session }).setOptions({ includeSoftDeleted: true }).exec());
     } catch (e) { if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт'); throw e; }
     return this.findById(id);
   }
@@ -889,8 +914,8 @@ export class ProductPassportService {
     return this.saveTemplate({ category: cat, sections: sections as never, tables: (own?.tables ?? []) as never }, userId, dbOwn?.id ?? null, all.version);
   }
 
-  async snapshot(id: string): Promise<ProductPassportDocument | null> {
-    const doc = await this.findById(id);
+  async snapshot(id: string, session?: ClientSession): Promise<ProductPassportDocument | null> {
+    const doc = await this.findById(id, session);
     const previous = doc.toObject() as unknown as Doc;
     const sealed = previous.status === 'issued' || previous.status === 'annulled';
     if (sealed && previous.presentationVersion === 1
@@ -902,7 +927,7 @@ export class ProductPassportService {
     // черновик с изделием: поля и категория — из изделия (в память; запишет doc.save() в конце)
     const fp = await this.fromProductDiff(p);
     if (Object.keys(fp).length) { doc.set(fp); Object.assign(p, fp); }
-    return await this.applySnapshot(doc, p) ? this.saveCurrent(doc, previous) : null;
+    return await this.applySnapshot(doc, p) ? this.saveCurrent(doc, previous, session) : null;
   }
 
   /**
@@ -1489,7 +1514,7 @@ export class ProductPassportService {
     const doc = (await this.findById(id)).toObject() as unknown as Doc;
     if (!doc.productId) return;
     const images = (await this.effectiveImages(doc)).map((i, k) => ({ kind: i.kind || 'overview', photoId: this.oid(i.photoId), order: i.order ?? k, ...(i.caption ? { caption: i.caption } : {}), ...(i.refCode ? { refCode: i.refCode } : {}) }));
-    await this.model.updateOne({ _id: doc._id, status: 'draft' }, { $set: { images } }).exec();
+    await withStoredPassportWrite(this.connection, id, session => this.model.updateOne({ _id: doc._id, status: 'draft' }, { $set: { images } }, { session }).exec());
   }
 
   // ─── воронка текстов (ПВ 2026-10-25) ─────────────────────────────────────────────────────────────

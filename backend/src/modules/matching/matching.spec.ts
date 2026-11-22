@@ -57,11 +57,16 @@ describe('MatchingService (КМ2–КМ3)', () => {
       products: [{ _id: prod, name: 'Скамейка парковая', sku: 'СК-1' }],
     };
     const coll = (n: string) => {
-      const mk = (f?: { _id?: { $in: unknown[] } }) => { const ids = f?._id?.$in?.map(String); const q = { sort: () => q, toArray: async () => (rows[n] ?? []).filter((r) => n !== 'products' || !ids || ids.includes(String(r._id))) }; return q; };
-      return { find: (f?: never) => mk(f), findOne: async () => (rows[n] ?? [])[0] ?? null, updateOne: incUpdate };
+      const mk = (f?: { _id?: { $in: unknown[] } }) => { const ids = f?._id?.$in?.map(String); const q = { sort: () => q, toArray: async () => (rows[n] ?? []).filter((r) => !ids || ids.includes(String(r._id))) }; return q; };
+      return {
+        find: (f?: never) => mk(f), findOne: async () => (rows[n] ?? [])[0] ?? null,
+        countDocuments: async (f?: never) => (await mk(f).toArray()).length,
+        updateOne: n === 'salesorders' ? async () => ({ matchedCount: 1 }) : incUpdate,
+      };
     };
     const model = { find: () => ({ lean: () => ({ exec: async () => [] }) }), updateOne: aliasUpdate };
-    svc = new MatchingService({ db: { collection: coll } } as never, model as never, { log: jest.fn() } as never);
+    const session = { withTransaction: async (write: () => Promise<unknown>) => write(), endSession: async () => undefined };
+    svc = new MatchingService({ db: { collection: coll }, startSession: async () => session } as never, model as never, { log: jest.fn() } as never);
   });
 
   it('suggest: предложения для несопоставленных, счётчики', async () => {

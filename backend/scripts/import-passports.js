@@ -16,6 +16,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const req = (m) => require(require.resolve(m, { paths: [process.cwd(), path.join(__dirname, '..')] }));
 const { MongoClient, ObjectId } = req('mongoose').mongo;
+const { claimPassportWrites, withArchiveWrite } = require('./order-archive-write');
 const dist = (f) => require(path.join(process.cwd(), 'dist', 'src', 'modules', 'product-passport', f));
 const { readXlsx } = dist('xlsx-read');
 const { planImport } = dist('passport-import');
@@ -56,13 +57,25 @@ async function storeImage(db, buf, sharp, uploadDir) {
   return { id: insertedId, created: true };
 }
 
-async function rollback(db, file) {
+async function rollback(client, db, file) {
   const plan = JSON.parse(fs.readFileSync(file, 'utf8'));
   console.log(`Откат по ${file}: вставлено было ${plan.inserted.length}, обновлено ${plan.updated.length} (перенос ${plan.meta.appliedAt}, бэкап ${plan.meta.backup || '—'})`);
   if (!apply) { console.log('dry-run — ничего не изменено'); return; }
-  const del = await db.collection('productpassports').deleteMany({ _id: { $in: plan.inserted.map((id) => new ObjectId(id)) }, source: 'sheet:Pasports' });
-  let restored = 0;
-  for (const b of plan.updated) { const { _id, ...rest } = b; await db.collection('productpassports').replaceOne({ _id: new ObjectId(_id) }, { ...rest, date: rest.date ? new Date(rest.date) : rest.date }); restored++; }
+  const { del, restored } = await withArchiveWrite(client, async session => {
+    const passports = db.collection('productpassports');
+    const inserted = plan.inserted.map(id => new ObjectId(id));
+    const updates = plan.updated.map(row => new ObjectId(row._id));
+    const owned = await passports.find({ _id: { $in: [...inserted, ...updates] }, source: 'sheet:Pasports' }, { session }).toArray();
+    await claimPassportWrites(db, session, [...owned, ...plan.updated]);
+    const del = await passports.deleteMany({ _id: { $in: inserted }, source: 'sheet:Pasports' }, { session });
+    let restored = 0;
+    for (const b of plan.updated) {
+      const { _id, ...rest } = b;
+      const result = await passports.replaceOne({ _id: new ObjectId(_id), source: 'sheet:Pasports' }, { ...rest, date: rest.date ? new Date(rest.date) : rest.date }, { session });
+      restored += result.modifiedCount;
+    }
+    return { del, restored };
+  });
   console.log(`Удалено вставленных: ${del.deletedCount}; возвращено прежних: ${restored}`);
 }
 
@@ -71,7 +84,7 @@ async function rollback(db, file) {
   if (!uri) throw new Error('MONGO_URI не задан');
   const client = await MongoClient.connect(uri);
   const db = client.db(process.env.MONGO_DB || undefined);
-  if (has('--rollback')) { await rollback(db, arg('--rollback')); return client.close(); }
+  if (has('--rollback')) { await rollback(client, db, arg('--rollback')); return client.close(); }
   if (apply && db.databaseName === 'datacore' && !arg('--backup')) throw new Error('На рабочей базе datacore запись только с --backup <папка> (сначала backup.sh)');
 
   const book = readXlsx(await source());
@@ -162,7 +175,14 @@ async function rollback(db, file) {
     const set = { ...u.set, updatedAt: now };
     if (set.supplierOrgId) set.supplierOrgId = new ObjectId(String(set.supplierOrgId));
     if (!(u.ex.images || []).length && u.it.images.length) set.images = await images(u.it);
-    await db.collection('productpassports').updateOne({ _id: u.ex._id, source: 'sheet:Pasports' }, { $set: set });
+    await withArchiveWrite(client, async session => {
+      const passports = db.collection('productpassports');
+      const filter = { _id: u.ex._id, source: 'sheet:Pasports' };
+      const current = await passports.findOne(filter, { session });
+      if (!current) throw new Error('Паспорт изменился. Постройте план переноса заново.');
+      await claimPassportWrites(db, session, [current]);
+      await passports.updateOne(filter, { $set: set }, { session });
+    });
   }
   await db.collection('auditlogs').insertOne({ action: 'passport.imported', entityType: 'ProductPassport', userName: 'система', details: { inserted: rb.inserted.length, updated: toUpdate.length, photos: newPhotos, backup: rb.meta.backup, rollback: path.basename(rbFile) }, createdAt: now, updatedAt: now });
   console.log(`Записано: новых ${rb.inserted.length}, обновлено ${toUpdate.length}, картинок новых ${newPhotos}. Откат: --rollback ${rbFile}`);

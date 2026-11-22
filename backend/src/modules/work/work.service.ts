@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import type { Connection, Model } from 'mongoose';
+import type { ClientSession, Connection, Model, UpdateQuery } from 'mongoose';
 import { Types } from 'mongoose';
+import { legalHash } from '../../common/legal/legal-utils';
+import { claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
 import { personWorkTypeIds } from '../../common/catalog/person-work-types';
 import { oid, oids, parseList } from '../../common/list-query';
 import { CounterService } from '../counter/counter.service';
@@ -101,14 +103,26 @@ export class WorkService {
     if (dto.start === undefined && dto.days === undefined) throw new BadRequestException('Укажите начало или длительность шага');
     const calc = (await presentWork(this.connection, [cur]))[0].plan[dto.stepIndex];
     const plan = { start: dto.start ? new Date(dto.start) : calc.start, days: dto.days ?? calc.days };
-    await this.model.updateOne({ _id: cur._id }, { $set: { [`route.${dto.stepIndex}.plan`]: plan } } as never).exec();
+    await this.updateTask(cur, { $set: { [`route.${dto.stepIndex}.plan`]: plan } });
     return this.get(id);
   }
 
-  private async findRaw(id: string, deleted = false) {
-    const doc = await this.model.findOne({ _id: oid(id, 'задания'), deletedAt: deleted ? { $ne: null } : null }).setOptions({ includeSoftDeleted: true }).lean().exec();
+  private async findRaw(id: string, deleted = false, session?: ClientSession) {
+    const doc = await this.model.findOne({ _id: oid(id, 'задания'), deletedAt: deleted ? { $ne: null } : null }, null, { session }).setOptions({ includeSoftDeleted: true }).lean().exec();
     if (!doc) throw new NotFoundException(deleted ? 'Задания нет в корзине' : 'Задание не найдено');
     return doc as unknown as Doc;
+  }
+
+  private async updateTask(cur: Doc, update: UpdateQuery<WorkTaskDocument>, deleted = false) {
+    await withOrderWrite(this.connection, [], async session => {
+      const fresh = await this.findRaw(String(cur._id), deleted, session);
+      const line = await this.db().collection('incomes').findOne({ _id: fresh.incomeId as Types.ObjectId }, { session, projection: { orderId: 1 } });
+      await claimWritableOrders(this.db(), session, [fresh.orderId, line?.orderId]);
+      if (legalHash(fresh) !== legalHash(cur)) throw new ConflictException('Задание изменил другой человек — обновите');
+      const saved = await this.model.updateOne({ _id: fresh._id }, update, { session })
+        .setOptions({ includeSoftDeleted: deleted }).exec();
+      if (!saved.matchedCount) throw new ConflictException('Задание изменил другой человек — обновите');
+    });
   }
 
   async get(id: string) {
@@ -154,27 +168,33 @@ export class WorkService {
       try {
         created.push(await this.insert(line._id, line.orderId, line.productId as Types.ObjectId, route, generic, userId));
       } catch (e) {
-        if (!(e instanceof ConflictException)) throw e;
+        if (!(e instanceof ConflictException) || e.message !== 'Позиция уже в работе') throw e;
         refused.push({ incomeId: String(line._id), lineNo: line.lineNo ?? null, title: String(line.title ?? ''), reason: 'Уже в работе' }); // параллельный запрос успел раньше
       }
     }
-    await this.plans.markLaunched(created.map((c) => c.incomeId as Types.ObjectId));
     const warned = new Set(created.map((c) => String(c.incomeId)));
     return { created: created.length, skipped: refused.length, items: await presentWork(this.connection, created), refused, warnings: plan.warnings.filter((w) => warned.has(w.incomeId)) };
   }
 
   /** Вставка с номером W-N: сразу на первом шаге маршрута; гонка за позицию (уникальный замок) → 409. */
   private async insert(incomeId: Types.ObjectId, orderId: Types.ObjectId | undefined, productId: Types.ObjectId, route: WorkStep[], generic: boolean, userId?: string) {
-    const seq = await this.counters.nextSeq('WorkTask', 'W');
-    const by = this.userOid(userId);
-    const pos = positionAt(route, 0);
     try {
-      const doc = await this.model.create({
-        seq, incomeId, ...(orderId ? { orderId } : {}), productId, route, generic, ...pos, openIncomeId: incomeId,
-        ...(route[0]?.assigneeId ? { assigneeId: route[0].assigneeId } : {}), // исполнитель первого шага из плана (C041 Э2)
-        startedAt: new Date(), ...(by ? { createdBy: by } : {}), moves: [{ at: new Date(), ...(by ? { by } : {}), from: null, to: 0 }],
+      return await withOrderWrite(this.connection, [], async session => {
+        const line = await this.db().collection('incomes').findOne({ _id: incomeId, deletedAt: null, cancelledAt: null }, { session });
+        if (!line || String(line.orderId ?? '') !== String(orderId ?? '') || String(line.productId) !== String(productId))
+          throw new BadRequestException('Позиция изменилась после подготовки — обновите заказ');
+        await claimWritableOrders(this.db(), session, [line.orderId]);
+        const seq = await this.counters.nextSeq('WorkTask', 'W', session);
+        const by = this.userOid(userId);
+        const pos = positionAt(route, 0);
+        const [doc] = await this.model.create([{
+          seq, incomeId, ...(orderId ? { orderId } : {}), productId, route, generic, ...pos, openIncomeId: incomeId,
+          ...(route[0]?.assigneeId ? { assigneeId: route[0].assigneeId } : {}),
+          startedAt: new Date(), ...(by ? { createdBy: by } : {}), moves: [{ at: new Date(), ...(by ? { by } : {}), from: null, to: 0 }],
+        }], { session });
+        await this.plans.markLaunched([incomeId], session);
+        return doc.toObject() as unknown as Doc;
       });
-      return doc.toObject() as unknown as Doc;
     } catch (e) {
       if (isDup(e)) throw new ConflictException('Позиция уже в работе');
       throw e;
@@ -202,7 +222,7 @@ export class WorkService {
     }
     const move: WorkMove = { at: new Date(), ...(by ? { by } : {}), from, to: pos.stepIndex };
     try {
-      await this.model.updateOne({ _id: cur._id }, { $set: set, $unset: unset, $push: { moves: { $each: [move], $slice: -100 } } } as never).exec();
+      await this.updateTask(cur, { $set: set, $unset: unset, $push: { moves: { $each: [move], $slice: -100 } } });
     } catch (e) {
       if (isDup(e)) throw new ConflictException('Позиция уже в работе');
       throw e;
@@ -246,7 +266,7 @@ export class WorkService {
     if (cur.status === 'done') throw new BadRequestException('Готовое задание отменить нельзя');
     const by = this.userOid(userId);
     const move: WorkMove = { at: new Date(), ...(by ? { by } : {}), from: (cur.stepIndex as number | null | undefined) ?? null, to: null };
-    await this.model.updateOne({ _id: cur._id }, { $set: { status: 'cancelled', cancelReason: reason }, $unset: { openIncomeId: '' }, $push: { moves: { $each: [move], $slice: -100 } } } as never).exec();
+    await this.updateTask(cur, { $set: { status: 'cancelled', cancelReason: reason }, $unset: { openIncomeId: '' }, $push: { moves: { $each: [move], $slice: -100 } } });
     return this.get(id);
   }
 
@@ -265,7 +285,7 @@ export class WorkService {
     }
     if (dto.note !== undefined) { if (dto.note.trim()) set.note = dto.note.trim(); else unset.note = ''; }
     if (Object.keys(set).length || Object.keys(unset).length) {
-      await this.model.updateOne({ _id: cur._id }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) } as never).exec();
+      await this.updateTask(cur, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) });
     }
     return this.get(id);
   }
@@ -281,7 +301,7 @@ export class WorkService {
   /** В корзину; замок позиции снимается — позицию можно запустить заново. */
   async remove(id: string) {
     const cur = await this.findRaw(id);
-    await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: new Date() }, $unset: { openIncomeId: '' } }).exec();
+    await this.updateTask(cur, { $set: { deletedAt: new Date() }, $unset: { openIncomeId: '' } });
     return { id, deleted: true };
   }
 
@@ -290,7 +310,7 @@ export class WorkService {
     const lock = cur.status === 'waiting' || cur.status === 'work';
     if (lock) await this.ensureNoOpen(cur.incomeId as Types.ObjectId, cur._id as Types.ObjectId);
     try {
-      await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: null, ...(lock ? { openIncomeId: cur.incomeId } : {}) } }).setOptions({ includeSoftDeleted: true }).exec();
+      await this.updateTask(cur, { $set: { deletedAt: null, ...(lock ? { openIncomeId: cur.incomeId } : {}) } }, true);
     } catch (e) {
       if (isDup(e)) throw new ConflictException('Позиция уже в работе');
       throw e;

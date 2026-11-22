@@ -9,6 +9,9 @@ import { PassportLook, PassportLookSchema } from './passport-look.schema';
 import { ProductPassportService } from './product-passport.service';
 import { PassportPdfService } from './passport-pdf.service';
 import { PassportLookService } from './passport-look.service';
+import { PassportHandover, PassportHandoverSchema } from './passport-handover.schema';
+import { PassportRegistryController } from './passport-registry.controller';
+import { PassportRegistryService } from './passport-registry.service';
 import { ProductPassportController } from './product-passport.controller';
 
 @Module({
@@ -18,10 +21,11 @@ import { ProductPassportController } from './product-passport.controller';
       { name: ProductPassport.name, schema: ProductPassportSchema },
       { name: PassportTemplate.name, schema: PassportTemplateSchema },
       { name: PassportLook.name, schema: PassportLookSchema },
+      { name: PassportHandover.name, schema: PassportHandoverSchema },
     ]),
   ],
-  controllers: [ProductPassportController],
-  providers: [PassportImportService, PassportSourceService, ProductPassportService, PassportPdfService, PassportLookService],
+  controllers: [PassportRegistryController, ProductPassportController],
+  providers: [PassportRegistryService, PassportImportService, PassportSourceService, ProductPassportService, PassportPdfService, PassportLookService],
   exports: [ProductPassportService],
 })
 export class ProductPassportModule {}

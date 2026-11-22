@@ -162,6 +162,14 @@ export class PassportPdfService {
     return zipStore(files);
   }
 
+  /** C188: историческая печать строго по переданной редакции, без чтения текущей карточки паспорта. */
+  async archivePdf(p: Doc) {
+    const frozen = p.printSnapshot as PassportPrintSources | undefined;
+    if (p.presentationVersion !== 1 || !p.textSnapshot || !frozen || !Array.isArray(frozen.effectiveImages) || !Array.isArray(frozen.standardImages))
+      throw new BadRequestException('У редакции нет самостоятельных источников печати');
+    return { buf: await this.render(p, { readOnly: true, stamp: true }), filename: packFileName(p, 'passport', true) };
+  }
+
   private async render(p: Doc, opts: PdfOpts, tech?: TechSheetInput | null) {
     const input = await this.input(p, opts);
     if (!tech) return renderPassportPdfV2(input);

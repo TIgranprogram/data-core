@@ -6,6 +6,7 @@ export interface AuthenticatedUser {
   username: string;
   role: string;
   permissions?: string[];
+  rolePermissions?: string[];
   version?: number;
   /** TZ-238 */
   organizationId?: string | null;

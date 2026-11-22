@@ -1,3 +1,4 @@
+import { withOrderWrite, claimStockLinks } from '../../common/order-archive/write';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
@@ -33,7 +34,7 @@ export class StockMovementsService {
    * Движение по позиции. in/out/adjust — как в CRM (остаток в storageitems + запись в stockmovements);
    * reserve/unreserve — reservedQty + reservations. Повтор с тем же clientUid ничего не меняет.
    */
-  async move(materialId: string, dto: MoveInput, userId?: string, first?: (session: ClientSession) => Promise<void>) {
+  async move(materialId: string, dto: MoveInput, userId?: string, first?: (session: ClientSession) => Promise<void>, outer?: ClientSession) {
     if (!Types.ObjectId.isValid(materialId)) throw new BadRequestException('Некорректный id позиции');
     if (dto.byWeight) dto = await this.applyWeight(materialId, dto);
     const qty = Number(dto.qty);
@@ -55,85 +56,89 @@ export class StockMovementsService {
     const resTarget = dto.type === 'reserve' && (dto.salesOrderId || dto.salesOrderLineId) ? await resolveTarget(this.connection.db!, dto) : {};
 
     let repeat = false;
-    const session = await this.connection.startSession();
-    try {
-      await session.withTransaction(async () => {
-        repeat = false;
-        // повтор проверяется внутри транзакции первой строкой: параллельный двойной вызов не проведёт движение дважды (HARDEN-1 п.5)
-        if (dto.clientUid) {
-          const done = (await this.movements.findOne({ clientUid: dto.clientUid }, { _id: 1 }).session(session).lean().exec()) || (await this.reservations.findOne({ clientUid: dto.clientUid }, { _id: 1 }).session(session).lean().exec());
-          if (done) { repeat = true; return; }
-        }
-        if (first) await first(session);
-        const item = await this.core.loadStorage(wh._id as Types.ObjectId, matId, session);
-        const before = item.quantity ?? 0;
-        // «было → стало» у каждого движения (ФИ.5)
-        const movement = (type: 'in' | 'out' | 'adjust', q: number, ref: string | undefined, delta: number) =>
-          this.movements.create([{ type, date: new Date(), materialId: matId, warehouseId: wh._id, qty: q, delta, documentRef: ref, notes: note, clientUid: dto.clientUid, createdBy,
-            qtyBefore: before, qtyAfter: Math.round((before + delta) * 1000) / 1000, ...(dto.cancelOf ? { cancelOf: dto.cancelOf } : {}), ...(type === 'out' || (type === 'in' && dto.isReturn) ? target : {}) }], { session });
+    const run = async (session: ClientSession) => {
+      repeat = false;
+      await claimStockLinks(this.connection.db!, session, [target, resTarget]);
+      // повтор проверяется внутри транзакции первой строкой: параллельный двойной вызов не проведёт движение дважды (HARDEN-1 п.5)
+      if (dto.clientUid) {
+        const done = (await this.movements.findOne({ clientUid: dto.clientUid }, { _id: 1 }).session(session).lean().exec()) || (await this.reservations.findOne({ clientUid: dto.clientUid }, { _id: 1 }).session(session).lean().exec());
+        if (done) { repeat = true; return; }
+      }
+      if (first) await first(session);
+      const item = await this.core.loadStorage(wh._id as Types.ObjectId, matId, session);
+      const before = item.quantity ?? 0;
+      // «было → стало» у каждого движения (ФИ.5)
+      const movement = (type: 'in' | 'out' | 'adjust', q: number, ref: string | undefined, delta: number) =>
+        this.movements.create([{ type, date: new Date(), materialId: matId, warehouseId: wh._id, qty: q, delta, documentRef: ref, notes: note, clientUid: dto.clientUid, createdBy,
+          qtyBefore: before, qtyAfter: Math.round((before + delta) * 1000) / 1000, ...(dto.cancelOf ? { cancelOf: dto.cancelOf } : {}), ...(type === 'out' || (type === 'in' && dto.isReturn) ? target : {}) }], { session });
 
-        if (dto.type === 'in') {
-          item.quantity = (item.quantity ?? 0) + qty;
-          await item.save({ session });
-          await movement('in', qty, dto.documentRef, qty);
-        } else if (dto.type === 'out') {
-          if ((item.quantity ?? 0) < qty) throw new BadRequestException(`Недостаточно на складе: есть ${item.quantity ?? 0}, нужно ${qty}`);
-          item.quantity = (item.quantity ?? 0) - qty;
-          if ((item.reservedQty ?? 0) > 0) item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - qty);
-          await item.save({ session });
-          await movement('out', qty, dto.documentRef, -qty);
-        } else if (dto.type === 'count') {
-          // ФИ.4: человек ввёл, сколько лежит ВСЕГО; разницу считает сервер от своего остатка (не от числа на экране)
-          if (dto.expected !== undefined && Math.abs(Number(dto.expected) - before) > 1e-9) {
-            throw new ConflictException(`Остаток изменился, пока была открыта карточка: было ${dto.expected}, сейчас ${before}. Обновите карточку и пересчитайте ещё раз`);
-          }
-          const why = countGuard(qty, before, item.reservedQty ?? 0, dto.force);
-          if (why) throw qty < 0 ? new BadRequestException(why) : new ConflictException(why);
-          const delta = Math.round((qty - before) * 1000) / 1000;
-          if (delta !== 0) {
-            item.quantity = qty;
-            item.reservedQty = Math.min(item.reservedQty ?? 0, qty);
-            await item.save({ session });
-            await movement('adjust', Math.abs(delta), `ADJUST:${note ?? 'пересчёт'}`, delta);
-          }
-          await this.connection.db!.collection('storageitems').updateOne({ _id: item._id }, { $set: { lastCountedAt: new Date() } }, { session });
-        } else if (dto.type === 'adjust') {
-          const next = (item.quantity ?? 0) + qty;
-          if (next < 0) throw new BadRequestException(`Остаток не может стать отрицательным (${next})`);
-          const why = countGuard(next, before, item.reservedQty ?? 0, dto.force);
-          if (why) throw new ConflictException(why);
-          item.quantity = next;
-          item.reservedQty = Math.min(item.reservedQty ?? 0, next); // бронь не больше остатка (HARDEN-1 п.7)
-          await item.save({ session });
-          await movement('adjust', Math.abs(qty), `ADJUST:${note ?? 'корректировка'}`, qty);
-        } else if (dto.type === 'reserve') {
-          const free = (item.quantity ?? 0) - (item.reservedQty ?? 0);
-          if (free < qty) throw new BadRequestException(`Недостаточно свободного остатка: ${free}, нужно ${qty}`);
-          item.reservedQty = (item.reservedQty ?? 0) + qty;
-          await item.save({ session });
-          await this.reservations.create([{ orderId: note ?? 'Бронь', materialId: matId, warehouseId: wh._id, qty, isActive: true, status: 'active', notes: note, clientUid: dto.clientUid,
-            ...(resTarget.salesOrderId ? { salesOrderId: resTarget.salesOrderId } : {}), ...(resTarget.salesOrderLineId ? { salesOrderLineId: resTarget.salesOrderLineId } : {}) }], { session });
-        } else if (dto.type === 'unreserve') {
-          let left = Math.min(qty, item.reservedQty ?? 0);
-          if (left <= 0) throw new BadRequestException('Брони по позиции нет');
-          item.reservedQty = (item.reservedQty ?? 0) - left;
-          await item.save({ session });
-          const active = await this.reservations.find({ materialId: matId, warehouseId: wh._id, status: 'active', deletedAt: null }).sort({ createdAt: 1 }).session(session).exec();
-          for (const r of active) {
-            if (left <= 0) break;
-            if (r.qty <= left) { left -= r.qty; r.status = 'released'; r.isActive = false; }
-            else { r.qty -= left; left = 0; }
-            await r.save({ session });
-          }
-          // Запись-след снятия брони (история + защита от повтора по clientUid)
-          await this.reservations.create([{ orderId: note ?? 'Снятие брони', materialId: matId, warehouseId: wh._id, qty, isActive: false, status: 'released', notes: note ?? 'снятие брони', clientUid: dto.clientUid }], { session });
-        } else {
-          throw new BadRequestException('Неизвестный тип движения');
+      if (dto.type === 'in') {
+        item.quantity = (item.quantity ?? 0) + qty;
+        await item.save({ session });
+        await movement('in', qty, dto.documentRef, qty);
+      } else if (dto.type === 'out') {
+        if ((item.quantity ?? 0) < qty) throw new BadRequestException(`Недостаточно на складе: есть ${item.quantity ?? 0}, нужно ${qty}`);
+        item.quantity = (item.quantity ?? 0) - qty;
+        if ((item.reservedQty ?? 0) > 0) item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - qty);
+        await item.save({ session });
+        await movement('out', qty, dto.documentRef, -qty);
+      } else if (dto.type === 'count') {
+        // ФИ.4: человек ввёл, сколько лежит ВСЕГО; разницу считает сервер от своего остатка (не от числа на экране)
+        if (dto.expected !== undefined && Math.abs(Number(dto.expected) - before) > 1e-9) {
+          throw new ConflictException(`Остаток изменился, пока была открыта карточка: было ${dto.expected}, сейчас ${before}. Обновите карточку и пересчитайте ещё раз`);
         }
-      });
-    } finally {
-      await session.endSession();
+        const why = countGuard(qty, before, item.reservedQty ?? 0, dto.force);
+        if (why) throw qty < 0 ? new BadRequestException(why) : new ConflictException(why);
+        const delta = Math.round((qty - before) * 1000) / 1000;
+        if (delta !== 0) {
+          item.quantity = qty;
+          item.reservedQty = Math.min(item.reservedQty ?? 0, qty);
+          await item.save({ session });
+          await movement('adjust', Math.abs(delta), `ADJUST:${note ?? 'пересчёт'}`, delta);
+        }
+        await this.connection.db!.collection('storageitems').updateOne({ _id: item._id }, { $set: { lastCountedAt: new Date() } }, { session });
+      } else if (dto.type === 'adjust') {
+        const next = (item.quantity ?? 0) + qty;
+        if (next < 0) throw new BadRequestException(`Остаток не может стать отрицательным (${next})`);
+        const why = countGuard(next, before, item.reservedQty ?? 0, dto.force);
+        if (why) throw new ConflictException(why);
+        item.quantity = next;
+        item.reservedQty = Math.min(item.reservedQty ?? 0, next); // бронь не больше остатка (HARDEN-1 п.7)
+        await item.save({ session });
+        await movement('adjust', Math.abs(qty), `ADJUST:${note ?? 'корректировка'}`, qty);
+      } else if (dto.type === 'reserve') {
+        const free = (item.quantity ?? 0) - (item.reservedQty ?? 0);
+        if (free < qty) throw new BadRequestException(`Недостаточно свободного остатка: ${free}, нужно ${qty}`);
+        item.reservedQty = (item.reservedQty ?? 0) + qty;
+        await item.save({ session });
+        await this.reservations.create([{ orderId: note ?? 'Бронь', materialId: matId, warehouseId: wh._id, qty, isActive: true, status: 'active', notes: note, clientUid: dto.clientUid,
+          ...(resTarget.salesOrderId ? { salesOrderId: resTarget.salesOrderId } : {}), ...(resTarget.salesOrderLineId ? { salesOrderLineId: resTarget.salesOrderLineId } : {}) }], { session });
+      } else if (dto.type === 'unreserve') {
+        let left = Math.min(qty, item.reservedQty ?? 0);
+        if (left <= 0) throw new BadRequestException('Брони по позиции нет');
+        item.reservedQty = (item.reservedQty ?? 0) - left;
+        await item.save({ session });
+        const active = await this.reservations.find({ materialId: matId, warehouseId: wh._id, status: 'active', deletedAt: null }).sort({ createdAt: 1 }).session(session).exec();
+        for (const r of active) {
+          if (left <= 0) break;
+          await claimStockLinks(this.connection.db!, session, [r]);
+          if (r.qty <= left) { left -= r.qty; r.status = 'released'; r.isActive = false; }
+          else { r.qty -= left; left = 0; }
+          await r.save({ session });
+        }
+        // Запись-след снятия брони (история + защита от повтора по clientUid)
+        await this.reservations.create([{ orderId: note ?? 'Снятие брони', materialId: matId, warehouseId: wh._id, qty, isActive: false, status: 'released', notes: note ?? 'снятие брони', clientUid: dto.clientUid }], { session });
+      } else {
+        throw new BadRequestException('Неизвестный тип движения');
+      }
+    };
+    if (outer) {
+      await run(outer);
+      if (!repeat) await this.connection.db!.collection('materials').updateOne({ _id: matId }, { $set: { editedInApp: true } }, { session: outer });
+      return this.search.getItem(materialId);
     }
+    const session = await this.connection.startSession();
+    try { await session.withTransaction(() => run(session)); } finally { await session.endSession(); }
     if (!repeat) await this.core.markEdited(matId);
     return this.search.getItem(materialId);
   }
@@ -174,6 +179,7 @@ export class StockMovementsService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        await claimStockLinks(this.connection.db!, session, [soRef]);
         moved = 0; repeatBatch = undefined;
         if (dto.clientUid) { // повтор — внутри транзакции первой строкой (HARDEN-1 п.5)
           const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).session(session).lean().exec();
@@ -256,6 +262,7 @@ export class StockMovementsService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        await claimStockLinks(this.connection.db!, session, list);
         for (const mv of list) {
           // запись занимается первой: параллельная отмена той же операции получит 409, остаток вернётся один раз
           const claim = await this.movements.updateOne({ _id: mv._id, cancelledAt: null }, { $set: { cancelledAt: now } }, { session }).exec();
@@ -274,6 +281,7 @@ export class StockMovementsService {
           if (resId && d < 0) {
             const r = await this.reservations.findById(resId).session(session).exec();
             if (r) {
+              await claimStockLinks(this.connection.db!, session, [r]);
               const back = Math.abs(d);
               r.qty = (r.status === 'active' ? r.qty : 0) + back;
               r.issuedQty = Math.max(0, (r.issuedQty ?? 0) - back);
@@ -479,14 +487,17 @@ export class StockMovementsService {
     // остаток проверяется до отмены: иначе старое списание отменится, а новое не пройдёт
     const have = await this.search.getItem(String(mv.materialId));
     if (!d.cancelledAt && Number(have.quantity) + was < qty) throw new BadRequestException(`Недостаточно на складе: после отмены будет ${Math.round((Number(have.quantity) + was) * 1000) / 1000}, нужно ${qty}`);
-    await this.cancelMovement(id, userId);
-    return this.move(String(mv.materialId), {
-      type: 'out', qty, note: `Исправлено: было ${was}`, reason: d.reason, writeOff: !!d.reason, issuedTo: d.issuedTo,
-      personId: d.issuedToPersonId ? String(d.issuedToPersonId) : undefined, salesOrderId: d.salesOrderId ? String(d.salesOrderId) : undefined, salesOrderLineId: d.salesOrderLineId ? String(d.salesOrderLineId) : undefined,
-    } as MoveInput, userId);
+    await withOrderWrite(this.connection, [], async session => {
+      await this.cancelMovement(id, userId, session);
+      await this.move(String(mv.materialId), {
+        type: 'out', qty, note: `Исправлено: было ${was}`, reason: d.reason, writeOff: !!d.reason, issuedTo: d.issuedTo,
+        personId: d.issuedToPersonId ? String(d.issuedToPersonId) : undefined, salesOrderId: d.salesOrderId ? String(d.salesOrderId) : undefined, salesOrderLineId: d.salesOrderLineId ? String(d.salesOrderLineId) : undefined,
+      } as MoveInput, userId, undefined, session);
+    });
+    return this.search.getItem(String(mv.materialId));
   }
 
-  async cancelMovement(id: string, userId?: string) {
+  async cancelMovement(id: string, userId?: string, outer?: ClientSession) {
     const mv = await this.movements.findOne({ _id: oid(id, 'движения'), deletedAt: null }).lean().exec();
     if (!mv) throw new NotFoundException('Движение не найдено');
     const d = mv as typeof mv & { delta?: number; cancelledAt?: Date; cancelOf?: Types.ObjectId; source?: string; reservationId?: Types.ObjectId };
@@ -502,9 +513,15 @@ export class StockMovementsService {
     back.cancelOf = mv._id as Types.ObjectId;
     // запись занимается условием cancelledAt: null в той же транзакции, что и обратное движение — двойная отмена остаток не вернёт дважды
     return this.move(String(mv.materialId), back, userId, async (session) => {
+      await claimStockLinks(this.connection.db!, session, [mv]);
+      const requestId = /^SupplyRequest:([a-f0-9]{24})$/i.exec(mv.documentRef ?? '')?.[1];
+      if (requestId) {
+        const request = await this.connection.db!.collection('supplyrequests').findOne({ _id: new Types.ObjectId(requestId) }, { session, projection: { salesOrderId: 1, salesOrderLineId: 1 } });
+        if (request) await claimStockLinks(this.connection.db!, session, [{ salesOrderId: request.salesOrderId, salesOrderLineId: request.salesOrderLineId }]);
+      }
       const claim = await this.movements.updateOne({ _id: mv._id, cancelledAt: null }, { $set: { cancelledAt: new Date() } }, { session }).exec();
       if (!claim.matchedCount) throw new ConflictException('Движение уже отменено');
-    });
+    }, outer);
   }
 
 }

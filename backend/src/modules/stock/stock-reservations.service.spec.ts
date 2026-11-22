@@ -13,6 +13,7 @@ function setup() {
     set(k: string, v: unknown) { this[k] = v; }, save: jest.fn(async () => undefined) });
   const res = mk();
   const coll = (name: string) => ({
+    updateOne: async () => ({ matchedCount: 1 }),
     findOne: async (q: { _id: Types.ObjectId }) => (name === 'salesorders' ? [order, other].find((o) => o._id.equals(q._id)) : name === 'incomes' ? [lineOk, lineOther].find((o) => o._id.equals(q._id)) : null) ?? null,
   });
   const reservations = {
@@ -115,7 +116,7 @@ describe('СКЛ-1: reserve-list', () => {
     svcAny.reservationGroup = jest.fn(async () => ({ items: [] }));
     const base = (t.svc as unknown as { connection: { db: { collection: (n: string) => Row } } }).connection;
     const orig = base.db.collection;
-    base.db.collection = (n: string) => (n === 'salesorders' ? { findOne: async (qq: Row) => ([t.order, t.other].find((o) => o._id.equals(qq._id)) ? { _id: qq._id, orderNo: '2026-17' } : null) } : orig(n));
+    base.db.collection = (n: string) => (n === 'salesorders' ? { ...orig(n), findOne: async (qq: Row) => ([t.order, t.other].find((o) => o._id.equals(qq._id)) ? { _id: qq._id, orderNo: '2026-17' } : null) } : orig(n));
     return { ...t, created };
   }
   it('groupName не нужен: имя «Заказ № …» берётся из заказа', async () => {

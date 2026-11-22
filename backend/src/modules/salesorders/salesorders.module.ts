@@ -1,3 +1,7 @@
+import { OrderActsController } from './order-acts.controller';
+import { OrderArchiveController } from './order-archive.controller';
+import { OrderArchiveService } from './order-archive.service';
+import { ARCHIVES, CHUNKS, REOPENS, ArchiveSchema, ArchiveChunkSchema, ArchiveReopenSchema } from './order-archive.schema';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { SalesOrder, SalesOrderSchema } from './sales-order.schema';
@@ -12,9 +16,10 @@ import { SalesOrdersService } from './salesorders.service';
 
 /** /api/salesorders — заказы заказчиков (шапки); коллекция data-core `salesorders`. Позиции — `incomes`. */
 @Module({
-  imports: [MongooseModule.forFeature([{ name: SalesOrder.name, schema: SalesOrderSchema }]), AuditModule, NotificationsModule, ZonesModule, IncomesModule],
-  controllers: [SalesOrdersController, ProductionOrdersController],
-  providers: [SalesOrdersService, ProductionOrdersService],
+  imports: [MongooseModule.forFeature([{ name: SalesOrder.name, schema: SalesOrderSchema },
+    { name: ARCHIVES, schema: ArchiveSchema }, { name: REOPENS, schema: ArchiveReopenSchema }, { name: CHUNKS, schema: ArchiveChunkSchema }] ), AuditModule, NotificationsModule, ZonesModule, IncomesModule],
+  controllers: [OrderActsController, OrderArchiveController, SalesOrdersController, ProductionOrdersController],
+  providers: [OrderArchiveService, SalesOrdersService, ProductionOrdersService],
   exports: [SalesOrdersService, ProductionOrdersService, MongooseModule],
 })
 export class SalesOrdersModule {}

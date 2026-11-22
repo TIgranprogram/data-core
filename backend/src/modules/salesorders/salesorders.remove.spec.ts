@@ -8,7 +8,7 @@ function setup(counts: { incomes: number; shipments: number }) {
   const cur = { _id: new Types.ObjectId(), deletedAt: null };
   const updateOne = jest.fn(() => q({}));
   const updateMany = jest.fn(async () => ({}));
-  const coll = (n: string) => ({ countDocuments: async () => (n === 'incomes' ? counts.incomes : counts.shipments), updateMany });
+  const coll = (n: string) => ({ updateOne: async () => ({ matchedCount: 1 }), countDocuments: async () => (n === 'incomes' ? counts.incomes : counts.shipments), updateMany });
   const connection = { db: { collection: coll }, startSession: async () => ({ withTransaction: async (cb: () => Promise<void>) => cb(), endSession: async () => undefined }) };
   const svc = new SalesOrdersService(connection as never, { updateOne, findOne: jest.fn(() => q(cur)) } as never);
   jest.spyOn(svc as never, 'findRaw').mockResolvedValue(cur as never);

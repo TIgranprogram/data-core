@@ -60,11 +60,16 @@ export class StockService {
   openRequests(mats: { _id: Types.ObjectId; name?: string }[]) { return this.search.openRequests(mats); }
   itemOrdered(materialId: string, canMoney: boolean, scope: StockScope | null) { return this.search.itemOrdered(materialId, canMoney, scope); }
   purchaseSuppliers(materialIds: Types.ObjectId[]) { return this.search.purchaseSuppliers(materialIds); }
-  categorySummary(scope: StockScope | null) { return this.search.categorySummary(scope); }
+  categorySummary(scope: StockScope | null, held = false) { return this.search.categorySummary(scope, held); }
   getItem(materialId: string, scope?: StockScope | null) { return this.search.getItem(materialId, scope); }
 
   // --- карточка позиции
   findMaterialByName(name: string) { return this.catalog.findMaterialByName(name); }
+  withRequestMaterial<T>(
+    input: Parameters<StockCatalogService['withRequestMaterial']>[0],
+    scope: StockScope | null | undefined,
+    write: (materialId: Types.ObjectId, session: ClientSession) => Promise<T>,
+  ) { return this.catalog.withRequestMaterial(input, scope, write); }
   autoArticle() { return this.catalog.autoArticle(); }
   skuFor(categoryId?: Types.ObjectId) { return this.catalog.skuFor(categoryId); }
   createItem(dto: StockItemInput, scope?: StockScope | null) { return this.catalog.createItem(dto, scope); }
@@ -92,7 +97,7 @@ export class StockService {
   listMovements(q: Record<string, unknown>, scope: StockScope | null) { return this.moves.listMovements(q, scope); }
   movementMaterialId(id: string) { return this.moves.movementMaterialId(id); }
   correctMovement(id: string, qty: number, userId?: string) { return this.moves.correctMovement(id, qty, userId); }
-  cancelMovement(id: string, userId?: string) { return this.moves.cancelMovement(id, userId); }
+  cancelMovement(id: string, userId?: string, session?: ClientSession) { return this.moves.cancelMovement(id, userId, session); }
 
   // --- брони
   reserveList(dto: Parameters<StockReservationsService['reserveList']>[0], userId?: string) { return this.resv.reserveList(dto, userId); }

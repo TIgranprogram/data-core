@@ -148,9 +148,11 @@ export class DesignBoardService {
   async addOrder(dto: AddDesignOrderDto, userId?: string) {
     const orderId = oid(dto.orderId, 'заказа');
     if (!(await this.db().collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
-    await this.design.markOrder(orderId, userId);
-    if (!dto.distribute) return { orderId: String(orderId), created: 0, skipped: 0 };
-    const r = await this.design.fromOrder({ orderId: String(orderId) }, userId);
+    if (!dto.distribute) {
+      await this.design.markOrder(orderId, userId);
+      return { orderId: String(orderId), created: 0, skipped: 0 };
+    }
+    const r = await this.design.fromOrder({ orderId: String(orderId) }, userId, true);
     return { orderId: String(orderId), created: r.created, skipped: r.skipped };
   }
 

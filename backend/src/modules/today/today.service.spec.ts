@@ -19,7 +19,7 @@ const data = {
 
 function make() {
   const forecast = jest.fn().mockResolvedValue({ days: [{ date: '2026-10-28', expense: 1000, income: 0, closing: -1000 }, { date: '2026-10-29', expense: 0, income: 0, closing: -1000 }] });
-  const stock = { listItems: jest.fn().mockResolvedValue({ counts: { ok: 5, low: 2, none: 1 } }) };
+  const stock = { listItems: jest.fn().mockResolvedValue({ counts: { ok: 5, low: 2, none: 0 } }) };
   const svc = new TodayService(fakeDb(data), { forecast } as never, stock as never);
   return { svc, forecast, stock };
 }
@@ -32,7 +32,7 @@ describe('TodayService', () => {
     expect(r.feed[0]).toMatchObject({ kind: 'delivery', tone: 'danger', overdueDays: 2 });
     expect(r.feed.map((f) => f.kind)).toEqual(expect.arrayContaining(['delivery', 'payment', 'shipment']));
     expect(r.metrics.money).toEqual({ days: [{ date: '2026-10-28', balance: -1000 }, { date: '2026-10-29', balance: -1000 }] });
-    expect(r.metrics.stock).toEqual({ ok: 5, low: 2, none: 1 });
+    expect(r.metrics.stock).toEqual({ ok: 5, low: 2, none: 0 });
     expect(r.week).toHaveLength(7);
   });
 
@@ -46,9 +46,10 @@ describe('TodayService', () => {
   });
 
   it('счётчики меню: все разделы админу; без денег — нет «ждём оплату»', async () => {
-    const { svc } = make();
+    const { svc, stock } = make();
     // в make() один salesorder без stage → «new» → 1 активный заказ производства
-    expect(await svc.counters({ role: 'admin' })).toEqual({ requests: 0, stockLow: 3, awaiting: 0, salesorders: 1, design: 0, work: 0 });
+    expect(await svc.counters({ role: 'admin' })).toEqual({ requests: 0, stockLow: 2, awaiting: 0, salesorders: 1, design: 0, work: 0 });
+    expect(stock.listItems).toHaveBeenCalledWith({ limit: 1, held: '1' }, null);
     expect(await svc.counters({ role: 'user' })).not.toHaveProperty('awaiting');
   });
 

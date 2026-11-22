@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { Types } from 'mongoose';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
@@ -73,5 +74,26 @@ describe('Order line plans (состав позиции)', () => {
     const task = await db().collection('worktasks').findOne({});
     expect(task!.route.map((s: { partName: string; hours: number; stepId: unknown }) => [s.partName, s.hours, !!s.stepId])).toEqual([['Навес', 2, true], ['Изделие целиком', 1, true]]);
     expect((await http().get(`/api/orderline-plans/by-income/${line}`).set(auth()).expect(200)).body).toMatchObject({ task: { status: 'work' }, changedAfterLaunch: false });
+  });
+
+  it('C188: архив сохраняет план для просмотра и запрещает менять шаги или запускать работу заново', async () => {
+    const key = new Types.ObjectId(orderId);
+    const id = plan.id as string, step = plan.steps[0].id as string;
+    const task = (await http().get('/api/work-tasks').set(auth()).expect(200)).body.items[0];
+    await http().post('/api/work-tasks/' + task.id + '/done').set(auth()).expect(200);
+    const orders = db().collection('salesorders');
+    await orders.updateOne({ _id: key }, { $set: { activeArchiveVersion: 1 } });
+    try {
+      const before = (await http().get('/api/orderline-plans/by-income/' + line).set(auth()).expect(200)).body;
+      await http().put('/api/orderline-plans/' + id).set(auth()).send({ rev: before.rev, parts: [], steps: [] }).expect(409);
+      await http().patch('/api/orderline-plans/' + id + '/steps/' + step).set(auth()).send({ hours: 3 }).expect(409);
+      await http().post('/api/orderline-plans/' + id + '/steps/' + step + '/mark').set(auth()).send({ what: 'start' }).expect(409);
+      await http().patch('/api/work-tasks/' + task.id).set(auth()).send({ note: 'Проверка' }).expect(409);
+      await http().delete('/api/work-tasks/' + task.id).set(auth()).expect(409);
+      await http().post('/api/work-tasks/launch').set(auth()).send({ lineIds: [line] }).expect(409);
+      expect((await http().get('/api/orderline-plans/by-income/' + line).set(auth()).expect(200)).body.rev).toBe(before.rev);
+    } finally {
+      await orders.updateOne({ _id: key }, { $unset: { activeArchiveVersion: '' } });
+    }
   });
 });

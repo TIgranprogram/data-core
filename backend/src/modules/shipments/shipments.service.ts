@@ -1,6 +1,7 @@
+import { archiveOrderConflict, withOrderWrite } from '../../common/order-archive/write';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Types, type Connection, type Model } from 'mongoose';
+import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid } from '../../common/list-query';
 import { loadLinePhotos, type LinePhoto } from '../../common/photos';
@@ -37,17 +38,17 @@ export class ShipmentsService {
 
   private db() { return this.connection.db!; }
 
-  private async order(orderId: string | Types.ObjectId): Promise<Doc> {
-    const o = await this.db().collection('salesorders').findOne({ _id: typeof orderId === 'string' ? oid(orderId, 'заказа') : orderId, deletedAt: null });
+  private async order(orderId: string | Types.ObjectId, session?: ClientSession): Promise<Doc> {
+    const o = await this.db().collection('salesorders').findOne({ _id: typeof orderId === 'string' ? oid(orderId, 'заказа') : orderId, deletedAt: null }, { session });
     if (!o) throw new NotFoundException('Заказ не найден');
     return o;
   }
 
-  private incomes(orderId: Types.ObjectId) {
-    return this.db().collection('incomes').find({ orderId, deletedAt: null, cancelledAt: null }, { projection: { title: 1, unit: 1, qty: 1, lineNo: 1, productId: 1, photoIds: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() as Promise<Doc[]>;
+  private incomes(orderId: Types.ObjectId, session?: ClientSession) {
+    return this.db().collection('incomes').find({ orderId, deletedAt: null, cancelledAt: null }, { session, projection: { title: 1, unit: 1, qty: 1, lineNo: 1, productId: 1, photoIds: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray() as Promise<Doc[]>;
   }
 
-  private live(orderId: Types.ObjectId) { return this.model.find({ orderId, deletedAt: null }).sort({ date: -1, seq: -1 }).lean().exec() as unknown as Promise<Doc[]>; }
+  private live(orderId: Types.ObjectId, session?: ClientSession) { return this.model.find({ orderId, deletedAt: null }).session(session ?? null).sort({ date: -1, seq: -1 }).lean().exec() as unknown as Promise<Doc[]>; }
 
   private rem(lines: Doc[], ships: Doc[]): RemainRow[] {
     return remaining(lines.map((l) => ({ id: String(l._id), qty: l.qty })), ships.map((s) => ({ lines: (s.lines as Doc[]).map((x) => ({ incomeId: String(x.incomeId), qty: x.qty })) })));
@@ -91,11 +92,12 @@ export class ShipmentsService {
   }
 
   /** Пересчёт этапа заказа по живым отгрузкам. */
-  private async recalcStage(orderId: Types.ObjectId): Promise<OrderStage> {
-    const cur = await this.db().collection('salesorders').findOne({ _id: orderId }, { projection: { stage: 1 } });
-    const [lines, ships] = await Promise.all([this.incomes(orderId), this.live(orderId)]);
+  private async recalcStage(orderId: Types.ObjectId, session: ClientSession): Promise<OrderStage> {
+    const cur = await this.db().collection('salesorders').findOne({ _id: orderId }, { session, projection: { stage: 1 } });
+    const lines = await this.incomes(orderId, session);
+    const ships = await this.live(orderId, session);
     const stage = stageAfterShipments((cur?.stage as OrderStage) || 'new', this.rem(lines, ships), ships.length);
-    if (stage !== (cur?.stage ?? 'new')) await this.db().collection('salesorders').updateOne({ _id: orderId }, { $set: { stage, updatedAt: new Date() } });
+    if (stage !== (cur?.stage ?? 'new')) await this.db().collection('salesorders').updateOne({ _id: orderId }, { $set: { stage, updatedAt: new Date() } }, { session });
     return stage;
   }
 
@@ -108,15 +110,16 @@ export class ShipmentsService {
   async create(orderId: string, dto: CreateShipmentDto, user: AuthenticatedUser) {
     const o = await this.order(orderId);
     const _id = o._id as Types.ObjectId;
+    if (o.activeArchiveVersion != null) throw archiveOrderConflict();
     if (dto.clientUid) { // повтор (двойной тап, офлайн-очередь) — вернуть прежнюю отгрузку
       const prev = await this.model.findOne({ clientUid: dto.clientUid, orderId: _id }).lean().exec() as unknown as Doc | null;
-      if (prev) return { ...this.present(prev), orderStage: await this.recalcStage(_id) };
+      if (prev) return { ...this.present(prev), orderStage: o.stage ?? 'new' };
     }
     if (o.stage === 'closed' || o.stage === 'cancelled') throw new BadRequestException('Заказ закрыт или отменён — отгрузить нельзя');
     const [lines, ships] = await Promise.all([this.incomes(_id), this.live(_id)]);
     if (o.stage === 'shipped' && ships.length === 0) throw new BadRequestException('Заказ отмечен «Отгружен» до учёта отгрузок — смените этап вручную, если нужна новая отгрузка');
     /** Проверка остатка по позициям и строки отгрузки; зовётся до записи и ещё раз внутри транзакции по свежим отгрузкам. */
-    const plan = (ships: Doc[]) => {
+    const plan = (lines: Doc[], ships: Doc[]) => {
     const rem = new Map(this.rem(lines, ships).map((r) => [r.incomeId, r]));
     const byId = new Map(lines.map((l) => [String(l._id), l]));
     const seen = new Set<string>();
@@ -137,35 +140,30 @@ export class ShipmentsService {
     if (leftAfter && !String(dto.reason ?? '').trim()) throw new BadRequestException('Укажите причину: отгружается не весь остаток');
     return outLines;
     };
-    plan(ships);
+    plan(lines, ships);
     const seq = await this.counters.nextSeq('Shipment', String(_id));
     const whoName = await this.userName(user);
-    let doc: Doc | undefined;
-    const session = await this.connection.startSession();
     try {
-      await session.withTransaction(async () => {
-        doc = undefined;
-        // повтор и остаток проверяются заново внутри транзакции (HARDEN-1 п.12)
+      return await withOrderWrite(this.connection, [_id], async session => {
+        const current = await this.order(_id, session);
         if (dto.clientUid) {
           const prev = await this.model.findOne({ clientUid: dto.clientUid, orderId: _id }).session(session).lean().exec() as unknown as Doc | null;
-          if (prev) { doc = prev; return; }
+          if (prev) return { ...this.present(prev), orderStage: current.stage ?? 'new' };
         }
-        // запись заказа «занимается»: две одновременные отгрузки не пройдут вместе, вторая пересчитает остаток после повтора
-        await this.db().collection('salesorders').updateOne({ _id }, { $set: { updatedAt: new Date() } }, { session });
-        const fresh = await this.model.find({ orderId: _id, deletedAt: null }).session(session).lean().exec() as unknown as Doc[];
-        const outLines = plan(fresh);
+        const fresh = await this.live(_id, session);
+        if (['closed', 'cancelled'].includes(current.stage) || (current.stage === 'shipped' && !fresh.length)) throw new BadRequestException('Этап заказа больше не допускает отгрузку');
+        const outLines = plan(await this.incomes(_id, session), fresh);
         const [made] = await this.model.create([{
-          orderId: _id, seq, number: shipmentNumber(o.productionNo, o.orderNo, seq), date: day(dto.date), lines: outLines, clientUid: dto.clientUid,
+          orderId: _id, seq, number: shipmentNumber(current.productionNo, current.orderNo, seq), date: day(dto.date), lines: outLines, clientUid: dto.clientUid,
           whoId: user?.id && isOid(user.id) ? new Types.ObjectId(user.id) : undefined, whoName,
           reason: dto.reason?.trim() || undefined, note: dto.note?.trim() || undefined, docNo: dto.docNo?.trim() || undefined, receiver: dto.receiver?.trim() || undefined,
         }], { session });
-        doc = made.toObject() as unknown as Doc;
+        return { ...this.present(made.toObject() as unknown as Doc), orderStage: await this.recalcStage(_id, session) };
       });
     } catch (e) {
       if ((e as { code?: number }).code === 11000) throw new ConflictException('Номер отгрузки занят — повторите');
       throw e;
-    } finally { await session.endSession(); }
-    return { ...this.present(doc!), orderStage: await this.recalcStage(_id) };
+    }
   }
 
   private async find(id: string, deleted = false): Promise<Doc> {
@@ -180,7 +178,7 @@ export class ShipmentsService {
     if (dto.date !== undefined) set.date = day(dto.date);
     for (const k of ['note', 'docNo', 'receiver'] as const) if (dto[k] !== undefined) set[k] = String(dto[k]).trim() || null;
     if (!Object.keys(set).length) throw new BadRequestException('Нечего менять: допустимы date, note, docNo, receiver');
-    await this.model.updateOne({ _id: s._id }, { $set: set }).exec();
+    await withOrderWrite(this.connection, [s.orderId], session => this.model.updateOne({ _id: s._id, deletedAt: null }, { $set: set }, { session }).exec());
     return this.present(await this.find(id));
   }
 
@@ -188,23 +186,31 @@ export class ShipmentsService {
   async remove(id: string, user: AuthenticatedUser) {
     const s = await this.find(id);
     const at = new Date();
-    await this.model.updateOne({ _id: s._id }, { $set: { deletedAt: at, deletedById: user?.id && isOid(user.id) ? new Types.ObjectId(user.id) : undefined, deletedByName: await this.userName(user) } }).exec();
-    return { ...this.present(s), deletedAt: at, orderStage: await this.recalcStage(s.orderId) };
+    return withOrderWrite(this.connection, [s.orderId], async session => {
+      const r = await this.model.updateOne({ _id: s._id, deletedAt: null }, { $set: { deletedAt: at, deletedById: user?.id && isOid(user.id) ? new Types.ObjectId(user.id) : undefined, deletedByName: await this.userName(user) } }, { session }).exec();
+      if (!r.matchedCount) throw new ConflictException('Отгрузка изменилась');
+      return { ...this.present(s), deletedAt: at, orderStage: await this.recalcStage(s.orderId, session) };
+    });
   }
 
   async restore(id: string) {
     const s = await this.find(id, true);
-    const o = await this.order(s.orderId);
-    if (o.stage === 'closed' || o.stage === 'cancelled') throw new BadRequestException('Заказ закрыт или отменён — восстановить отгрузку нельзя');
-    const [lines, ships] = await Promise.all([this.incomes(o._id), this.live(o._id)]);
-    const rem = new Map(this.rem(lines, ships).map((r) => [r.incomeId, r]));
-    for (const l of s.lines as Doc[]) {
-      const r = rem.get(String(l.incomeId));
-      if (!r) throw new BadRequestException(`Позиции «${l.title}» уже нет в заказе — восстановить нельзя`);
-      if (l.qty > r.left + 1e-9) throw new BadRequestException(`Позиция «${l.title}»: осталось ${fmt(r.left)}${l.unit ? ' ' + l.unit : ''}, в отгрузке ${fmt(l.qty)}`);
-    }
-    await this.model.updateOne({ _id: s._id }, { $set: { deletedAt: null }, $unset: { deletedById: '', deletedByName: '' } }).setOptions({ includeSoftDeleted: true }).exec();
-    return { ...this.present(await this.find(id)), orderStage: await this.recalcStage(o._id) };
+    const orderStage = await withOrderWrite(this.connection, [s.orderId], async session => {
+      const o = await this.order(s.orderId, session);
+      if (o.stage === 'closed' || o.stage === 'cancelled') throw new BadRequestException('Заказ закрыт или отменён — восстановить отгрузку нельзя');
+      const lines = await this.incomes(o._id, session);
+      const ships = await this.live(o._id, session);
+      const rem = new Map(this.rem(lines, ships).map((r) => [r.incomeId, r]));
+      for (const l of s.lines as Doc[]) {
+        const r = rem.get(String(l.incomeId));
+        if (!r) throw new BadRequestException(`Позиции «${l.title}» уже нет в заказе — восстановить нельзя`);
+        if (l.qty > r.left + 1e-9) throw new BadRequestException(`Позиция «${l.title}»: осталось ${fmt(r.left)}${l.unit ? ' ' + l.unit : ''}, в отгрузке ${fmt(l.qty)}`);
+      }
+      const r = await this.model.updateOne({ _id: s._id, deletedAt: { $ne: null } }, { $set: { deletedAt: null }, $unset: { deletedById: '', deletedByName: '' } }, { session }).setOptions({ includeSoftDeleted: true }).exec();
+      if (!r.matchedCount) throw new ConflictException('Отгрузка изменилась');
+      return this.recalcStage(o._id, session);
+    });
+    return { ...this.present(await this.find(id)), orderStage };
   }
 
   /** Печатная форма: А4, чёрно-белая. «Остаток после» — по отгрузкам до этой включительно. */

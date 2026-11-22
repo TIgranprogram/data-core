@@ -1,3 +1,4 @@
+import { archiveOrderConflict, claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
 import { passportContextStage } from '../../common/passport/line-source';
 import { loadOrderMatches } from '../matching/match-facts';
 import { LegalPatchDto } from '../../common/legal/legal.dto';
@@ -5,7 +6,7 @@ import { assertIntakeIndexes, assertSalesBusinessIndex, assertIntakeReplay, inta
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import type { Connection, Model } from 'mongoose';
+import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
@@ -398,7 +399,22 @@ export class SalesOrdersService {
       const dup=await this.model.findOne({$or:[{intakeUid},{intakeKey}]}).setOptions({includeSoftDeleted:true}).lean().exec();
       if(dup){assertIntakeReplay(dup as any,intakeHash);return this.get(String(dup._id));}
       await validateLegalParties(this.connection,selectedCompany,dto.counterpartyId||undefined,dto.initialLegal);
-      const legal=prepareLegal(dto.initialLegal,undefined,userId);await validateLegalFiles(this.connection,legal);
+      const initial = dto.initialLegal;
+      const checkDeadline = initial.origin?.kind === 'source_import' && initial.state === 'draft' &&
+        !initial.issues.some(issue => issue.field === 'deadlineTerms');
+      if (checkDeadline && initial.issues.length >= 50) throw new BadRequestException('Освободите место для проверки срока договора');
+      const legal = prepareLegal(checkDeadline ? {
+        ...initial,
+        issues: [...initial.issues, {
+          uid: 'deadline-' + intakeKey.slice(0, 32),
+          field: 'deadlineTerms',
+          label: 'Срок по договору',
+          reason: 'Сверьте дату или условие отсчёта по подписанному документу и приложениям.',
+          state: 'unknown',
+          documentUid: initial.documents.find(doc => doc.kind === 'contract')?.uid,
+        }],
+      } : initial, undefined, userId);
+      await validateLegalFiles(this.connection, legal);
       source={legal,legalVersion:0,intakeUid,intakeKey,intakeHash};
     }else if(dto.intakeUid)throw new BadRequestException('Для ключа загрузки нужен комплект источника');
     if (dto.clientUid&&!dto.initialLegal) {
@@ -433,7 +449,8 @@ export class SalesOrdersService {
     return this.get(String(doc._id));
   }
 
-  async updateLegal(id:string,dto:LegalPatchDto,userId?:string){await patchLegal(this.model,id,dto,userId);return this.get(id);}
+  async updateLegal(id:string,dto:LegalPatchDto,userId?:string){if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Договор не найден');
+    await withOrderWrite(this.connection,[id],session => patchLegal(this.model,id,dto,userId,session));return this.get(id);}
 
   /** ЗО-3/5: новый заказ — личному менеджеру, иначе зоне «Договоры», иначе руководству («Не назначено»). */
   private async afterCreate(o: Doc, actorId?: string) {
@@ -475,6 +492,7 @@ export class SalesOrdersService {
   async update(id: string, dto: SalesOrderDto, userId?: string, actor?: AuthenticatedUser) {
     if(dto.initialLegal||dto.intakeUid||dto.productionAssignment)throw new BadRequestException('Комплект источников меняется отдельным действием карточки');
     const cur = await this.findRaw(id);
+    if (cur.activeArchiveVersion != null) throw archiveOrderConflict();
     await this.assertHasLines([cur as Doc], dto.stage);
     this.checkStageMove(cur as Doc, dto, actor);
     const { f, companyShort } = await this.toFields(dto);
@@ -492,39 +510,40 @@ export class SalesOrdersService {
     for (const [k, v] of Object.entries(f)) (v === undefined ? (unset[k] = '') : (set[k] = v));
     // № заказа менялся: фиксируем дату входа в заказ (порядок договоров); убрать договор из заказа с выдачами/отгрузками нельзя
     if ('productionNo' in f && (f.productionNo ?? '') !== (cur.productionNo ?? '')) {
-      if (cur.productionNo) await this.ensureDetachable(cur._id as Types.ObjectId);
       if (f.productionNo) set.productionAddedAt = new Date(); else unset.productionAddedAt = '';
     }
-    await this.model.updateOne({ _id: cur._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
-    await this.syncLines(cur._id as Types.ObjectId, f);
+    await withOrderWrite(this.connection, [cur._id], async session => {
+      if (cur.productionNo && 'productionNo' in f && f.productionNo !== cur.productionNo) await this.ensureDetachable(cur._id as Types.ObjectId, session);
+      await this.model.updateOne({ _id: cur._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session }).exec();
+      await this.syncLines(cur._id as Types.ObjectId, f, session);
+    });
     if ('responsibleId' in f) await this.zones?.recordHandoff({ entity: 'salesorder', entityId: cur._id, field: 'responsibleId', from: cur.responsibleId, to: f.responsibleId, byUserId: userId });
     return this.get(id);
   }
 
   /** Договор можно вывести из заказа, только если по нему нет выдач со склада и отгрузок. */
-  async ensureDetachable(orderId: Types.ObjectId) {
+  async ensureDetachable(orderId: Types.ObjectId, session: ClientSession) {
     const db = this.connection.db!;
-    const [issued, shipped] = await Promise.all([
-      db.collection('stockmovements').countDocuments({ salesOrderId: orderId, deletedAt: null, cancelledAt: null }, { limit: 1 }),
-      db.collection('shipments').countDocuments({ orderId, deletedAt: null }, { limit: 1 }),
-    ]);
+    const issued = await db.collection('stockmovements').countDocuments({ salesOrderId: orderId, deletedAt: null, cancelledAt: null }, { limit: 1, session });
+    const shipped = await db.collection('shipments').countDocuments({ orderId, deletedAt: null }, { limit: 1, session });
     if (issued || shipped) throw new ConflictException('Договор уже в работе: есть выдачи/отгрузки');
   }
 
   /** Правка шапки → кэш-поля в позициях; при смене даты отгрузки reportDate = оплата ?? отгрузка. */
-  private async syncLines(orderId: Types.ObjectId, f: Doc) {
+  private async syncLines(orderId: Types.ObjectId, f: Doc, session: ClientSession) {
     const stage: Doc = {};
     for (const k of ORDER_CACHE_FIELDS) if (k in f) stage[k] = f[k] === undefined ? '$$REMOVE' : { $literal: f[k] };
     if (!Object.keys(stage).length) return;
     const pipeline: Doc[] = [{ $set: { ...stage, updatedAt: new Date() } }];
     // Mongo 4.4: у $ifNull ровно 2 аргумента — вкладываем
     if ('shipDate' in f) pipeline.push({ $set: { reportDate: { $ifNull: ['$paidDate', { $ifNull: ['$shipDate', '$$REMOVE'] }] } } });
-    await this.incomes().updateMany({ orderId }, pipeline);
+    await this.incomes().updateMany({ orderId }, pipeline, { session });
   }
 
   /** В корзину вместе с позициями (позиции помечаются, чтобы восстановить ровно их; лист «Заказы» их больше не трогает). */
   async remove(id: string) {
     const cur = await this.findRaw(id);
+    if (cur.activeArchiveVersion != null) throw archiveOrderConflict();
     // CANON: нельзя удалить то, на что ссылаются — оплата и отгрузки хранят деньги и склад
     const paid = await this.incomes().countDocuments({ orderId: cur._id, deletedAt: null, $or: [{ paidAmount: { $gt: 0 } }, { paidDate: { $ne: null } }, { 'payments.0': { $exists: true } }] });
     if (paid) throw new ConflictException(`В заказе есть оплаты (позиций с оплатой: ${paid}) — сначала уберите платежи в карточке позиции`);
@@ -535,6 +554,9 @@ export class SalesOrdersService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        await claimWritableOrders(this.connection.db!, session, [cur._id]);
+        if (await this.incomes().countDocuments({ orderId: cur._id, deletedAt: null, $or: [{ paidAmount: { $gt: 0 } }, { paidDate: { $ne: null } }, { 'payments.0': { $exists: true } }] }, { session })) throw new ConflictException('В заказе есть оплаты');
+        if (await this.connection.db!.collection('shipments').countDocuments({ orderId: cur._id, deletedAt: null }, { session })) throw new ConflictException('По заказу есть отгрузки');
         await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: now, editedInApp: true } }, { session }).exec();
         await this.incomes().updateMany({ orderId: cur._id, deletedAt: null }, { $set: { deletedAt: now, deletedWithOrder: true, editedInApp: true, updatedAt: now }, $inc: { passportEpoch: 1 } }, { session });
       });
@@ -544,8 +566,10 @@ export class SalesOrdersService {
 
   async restore(id: string) {
     const cur = await this.findRaw(id, true);
-    await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: null } }).setOptions({ includeSoftDeleted: true }).exec();
-    await this.incomes().updateMany({ orderId: cur._id, deletedWithOrder: true }, { $set: { deletedAt: null, updatedAt: new Date() }, $unset: { deletedWithOrder: '' }, $inc: { passportEpoch: 1 } });
+    await withOrderWrite(this.connection, [cur._id], async session => {
+      await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: null } }, { session }).setOptions({ includeSoftDeleted: true }).exec();
+      await this.incomes().updateMany({ orderId: cur._id, deletedWithOrder: true }, { $set: { deletedAt: null, updatedAt: new Date() }, $unset: { deletedWithOrder: '' }, $inc: { passportEpoch: 1 } }, { session });
+    });
     return this.get(id);
   }
 
@@ -570,13 +594,14 @@ export class SalesOrdersService {
     const todo = picks.filter((x) => x?.productId);
     const ids = [...new Set(todo.map((x) => String(x.productId)))].map((v) => oid(v, 'изделия'));
     const found = new Set((await this.connection.db!.collection('products').find({ _id: { $in: ids }, deletedAt: null }, { projection: { _id: 1 } }).toArray()).map((p) => String(p._id)));
-    let applied = 0;
-    for (const x of todo) {
-      if (!own.has(String(x.lineId))) throw new BadRequestException('Позиция не из этого заказа или уже с изделием');
-      if (!found.has(String(x.productId))) throw new BadRequestException('Изделие не найдено');
-      await this.incomes().updateOne({ _id: oid(x.lineId, 'позиции') }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, oid(String(x.productId), 'изделия')] }), { $set: { productId: oid(String(x.productId), 'изделия'), matchStatus:'confirmed',matchedAt:new Date(), updatedAt: new Date(), version: { $add: [{ $ifNull: ['$version', 0] }, 1] } } }]);
-      applied++;
-    }
-    return { applied: true, count: applied };
+    return withOrderWrite(this.connection, [order._id], async session => {
+      for (const x of todo) {
+        if (!own.has(String(x.lineId))) throw new BadRequestException('Позиция не из этого заказа или уже с изделием');
+        if (!found.has(String(x.productId))) throw new BadRequestException('Изделие не найдено');
+        const changed = await this.incomes().updateOne({ _id: oid(x.lineId, 'позиции'), orderId: order._id, deletedAt: null, cancelledAt: null, productId: null }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, oid(String(x.productId), 'изделия')] }), { $set: { productId: oid(String(x.productId), 'изделия'), matchStatus:'confirmed',matchedAt:new Date(), updatedAt: new Date(), version: { $add: [{ $ifNull: ['$version', 0] }, 1] } } }], { session });
+        if (!changed.matchedCount) throw new ConflictException('Позиция изменилась — перечитайте договор');
+      }
+      return { applied: true, count: todo.length };
+    });
   }
 }

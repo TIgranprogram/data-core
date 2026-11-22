@@ -62,7 +62,8 @@ describe('IncomesService', () => {
     dup = null;
     const collection = (name: string) => ({
       find: jest.fn(() => ({ toArray: async () => colls[name] ?? [] })),
-      findOne: jest.fn(async () => (colls[name] ?? [])[0] ?? null),
+      findOne: jest.fn(async () => name === 'incomes' ? current : (colls[name] ?? [])[0] ?? null),
+      updateOne: async () => ({ matchedCount: 1 }),
       distinct: jest.fn(async () => []), countDocuments: jest.fn(async () => 0),
     });
     const connection = { db: { collection: jest.fn(collection) }, startSession: async () => ({ withTransaction: async (fn: () => Promise<unknown>) => fn(), endSession: async () => undefined }) };
@@ -71,7 +72,7 @@ describe('IncomesService', () => {
       findOne: jest.fn((f: Record<string, unknown>) => chain(f.clientUid ? dup : current)),
       countDocuments: jest.fn(() => chain(0)),
       aggregate: jest.fn(() => chain([])),
-      create: jest.fn(async (d: Record<string, unknown>) => { current = { _id: new Types.ObjectId(), ...d }; return current; }),
+      create: jest.fn(async (d: Record<string, unknown>) => { current = { _id: new Types.ObjectId(), ...(Array.isArray(d) ? d[0] : d) }; return Array.isArray(d) ? [current] : current; }),
       updateOne: jest.fn(() => chain({ matchedCount: 1 })),
       distinct: jest.fn(() => chain([])),
     };
@@ -185,7 +186,7 @@ describe('IncomesService', () => {
       const cur = { _id: new Types.ObjectId(), title: 'x' };
       model.findOne.mockImplementation((f: Record<string, unknown>) => chain(f.orderId ? { lineNo: 4 } : f.clientUid ? null : cur));
       await service.create({ title: 'Скамья', orderId: String(orderId) } as never);
-      const arg = model.create.mock.calls[0][0];
+      const arg = model.create.mock.calls[0][0][0];
       expect(arg).toMatchObject({ orderNo: '123', customer: 'ООО Ромашка', paymentForm: 'б/р', lineNo: 5 });
     });
 

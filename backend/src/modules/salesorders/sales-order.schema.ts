@@ -14,6 +14,9 @@ export type SalesOrderDocument = HydratedDocument<SalesOrder>;
  */
 @Schema({ timestamps: true, collection: 'salesorders' })
 export class SalesOrder {
+  /** C188: активный архив и версия состояния для повтора команд. */
+  @Prop({ type: Number }) activeArchiveVersion?: number;
+  @Prop({ type: Number }) archiveStateVersion?: number;
   /** C170: барьер смены живости шапки с выпуском/выбором паспорта. */
   @Prop({ type: Number, default: undefined }) passportGuard?: number;
   @Prop({type:Types.ObjectId, ref:'Organization'}) counterpartyId?: Types.ObjectId;

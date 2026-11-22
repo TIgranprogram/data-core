@@ -133,15 +133,24 @@ describe('Showcase', () => {
   it('«Из заказов» с выбором: создаются только отмеченные, с поправленным названием; неотмеченные позиции не трогаются', async () => {
     const db = ctx!.connection.db!;
     const orderId = new Types.ObjectId();
+    const archivedId = new Types.ObjectId();
+    await db.collection('salesorders').insertMany([
+      { _id: orderId, orderNo: '77', deletedAt: null },
+      { _id: archivedId, orderNo: '78', activeArchiveVersion: 1, deletedAt: null },
+    ]);
     const { insertedIds } = await db.collection('incomes').insertMany([
       { title: 'Горка «Волна». Цвет: синий', orderId, orderNo: '77', amount: 0, deletedAt: null },
-      { title: 'Песочница «Ракушка»', orderId, orderNo: '77', amount: 0, deletedAt: null }]);
+      { title: 'Песочница «Ракушка»', orderId, orderNo: '77', amount: 0, deletedAt: null },
+      { title: 'Только в архиве', orderId: archivedId, orderNo: '78', amount: 0, deletedAt: null },
+      { title: 'Строка без договора', orderId: new Types.ObjectId(), orderNo: '79', amount: 0, deletedAt: null }]);
     const dry = (await http().post('/api/showcase/from-orders').set(auth()).send({}).expect(200)).body;
     expect(dry.items.map((x: { name: string }) => x.name).sort()).toEqual(['Горка «Волна»', 'Песочница «Ракушка»']);
     const key = dry.items.find((x: { name: string }) => x.name === 'Горка «Волна»').key;
     await http().post('/api/showcase/from-orders').set(auth()).send({ apply: true, picks: [] }).expect(400);
     const res = (await http().post('/api/showcase/from-orders').set(auth()).send({ apply: true, picks: [{ key, name: 'Горка Волна 1,5 м' }] }).expect(200)).body;
     expect(res.created).toBe(1);
+    expect(await db.collection('incomes').countDocuments({ _id: { $in: [insertedIds[2], insertedIds[3]] }, productId: null })).toBe(2);
+    expect(await db.collection('products').countDocuments({ name: { $in: ['Только в архиве', 'Строка без договора'] } })).toBe(0);
     const [slide, sand] = await Promise.all([db.collection('incomes').findOne({ _id: insertedIds[0] }), db.collection('incomes').findOne({ _id: insertedIds[1] })]);
     expect((await db.collection('products').findOne({ _id: slide!.productId }))!.name).toBe('Горка Волна 1,5 м');
     expect(sand!.productId ?? null).toBeNull();

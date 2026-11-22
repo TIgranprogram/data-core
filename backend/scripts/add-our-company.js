@@ -5,6 +5,7 @@
  *   MONGO_URI=… [MONGO_DB=…] node scripts/add-our-company.js --name Спортсет --key СПОРТСЕТ [--apply] */
 const path = require('path');
 const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
+const { claimOrderWrites, withArchiveWrite } = require('./order-archive-write');
 
 const arg = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : undefined; };
 (async () => {
@@ -29,12 +30,24 @@ const arg = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.a
   const orders = await db.collection('salesorders').find({ importKey: re, deletedAt: null }).toArray();
   console.log(`Заказов «${key}|…»: ${orders.length}, без компании: ${orders.filter((o) => !o.companyId).length}`);
   if (apply && org._id) {
+    let archivedSkipped = 0;
     for (const o of orders) {
-      const notes = String(o.notes || '').replace(/\s*Поставщик в файле:[^\n]*компания не определена[^\n]*/g, '').trim();
-      await db.collection('salesorders').updateOne({ _id: o._id }, { $set: { companyId: org._id, notes: notes || null, updatedAt: new Date() } });
-      await db.collection('incomes').updateMany({ orderId: o._id }, { $set: { companyId: org._id } });
+      try {
+        await withArchiveWrite(c, async session => {
+          await claimOrderWrites(db, session, [o._id]);
+          const current = await db.collection('salesorders').findOne({ _id: o._id, deletedAt: null }, { session, projection: { notes: 1 } });
+          if (!current) return;
+          const notes = String(current.notes || '').replace(/\s*Поставщик в файле:[^\n]*компания не определена[^\n]*/g, '').trim();
+          await db.collection('salesorders').updateOne({ _id: o._id }, { $set: { companyId: org._id, notes: notes || null, updatedAt: new Date() } }, { session });
+          await db.collection('incomes').updateMany({ orderId: o._id }, { $set: { companyId: org._id } }, { session });
+        });
+      } catch (error) {
+        if (error.code !== 'ORDER_ARCHIVED') throw error;
+        archivedSkipped++;
+      }
     }
     console.log(`Применено: заказы и их позиции → «${name}»`);
+    if (archivedSkipped) console.log(`Архивных договоров пропущено: ${archivedSkipped}`);
   } else if (!apply) console.log('Это проверка. Применить: --apply');
   await c.close();
 })().catch((e) => { console.error(e.message); process.exit(1); });

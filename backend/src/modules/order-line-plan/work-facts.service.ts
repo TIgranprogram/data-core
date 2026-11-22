@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
-import type { Connection } from 'mongoose';
+import type { ClientSession, Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { dayOf, factSpan, leadDays } from '../../common/work-schedule';
@@ -32,7 +32,7 @@ export class WorkFactsService {
   private products() { return this.db().collection('products'); }
 
   /** Записать факт-часы шага по отметкам: строки шага перезаписываются (повтор и правка отметок не двоят часы). */
-  async recordStep(plan: Doc, stepId: string): Promise<void> {
+  async recordStep(plan: Doc, stepId: string, session?: ClientSession): Promise<void> {
     const step = ((plan.steps ?? []) as StepRow[]).find((s) => String(s._id) === stepId);
     if (!step?.startedAt || !step?.finishedAt) return;
     const now = new Date();
@@ -41,8 +41,8 @@ export class WorkFactsService {
       personId: step.assigneeId ?? null, date: d.date, hours: d.hours, source: 'mark', createdAt: now, updatedAt: now,
     }));
     const col = this.hoursCol();
-    await col.deleteMany({ stepId: step._id });
-    if (rows.length) await col.insertMany(rows as Doc[]);
+    await col.deleteMany({ stepId: step._id }, { session });
+    if (rows.length) await col.insertMany(rows as Doc[], { session });
   }
 
   /** Часы факта по шагам: stepId → сумма часов (для отметок, сделанных до появления workhours — считаем по датам). */

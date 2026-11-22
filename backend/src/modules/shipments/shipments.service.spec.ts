@@ -11,7 +11,7 @@ function setup(ships: Array<Record<string, unknown>> = []) {
   const coll = (name: string) => ({
     findOne: async () => (name === 'salesorders' ? order : null),
     find: () => ({ sort: () => ({ toArray: async () => (name === 'incomes' ? [line] : []) }), toArray: async () => [] }),
-    updateOne: jest.fn(async () => ({})),
+    updateOne: jest.fn(async () => ({ matchedCount: 1 })),
   });
   let live = ships;
   const model = {

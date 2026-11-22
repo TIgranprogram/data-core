@@ -5,7 +5,7 @@ import { SupplyInvoiceService } from './supply-invoice.service';
 
 const chain = (result: unknown) => {
   const c: Record<string, jest.Mock> = {};
-  for (const m of ['sort', 'skip', 'limit', 'lean', 'session']) c[m] = jest.fn(() => c);
+  for (const m of ['sort', 'skip', 'limit', 'lean', 'session', 'setOptions']) c[m] = jest.fn(() => c);
   c.exec = jest.fn(async () => result);
   return c;
 };

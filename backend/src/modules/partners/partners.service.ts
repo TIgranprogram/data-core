@@ -3,6 +3,8 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { createHash } from 'crypto';
 import { Types } from 'mongoose';
+import { writableCascadeRows } from '../../common/order-archive/cascade';
+import { withOrderWrite } from '../../common/order-archive/write';
 import { escapeRe } from '../../common/list-query';
 import { matchesAll, searchTokens } from '../../common/text/search-norm';
 
@@ -357,7 +359,8 @@ export class PartnersService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
-        const r = await this.db.collection('supplyrequests').updateMany({ supplierId: from }, { $set: { supplierId: to, editedInApp: true } }, { session });
+        const requests = await writableCascadeRows(this.db, session, 'supplyrequests', { supplierId: from });
+        const r = await this.db.collection('supplyrequests').updateMany({ _id: { $in: requests.ids }, supplierId: from }, { $set: { supplierId: to, editedInApp: true } }, { session });
         moved = r.modifiedCount;
         await this.db.collection('supplyinvoices').updateMany({ supplierId: from }, { $set: { supplierId: to, supplierName: name } }, { session });
         await this.db.collection('suppliercontracts').updateMany({ supplierId: from }, { $set: { supplierId: to, supplierName: name } }, { session });
@@ -375,20 +378,22 @@ export class PartnersService {
 
   private async renameCustomer(from: string, to: string) {
     const re = new RegExp(`^\\s*${escapeRe(from)}\\s*$`);
-    // ЗЧ.3: и текст «Заказчик» в заявках (orderLabel), и карточка-контрагент (переименовать или, если у цели своя, — в корзину)
-    const [a, b, c] = await Promise.all([
-      this.db.collection('salesorders').updateMany({ customer: re }, { $set: { customer: to, updatedAt: new Date() } }),
-      this.db.collection('incomes').updateMany({ customer: re }, { $set: { customer: to, editedInApp: true } }),
-      this.db.collection('supplyrequests').updateMany({ orderLabel: re }, { $set: { orderLabel: to, editedInApp: true } }),
-    ]);
-    const [fromOrg, toOrg] = await Promise.all([
-      this.db.collection('organizations').findOne({ deletedAt: null, ...CUSTOMER_ORG, name: exact(from, true) }),
-      this.db.collection('organizations').findOne({ deletedAt: null, ...CUSTOMER_ORG, name: exact(to, true) }),
-    ]);
-    if (fromOrg && toOrg && String(fromOrg._id) !== String(toOrg._id)) await this.db.collection('organizations').updateOne({ _id: fromOrg._id }, { $set: { deletedAt: new Date(), mergedInto: toOrg._id } });
-    else if (fromOrg && !toOrg) await this.db.collection('organizations').updateOne({ _id: fromOrg._id }, { $set: { name: to, updatedAt: new Date(), editedInApp: true } });
-    if (!a.matchedCount && !b.matchedCount && !c.matchedCount && !fromOrg) throw new NotFoundException('Заказчик не найден');
-    return a.modifiedCount + b.modifiedCount + c.modifiedCount;
+    return withOrderWrite(this.connection, [], async session => {
+      const orders = await writableCascadeRows(this.db, session, 'salesorders', { customer: re });
+      const lines = await writableCascadeRows(this.db, session, 'incomes', { customer: re });
+      const requests = await writableCascadeRows(this.db, session, 'supplyrequests', { orderLabel: re });
+      const fromOrg = await this.db.collection('organizations').findOne({ deletedAt: null, ...CUSTOMER_ORG, name: exact(from, true) }, { session });
+      const toOrg = await this.db.collection('organizations').findOne({ deletedAt: null, ...CUSTOMER_ORG, name: exact(to, true) }, { session });
+      const sources = [orders, lines, requests];
+      if (!fromOrg && sources.every(result => !result.ids.length && !result.skipped)) throw new NotFoundException('Заказчик не найден');
+      const now = new Date();
+      const a = await this.db.collection('salesorders').updateMany({ _id: { $in: orders.ids } }, { $set: { customer: to, updatedAt: now } }, { session });
+      const b = await this.db.collection('incomes').updateMany({ _id: { $in: lines.ids } }, { $set: { customer: to, editedInApp: true } }, { session });
+      const c = await this.db.collection('supplyrequests').updateMany({ _id: { $in: requests.ids } }, { $set: { orderLabel: to, editedInApp: true } }, { session });
+      if (fromOrg && toOrg && String(fromOrg._id) !== String(toOrg._id)) await this.db.collection('organizations').updateOne({ _id: fromOrg._id }, { $set: { deletedAt: now, mergedInto: toOrg._id } }, { session });
+      else if (fromOrg && !toOrg) await this.db.collection('organizations').updateOne({ _id: fromOrg._id }, { $set: { name: to, updatedAt: now, editedInApp: true } }, { session });
+      return a.modifiedCount + b.modifiedCount + c.modifiedCount;
+    });
   }
 
   private oid(id: string) {

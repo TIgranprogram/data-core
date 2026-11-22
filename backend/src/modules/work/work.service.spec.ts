@@ -54,11 +54,11 @@ class Coll {
     const u = this.uniqueSparse;
     if (u && value && this.rows.some((r) => r !== row && same(r[u], value))) throw Object.assign(new Error('E11000'), { code: 11000 });
   }
-  async create(d: Row) {
+  async create([d]: Row[]) {
     if (this.uniqueSparse) this.lock(undefined, d[this.uniqueSparse]);
     const row = { _id: new Types.ObjectId(), deletedAt: null, createdAt: new Date(), ...d };
     this.rows.push(row);
-    return { ...row, toObject: () => row };
+    return [{ ...row, toObject: () => row }];
   }
   updateOne = (f: Row, u: Row) => this.chain(() => {
     const row = this.rows.find((d) => match(d, f));
@@ -86,7 +86,7 @@ describe('WorkService', () => {
     tasks.uniqueSparse = 'openIncomeId';
     seq = 0;
     const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, worktypes, photos: new Coll(), productmodules: new Coll(), materials: new Coll() };
-    const connection = { db: { collection: (n: string) => by[n] } };
+    const connection = { startSession: async () => ({ withTransaction: async (run: () => unknown) => run(), endSession: async () => {} }), db: { collection: (n: string) => by[n] } };
     routes = new WorkRouteService(connection as never);
     planned = new Map(); launched.length = 0;
     const plans = { forLaunch: jest.fn(async (ls: Array<{ _id: Types.ObjectId }>) => new Map([...planned].filter(([k]) => ls.some((l) => String(l._id) === k)))), markLaunched: jest.fn(async (ids: unknown[]) => { launched.push(...ids); }) };

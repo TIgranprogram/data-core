@@ -39,7 +39,7 @@ describe('supply-labels', () => {
 describe('SupplyService', () => {
   let colls: Record<string, Array<Record<string, unknown>>>;
   let model: { find: jest.Mock; findOne: jest.Mock; findById: jest.Mock; countDocuments: jest.Mock; aggregate: jest.Mock; create: jest.Mock; updateOne: jest.Mock; distinct: jest.Mock };
-  let stock: { findMaterialByName: jest.Mock; adoptArticle: jest.Mock; move: jest.Mock; createItem: jest.Mock };
+  let stock: { withRequestMaterial: jest.Mock; adoptArticle: jest.Mock; move: jest.Mock; createItem: jest.Mock };
   let service: SupplyService;
   let counters: { setSeqAtLeast: jest.Mock; nextSeq: jest.Mock };
   /** Текущая заявка (для findOne/findById по _id), последняя по номеру, дубль по clientUid. */
@@ -49,6 +49,10 @@ describe('SupplyService', () => {
 
   const reqDoc = (extra: Record<string, unknown> = {}) => ({ _id: new Types.ObjectId(), title: 'Болт М10', qty: 10, status: 'requested', paid: false, ...extra });
   const setOf = (call = 0) => model.updateOne.mock.calls[call][1].$set;
+  const createdFields = (call = 0) => {
+    const [value] = model.create.mock.calls[call];
+    return Array.isArray(value) ? value[0] : value;
+  };
 
   beforeEach(() => {
     colls = {};
@@ -68,12 +72,12 @@ describe('SupplyService', () => {
       findById: jest.fn(() => chain(current)),
       countDocuments: jest.fn(() => chain(0)),
       aggregate: jest.fn(() => chain([])),
-      create: jest.fn(async (d: Record<string, unknown>) => { current = { _id: new Types.ObjectId(), ...d }; return current; }),
+      create: jest.fn(async (d: Record<string, unknown>) => { current = { _id: new Types.ObjectId(), ...(Array.isArray(d) ? d[0] : d) }; return Array.isArray(d) ? [current] : current; }),
       updateOne: jest.fn(() => chain({ matchedCount: 1 })),
       distinct: jest.fn(() => chain([])),
     };
     stock = {
-      findMaterialByName: jest.fn(async () => null),
+      withRequestMaterial: jest.fn(async (_input, _scope, write) => write(new Types.ObjectId(), {})),
       adoptArticle: jest.fn(async () => undefined),
       move: jest.fn(async (...args: unknown[]) => { const first = args[3] as ((session: unknown) => Promise<void>) | undefined; if (first) await first({}); return {}; }),
       createItem: jest.fn(async () => ({ id: String(new Types.ObjectId()) })),
@@ -112,16 +116,16 @@ describe('SupplyService', () => {
     it('Н-1: позиция склада без названия — title = «в счёте», иначе короткое', async () => {
       colls.materials = [{ _id: new Types.ObjectId(), name: 'Болт', invoiceName: 'Болт М10х50 DIN933' }];
       await service.create({ materialId: String(new Types.ObjectId()) });
-      expect(model.create.mock.calls[0][0].title).toBe('Болт М10х50 DIN933');
+      expect(createdFields(0).title).toBe('Болт М10х50 DIN933');
       colls.materials = [{ _id: new Types.ObjectId(), name: 'Гайка' }];
       await service.create({ materialId: String(new Types.ObjectId()) });
-      expect(model.create.mock.calls[1][0].title).toBe('Гайка');
+      expect(createdFields(1).title).toBe('Гайка');
     });
 
     it('значения по умолчанию и номер = последний + 1', async () => {
       last = { num: 41 };
       await service.create({ title: 'Болт' });
-      const arg = model.create.mock.calls[0][0];
+      const arg = createdFields(0);
       expect(arg).toMatchObject({ title: 'Болт', status: 'requested', priority: 'normal', qty: 1, paid: false, num: 42 });
       expect(counters.setSeqAtLeast).toHaveBeenCalledWith('SupplyRequest', 'N', 41); // HARDEN-1 п.11: номер из счётчика, засеян максимумом
       expect(arg.requestDate).toBeInstanceOf(Date);
@@ -129,9 +133,9 @@ describe('SupplyService', () => {
 
     it('первая заявка получает номер 1; заданный номер не меняется', async () => {
       await service.create({ title: 'А' });
-      expect(model.create.mock.calls[0][0].num).toBe(1);
+      expect(createdFields(0).num).toBe(1);
       await service.create({ title: 'Б', num: 500 });
-      expect(model.create.mock.calls[1][0].num).toBe(500);
+      expect(createdFields(1).num).toBe(500);
     });
 
     it('clientUid уже есть — возвращает существующую заявку без создания', async () => {
@@ -150,14 +154,14 @@ describe('SupplyService', () => {
 
     it('«Оплачено» → status ordered, paid, paidAt', async () => {
       await service.create({ title: 'X', statusLabel: '💰 Оплачено' });
-      const arg = model.create.mock.calls[0][0];
+      const arg = createdFields(0);
       expect(arg).toMatchObject({ status: 'ordered', paid: true });
       expect(arg.paidAt).toBeInstanceOf(Date);
     });
 
     it('приоритет по подписи', async () => {
       await service.create({ title: 'X', priorityLabel: 'Срочно' });
-      expect(model.create.mock.calls[0][0].priority).toBe('urgent');
+      expect(createdFields(0).priority).toBe('urgent');
     });
 
     it('неверная дата счёта → BadRequest', async () => {
@@ -166,7 +170,7 @@ describe('SupplyService', () => {
 
     it('тип счёта кладётся в sheetExtra, а не в корень', async () => {
       await service.create({ title: 'X', invoiceType: 'УПД' });
-      const arg = model.create.mock.calls[0][0];
+      const arg = createdFields(0);
       expect(arg.sheetExtra).toEqual({ invoiceType: 'УПД' });
       expect(Object.keys(arg)).not.toContain('sheetExtra.invoiceType');
     });
@@ -179,23 +183,23 @@ describe('SupplyService', () => {
       const so = new Types.ObjectId();
       colls.salesorders = [{ _id: so, orderNo: '15', customer: 'ООО Ромашка' }];
       await service.create({ title: 'X', salesOrderId: String(so) });
-      expect(model.create.mock.calls[0][0]).toMatchObject({ salesOrderId: so, orderLabel: 'Заказ № 15 · ООО Ромашка' });
+      expect(createdFields(0)).toMatchObject({ salesOrderId: so, orderLabel: 'Заказ № 15 · ООО Ромашка' });
     });
 
     it('поставщик берётся из существующей организации', async () => {
       const org = new Types.ObjectId();
       colls.organizations = [{ _id: org, name: 'ООО Метиз', type: ['supplier'] }];
       await service.create({ title: 'X', supplierName: 'ООО Метиз' });
-      expect(model.create.mock.calls[0][0].supplierId).toEqual(org);
+      expect(createdFields(0).supplierId).toEqual(org);
     });
 
-    it('артикул заявки уходит на склад (adoptArticle) только при материале и артикуле', async () => {
+    it('артикул заявки предлагается и выбранной, и новой номенклатуре', async () => {
       const mid = new Types.ObjectId();
       await service.create({ title: 'X', materialId: String(mid), article: 'A-1' });
       expect(stock.adoptArticle).toHaveBeenCalledWith(mid, 'A-1', expect.stringContaining('заявка'));
       stock.adoptArticle.mockClear();
       await service.create({ title: 'Y', article: 'A-2' });
-      expect(stock.adoptArticle).not.toHaveBeenCalled();
+      expect(stock.adoptArticle).toHaveBeenCalledWith(createdFields(1).materialId, 'A-2', expect.any(String));
     });
 
     it('фото, которых нет в базе → NotFound', async () => {
@@ -206,7 +210,7 @@ describe('SupplyService', () => {
     it('пишет автора при валидном userId', async () => {
       const uid = String(new Types.ObjectId());
       await service.create({ title: 'X' }, uid);
-      expect(model.create.mock.calls[0][0].createdBy).toEqual(new Types.ObjectId(uid));
+      expect(createdFields(0).createdBy).toEqual(new Types.ObjectId(uid));
     });
   });
 
@@ -317,7 +321,7 @@ describe('SupplyService', () => {
         invUpdate = jest.fn(async () => ({ matchedCount: 1 }));
         moves = [{ _id: new Types.ObjectId(), materialId: new Types.ObjectId(), type: 'in', delta: 10 }];
         st = { getItem: jest.fn(async () => ({ quantity: 10 })), cancelMovement: jest.fn(async () => ({})) };
-        const conn = { db: { collection: jest.fn((n: string) => ({ find: jest.fn(() => ({ toArray: async () => (n === 'stockmovements' ? moves : []) })), updateOne: invUpdate })) } };
+        const conn = { startSession: async () => ({ withTransaction: async (fn: () => Promise<unknown>) => fn(), endSession: async () => undefined }), db: { collection: jest.fn((n: string) => ({ find: jest.fn(() => ({ toArray: async () => (n === 'stockmovements' ? moves : []) })), updateOne: invUpdate })) } };
         svc = new SupplyService(conn as never, model as never, st as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, audit as never);
         jest.spyOn(svc, 'get').mockResolvedValue({ id: 'x' } as never);
         current = reqDoc({ status: 'received', receivedQty: 10, receivedTo: 'stock', unit: 'шт', invoiceId: new Types.ObjectId() });
@@ -334,7 +338,7 @@ describe('SupplyService', () => {
 
       it('admin с причиной: приход отменён, received* сброшены, граница счёта снята, журнал', async () => {
         await svc.rollbackReceipt(String(current!._id), { confirm: true, reason: 'принято по ошибке' }, admin);
-        expect(st.cancelMovement).toHaveBeenCalledWith(String(moves[0]._id), admin.id);
+        expect(st.cancelMovement).toHaveBeenCalledWith(String(moves[0]._id), admin.id, expect.any(Object));
         const u = model.updateOne.mock.calls[0][1];
         expect(u.$set.status).toBe('ordered');
         expect(Object.keys(u.$unset)).toEqual(expect.arrayContaining(['receivedQty', 'receivedAt', 'receivedTo', 'receiveUid']));
@@ -422,7 +426,7 @@ describe('SupplyService', () => {
       current = reqDoc();
       await service.update(String(current._id), { photoIds: [String(pid)] });
       const photoCall = model.updateOne.mock.calls.find((c) => c[1].$set?.photoIds);
-      expect(photoCall?.[2]).toEqual({ strict: false });
+      expect(photoCall?.[2]).toEqual({ strict: false, session: expect.any(Object) });
     });
   });
 

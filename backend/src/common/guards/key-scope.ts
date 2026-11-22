@@ -2,36 +2,47 @@
  * P2: права машинного ключа `kppd_…` (scope).
  *
  * Контракт `req.user.keyScope` (читает модуль app-data):
- *   keyScope?: { access: 'read' | 'write' | 'full'; apps?: string[] }
+ *   keyScope?: KeyScope
  * Ключ без scope в БД (старые ключи) = `{ access: 'full' }` — права выдавшего.
  * JWT-сессии keyScope не получают и здесь не ограничиваются.
  */
-export type KeyScopeAccess = 'read' | 'write' | 'full';
+export type KeyScopeAccess = 'read' | 'write' | 'full' | 'app';
 
-export interface KeyScope {
-  access: KeyScopeAccess;
-  apps?: string[];
-}
+export type KeyScope =
+  | { access: Exclude<KeyScopeAccess, 'app'>; apps?: string[] }
+  | { access: 'app'; apps: [string] };
 
-export const KEY_SCOPE_ACCESS: readonly KeyScopeAccess[] = ['read', 'write', 'full'];
-/** Имя приложения (совпадает с правилом модуля app-data). */
-/** Совпадает с APP_NAME_RE модуля app-data (без «_» — имя коллекции app_<app>_<coll> было бы неоднозначным); сверяется тестом. */
+export const KEY_SCOPE_ACCESS: readonly KeyScopeAccess[] = ['read', 'write', 'full', 'app'];
+/** Без «_»: иначе имя коллекции app_<app>_<collection> было бы неоднозначным. */
 export const KEY_SCOPE_APP_RE = /^[a-z][a-z0-9]{0,39}$/;
 export const KEY_SCOPE_MAX_APPS = 50;
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+const APP_KEY_METHODS = new Set(['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE']);
 
-/** Нормализует scope из БД: отсутствует/битый → full. */
-export function normalizeKeyScope(raw: unknown): KeyScope {
-  const r = raw as { access?: unknown; apps?: unknown } | null | undefined;
-  const access = KEY_SCOPE_ACCESS.includes(r?.access as KeyScopeAccess)
-    ? (r!.access as KeyScopeAccess)
-    : 'full';
-  const scope: KeyScope = { access };
-  if (Array.isArray(r?.apps) && r!.apps.length > 0) {
-    scope.apps = r!.apps.map(String);
+export function isAppDataSlug(value: unknown): value is string {
+  // Служебные коллекции сервера app_control_*.
+  return typeof value === 'string' && KEY_SCOPE_APP_RE.test(value) && value !== 'control';
+}
+
+/** Только отсутствие поля означает старый ключ. Повреждённая запись → null. */
+export function normalizeKeyScope(raw: unknown): KeyScope | null {
+  if (raw === undefined) return { access: 'full' };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  if (!Object.prototype.hasOwnProperty.call(raw, 'access')) return null;
+  if (Object.keys(raw).some((key) => key !== 'access' && key !== 'apps')) return null;
+
+  const { access, apps } = raw as { access: KeyScopeAccess; apps?: unknown };
+  if (!KEY_SCOPE_ACCESS.includes(access)) return null;
+  if (access === 'app') {
+    if (!Array.isArray(apps) || apps.length !== 1 || !isAppDataSlug(apps[0])) return null;
+    return { access, apps: [apps[0]] };
   }
-  return scope;
+
+  if (apps === undefined) return { access };
+  if (!Array.isArray(apps) || apps.length > KEY_SCOPE_MAX_APPS) return null;
+  if (!apps.every((app) => typeof app === 'string' && KEY_SCOPE_APP_RE.test(app))) return null;
+  return apps.length ? { access, apps: [...new Set(apps)] } : { access };
 }
 
 /** Путь без query, декодированный, в нижнем регистре, без повторных/хвостовых `/`. */
@@ -74,9 +85,15 @@ export function keyScopeViolation(
   scope: KeyScope | undefined,
   method: string,
   url: string,
+  appKeyRoute = false,
 ): string | null {
   if (!scope || scope.access === 'full') return null;
   const m = (method || '').toUpperCase();
+  if (scope.access === 'app') {
+    return appKeyRoute && APP_KEY_METHODS.has(m) && under(normalizePath(url), '/api/apps')
+      ? null
+      : 'API-ключ предназначен только для данных своего приложения';
+  }
   if (scope.access === 'read' && !SAFE_METHODS.has(m)) {
     return 'API-ключ только для чтения: изменение данных запрещено';
   }

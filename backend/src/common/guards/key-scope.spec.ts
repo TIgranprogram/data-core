@@ -5,10 +5,17 @@ import { isAdminRoute, keyScopeViolation, normalizeKeyScope } from './key-scope'
 
 describe('key-scope (P2)', () => {
   describe('normalizeKeyScope', () => {
-    it('нет scope / мусор → full', () => {
+    it('только отсутствие scope → full', () => {
       expect(normalizeKeyScope(undefined)).toEqual({ access: 'full' });
-      expect(normalizeKeyScope(null)).toEqual({ access: 'full' });
-      expect(normalizeKeyScope({ access: 'root' })).toEqual({ access: 'full' });
+    });
+    it.each([
+      null, {}, [], 'full', { access: 'root' },
+      { access: 'write', apps: null }, { access: 'full', apps: 'notes' },
+      { access: 'read', apps: [123] }, { access: 'full', application: 'notes' },
+      { access: 'app' }, { access: 'app', apps: [] }, { access: 'app', apps: ['control'] },
+      { access: 'app', apps: ['notes', 'notes'] },
+    ])('отклоняет повреждённый или недопустимый scope %j', (scope) => {
+      expect(normalizeKeyScope(scope)).toBeNull();
     });
     it('сохраняет access и непустой apps', () => {
       expect(normalizeKeyScope({ access: 'read', apps: ['a', 'b'] })).toEqual({
@@ -16,6 +23,9 @@ describe('key-scope (P2)', () => {
         apps: ['a', 'b'],
       });
       expect(normalizeKeyScope({ access: 'write', apps: [] })).toEqual({ access: 'write' });
+      expect(normalizeKeyScope({ access: 'app', apps: ['notes'] })).toEqual({
+        access: 'app', apps: ['notes'],
+      });
     });
   });
 
@@ -81,6 +91,13 @@ describe('key-scope (P2)', () => {
       expect(keyScopeViolation(s, 'POST', '/api/users')).toMatch(/администрированию/);
       expect(keyScopeViolation(s, 'POST', '/api/desktop/pairing-keys')).toMatch(/администрированию/);
       expect(keyScopeViolation(s, 'GET', '/api/admin/devices')).toMatch(/администрированию/);
+    });
+    it('app: разрешены только помеченные методы данных приложений', () => {
+      const s = normalizeKeyScope({ access: 'app', apps: ['notes'] })!;
+      expect(keyScopeViolation(s, 'POST', '/api/apps/notes/items', true)).toBeNull();
+      expect(keyScopeViolation(s, 'GET', '/api/apps/pdm-loader')).toMatch(/своего приложения/);
+      expect(keyScopeViolation(s, 'GET', '/api/meta/schema', true)).toMatch(/своего приложения/);
+      expect(keyScopeViolation(s, 'OPTIONS', '/api/apps', true)).toMatch(/своего приложения/);
     });
   });
 

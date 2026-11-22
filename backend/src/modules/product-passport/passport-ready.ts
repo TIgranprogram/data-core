@@ -71,7 +71,7 @@ export async function createReadyPassport(h: ReadyHost, dto: ReadyPassportDto, f
           await h.allocate(attempt, date, session);
           await h.assertFree(attempt, undefined, session);
           return session ? (await h.model.create([attempt], { session }))[0] : await h.model.create(attempt);
-        });
+        }, [{ salesOrderId: filled.salesOrderId }]);
       } catch (e) {
         if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт');
         if ((e as { code?: number }).code !== 11000) throw e;

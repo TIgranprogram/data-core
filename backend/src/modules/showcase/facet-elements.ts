@@ -1,4 +1,4 @@
-import { Types, type mongo } from 'mongoose';
+import { Types, type ClientSession, type mongo } from 'mongoose';
 
 /** Элементы из `elementIds` выбранных значений признаков (порядок — как у значений, без дублей). */
 export function elementsOfFacetValues(values: Array<Record<string, unknown>>): Types.ObjectId[] {
@@ -23,11 +23,11 @@ export function mergeFacetElements(cur: unknown, fromFacets: Types.ObjectId[]): 
 }
 
 /** Что дописать в `passportDefaults.elements` изделия при записи признаков; null — менять нечего. */
-export async function facetElementsPatch(db: mongo.Db, productId: Types.ObjectId, facetValueIds: Types.ObjectId[]): Promise<Types.ObjectId[] | null> {
+export async function facetElementsPatch(db: mongo.Db, productId: Types.ObjectId, facetValueIds: Types.ObjectId[], session?: ClientSession): Promise<Types.ObjectId[] | null> {
   if (!facetValueIds.length) return null;
-  const values = await db.collection('dict_values').find({ dict: 'productFacetValues', deletedAt: null, _id: { $in: facetValueIds } }, { projection: { elementIds: 1 } }).toArray();
+  const values = await db.collection('dict_values').find({ dict: 'productFacetValues', deletedAt: null, _id: { $in: facetValueIds } }, { session, projection: { elementIds: 1 } }).toArray();
   const add = elementsOfFacetValues(values);
   if (!add.length) return null;
-  const prod = await db.collection('products').findOne({ _id: productId }, { projection: { passportDefaults: 1 } });
+  const prod = await db.collection('products').findOne({ _id: productId }, { session, projection: { passportDefaults: 1 } });
   return mergeFacetElements((prod?.passportDefaults as { elements?: unknown } | undefined)?.elements, add);
 }

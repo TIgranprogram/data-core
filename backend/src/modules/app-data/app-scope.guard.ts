@@ -1,14 +1,5 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
-
-/**
- * Ограничение машинного ключа `kppd_` (P2). JwtAuthGuard кладёт в `req.user.keyScope`
- * scope ключа; здесь используется только список приложений. Тип объявлен локально,
- * чтобы модуль не зависел от desktop-модуля.
- */
-export interface KeyScopeLike {
-  access: 'read' | 'write' | 'full';
-  apps?: string[];
-}
+import type { KeyScope } from '../../common/guards/key-scope';
 
 export interface AppDataRequestUser {
   id: string;
@@ -17,11 +8,12 @@ export interface AppDataRequestUser {
   permissions?: string[] | null;
   rolePermissions?: string[] | null;
   isOwner?: boolean;
-  keyScope?: KeyScopeLike;
+  keyScope?: KeyScope;
 }
 
 /** null — ограничения нет (JWT или ключ без списка приложений). */
 export function allowedApps(user: AppDataRequestUser | undefined): string[] | null {
+  if (user?.keyScope?.access === 'app') return user.keyScope.apps ?? [];
   const apps = user?.keyScope?.apps;
   return Array.isArray(apps) ? apps : null;
 }

@@ -7,6 +7,7 @@
  */
 const path = require('path');
 const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cwd(), path.join(__dirname, '..')] })).mongo;
+const { claimPassportWrites, withArchiveWrite } = require('./order-archive-write');
 
 (async () => {
   const apply = process.argv.includes('--apply');
@@ -24,8 +25,13 @@ const { MongoClient } = require(require.resolve('mongoose', { paths: [process.cw
   if (apply && docs.length) {
     let n = 0;
     for (const d of docs) {
-      const r = await pp.updateOne({ _id: d._id, status: { $exists: false } }, { $set: { status: 'issued', issuedAt: d.pdfIssuedAt || d.createdAt || d.date || new Date(), revision: 1 } });
-      n += r.modifiedCount;
+      n += await withArchiveWrite(c, async session => {
+        const current = await pp.findOne({ _id: d._id, ...filter }, { session });
+        if (!current) return 0;
+        await claimPassportWrites(db, session, [current]);
+        const result = await pp.updateOne({ _id: d._id }, { $set: { status: 'issued', issuedAt: current.pdfIssuedAt || current.createdAt || current.date || new Date(), revision: 1 } }, { session });
+        return result.modifiedCount;
+      });
     }
     console.log(`Записано: ${n}`);
   }

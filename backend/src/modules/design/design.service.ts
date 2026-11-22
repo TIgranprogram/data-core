@@ -1,3 +1,6 @@
+import { withOrderWrite } from '../../common/order-archive/write';
+import { withDesignWrite } from './design-write';
+import type { ClientSession } from 'mongoose';
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -157,14 +160,14 @@ export class DesignService {
   }
 
   /** Метка «заказ на доске»: upsert по orderId, снимает «убрано» (deletedAt). Мягко удалённую запись находит includeSoftDeleted. */
-  async markOrder(orderId: Types.ObjectId, userId?: string) {
+  async markOrder(orderId: Types.ObjectId, userId?: string, session?: ClientSession) {
     const by = this.userOid(userId);
     const run = () => this.designOrders.updateOne(
       { orderId },
       { $set: { deletedAt: null }, $setOnInsert: { addedAt: new Date(), ...(by ? { addedBy: by } : {}) } },
-      { upsert: true },
+      { upsert: true, ...(session ? { session } : {}) },
     ).setOptions({ includeSoftDeleted: true }).exec();
-    try { await run(); } catch (e) { if (!isDup(e)) throw e; await run(); } // две вставки подряд: вторая уже находит запись
+    try { await run(); } catch (e) { if (session || !isDup(e)) throw e; await run(); } // две вставки подряд: вторая уже находит запись
   }
 
   /** Метка — необязательный шаг после создания задачи: сбой не даёт 500, только запись в лог. */
@@ -174,17 +177,15 @@ export class DesignService {
   }
 
   /** Вставка с номером D-N; гонка за позицию (уникальный замок) → 409. */
-  private async insert(f: Doc, userId?: string, mark = true) {
+  private async insert(f: Doc, userId: string | undefined, session: ClientSession) {
     const status = (f.status as DesignStatus) ?? 'queue';
-    const seq = await this.counters.nextSeq('DesignTask', 'D');
+    const seq = await this.counters.nextSeq('DesignTask', 'D', session);
     try {
-      const doc = await this.model.create({
+      const [doc] = await this.model.create([{
         ...f, status, seq, createdBy: this.userOid(userId),
         ...(f.incomeId && status !== 'done' ? { openIncomeId: f.incomeId } : {}),
         ...(status === 'done' ? { completedAt: new Date(), completedBy: this.userOid(userId) } : {}),
-      });
-      if (status === 'done') await this.fillDesigner(f.productId, f.assigneeId);
-      if (mark) await this.markQuiet(f.orderId, userId);
+      }], { session });
       return doc.toObject() as unknown as Doc;
     } catch (e) {
       if (isDup(e)) throw new ConflictException('На эту позицию уже есть открытая задача');
@@ -214,33 +215,33 @@ export class DesignService {
     if (deadline) manual.deadline = deadline;
     if (dto.priority) manual.priority = dto.priority;
     if (Object.keys(manual).length) f.manual = manual;
-    const doc = await this.insert(f, userId);
+    const doc = await withDesignWrite(this.connection, null, f, session => this.insert(f, userId, session));
+    if (status === 'done') await this.fillDesigner(f.productId, f.assigneeId);
+    await this.markQuiet(f.orderId, userId);
     await this.notifyAssigned(doc, f.assigneeId, userId);
     if (!f.assigneeId) await this.notifyUnassigned(doc, userId);
     return this.get(String(doc._id));
   }
 
   /** Задача на каждую позицию заказа (или выбранные); у кого уже есть открытая — пропуск, повтор дублей не создаёт. */
-  async fromOrder(dto: FromOrderDto, userId?: string) {
+  async fromOrder(dto: FromOrderDto, userId?: string, requireBoardMark = false) {
     const orderId = oid(dto.orderId, 'заказа');
-    if (!(await this.db().collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
-    const want = dto.lineIds?.length ? oids(dto.lineIds.join(',')) : undefined;
-    const lines = await this.db().collection('incomes').find({ orderId, deletedAt: null, cancelledAt: null, ...(want ? { _id: { $in: want } } : {}) }, { projection: { productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
-    if (want && lines.length !== new Set(want.map(String)).size) throw new BadRequestException('Некоторые позиции не из этого заказа или удалены');
-    const open = await this.model.find({ openIncomeId: { $in: lines.map((l) => l._id) } }, { openIncomeId: 1 }).lean().exec();
-    const taken = new Set(open.map((t) => String(t.openIncomeId)));
-    const created: Doc[] = [];
-    let skipped = 0;
-    for (const l of lines) {
-      if (taken.has(String(l._id))) { skipped++; continue; }
-      try {
-        created.push(await this.insert({ status: 'queue', incomeId: l._id, orderId, ...(l.productId ? { productId: l.productId } : {}) }, userId, false));
-      } catch (e) {
-        if (!(e instanceof ConflictException)) throw e;
-        skipped++; // параллельный запрос успел раньше
+    const { created, skipped } = await withOrderWrite(this.connection, [orderId], async session => {
+      if (!(await this.db().collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { session, projection: { _id: 1 } }))) throw new NotFoundException('Заказ не найден');
+      const want = dto.lineIds?.length ? oids(dto.lineIds.join(',')) : undefined;
+      const lines = await this.db().collection('incomes').find({ orderId, deletedAt: null, cancelledAt: null, ...(want ? { _id: { $in: want } } : {}) },
+        { session, projection: { productId: 1 } }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray();
+      if (want && lines.length !== new Set(want.map(String)).size) throw new BadRequestException('Некоторые позиции не из этого заказа или удалены');
+      const open = await this.model.find({ openIncomeId: { $in: lines.map(l => l._id) } }, { openIncomeId: 1 }, { session }).lean().exec();
+      const taken = new Set(open.map(t => String(t.openIncomeId)));
+      const created: Doc[] = [];
+      for (const l of lines) {
+        if (!taken.has(String(l._id))) created.push(await this.insert({ status: 'queue', incomeId: l._id, orderId, ...(l.productId ? { productId: l.productId } : {}) }, userId, session));
       }
-    }
-    await this.markQuiet(orderId, userId);
+      if (requireBoardMark) await this.markOrder(orderId, userId, session);
+      return { created, skipped: lines.length - created.length };
+    });
+    if (!requireBoardMark) await this.markQuiet(orderId, userId);
     return { created: created.length, skipped, items: await presentTasks(this.connection, created) };
   }
 
@@ -258,6 +259,7 @@ export class DesignService {
     try {
       return await this.fromOrder({ orderId: String(orderId) }, userId);
     } catch (e) {
+      if (e instanceof ConflictException && (e.getResponse() as { code?: string }).code === 'ORDER_ARCHIVED') throw e;
       this.log.warn(`Авто проектирование заказа ${String(orderId)}: ${(e as Error).message}`);
       return { created: 0, skipped: 0 };
     }
@@ -310,7 +312,7 @@ export class DesignService {
       }
     }
     try {
-      await this.model.updateOne({ _id: cur._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }).exec();
+      await withDesignWrite(this.connection, cur, link, session => this.model.updateOne({ _id: cur._id }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session }).exec());
     } catch (e) {
       if (isDup(e)) throw new ConflictException('На эту позицию уже есть открытая задача');
       throw e;
@@ -331,7 +333,7 @@ export class DesignService {
   /** В корзину; замок позиции снимается — на неё можно завести новую задачу. */
   async remove(id: string) {
     const cur = await this.findRaw(id);
-    await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: new Date() }, $unset: { openIncomeId: '' } }).exec();
+    await withDesignWrite(this.connection, cur, null, session => this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: new Date() }, $unset: { openIncomeId: '' } }, { session }).exec());
     return { id, deleted: true };
   }
 
@@ -340,7 +342,7 @@ export class DesignService {
     const lock = !!cur.incomeId && cur.status !== 'done';
     if (lock) await this.ensureNoOpen(cur.incomeId as Types.ObjectId, cur._id as Types.ObjectId);
     try {
-      await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: null, ...(lock ? { openIncomeId: cur.incomeId } : {}) } }).setOptions({ includeSoftDeleted: true }).exec();
+      await withDesignWrite(this.connection, cur, null, session => this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: null, ...(lock ? { openIncomeId: cur.incomeId } : {}) } }).setOptions({ includeSoftDeleted: true, session }).exec());
     } catch (e) {
       if (isDup(e)) throw new ConflictException('На эту позицию уже есть открытая задача');
       throw e;

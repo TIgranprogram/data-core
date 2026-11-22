@@ -1,5 +1,6 @@
 import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { isAppDataSlug, KEY_SCOPE_APP_RE } from '../../common/guards/key-scope';
 
 /**
  * P1 — чистые функции валидации универсального хранилища данных приложений.
@@ -11,9 +12,7 @@ import { Types } from 'mongoose';
  * Имя приложения: латиница/цифры, без `_` — иначе имя коллекции
  * `app_<app>_<collection>` неоднозначно (`a_b`+`c` и `a`+`b_c` → `app_a_b_c`).
  */
-export const APP_NAME_RE = /^[a-z][a-z0-9]{0,39}$/;
-/** Служебные коллекции сервера (`app_control_*`): через универсальное API недоступны. */
-const RESERVED_APPS = new Set(['control']);
+export const APP_NAME_RE = KEY_SCOPE_APP_RE;
 /** Имя коллекции внутри приложения. */
 export const COLLECTION_NAME_RE = /^[a-z][a-z0-9_]{0,39}$/;
 
@@ -32,7 +31,7 @@ export const FILTER_OPERATORS = ['$eq', '$ne', '$gt', '$gte', '$lt', '$lte', '$i
 const FILTER_OPS = new Set<string>(FILTER_OPERATORS);
 
 export function assertAppName(app: string): void {
-  if (typeof app !== 'string' || !APP_NAME_RE.test(app) || RESERVED_APPS.has(app)) {
+  if (!isAppDataSlug(app)) {
     throw new BadRequestException(
       `Некорректное имя приложения «${String(app)}»: нужно ^[a-z][a-z0-9]{0,39}$ (без подчёркивания)`,
     );
@@ -59,10 +58,10 @@ export function parseMongoCollectionName(name: string): { app: string; collectio
   if (!name.startsWith(APP_COLLECTION_PREFIX)) return null;
   const rest = name.slice(APP_COLLECTION_PREFIX.length);
   const sep = rest.indexOf('_');
-  if (sep <= 0 || RESERVED_APPS.has(rest.slice(0, sep))) return null;
+  if (sep <= 0) return null;
   const app = rest.slice(0, sep);
   const collection = rest.slice(sep + 1);
-  if (!APP_NAME_RE.test(app) || !COLLECTION_NAME_RE.test(collection)) return null;
+  if (!isAppDataSlug(app) || !COLLECTION_NAME_RE.test(collection)) return null;
   return { app, collection };
 }
 
@@ -77,7 +76,7 @@ export function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
 }
 
-/** Рекурсивно запрещает ключи с `$` (в начале или где угодно) и `.` на любой глубине. */
+/** Рекурсивно проверяет, что ключи можно безопасно передать в Mongo. */
 function assertSafeKeys(value: unknown, path: string, depth: number): void {
   if (depth > MAX_DEPTH) throw new BadRequestException(`Слишком глубокая вложенность (>${MAX_DEPTH})`);
   if (Array.isArray(value)) {
@@ -86,9 +85,9 @@ function assertSafeKeys(value: unknown, path: string, depth: number): void {
   }
   if (value !== null && typeof value === 'object') {
     for (const [k, v] of Object.entries(value)) {
-      if (k.includes('$') || k.includes('.') || k === '') {
+      if (k.includes('$') || k.includes('.') || k.includes('\0') || k === '' || k === '_bsontype') {
         throw new BadRequestException(
-          `Недопустимый ключ «${path ? path + '.' : ''}${k}»: ключи не могут быть пустыми и содержать «$» или «.»`,
+          `Недопустимый ключ «${path ? path + '.' : ''}${k}»`,
         );
       }
       assertSafeKeys(v, path ? `${path}.${k}` : k, depth + 1);
@@ -104,11 +103,9 @@ export function sanitizeDocument(body: unknown, label = 'Документ'): Rec
   if (!isPlainObject(body)) {
     throw new BadRequestException(`${label} должен быть JSON-объектом`);
   }
-  const clean: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(body)) {
-    if ((SERVICE_FIELDS as readonly string[]).includes(k)) continue;
-    clean[k] = v;
-  }
+  const clean = Object.fromEntries(
+    Object.entries(body).filter(([key]) => !(SERVICE_FIELDS as readonly string[]).includes(key)),
+  );
   assertSafeKeys(clean, '', 0);
   assertDocumentSize(clean, label);
   return clean;
@@ -152,8 +149,9 @@ function normalizeFieldValue(field: string, value: unknown): unknown {
  * `$`-ключи (`$where`, `$expr`, `$function`, `$regex`, `$or`, …) → 400.
  * `id` → `_id` (строка → ObjectId), даты служебных полей — из ISO-строк.
  */
-export function parseFilter(raw: string | undefined): Record<string, unknown> {
+export function parseFilter(raw: unknown): Record<string, unknown> {
   if (raw === undefined || raw === '') return {};
+  if (typeof raw !== 'string') throw new BadRequestException('filter должен быть одной JSON-строкой');
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -162,12 +160,12 @@ export function parseFilter(raw: string | undefined): Record<string, unknown> {
   }
   if (!isPlainObject(parsed)) throw new BadRequestException('filter должен быть JSON-объектом');
 
-  const out: Record<string, unknown> = {};
+  const out: Record<string, unknown> = Object.create(null);
   for (const [rawField, cond] of Object.entries(parsed)) {
     if (rawField.startsWith('$')) {
       throw new BadRequestException(`filter: оператор «${rawField}» запрещён (разрешены только ${FILTER_OPERATORS.join(' ')} внутри поля)`);
     }
-    if (!FILTER_FIELD_RE.test(rawField)) {
+    if (!FILTER_FIELD_RE.test(rawField) || rawField === '_bsontype') {
       throw new BadRequestException(`filter: некорректное имя поля «${rawField}»`);
     }
     const field = rawField === 'id' ? '_id' : rawField;
@@ -207,9 +205,10 @@ export function parseFilter(raw: string | undefined): Record<string, unknown> {
 const SORT_FIELD_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$/;
 
 /** `sort=field` / `-field`, несколько — через запятую. `id` → `_id`. Всегда добивается `_id` для стабильности. */
-export function parseSort(raw: string | undefined): Record<string, 1 | -1> {
-  const sort: Record<string, 1 | -1> = {};
+export function parseSort(raw: unknown): Record<string, 1 | -1> {
+  const sort: Record<string, 1 | -1> = Object.create(null);
   if (raw !== undefined && raw !== '') {
+    if (typeof raw !== 'string') throw new BadRequestException('sort должен быть одной строкой');
     for (const part of raw.split(',')) {
       const token = part.trim();
       const desc = token.startsWith('-');
@@ -222,17 +221,21 @@ export function parseSort(raw: string | undefined): Record<string, 1 | -1> {
   return sort;
 }
 
-function parsePositiveInt(raw: string | undefined, name: string, fallback: number): number {
+function parsePositiveInt(raw: unknown, name: string, fallback: number): number {
   if (raw === undefined || raw === '') return fallback;
-  if (!/^\d+$/.test(raw)) throw new BadRequestException(`${name} должен быть положительным целым`);
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw)) {
+    throw new BadRequestException(`${name} должен быть положительным целым`);
+  }
   const n = Number(raw);
+  if (!Number.isSafeInteger(n)) throw new BadRequestException(`${name} слишком велик`);
   if (n < 1) throw new BadRequestException(`${name} должен быть ≥ 1`);
   return n;
 }
 
-export function parsePagination(page?: string, limit?: string): { page: number; limit: number } {
+export function parsePagination(page?: unknown, limit?: unknown): { page: number; limit: number } {
   const p = parsePositiveInt(page, 'page', 1);
-  const l = parsePositiveInt(limit, 'limit', DEFAULT_LIMIT);
+  const l = Math.min(parsePositiveInt(limit, 'limit', DEFAULT_LIMIT), MAX_LIMIT);
+  if (!Number.isSafeInteger((p - 1) * l)) throw new BadRequestException('page слишком велик');
   // Больше MAX_LIMIT — урезаем (фактический limit виден в ответе), как в других списках API.
-  return { page: p, limit: Math.min(l, MAX_LIMIT) };
+  return { page: p, limit: l };
 }

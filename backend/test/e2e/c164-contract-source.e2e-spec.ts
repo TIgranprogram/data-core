@@ -29,7 +29,12 @@ describe('C164 клиентский источник',()=>{
  it('сохраняетдоговорбеззаказа, исходныереквизитыиоригинал;новыйUIDтогоисточникавозвращаеттотжеID',async()=>{
   const p=payload('18/11/45');const a=await call().post('/api/salesorders').set(auth()).send(p).expect(201);order=a.body.id;
   expect(a.body.productionNo).toBeFalsy();expect(a.body.legal.documents[0]).toMatchObject({fileId:file,sourceSha256:sha});expect(a.body.legal.companySnapshot.inn).toBe('2312308098');
-  const replay=await call().post('/api/salesorders').set(auth()).send({...p,intakeUid:'another-uid'}).expect(201);expect(replay.body.id).toBe(order);
+  expect(a.body.legal.issues).toEqual(expect.arrayContaining([expect.objectContaining({
+    field: 'deadlineTerms', state: 'unknown', documentUid: p.initialLegal.documents[0].uid,
+  })]));
+  expect(a.body.productionDeadline).toBeFalsy();
+  expect(a.body.deliveryDeadline).toBeFalsy();
+  const replay=await call().post('/api/salesorders').set(auth()).send({...p,intakeUid:'another-uid'}).expect(201);expect(replay.body.id).toBe(order); expect(replay.body.legal.issues).toEqual(a.body.legal.issues);
   await call().post('/api/salesorders').set(auth()).send({...p,notes:'изменено'}).expect(409);
  });
  it('CREATE источника не обходит сопоставление через производственный stage',async()=>{

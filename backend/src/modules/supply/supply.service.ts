@@ -1,3 +1,4 @@
+import { claimStockLinks, withOrderWrite } from '../../common/order-archive/write';
 import { hasUndatedPayment, undatedLocked } from './undated-payment';
 import { normText } from '../../common/text/norm-text';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
@@ -117,6 +118,19 @@ export class SupplyService {
     return result;
   }
 
+  private async claimRequest(id: unknown, session: ClientSession, next: { salesOrderId?: unknown; salesOrderLineId?: unknown } = {}) {
+    const row = await this.model.findOne({ _id: id }, { salesOrderId: 1, salesOrderLineId: 1 })
+      .setOptions({ includeSoftDeleted: true }).session(session).lean().exec();
+    await claimStockLinks(this.connection.db!, session, row ? [row, next] : [next]);
+  }
+
+  private async writeRequest<T>(id: Types.ObjectId | string, run: (session: ClientSession) => Promise<T>) {
+    return withOrderWrite(this.connection, [], async session => {
+      await this.claimRequest(id, session);
+      return run(session);
+    });
+  }
+
   private async markInvoiceReceiptBoundary(invoiceId: unknown, session: ClientSession) {
     const invoices = this.connection.db!.collection('supplyinvoices');
     const id = typeof invoiceId === 'string' ? oid(invoiceId, 'счёта') : invoiceId as Types.ObjectId;
@@ -224,7 +238,7 @@ export class SupplyService {
 
   /** photoIds — поле вне схемы CRM: пишется с strict:false (иначе Mongoose его отбросит), схему не меняем. */
   private async writePhotos(_id: Types.ObjectId, update: { $set?: { photoIds: Types.ObjectId[] }; $addToSet?: { photoIds: Types.ObjectId }; $pull?: { photoIds: Types.ObjectId } }) {
-    const res = await this.model.updateOne({ _id, deletedAt: null }, { ...update, $set: { ...update.$set, editedInApp: true } }, { strict: false }).exec();
+    const res = await this.writeRequest(_id, session => this.model.updateOne({ _id, deletedAt: null }, { ...update, $set: { ...update.$set, editedInApp: true } }, { strict: false, session }).exec());
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
   }
 
@@ -236,7 +250,8 @@ export class SupplyService {
   }
 
   async mainPhoto(id: string, photoId: string) {
-    await photoToFront((f, u) => this.model.updateOne(f, u).exec(), { _id: oid(id, 'заявки'), deletedAt: null }, oid(photoId, 'фото'));
+    const _id = oid(id, 'заявки');
+    await this.writeRequest(_id, session => photoToFront((f, u) => this.model.updateOne(f, u, { session }).exec(), { _id, deletedAt: null }, oid(photoId, 'фото')));
     return this.get(id);
   }
 
@@ -386,14 +401,14 @@ export class SupplyService {
     const cur = await this.model.findOne({ _id: oid(id, 'заявки'), deletedAt: null }, { invoiceId: 1, paid: 1 }).lean().exec() as { invoiceId?: unknown; paid?: boolean } | null;
     if (cur?.invoiceId) throw new BadRequestException('Заявка входит в счёт — сначала уберите её из счёта (кнопка «Убрать» в счёте)');
     if (cur?.paid) throw new BadRequestException('Заявка оплачена — сначала снимите оплату (статус «В работе»), потом удаляйте');
-    const res = await this.model.updateOne({ _id: oid(id, 'заявки'), deletedAt: null }, { $set: { deletedAt: new Date(), editedInApp: true } }).exec();
+    const res = await this.writeRequest(id, session => this.model.updateOne({ _id: oid(id, 'заявки'), deletedAt: null }, { $set: { deletedAt: new Date(), editedInApp: true } }, { session }).exec());
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
     return { id, deleted: true };
   }
 
   async restore(id: string) {
-    const res = await this.model.updateOne({ _id: oid(id, 'заявки'), deletedAt: { $ne: null } }, { $set: { deletedAt: null, editedInApp: true } })
-      .setOptions({ includeSoftDeleted: true }).exec();
+    const res = await this.writeRequest(id, session => this.model.updateOne({ _id: oid(id, 'заявки'), deletedAt: { $ne: null } }, { $set: { deletedAt: null, editedInApp: true } }, { session })
+      .setOptions({ includeSoftDeleted: true }).exec());
     if (!res.matchedCount) throw new NotFoundException('Заявки нет в корзине');
     return this.get(id);
   }
@@ -457,10 +472,10 @@ export class SupplyService {
     return f;
   }
 
-  async create(dto: SupplyInput, userId?: string) {
+  async create(dto: SupplyInput, userId?: string, scope?: StockScope | null) {
     if (dto.clientUid) {
       const dup = await this.model.findOne({ clientUid: dto.clientUid }).lean().exec();
-      if (dup) return this.get(String(dup._id));
+      if (dup) return this.get(String(dup._id), scope);
     }
     const fields = await this.toFields(dto);
     if (fields.status === 'received') throw new BadRequestException('«Получено» ставится только кнопкой «Принять» — так товар приходует на склад и ничего не теряется (создайте заявку, затем нажмите «Принять» в её карточке)');
@@ -469,11 +484,6 @@ export class SupplyService {
     if (!fields.title && fields.materialId) {
       const m = await this.connection.db!.collection('materials').findOne({ _id: fields.materialId as Types.ObjectId }, { projection: { name: 1, invoiceName: 1 } });
       if (m) fields.title = materialRequestTitle(m as { name?: string; invoiceName?: string });
-    }
-    // единый источник (CANON §5): название совпало с позицией склада — заявка сразу ссылается на неё
-    if (!fields.materialId && fields.title) {
-      const same = await this.stock.findMaterialByName(String(fields.title));
-      if (same) fields.materialId = same._id;
     }
     const photoIds = dto.photoIds ? await this.photoOids(dto.photoIds) : [];
     if (fields.num === undefined) {
@@ -489,11 +499,31 @@ export class SupplyService {
       clientUid: dto.clientUid,
       createdBy: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined,
     };
-    const doc = await this.withArticleReference(fields.articleId, async (session) => session ? (await this.model.create([document], { session }))[0] : this.model.create(document));
-    if (photoIds.length) await this.writePhotos(doc._id as Types.ObjectId, { $set: { photoIds } });
+    const persist = async (session?: ClientSession, materialId?: Types.ObjectId) => {
+      const request = materialId ? { ...document, materialId } : document;
+      if (!session) return this.model.create(request);
+      await claimStockLinks(this.connection.db!, session, [fields]);
+      const [created] = await this.model.create([request], { session });
+      if (photoIds.length) await this.model.updateOne({ _id: created._id }, { $set: { photoIds } }, { session, strict: false }).exec();
+      return created;
+    };
+    const doc = fields.materialId
+      ? await this.withArticleReference(fields.articleId, persist, !!(fields.salesOrderId || fields.salesOrderLineId || photoIds.length))
+      : await this.stock.withRequestMaterial({
+        name: String(fields.title),
+        unit: fields.unit as string | undefined,
+        categoryId: fields.categoryId as Types.ObjectId | undefined,
+      }, scope, async (materialId, session) => {
+        if (dto.clientUid) {
+          const previous = await this.model.findOne({ clientUid: dto.clientUid }).session(session).exec();
+          if (previous) return previous;
+        }
+        if (fields.articleId) await this.financialArticles!.assertSelectable(String(fields.articleId), 'expense', { session });
+        return persist(session, materialId);
+      });
     await this.adoptArticle(doc as unknown as Record<string, unknown>);
     await this.afterCreate(doc as unknown as Record<string, unknown>, userId);
-    return this.get(String(doc._id));
+    return this.get(String(doc._id), scope);
   }
 
   /**
@@ -660,6 +690,7 @@ export class SupplyService {
     const analyticsWrite = analytics.some(k => dto[k] !== undefined) || dto.categoryName !== undefined;
     const guardedSourceWrite = analyticsWrite || financial || dto.statusLabel !== undefined;
     const res = await this.withArticleReference(set.articleId, async (session) => {
+      await this.claimRequest(id, session!, fields);
       if (session && guardedSourceWrite) {
         const row = await this.model.findOne({ _id: id, deletedAt: null }, { invoiceId: 1, status: 1, paid: 1 }).session(session).lean().exec();
         if (row?.invoiceId) {
@@ -670,10 +701,10 @@ export class SupplyService {
           if (!touched.matchedCount) throw new ConflictException('Счёт изменился или оплата подтверждена без даты — перечитайте карточку');
         }
       }
-      return this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }, session ? { session } : {}).exec();
-    }, guardedSourceWrite);
+      if (photoIds) set.photoIds = photoIds;
+      return this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session, ...(photoIds ? { strict: false } : {}) }).exec();
+    }, true);
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
-    if (photoIds) await this.writePhotos(new Types.ObjectId(id), { $set: { photoIds } });
     await this.adoptArticle(await this.model.findById(id, { materialId: 1, article: 1, num: 1 }).lean().exec() as Record<string, unknown> | null);
     await this.afterStatus(prev, fields.status as string | undefined, actorId);
     if (dto.responsibleId !== undefined) await this.afterResponsible(id, prevResp, actorId);
@@ -719,14 +750,17 @@ export class SupplyService {
     if (dryRun) return { dryRun: true, canProceed: !blockers.length, warnings, blockers, relatedAction: 'Отмена прихода на склад и возврат заявки в работу' } satisfies OverridePlan;
     const reason = overrideConfirm(dto);
     if (blockers.length) throw new ConflictException(blockers[0]);
-    for (const m of moves) await this.stock.cancelMovement(String(m._id), actor.id);
     const status = doc.invoiceId || doc.paid ? 'ordered' : 'requested';
-    await this.model.updateOne({ _id: id, deletedAt: null, status: 'received' }, { $set: { status, editedInApp: true }, $unset: { receivedQty: '', receivedAt: '', receivedTo: '', receiveUid: '' } }).exec();
+    await this.writeRequest(id, async session => {
+    for (const m of moves) await this.stock.cancelMovement(String(m._id), actor.id, session);
+    const change = await this.model.updateOne({ _id: id, deletedAt: null, status: 'received' }, { $set: { status, editedInApp: true }, $unset: { receivedQty: '', receivedAt: '', receivedTo: '', receiveUid: '' } }, { session }).exec();
+    if (!change.matchedCount) throw new ConflictException('Приёмка уже изменилась');
     if (doc.invoiceId) {
       // принятых строк в счёте не осталось — снимаем границу приёмки (счёт снова можно править)
-      const left = await this.model.countDocuments({ invoiceId: doc.invoiceId, deletedAt: null, status: 'received' }).exec();
-      if (!(left > 0)) await this.connection.db!.collection('supplyinvoices').updateOne({ _id: doc.invoiceId }, { $unset: { receiptBoundaryAt: '' }, $inc: { version: 1 } });
+      const left = await this.model.countDocuments({ invoiceId: doc.invoiceId, deletedAt: null, status: 'received' }).session(session).exec();
+      if (!(left > 0)) await this.connection.db!.collection('supplyinvoices').updateOne({ _id: doc.invoiceId }, { $unset: { receiptBoundaryAt: '' }, $inc: { version: 1 } }, { session });
     }
+    });
     await adminOverride(this.audit, {
       rule: 'supply.receipt_rollback', entityType: 'SupplyRequest', entityId: id,
       before: { status: 'received', receivedQty: doc.receivedQty ?? null, receivedTo: doc.receivedTo ?? null, movements: moves.map((m) => String(m._id)) },
@@ -764,6 +798,7 @@ export class SupplyService {
     const writeReceipt = async (session: ClientSession) => {
       const fresh = await this.model.findOne({ _id: doc._id, deletedAt: null }).session(session).lean().exec() as (SupplyRequest & { _id: Types.ObjectId; receiveUid?: string }) | null;
       if (!fresh) throw new NotFoundException('Заявка не найдена');
+      await claimStockLinks(this.connection.db!, session, [fresh]);
       if (fresh.status === 'received') {
         if (dto.toStock === false && dto.clientUid && fresh.receiveUid === dto.clientUid) return;
         throw new ConflictException('Заявка уже отмечена как полученная');

@@ -17,7 +17,7 @@ export const orderDeadline = (o: Doc): Date | null => (o.shipDate ?? o.productio
 const ts = (d: unknown) => new Date(d as Date).getTime();
 
 /** Срок заказа (самый ранний), этап (самый отстающий; отменённые не считаются, если есть живые), «разные этапы», срочность. */
-export function summarize(orders: Doc[]): { deadline: Date | null; stage: OrderStage; stagesDiffer: boolean; priority: OrderPriority } {
+export function summarize(orders: Doc[]): { archived: boolean; deadline: Date | null; stage: OrderStage; stagesDiffer: boolean; priority: OrderPriority } {
   const dls = orders.map(orderDeadline).filter(Boolean) as Date[];
   const deadline = dls.length ? dls.reduce((a, b) => (ts(b) < ts(a) ? b : a)) : null;
   const stages = orders.map((o) => ((o.stage as OrderStage) || 'new'));
@@ -25,7 +25,9 @@ export function summarize(orders: Doc[]): { deadline: Date | null; stage: OrderS
   const pool = live.length ? live : stages;
   const stage = pool.reduce((a, b) => (ORDER_STAGES.indexOf(b) < ORDER_STAGES.indexOf(a) ? b : a), pool[0] ?? 'new');
   const priority = orders.map((o) => ((o.priority as OrderPriority) || 'normal')).reduce((a, b) => ((RANK[b] ?? 2) < (RANK[a] ?? 2) ? b : a), 'low' as OrderPriority);
-  return { deadline, stage, stagesDiffer: new Set(pool).size > 1, priority: orders.length ? priority : 'normal' };
+  const active = orders.filter(o => !o.deletedAt && !o.cancelledAt && o.stage !== 'cancelled');
+  const archived = active.length > 0 && active.every(o => Number(o.activeArchiveVersion) > 0);
+  return { archived, deadline, stage, stagesDiffer: new Set(pool).size > 1, priority: orders.length ? priority : 'normal' };
 }
 
 export type ProduceLine = { seqNo: number; title: string; unit?: string | null; qty?: number | null; productId?: string | null; productName?: string | null; sku?: string | null; photo?: { url: string; thumb: string } | null };

@@ -1,3 +1,4 @@
+import { claimPassportOwners, withStoredPassportWrite } from '../../common/order-archive/write';
 import { assertSitePassport, claimPassportLine, epochOf, passportLine } from '../../common/passport/line-source';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
@@ -69,6 +70,7 @@ export class PassportIssue {
         const draft = await this.h.model.findOne({ _id, status: 'draft' }).session(session).lean().exec();
         if (!draft) return; // уже выпущен параллельным запросом
         const current = draft as unknown as Doc;
+        await claimPassportOwners(this.h.connection.db!, session, [{ salesOrderId: current.salesOrderId, incomeId: current.incomeId }]);
         assertExpected(current);
         await claimPassportProduct(this.h.connection, current.productId, session);
         if (current.presentationVersion !== first.presentationVersion) throw new ConflictException('Состояние паспорта изменилось — обновите карточку');
@@ -102,10 +104,10 @@ export class PassportIssue {
     if (!r) throw new BadRequestException('Укажите причину аннулирования');
     const doc = (await this.h.findById(id)).toObject() as unknown as Doc;
     if (!isIssued(doc)) throw new ConflictException(doc.status === 'annulled' ? 'Паспорт уже аннулирован' : 'Черновик не аннулируют — его можно удалить');
-    await this.h.model.updateOne({ _id: doc._id }, {
+    await withStoredPassportWrite(this.h.connection, id, session => this.h.model.updateOne({ _id: doc._id }, {
       $set: { status: 'annulled', annulledAt: new Date(), annulReason: r },
       ...(doc.incomeId ? { $unset: { creationScopeKey: '' } } : {}),
-    }).exec();
+    }, { session }).exec());
     return this.h.findById(id);
   }
 

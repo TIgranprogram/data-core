@@ -1,5 +1,5 @@
 import type { Connection, Schema, SchemaType } from 'mongoose';
-import { COLLECTIONS, isSensitive } from '../admin/collections-admin.controller';
+import { COLLECTIONS, isSensitive, ORDER_ARCHIVE_COLLECTIONS } from '../admin/collections-admin.controller';
 
 /**
  * Самоописание базы для клиентов и ИИ-агентов (GET /api/meta/schema).
@@ -79,6 +79,7 @@ export function describeSchema(schema: Schema, depth = 0): MetaField[] {
 
 export function describeModels(connection: Connection): MetaCollection[] {
   return Object.values(connection.models)
+    .filter((model) => !ORDER_ARCHIVE_COLLECTIONS.has(model.collection.collectionName))
     .map((m) => {
       const collection = m.collection.collectionName;
       const meta = COLLECTIONS[collection];

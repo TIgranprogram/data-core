@@ -1,7 +1,8 @@
 import { passportContextStage } from '../../common/passport/line-source';
+import { claimWritableOrders, withLineWrite, withOrderWrite } from '../../common/order-archive/write';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import type { Connection, Model } from 'mongoose';
+import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid, parseList } from '../../common/list-query';
 import { loadPhotos } from '../../common/photos';
@@ -37,15 +38,15 @@ export class ProductRequestsService {
   private get db() { return this.connection.db!; }
 
   /** Живые позиции заявки (без отменённых и удалённых). */
-  private lines(requestId: Types.ObjectId) {
-    return this.db.collection('incomes').find({ productRequestId: requestId, deletedAt: null, cancelledAt: null }).sort({ createdAt: 1, _id: 1 }).toArray() as Promise<Doc[]>;
+  private lines(requestId: Types.ObjectId, session?: ClientSession) {
+    return this.db.collection('incomes').find({ productRequestId: requestId, deletedAt: null, cancelledAt: null }, { session }).sort({ createdAt: 1, _id: 1 }).toArray() as Promise<Doc[]>;
   }
 
   /** Пересчитать qtyTotal заявки (после добавления/правки/удаления позиции). */
-  async recalc(requestId: unknown): Promise<void> {
+  async recalc(requestId: unknown, session?: ClientSession): Promise<void> {
     if (!requestId) return;
     const _id = requestId as Types.ObjectId;
-    await this.model.updateOne({ _id }, { $set: { qtyTotal: qtySum(await this.lines(_id)) } }).exec();
+    await this.model.updateOne({ _id }, { $set: { qtyTotal: qtySum(await this.lines(_id, session)) } }, { session }).exec();
   }
 
   /**
@@ -53,29 +54,39 @@ export class ProductRequestsService {
    * изделие и прежнее сопоставление снимаются. Нужны количество и цена. Возвращает заявку и признак `created`.
    */
   async attachIncome(income: Doc, userId?: string): Promise<{ id: Types.ObjectId; created: boolean }> {
+    const incomeId = oid(String(income._id), 'позиции');
+    const result = await withLineWrite(this.connection, incomeId, async session => {
+      const current = await this.db.collection('incomes').findOne({ _id: incomeId, deletedAt: null, cancelledAt: null }, { session });
+      if (!current) throw new NotFoundException('Позиция не найдена');
+      return this.attachCurrentIncome(current, session, userId);
+    });
+    if (result.created) await this.notifyDesign(result.title, result.orderNo, userId);
+    return { id: result.id, created: result.created };
+  }
+
+  private async attachCurrentIncome(income: Doc, session: ClientSession, userId?: string) {
     checkLine('new_product', (k) => (k === 'productId' ? undefined : income[k]));
     const title = String(income.title).trim();
     const key = requestKey(title);
     if (!key) throw new BadRequestException('Укажите наименование');
     const photos = ((income.photoIds as Types.ObjectId[] | undefined) ?? []);
-    let req = (await this.model.findOne({ status: 'open', titleKey: key }).lean().exec()) as (ProductRequest & { _id: Types.ObjectId }) | null;
+    let req = (await this.model.findOne({ status: 'open', titleKey: key }).session(session).lean().exec()) as (ProductRequest & { _id: Types.ObjectId }) | null;
     let created = false;
     if (!req) {
-      const doc = await this.model.create({ title, titleKey: key, description: String(income.notes ?? '').trim() || undefined, photoIds: photos, status: 'open', createdBy: uid(userId) });
+      const [doc] = await this.model.create([{ title, titleKey: key, description: String(income.notes ?? '').trim() || undefined, photoIds: photos, status: 'open', createdBy: uid(userId) }], { session });
       req = doc.toObject() as unknown as ProductRequest & { _id: Types.ObjectId };
       created = true;
     } else {
       const merged = mergePhotoIds(req.photoIds ?? [], photos).map((x) => new Types.ObjectId(x));
       const set: Doc = { photoIds: merged };
       if (!req.description && String(income.notes ?? '').trim()) set.description = String(income.notes).trim();
-      await this.model.updateOne({ _id: req._id }, { $set: set }).exec();
+      await this.model.updateOne({ _id: req._id }, { $set: set }, { session }).exec();
     }
     const prev = income.productRequestId as Types.ObjectId | undefined;
-    await this.db.collection('incomes').updateOne({ _id: income._id as Types.ObjectId }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, null] }), { $set: { lineType: 'new_product', productRequestId: req!._id, editedInApp: true } }, { $unset: ['productId', 'matchStatus', 'matchedAt', 'matchedBy', 'serviceId', 'workTypeId'] }]);
-    await this.recalc(req!._id);
-    if (prev && String(prev) !== String(req!._id)) await this.recalc(prev);
-    if (created) await this.notifyDesign(title, String(income.orderNo ?? ''), userId);
-    return { id: req!._id as Types.ObjectId, created };
+    await this.db.collection('incomes').updateOne({ _id: income._id as Types.ObjectId }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, null] }), { $set: { lineType: 'new_product', productRequestId: req._id, editedInApp: true } }, { $unset: ['productId', 'matchStatus', 'matchedAt', 'matchedBy', 'serviceId', 'workTypeId'] }], { session });
+    await this.recalc(req._id, session);
+    if (prev && String(prev) !== String(req._id)) await this.recalc(prev, session);
+    return { id: req._id, created, title, orderNo: String(income.orderNo ?? '') };
   }
 
   private async notifyDesign(title: string, orderNo: string, userId?: string) {
@@ -167,29 +178,30 @@ export class ProductRequestsService {
     };
   }
 
-  private async open(id: string) {
-    const req = await this.model.findOne({ _id: oid(id, 'заявки'), deletedAt: null }).lean().exec();
+  private async open(id: string, session: ClientSession) {
+    const req = await this.model.findOne({ _id: oid(id, 'заявки'), deletedAt: null }).session(session).lean().exec();
     if (!req) throw new NotFoundException('Заявка не найдена');
     if (req.status !== 'open') throw new ConflictException(req.status === 'confirmed' ? 'Заявка уже подтверждена' : 'Заявка уже закрыта как дубль');
     return req;
   }
 
   /** Все позиции заявки → изделие: подтверждено, тип «Изделие»; формулировка запоминается (productaliases). */
-  private async link(requestId: Types.ObjectId, productId: Types.ObjectId, userId?: string) {
-    const lines = await this.lines(requestId);
+  private async link(lines: Doc[], productId: Types.ObjectId, session: ClientSession, userId?: string) {
     const now = new Date();
     const by = uid(userId);
-    await this.db.collection('incomes').updateMany({ productRequestId: requestId, deletedAt: null }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, productId] }), { $set: { productId, matchStatus: 'confirmed', matchedAt: now, lineType: 'product', editedInApp: true, ...(by ? { matchedBy: by } : {}) } }]);
+    await this.db.collection('incomes').updateMany({ _id: { $in: lines.map(line => line._id as Types.ObjectId) } }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, productId] }), { $set: { productId, matchStatus: 'confirmed', matchedAt: now, lineType: 'product', editedInApp: true, ...(by ? { matchedBy: by } : {}) } }], { session });
     for (const key of new Set(lines.map((l) => aliasKey(l.title)).filter(Boolean))) {
-      await this.db.collection('productaliases').updateOne({ key }, { $set: { productId, lastAt: now, updatedAt: now }, $inc: { count: 1 }, $setOnInsert: { createdAt: now } }, { upsert: true });
+      await this.db.collection('productaliases').updateOne({ key }, { $set: { productId, lastAt: now, updatedAt: now }, $inc: { count: 1 }, $setOnInsert: { createdAt: now } }, { upsert: true, session });
     }
+  }
+
+  private async autoDesign(lines: Doc[], userId?: string) {
     // Полностью распределённый заказ → задачи проектирования
     const orderIds = [...new Set(lines.map((l) => String(l.orderId ?? '')).filter((id) => Types.ObjectId.isValid(id)))];
     try {
       const design = this.moduleRef.get(DesignService, { strict: false });
       for (const oidStr of orderIds) await design.autoFromOrderIfReady(oidStr, userId);
     } catch { /* DesignModule ещё не готов */ }
-    return lines.length;
   }
 
   /**
@@ -197,36 +209,38 @@ export class ProductRequestsService {
    * название, описание, фото, цена по умолчанию — из заявки), позиции привязываются.
    */
   async confirm(id: string, body: Doc, userId?: string) {
-    const req = await this.open(id);
-    const now = new Date();
-    const claim = await this.model.updateOne({ _id: req._id, status: 'open' }, { $set: { status: 'confirmed', confirmedAt: now, confirmedBy: uid(userId) } }).exec();
-    if (!claim.matchedCount) throw new ConflictException('Заявку уже обработали, обновите список');
-    try {
-      const lines = await this.lines(req._id);
+    const result = await withOrderWrite(this.connection, [], async session => {
+      const req = await this.open(id, session);
+      const lines = await this.lines(req._id, session);
+      await claimWritableOrders(this.db, session, lines.map(line => line.orderId));
       const price = lines.map((l) => Number(l.unitPrice)).find((x) => x > 0);
       const photoIds = mergePhotoIds(req.photoIds ?? [], lines.flatMap((l) => (l.photoIds as unknown[] | undefined) ?? []));
-      const product = await this.showcase.create({
+      const product = await this.showcase.createRecord({
         name: req.title, ...(req.description ? { description: req.description } : {}), ...(photoIds.length ? { photoIds } : {}), ...(price ? { price } : {}),
         ...body,
-      }, { requireType: true }) as Doc;
-      const productId = new Types.ObjectId(String(product.id ?? product._id));
-      await this.model.updateOne({ _id: req._id }, { $set: { productId } }).exec();
-      const linked = await this.link(req._id, productId, userId);
-      return { ...(await this.get(id)), linked, product };
-    } catch (e) {
-      await this.model.updateOne({ _id: req._id }, { $set: { status: 'open' }, $unset: { confirmedAt: '', confirmedBy: '' } }).exec();
-      throw e;
-    }
+      }, { requireType: true }, session);
+      await this.model.updateOne({ _id: req._id, status: 'open' }, { $set: { status: 'confirmed', confirmedAt: new Date(), confirmedBy: uid(userId), productId: product.id } }, { session }).exec();
+      await this.link(lines, product.id, session, userId);
+      return { lines, product };
+    });
+    await this.autoDesign(result.lines, userId);
+    const product = await this.showcase.get(String(result.product.id));
+    return { ...(await this.get(id)), linked: result.lines.length, product: result.product.skuWarning ? { ...product, skuWarning: result.product.skuWarning } : product };
   }
 
   /** «Это дубль»: изделие не создаётся, позиции заявки переходят на существующее изделие. */
   async reject(id: string, productId: string, userId?: string) {
-    const req = await this.open(id);
     const pid = oid(productId, 'изделия');
-    if (!(await this.db.collection('products').findOne({ _id: pid, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено — выберите из списка');
-    const claim = await this.model.updateOne({ _id: req._id, status: 'open' }, { $set: { status: 'rejected', productId: pid, confirmedAt: new Date(), confirmedBy: uid(userId) } }).exec();
-    if (!claim.matchedCount) throw new ConflictException('Заявку уже обработали, обновите список');
-    const linked = await this.link(req._id, pid, userId);
-    return { ...(await this.get(id)), linked };
+    const lines = await withOrderWrite(this.connection, [], async session => {
+      const req = await this.open(id, session);
+      if (!(await this.db.collection('products').findOne({ _id: pid, deletedAt: null }, { session, projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено — выберите из списка');
+      const lines = await this.lines(req._id, session);
+      await claimWritableOrders(this.db, session, lines.map(line => line.orderId));
+      await this.model.updateOne({ _id: req._id, status: 'open' }, { $set: { status: 'rejected', productId: pid, confirmedAt: new Date(), confirmedBy: uid(userId) } }, { session }).exec();
+      await this.link(lines, pid, session, userId);
+      return lines;
+    });
+    await this.autoDesign(lines, userId);
+    return { ...(await this.get(id)), linked: lines.length };
   }
 }

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Post } from '@nestjs/common';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
@@ -31,10 +32,11 @@ import type { DesktopPairingTtl } from './desktop-pairing-key.schema';
 
 /** P2: права ключа. Не передан = full (права выдавшего). */
 class PairingKeyScopeDto {
+  @ApiProperty({ enum: [...KEY_SCOPE_ACCESS], description: 'app — данные одного указанного приложения' })
   @IsIn(KEY_SCOPE_ACCESS as KeyScopeAccess[])
   access!: KeyScopeAccess;
 
-  /** Приложения для /api/apps/:app/… — не передан или пуст = все. */
+  @ApiPropertyOptional({ type: [String], description: 'В режиме app обязательно одно имя приложения. Прочие режимы допускают пустой список' })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(KEY_SCOPE_MAX_APPS)
@@ -44,20 +46,24 @@ class PairingKeyScopeDto {
 }
 
 class IssuePairingKeyDto {
+  @ApiPropertyOptional({ enum: ['1d', '7d', '30d', '90d', 'never'], default: '30d' })
   @IsOptional()
   @IsIn(['1d', '7d', '30d', '90d', 'never'])
   ttl?: DesktopPairingTtl;
 
+  @ApiPropertyOptional({ maxLength: 64 })
   @IsOptional()
   @IsString()
   @MaxLength(64)
   label?: string;
 
   /** Origin FE resolves for the packet (required for pairing helper). */
+  @ApiProperty({ format: 'uri' })
   @IsString()
   @IsUrl({ require_tld: false })
   apiBaseUrl!: string;
 
+  @ApiPropertyOptional({ type: PairingKeyScopeDto })
   @IsOptional()
   @ValidateNested()
   @Type(() => PairingKeyScopeDto)
@@ -81,6 +87,7 @@ export class DesktopPairingController {
   /** TZD-72: only desktop:admin (or admin role wildcard) may issue keys. */
   @Permissions('desktop:admin')
   @Post('pairing-keys')
+  @Header('Cache-Control', 'no-store')
   issue(@CurrentUser() user: AuthenticatedUser, @Body() dto: IssuePairingKeyDto) {
     return this.keys.issue(user, {
       ttl: dto.ttl,
@@ -93,6 +100,7 @@ export class DesktopPairingController {
   /** Convenience alias: same as POST pairing-keys (TZD-21 packet helper). */
   @Permissions('desktop:admin')
   @Post('pairing')
+  @Header('Cache-Control', 'no-store')
   issuePairing(@CurrentUser() user: AuthenticatedUser, @Body() dto: IssuePairingKeyDto) {
     return this.keys.issue(user, {
       ttl: dto.ttl ?? '30d',

@@ -8,6 +8,7 @@ import { Reservation, ReservationSchema } from './schemas/reservation.schema';
 import { StockMovement, StockMovementSchema } from './schemas/stock-movement.schema';
 import { StorageItem, StorageItemSchema } from './schemas/storage-item.schema';
 import { Warehouse, WarehouseSchema } from './schemas/warehouse.schema';
+import { StockDuplicatePreviewController } from './stock-duplicate-preview.controller';
 import { StockController } from './stock.controller';
 import { StockCatalogService } from './stock-catalog.service';
 import { StockCatalogName, StockCatalogNameSchema } from './stock-catalog-name.schema';
@@ -37,7 +38,7 @@ import { StockService } from './stock.service';
       { name: StockCatalogName.name, schema: StockCatalogNameSchema },
     ]),
   ],
-  controllers: [StockController, StockSummaryController],
+  controllers: [StockController, StockSummaryController, StockDuplicatePreviewController],
   providers: [StockCoreService, StockSearchService, StockCatalogNameService, StockCatalogService, StockMovementsService, StockReservationsService, StockSpecService, StockCompositionService, StockSummaryService, StockService],
   exports: [StockService],
 })

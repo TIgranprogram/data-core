@@ -1,7 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types, type Connection } from 'mongoose';
 import { loadSeq } from '../../common/text/production-seq';
-import { readinessOf } from './passport-consts';
+import { isIssued, readinessOf } from './passport-consts';
+import { effectiveAttachment, selectedAttachments } from '../productattachments/attachment-availability';
 import type { CreateProductPassportDto } from './dto/create-product-passport.dto';
 
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -24,7 +25,7 @@ const mskToday = (now: Date) => new Date(new Date(now.getTime() + 3 * 3600000).t
 const days = (ship: Date | null, today: Date) => (ship ? Math.round((new Date(ship).getTime() - today.getTime()) / 86400000) : null);
 
 /** seq — сквозной № позиции по заказу производства (id позиции → №); нет записи — позиция договора без № заказа. */
-interface Inputs { works?: Doc[]; tasks: Doc[]; incomes: Doc[]; orders: Doc[]; passports: Doc[]; products: Doc[]; seq?: Map<string, { seqNo: number }> }
+interface Inputs { works?: Doc[]; tasks: Doc[]; incomes: Doc[]; orders: Doc[]; passports: Doc[]; products: Doc[]; coveredAttachments?: Set<string>; seq?: Map<string, { seqNo: number }> }
 
 /**
  * Очередь паспортов (чистая функция): позиция попадает, если заказ жив и не закрыт/отменён, есть изделие, проектирование завершено
@@ -60,14 +61,13 @@ export function buildQueue(inp: Inputs, q: { due?: string; search?: string; limi
   const all: QueueItem[] = [];
   for (const inc of lines) {
     const o = order.get(String(inc.orderId));
-    if (!o || !inc.productId || !doneAt.has(String(inc._id))) continue;
+    if (!o || !inc.productId || !doneAt.has(String(inc._id)) || inp.coveredAttachments?.has(String(inc._id))) continue;
     let mine = exact.get(String(inc._id));
     if (!mine?.length) {
       const taken = pool.get(`${inc.orderId}|${inc.productId}`)?.shift();
       mine = taken ? [taken] : [];
     }
-    const states = mine.map((p) => readinessOf(p));
-    if (states.includes('ready')) continue;
+    if (mine.some((p) => isIssued(p) && readinessOf(p) === 'ready')) continue;
     const pick = mine.find((p) => readinessOf(p) === 'rework') ?? mine[0];
     const d = days(o.shipDate ?? null, today);
     all.push({
@@ -100,16 +100,21 @@ export function buildQueue(inp: Inputs, q: { due?: string; search?: string; limi
 export async function loadQueue(db: Db, q: { due?: string; search?: string; limit?: number }) {
   const tasks = await db.collection('designtasks').find({ status: 'done', deletedAt: null, incomeId: { $ne: null } }, { projection: { incomeId: 1, completedAt: 1, updatedAt: 1 } }).toArray();
   const incomeIds = [...new Set(tasks.map((t) => String(t.incomeId)))].map((x) => new Types.ObjectId(x));
-  const incomes = incomeIds.length ? await db.collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null, cancelledAt: null, productId: { $ne: null } }, { projection: { orderId: 1, lineNo: 1, title: 1, productId: 1 } }).toArray() : [];
+  const incomes = incomeIds.length ? await db.collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null, cancelledAt: null, lineType: { $ne: 'service' }, productId: { $ne: null } }, { projection: { orderId: 1, lineNo: 1, title: 1, productId: 1, passportSelection: 1 } }).toArray() : [];
   const orderIds = [...new Set(incomes.map((i) => String(i.orderId)).filter((x) => Types.ObjectId.isValid(x)))].map((x) => new Types.ObjectId(x));
   const orders = orderIds.length ? await db.collection('salesorders').find({ _id: { $in: orderIds }, deletedAt: null, stage: { $nin: ['closed', 'cancelled'] } }, { projection: { orderNo: 1, productionNo: 1, customer: 1, shipDate: 1, priority: 1 } }).toArray() : [];
   const liveOrders = orders.map((o) => o._id);
   const passports = liveOrders.length ? await db.collection('productpassports').find(
     { deletedAt: null, status: { $ne: 'annulled' }, $or: [{ incomeId: { $in: incomes.map((i) => i._id) } }, { salesOrderId: { $in: liveOrders }, incomeId: null }] },
     { projection: { incomeId: 1, salesOrderId: 1, productId: 1, readiness: 1, status: 1, passportNumber: 1 } }).toArray() : [];
-  const products = incomes.length ? await db.collection('products').find({ _id: { $in: [...new Set(incomes.map((i) => String(i.productId)))].map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1 } }).toArray() : [];
+  const products = incomes.length ? await db.collection('products').find({ _id: { $in: [...new Set(incomes.map((i) => String(i.productId)))].map((x) => new Types.ObjectId(x)) } }, { projection: { name: 1, deletedAt: 1 } }).toArray() : [];
   const works = incomeIds.length ? await db.collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, route: 1, stepIndex: 1 } }).sort({ createdAt: 1 }).toArray() : [];
-  return buildQueue({ works, tasks, incomes, orders, passports, products, seq: await loadSeq(db, orderIds) }, q);
+  const files = await selectedAttachments(db, incomes);
+  const liveProducts = new Set(products.filter((p) => !p.deletedAt).map((p) => String(p._id)));
+  const coveredAttachments = new Set(incomes.filter((line) => line.passportSelection?.mode === 'attachment' &&
+    effectiveAttachment(line, files.get(String(line.passportSelection.attachmentId)), liveProducts.has(String(line.productId))).attachment?.available)
+    .map((line) => String(line._id)));
+  return buildQueue({ works, tasks, incomes, orders, passports, products, coveredAttachments, seq: await loadSeq(db, orderIds) }, q);
 }
 
 /** Наша фирма, только если она ровно одна (C062). Несколько или ни одной — null: фирму выбирают. */

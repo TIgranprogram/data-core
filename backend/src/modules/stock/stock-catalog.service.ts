@@ -10,6 +10,7 @@ import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-r
 import { CounterService } from '../counter/counter.service';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { type ArticleDecision, decideArticle, isAutoArticle } from './article';
+import { STOCK_VISIBLE } from '../../common/catalog/stock-visible';
 import { CategoryResolver } from '../../common/catalog/category-resolver';
 import { mergeDims } from './metal';
 import { QrService } from '../qr/qr.service';
@@ -44,11 +45,36 @@ export class StockCatalogService {
   });
 
   /** Материал с таким же наименованием (без учёта регистра и лишних пробелов). */
-  async findMaterialByName(name: string, session?: ClientSession): Promise<MaterialDocument | null> {
+  async findMaterialByName(name: string, session?: ClientSession, stockOnly = false): Promise<MaterialDocument | null> {
     const clean = name.trim().replace(/\s+/g, ' ');
     if (!clean) return null;
     const re = new RegExp(`^\\s*${escapeRe(clean).replace(/ /g, '\\s+')}\\s*$`, 'i');
-    return this.materials.findOne({ name: re, deletedAt: null }).session(session ?? null).exec();
+    return this.materials.findOne({ name: re, deletedAt: null, ...(stockOnly ? STOCK_VISIBLE : {}) }).session(session ?? null).exec();
+  }
+
+  /** Новая покупная номенклатура и заявка сохраняются вместе, без складского размещения. */
+  withRequestMaterial<T>(
+    input: { name: string; unit?: string; categoryId?: Types.ObjectId },
+    scope: StockScope | null | undefined,
+    write: (materialId: Types.ObjectId, session: ClientSession) => Promise<T>,
+  ): Promise<T> {
+    const name = input.name.trim().replace(/\s+/g, ' ');
+    return this.names.run([name], async session => {
+      const existing = await this.findMaterialByName(name, session, true);
+      if (!inScope(scope, existing ?? { categoryId: input.categoryId })) {
+        throw new ForbiddenException('Эта позиция не из вашего склада');
+      }
+      if (existing) return write(existing._id as Types.ObjectId, session);
+      const [material] = await this.materials.create([{
+        name,
+        article: await this.autoArticle(session),
+        materialKind: 'purchased',
+        unit: input.unit?.trim() || 'шт',
+        categoryId: input.categoryId,
+        stockQty: 0,
+      }], { session });
+      return write(material._id as Types.ObjectId, session);
+    });
   }
 
   /** Авто-артикул для позиции без артикула (в CRM поле обязательно): СКЛ-<год>-<номер>. */

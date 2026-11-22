@@ -33,6 +33,11 @@ describe('очередь паспортов', () => {
     const rework = { _id: 'x3', incomeId: 'i1', status: 'issued', passportNumber: '6', readiness: 'rework' };
     expect(buildQueue({ ...base, passports: [rework] }, {}, NOW).items.find((i) => i.incomeId === 'i1')).toMatchObject({ passportState: 'rework' });
   });
+  it('готовый черновик ждёт выпуска, выбранный доступный PDF — вне очереди выпуска', () => {
+    const p = { _id: 'x1', incomeId: 'i1', status: 'draft', readiness: 'ready', passportNumber: 'draft-x1' };
+    const result = buildQueue({ ...base, passports: [p], coveredAttachments: new Set(['i2']) }, {}, NOW);
+    expect(result.items).toEqual([expect.objectContaining({ incomeId: 'i1', passportState: 'draft' })]);
+  });
   it('старый паспорт без incomeId закрывает только одну из двух одинаковых позиций', () => {
     const inp = { ...base, tasks: [task('i1'), task('i3')], incomes: [income('i1', 'o1', 'p1', 1), income('i3', 'o1', 'p1', 2)], orders: [order('o1', '2026-11-05')], passports: [{ _id: 'x1', salesOrderId: 'o1', productId: 'p1', status: 'issued', passportNumber: '5' }] };
     expect(ids(buildQueue(inp, {}, NOW))).toEqual(['i3']);

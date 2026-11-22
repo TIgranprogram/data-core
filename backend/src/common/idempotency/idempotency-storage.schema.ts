@@ -10,7 +10,7 @@ import { HydratedDocument } from 'mongoose';
  *
  * Lifecycle:
  *   - On a successful POST/PATCH/PUT/DELETE response with Idempotency-Key,
- *     middleware writes cachedResponse keyed by idempotencyKey + requestFingerprint.
+ *     interceptor writes cachedResponse scoped to the authenticated credential.
  *   - On replay with same key + same fingerprint: return cached response (200/201).
  *   - On replay with same key + DIFFERENT fingerprint: 409 conflict.
  *   - TTL index on storedAt expires records after 24 h (жёстко в коде; переменной окружения нет — М3).
@@ -22,7 +22,7 @@ export class Idempotency {
   @Prop({ required: true, unique: true, index: true })
   idempotencyKey!: string;
 
-  /** SHA-256 of `METHOD+PATH+sorted-body-bytes` — catches key reuse with different payload. */
+  /** SHA-256 of `method, URL, body and current authorization` — catches key reuse with different payload. */
   @Prop({ required: true })
   requestFingerprint!: string;
 
@@ -32,8 +32,7 @@ export class Idempotency {
   @Prop({ required: true })
   httpStatus!: number;
 
-  /** Cached response body. Sensitive fields (passwordHash/refreshTokenVersion/<256KB bodies)
-   *  are redacted before storage by the middleware service. Verified by `idempotency.middleware.spec.ts`. */
+  /** JSON ответа до 256 КБ. Секретные поля скрывает перехватчик. */
   @Prop({ type: Object, required: true })
   cachedResponse!: Record<string, unknown>;
 }

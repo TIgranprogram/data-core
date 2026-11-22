@@ -77,7 +77,8 @@ describe('СКЛ-1: batch out — «свободно», а не остаток',
     const materials = { find: jest.fn(() => q([{ _id: matId, name: 'Труба' }])), exists: jest.fn(async () => true) };
     const core = { defaultWarehouse: async () => ({ _id: new Types.ObjectId() }), loadStorage: jest.fn(async () => item) };
     const coll = (n: string) => ({
-      findOne: async () => (n === 'salesorders' ? { _id: orderId } : null),
+      updateOne: async () => ({ matchedCount: 1 }),
+    findOne: async () => (n === 'salesorders' ? { _id: orderId } : null),
       updateMany: async () => ({}),
       find: () => ({ toArray: async () => [] }),
     });

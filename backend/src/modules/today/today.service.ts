@@ -4,6 +4,7 @@ import type { Connection } from 'mongoose';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { ACTIVE_STAGES } from '../../common/text/order-key';
 import { canSeeMoney } from '../../common/roles-hierarchy';
+import { stockScopeFor } from '../../common/stock-scope';
 import { FinanceService } from '../finance/finance.service';
 import { presentWork } from '../work/work-present';
 import { StockService } from '../stock/stock.service';
@@ -51,7 +52,7 @@ export class TodayService {
       see('design') ? this.design(db, upto, today) : none,
       see('work') ? this.work(db, upto) : none,
       see('design') ? this.questions(db) : none,
-      see('stock') ? this.stockCounts() : none,
+      see('stock') ? this.stockCounts(user) : none,
       money ? this.finance.forecast({ days: 14, today }) : none,
     ]);
 
@@ -90,7 +91,7 @@ export class TodayService {
     const out: Record<string, number> = {};
     await Promise.all([
       see('requests') && count('supplyrequests', { status: { $in: ['requested', 'in_progress', 'ordered', null] } }).then((n) => { out.requests = n; }),
-      see('stock') && this.stockCounts().then((c) => { out.stockLow = c.low + c.none; }),
+      see('stock') && this.stockCounts(user).then((c) => { out.stockLow = c.low; }),
       see('money') && canSeeMoney(user) && count('incomes', { cancelledAt: null, paidDate: null, paidAmount: { $not: { $gt: 0 } }, shipDate: { $ne: null }, amount: { $gt: 0 } }).then((n) => { out.awaiting = n; }),
       // как чип «В работе» на доске заказов: число заказов производства (группы), не договоров
       see('salesorders') && this.activeProductionCount(db).then((n) => { out.salesorders = n; }),
@@ -214,8 +215,8 @@ export class TodayService {
     return { items };
   }
 
-  private async stockCounts() {
-    const { counts } = await this.stock.listItems({ limit: 1 });
+  private async stockCounts(user: { role?: string; isOwner?: boolean } | undefined) {
+    const { counts } = await this.stock.listItems({ limit: 1, held: '1' }, stockScopeFor(user));
     return { ok: counts.ok, low: counts.low, none: counts.none };
   }
 }

@@ -10,6 +10,7 @@ export type ProductAttachmentDocument = HydratedDocument<ProductAttachment>;
 @Schema({ collection: 'productattachments', timestamps: true })
 export class ProductAttachment {
   @Prop({ type: Number, default: undefined }) selectionGeneration?: number;
+  @Prop({ type: Boolean, default: undefined }) archiveProtected?: boolean;
   @Prop({ type: Number, default: undefined }) selectionGuard?: number;
   @Prop({ type: String }) purgeState?: string;
   @Prop({ type: String }) purgeToken?: string;

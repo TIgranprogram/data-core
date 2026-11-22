@@ -21,9 +21,11 @@ function setup(mkRows: (from: Types.ObjectId, to: Types.ObjectId) => Record<stri
 
 describe('HARDEN-1 п.16: объединение поставщиков', () => {
   it('переносит счета, договоры и каталог', async () => {
-    const t = setup();
+    const request = new Types.ObjectId();
+    const t = setup(from => ({ supplyrequests: [{ _id: request, supplierId: from }] }));
     await t.svc.merge(String(t.from), String(t.to));
-    for (const c of ['supplyrequests', 'supplyinvoices', 'suppliercontracts', 'supplieritems']) {
+    expect(t.upd['supplyrequests.many']).toHaveBeenCalledWith({ _id: { $in: [request] }, supplierId: t.from }, { $set: expect.objectContaining({ supplierId: t.to }) }, expect.anything());
+    for (const c of ['supplyinvoices', 'suppliercontracts', 'supplieritems']) {
       expect(t.upd[`${c}.many`]).toHaveBeenCalledWith({ supplierId: t.from }, { $set: expect.objectContaining({ supplierId: t.to }) }, expect.anything());
     }
   });

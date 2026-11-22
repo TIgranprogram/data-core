@@ -1,3 +1,4 @@
+import { claimWritableOrders } from '../../common/order-archive/write';
 import type { ClientSession, Model } from 'mongoose';
 import type { ProductPassportDocument } from './product-passport.schema';
 import { escapeRe, isDraftNumber, type Doc } from './passport-consts';
@@ -17,6 +18,7 @@ export async function takeOverNumbers(model: Model<ProductPassportDocument>, dra
   if (session) q.session(session);
   const prev = ((await q.lean().exec()) as unknown as Doc[]).find((d) => d.passportNumber && !isDraftNumber(d.passportNumber) && !String(d.passportNumber).includes(REUSE_MARK));
   if (!prev) return null;
+  if (session && prev.salesOrderId && String(prev.salesOrderId) !== String(draft.salesOrderId)) await claimWritableOrders(model.db.db!, session, [prev.salesOrderId]);
   const no = String(prev.passportNumber);
   const cq = model.countDocuments({ passportNumber: new RegExp(`^${escapeRe(no)}${REUSE_MARK}`) }).setOptions({ includeSoftDeleted: true });
   if (session) cq.session(session);

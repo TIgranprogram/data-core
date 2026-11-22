@@ -19,10 +19,10 @@ type RawDoc = Record<string, unknown> & { _id: Types.ObjectId };
 export type AppDoc = Record<string, unknown> & { id: string; _id: string };
 
 export interface ListQuery {
-  page?: string;
-  limit?: string;
-  sort?: string;
-  filter?: string;
+  page?: unknown;
+  limit?: unknown;
+  sort?: unknown;
+  filter?: unknown;
 }
 
 /** Документы, помеченные удалёнными, скрыты во всех чтениях и изменениях. */

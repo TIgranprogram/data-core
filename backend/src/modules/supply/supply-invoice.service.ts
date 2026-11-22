@@ -1,3 +1,4 @@
+import { claimStockLinks } from '../../common/order-archive/write';
 import { SupplyUndatedPaymentsService } from './supply-undated-payments.service';
 import { hasUndatedPayment, undatedLocked } from './undated-payment';
 import { UndatedInvoicePaymentDto, RevokeUndatedInvoicePaymentDto } from './dto-invoice';
@@ -46,6 +47,11 @@ export class SupplyInvoiceService {
     @Optional() private readonly ledger?: SupplyInvoicePaymentsService,
     @Optional() private readonly undated?: SupplyUndatedPaymentsService,
   ) {}
+
+  private async claimRequests(filter: Record<string, unknown>, session: ClientSession) {
+    const rows = await this.requests.find(filter, { salesOrderId: 1, salesOrderLineId: 1 }).setOptions({ includeSoftDeleted: true }).session(session).lean().exec();
+    await claimStockLinks(this.connection.db!, session, rows);
+  }
 
   private async tx<T>(fn: (s: ClientSession) => Promise<T>): Promise<T> {
     const session = await this.connection.startSession();
@@ -356,6 +362,7 @@ export class SupplyInvoiceService {
     for (const d of docs) groups.set(String(d.supplierId), [...(groups.get(String(d.supplierId)) ?? []), d]);
     const createdBy = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
     const made = await this.tx(async (session) => {
+      await this.claimRequests({ _id: { $in: docs.map(d => d._id) } }, session);
       const out: string[] = [];
       for (const [sup, list] of groups) {
         const [inv] = await this.model.create([{ supplierId: new Types.ObjectId(sup), supplierName: names.get(sup), status: 'draft', fileIds: [], createdBy }], { session });
@@ -481,6 +488,7 @@ export class SupplyInvoiceService {
     }
     const status = (set.status ?? inv.status) as string;
     await this.tx(async (session) => {
+      await this.claimRequests({ invoiceId: inv._id }, session);
       const duplicate = await this.recheckIntakeIdentity(inv, set, dto.duplicateReason, session);
       // Дополнительные поля применяются только в успешно зафиксированной транзакции.
       const applied = { ...set, ...duplicate };
@@ -538,6 +546,7 @@ export class SupplyInvoiceService {
     }
     const addedPaidAt = inv.status === 'paid' ? (inv.paidAt as Date | undefined) ?? new Date() : undefined;
     const amount = await this.tx(async (session) => {
+      await this.claimRequests({ $or: [{ invoiceId: inv._id }, { _id: { $in: ids } }] }, session);
       await this.touchFinancialInvoice(inv._id, session, inv.version);
       const attached = await this.requests.updateMany({ _id: { $in: ids }, deletedAt: null, invoiceId: null, paid: { $ne: true }, $or: docs.map(d => ({ _id: d._id, qty: d.qty, status: d.status ?? null })) },
         { $set: { invoiceId: inv._id, status: 'ordered', editedInApp: true,
@@ -589,6 +598,7 @@ export class SupplyInvoiceService {
     if (src.status === 'paid' || dst.status === 'paid') throw new BadRequestException('Оплаченные счета нельзя объединять — до приёмки можно отдельно добавить или исправить позиции');
     const by = actorId && Types.ObjectId.isValid(actorId) ? new Types.ObjectId(actorId) : undefined;
     const out = await this.tx(async (session) => {
+      await this.claimRequests({ invoiceId: { $in: [src._id, dst._id] } }, session);
       await this.touchFinancialInvoice(src._id, session, src.version);
       await this.touchFinancialInvoice(dst._id, session, dst.version);
       const a = await this.linesOf(src, session);
@@ -676,6 +686,7 @@ export class SupplyInvoiceService {
     }
     if (Object.keys($set).length || Object.keys($unset).length) {
       await this.tx(async (session) => {
+      await this.claimRequests({ invoiceId: inv._id }, session);
         const changes = { ...$set, ...Object.fromEntries(Object.keys($unset).map(key => [key, undefined])) };
         const duplicate = await this.recheckIntakeIdentity(inv, changes, dto.duplicateReason, session);
         const applied = { ...$set, ...duplicate };
@@ -750,6 +761,7 @@ export class SupplyInvoiceService {
       priceHint = Math.round(((Number(line.priceHint) || 0) / oldQty) * qty * 100) / 100;
     } else throw new BadRequestException('Укажите цену за единицу (unitPrice) или сумму строки (lineAmount)');
     const amount = await this.tx(async (session) => {
+      await this.claimRequests({ invoiceId: inv._id }, session);
       if (dto.version !== undefined) {
         const fresh = await this.model.findOne({ _id: inv._id }, { version: 1 }).session(session).lean().exec() as Lean | null;
         if (Number(fresh?.version ?? 0) !== Number(dto.version)) throw new ConflictException('Счёт изменился, пока вы правили цену — обновите и повторите');
@@ -824,6 +836,7 @@ export class SupplyInvoiceService {
     if (line.status === 'received') throw new BadRequestException('Строка уже принята на склад');
     const beforeAmount = Number(inv.amount) || 0;
     const amount = await this.tx(async (session) => {
+      await this.claimRequests({ _id: line._id }, session);
       await this.touchFinancialInvoice(inv._id, session, inv.version);
       await this.requests.updateOne({ _id: line._id },
         // оплата строки — это оплата счёта: вне счёта строка не оплачена (иначе двойной расход в «Деньгах»)
@@ -861,6 +874,7 @@ export class SupplyInvoiceService {
     const adjusted = valuation.requests.find((x) => x.id === lineId)!;
     if (adjusted.accountingLineAmountRub !== gross) throw new ConflictException('Рублёвая сумма не согласуется с НДС строки; требуется отдельная сверка');
     await this.tx(async (session) => {
+      await this.claimRequests({ invoiceId: inv._id }, session);
       const touched = await this.model.updateOne({ _id: inv._id, version: inv.version, deletedAt: null, 'undatedPaymentEvidence.state': { $ne: 'pending' } }, { $inc: { version: 1 }, $set: { amount: valuation.accountingAmountRub, financialLines: stored } }, { session }).exec();
       if (!touched.matchedCount) throw new ConflictException('Счёт изменился — обновите карточку');
       await this.requests.updateOne({ _id: line._id, invoiceId: inv._id }, { $set: { qty, priceHint: gross, editedInApp: true } }, { session }).exec();
@@ -895,6 +909,7 @@ export class SupplyInvoiceService {
     stored[lineId] = meta;
     const nextLines = lines.map((x) => x === line ? { ...x, qty } : x), valuation = financials({ ...inv, financialLines: stored }, nextLines);
     await this.tx(async (session) => {
+      await this.claimRequests({ invoiceId: inv._id }, session);
       const fresh = await this.load(String(inv._id));
       if (Number(fresh.version || 0) !== Number(dto.version ?? inv.version ?? 0)) throw new ConflictException('Счёт изменился — обновите карточку');
       await this.touchFinancialInvoice(inv._id, session, inv.version);
@@ -938,6 +953,7 @@ export class SupplyInvoiceService {
     const now = new Date();
     const by = actorId && Types.ObjectId.isValid(actorId) ? new Types.ObjectId(actorId) : undefined;
     await this.tx(async (session) => {
+      await this.claimRequests({ invoiceId: inv._id }, session);
       const lines = await this.paymentLines(inv, session);
       const paymentSnapshot = { amount: sum, paidAt: now, ...(by ? { paidBy: by } : {}), lines };
       await this.model.updateOne({ _id: inv._id, status: 'issued' }, { $set: { status: 'paid', paidAt: now, paymentSnapshot }, $inc: { version: 1 } }, { session }).exec();
@@ -979,6 +995,7 @@ export class SupplyInvoiceService {
     if (blockers.length) throw new ConflictException(blockers[0]);
     const by = actor.id && Types.ObjectId.isValid(actor.id) ? new Types.ObjectId(actor.id) : undefined;
     await this.tx(async (session) => {
+      await this.claimRequests({ invoiceId: inv._id }, session);
       const res = await this.model.updateOne({ _id: inv._id, status: 'paid', $or: [{ receiptBoundaryAt: null }, { receiptBoundaryAt: { $exists: false } }] },
         { $set: { status: 'issued' }, $unset: { paidAt: '', paymentSnapshot: '' }, $inc: { version: 1 },
           $push: { paymentAdjustments: { at: new Date(), ...(by ? { by } : {}), reason, operation: 'payment_reversed', beforeAmount: amount, afterAmount: 0, delta: -amount, requestIds: [] } } }, { session }).exec();
@@ -1000,6 +1017,7 @@ export class SupplyInvoiceService {
     const lock = await this.lockReason(inv);
     if (lock) throw new BadRequestException(`${lock} — удалить нельзя`);
     await this.tx(async (session) => {
+      await this.claimRequests({ invoiceId: inv._id }, session);
       await this.touchFinancialInvoice(inv._id, session, inv.version);
       await this.requests.updateMany({ invoiceId: inv._id, deletedAt: null, status: 'ordered', paid: { $ne: true } }, { $set: { status: 'requested' } }, { session }).exec();
       await this.requests.updateMany({ invoiceId: inv._id }, { $unset: { invoiceId: '', invoiceNo: '', invoiceDate: '' }, $set: { editedInApp: true } }, { session }).setOptions({ includeSoftDeleted: true }).exec();

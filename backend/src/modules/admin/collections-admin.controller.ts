@@ -84,6 +84,7 @@ const CATEGORIES: CategoryDef[] = [
  */
 /** shared — общая с CRM kppdf: схема в обоих репо, пишут оба (склад, снабжение; М5). Удаляется только kind app. */
 export type CollectionKind = 'core' | 'link' | 'crm' | 'shared' | 'app';
+export const ORDER_ARCHIVE_COLLECTIONS: ReadonlySet<string> = new Set(['salesorderarchives', 'salesorderarchivereopens', 'salesorderarchivechunks', 'passporthandovers']);
 
 export interface CollectionMeta {
   category: string;
@@ -190,6 +191,10 @@ export const COLLECTIONS: Record<string, CollectionMeta> = {
   supplyrequests: { category: 'crm-sales', kind: 'shared', doc: 'Заявки снабжения. Общая с CRM kppdf: пишут оба (data-core — модули stock/supply; UNIFY-SUPPLY-WAREHOUSE.md).' },
   incomes: { category: 'money', kind: 'core', doc: 'Доходы — строки заказов (лист «Заказы»): заказчик, наша компания, сумма, даты отгрузки и оплаты. Раздел «Заказы» и «Деньги» приложения.' },
   salesorders: { category: 'money', kind: 'core', doc: 'Заказы заказчиков — шапки: номер, наша компания, заказчик, контракт, сроки, этап. Позиции — incomes (orderId). Раздел «Заказы» приложения.' },
+  passporthandovers: { category: 'system', kind: 'core', doc: 'История передачи комплектов паспортов. Просмотр из реестра.' },
+  salesorderarchives: { category: 'money', kind: 'core', doc: 'Зафиксированные версии договора. Доступ из истории договора.' },
+  salesorderarchivereopens: { category: 'money', kind: 'core', doc: 'Квитанции возобновления договора.' },
+  salesorderarchivechunks: { category: 'money', kind: 'core', doc: 'Блоки файлов неизменяемого архива договоров.' },
   designtasks: { category: 'money', kind: 'core', doc: 'Задачи «Проектирования» (D-N): чертежи под позицию заказа или свободная задача; статус, исполнитель, свои срок и приоритет (иначе из заказа). Раздел «Проектирование» приложения.' },
   commercialoffers: { category: 'money', kind: 'core', doc: 'Коммерческие предложения (КП-N): заказчик, строки, статус, условия, фоны PDF. Раздел «КП» приложения. Не quotations — это CRM.' },
   offerbackgrounds: { category: 'money', kind: 'core', doc: 'Фоны PDF коммерческих предложений (страница 1 / 2+), файлы в uploads/offers.' },
@@ -429,7 +434,7 @@ export class CollectionsAdminController {
     const raw = await db.listCollections({}, { nameOnly: true }).toArray();
     const names = raw
       .map((c) => c.name)
-      .filter((n) => n && !n.startsWith('system.'))
+      .filter((n) => n && !n.startsWith('system.') && !ORDER_ARCHIVE_COLLECTIONS.has(n))
       .sort((a, b) => a.localeCompare(b));
 
     const items: {
@@ -479,6 +484,9 @@ export class CollectionsAdminController {
     if (!name || !/^[A-Za-z0-9_\-]+$/.test(name)) {
       throw new BadRequestException('Invalid collection name');
     }
+    if (ORDER_ARCHIVE_COLLECTIONS.has(name)) {
+      throw new ConflictException('Комплект архива доступен из истории договора');
+    }
     const query = parseDocsQuery(raw);
     const db = this.db();
     const known = (await db.listCollections({ name }, { nameOnly: true }).toArray()).length > 0;
@@ -508,6 +516,7 @@ export class CollectionsAdminController {
     if (!name || !/^[A-Za-z0-9_\-]+$/.test(name)) {
       throw new BadRequestException('Invalid collection name');
     }
+    if (ORDER_ARCHIVE_COLLECTIONS.has(name)) throw new ConflictException('Комплект архива доступен из истории договора');
     const db = this.db();
     const known = (await db.listCollections({ name }, { nameOnly: true }).toArray()).length > 0;
     if (!known) throw new BadRequestException('Collection not found: ' + name);

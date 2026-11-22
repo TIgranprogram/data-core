@@ -12,7 +12,7 @@ describe('ProductionOrdersService.assign — блок сопоставления
       find: jest.fn(() => chain([{ _id: o1, orderNo: '12',...(legal?{legal:{state:'draft'}}:{}) }, { _id: o2, orderNo: '13',...(legal?{legal:{state:'draft'}}:{}) }])),
       updateMany: jest.fn(() => chain({ modifiedCount: 2 })),
     };
-    const coll = () => ({ find: () => ({ sort: () => ({ toArray: async () => incomes }) }) });
+    const coll = () => ({ updateOne: async () => ({ matchedCount: 1 }), find: () => ({ sort: () => ({ toArray: async () => incomes }) }) });
     const session = { withTransaction: async (f: () => Promise<void>) => f(), endSession: async () => undefined };
     const conn = { db: { collection: coll }, startSession: async () => session };
     return { svc: new ProductionOrdersService(conn as never, model as never, {} as never, { log: jest.fn() } as never, {} as never), model };

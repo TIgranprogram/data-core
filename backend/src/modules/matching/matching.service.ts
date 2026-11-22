@@ -1,4 +1,5 @@
 import { passportContextStage } from '../../common/passport/line-source';
+import { claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -163,24 +164,34 @@ export class MatchingService {
     const db = this.connection.db!;
     const lineIds = [...new Set(picks.map((p) => p.lineId))];
     if (lineIds.length !== picks.length) throw new BadRequestException('Одна позиция указана дважды');
-    const lines = await db.collection('incomes').find({ _id: { $in: lineIds.map((i) => oid(i, 'позиции')) }, deletedAt: null }).toArray() as Doc[];
-    const lineBy = new Map(lines.map((l) => [String(l._id), l]));
-    if (lineIds.some((i) => !lineBy.has(i))) throw new NotFoundException('Позиция не найдена — обновите список');
     const pids = [...new Set(picks.map((p) => p.productId).filter(Boolean) as string[])];
-    const prods = pids.length ? await db.collection('products').find({ _id: { $in: pids.map((i) => oid(i, 'изделия')) }, deletedAt: null }, { projection: { name: 1 } }).toArray() : [];
-    if (prods.length !== pids.length) throw new NotFoundException('Изделие не найдено — выберите из списка');
     const by = userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined;
     const now = new Date();
+    const lines = await withOrderWrite(this.connection, [], async session => {
+      const rows = await db.collection('incomes').find({ _id: { $in: lineIds.map((i) => oid(i, 'позиции')) }, deletedAt: null }, { session }).toArray() as Doc[];
+      if (rows.length !== lineIds.length) throw new NotFoundException('Позиция не найдена — обновите список');
+      const prods = pids.length ? await db.collection('products').countDocuments({ _id: { $in: pids.map((i) => oid(i, 'изделия')) }, deletedAt: null }, { session }) : 0;
+      if (prods !== pids.length) throw new NotFoundException('Изделие не найдено — выберите из списка');
+      await claimWritableOrders(db, session, rows.map(row => row.orderId));
+      for (const p of picks) {
+        const productId = p.productId ? new Types.ObjectId(p.productId) : null;
+        const set: Doc = { productId: productId ?? '$$REMOVE', matchStatus: p.productId ? 'confirmed' : 'none', matchedAt: now, editedInApp: true, ...(by ? { matchedBy: by } : {}) };
+        await db.collection('incomes').updateOne({ _id: oid(p.lineId, 'позиции') }, [
+          passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, productId] }),
+          { $set: Object.fromEntries(Object.entries(set).map(([key, value]) => [key, value === '$$REMOVE' ? value : { $literal: value }])) },
+        ], { session });
+      }
+      return rows;
+    });
+    const lineBy = new Map(lines.map((line) => [String(line._id), line]));
     const items: Array<{ lineId: string; state: string; productId: string | null }> = [];
     for (const p of picks) {
       const cur = lineBy.get(p.lineId)!;
-      const set: Doc = { matchStatus: p.productId ? 'confirmed' : 'none', matchedAt: now, editedInApp: true, ...(by ? { matchedBy: by } : {}) };
-      if (p.productId) set.productId = new Types.ObjectId(p.productId);
-      await db.collection('incomes').updateOne({ _id: cur._id as Types.ObjectId }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, p.productId ? new Types.ObjectId(p.productId) : null] }), { $set: Object.fromEntries(Object.entries({ ...set, ...(p.productId ? {} : { productId: '$$REMOVE' }) }).map(([k,v]) => [k, v === '$$REMOVE' ? v : { $literal: v }])) }]);
+      const state = p.productId ? 'confirmed' : 'none';
       if (p.productId) await this.remember(String(cur.title ?? ''), p.productId, now);
       if (p.productId) await this.fillOrderName(p.productId, String(cur.title ?? ''));
-      await this.audit.log({ action: 'income.updated', entityType: 'Income', entityId: p.lineId, details: { partial: true, before: { productId: cur.productId ? String(cur.productId) : null, matchStatus: cur.matchStatus ?? null }, after: { productId: p.productId, matchStatus: set.matchStatus }, meta: { via: 'matching' } } as never });
-      items.push({ lineId: p.lineId, state: p.productId ? 'confirmed' : 'none', productId: p.productId });
+      await this.audit.log({ action: 'income.updated', entityType: 'Income', entityId: p.lineId, details: { partial: true, before: { productId: cur.productId ? String(cur.productId) : null, matchStatus: cur.matchStatus ?? null }, after: { productId: p.productId, matchStatus: state }, meta: { via: 'matching' } } as never });
+      items.push({ lineId: p.lineId, state, productId: p.productId });
     }
     // полное распределение → задачи проектирования сами
     if (this.design) {

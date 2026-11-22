@@ -1,3 +1,4 @@
+import { claimWritableOrders } from '../../common/order-archive/write';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { type Connection, type Model, Types } from 'mongoose';
@@ -31,8 +32,10 @@ export class IncomePaymentIdentitiesService {
     if (!plan.canApply) throw new ConflictException('История уже подготовлена или не содержит оплат');
     const session = await this.connection.startSession(); const mapping: Record<string, string> = {};
     try { await session.withTransaction(async () => {
+      await claimWritableOrders(this.connection.db!, session, [first.orderId]);
       const cur = await this.model.findOne({ _id: first._id, deletedAt: null }).session(session).lean().exec();
       if (!cur) throw new NotFoundException('Доход не найден');
+      if (String(cur.orderId ?? '') !== String(first.orderId ?? '')) throw new ConflictException('Позиция сменила договор — перечитайте план');
       const repeated = cur.paymentIdentityReceipts?.find((r) => r.clientUid === dto.clientUid);
       if (repeated) { if (repeated.planHash !== dto.planHash) throw new ConflictException('Ключ использован с другим планом'); Object.assign(mapping, repeated.identityMapping); return; }
       if (Number(cur.version || 0) !== dto.version || incomeIdentityHash(cur) !== dto.planHash) throw new ConflictException('Источник изменился: перечитайте план');

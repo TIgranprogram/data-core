@@ -51,7 +51,7 @@ import { PermissionsBootModule } from './common/middleware/permissions-boot-vali
 import { AdminModule } from './modules/admin/admin.module';
 import { DeviceEnrollmentModule } from './modules/device-enrollment/device-enrollment.module';
 import { IdempotencyModule } from './common/idempotency/idempotency-storage.module';
-import { IdempotencyMiddleware } from './common/idempotency/idempotency.middleware';
+import { IdempotencyInterceptor } from './common/idempotency/idempotency.interceptor';
 import { AttributeDefinitionModule } from './modules/attribute-definition/attribute-definition.module';
 import { EntityAttributeValueModule } from './modules/entity-attribute-value/entity-attribute-value.module';
 import { ProductPassportModule } from './modules/product-passport/product-passport.module';
@@ -110,7 +110,6 @@ import { WorkRolesSeed } from './common/seed/work-roles.seed';
 import { HealthController } from './health.controller';
 import { ApiRootController } from './api-root.controller';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
-import { RequestMethod } from '@nestjs/common';
 
 /**
  * data-core — платформенное ядро + канонические справочники (VISION #4).
@@ -134,6 +133,7 @@ import { RequestMethod } from '@nestjs/common';
           redact: {
             paths: [
               'req.headers.authorization',
+              'req.headers["x-access-token"]',
               'req.headers["x-api-key"]',
               'req.headers["x-review-ticket"]',
               'req.headers["x-switch-secret"]',
@@ -186,7 +186,7 @@ import { RequestMethod } from '@nestjs/common';
     PermissionsBootModule, // TZ-255: registers PermissionsBootValidator for OnApplicationBootstrap catalog scan
     AdminModule,            // TZ-257: /api/admin/users + /api/admin/roles (read-only slice)
     DeviceEnrollmentModule, // TZ-AUTH-303: /api/device/* + /api/admin/devices/*
-    IdempotencyModule,      // TZ-247.A: registers IdempotencyStorageService + IdempotencyMiddleware
+    IdempotencyModule,
     AppsModule,             // /api/apps/pdm-loader[/download] — ДО AppDataModule: иначе его :app/:collection перехватывает путь (C057)
     AppDataModule,          // P1: /api/apps/:app/:collection — до EntityAttributeValueModule (коллизия маршрутов)
     StockModule,            // /api/stock — склад на общих коллекциях CRM (materials, storageitems, stockmovements, reservations)
@@ -275,6 +275,7 @@ import { RequestMethod } from '@nestjs/common';
     { provide: APP_GUARD, useClass: AppSectionGuard },
     { provide: APP_INTERCEPTOR, useClass: SlowRequestInterceptor }, // А4: первым — меряет весь путь запроса
     { provide: APP_INTERCEPTOR, useClass: UserContextInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     // T18: аддитивно добавляет `id` рядом с `_id` во все ответы.
     { provide: APP_INTERCEPTOR, useClass: IdNormalizeInterceptor },
@@ -301,23 +302,5 @@ export class AppModule implements NestModule {
     consumer.apply(RequestIdMiddleware).forRoutes('*');
     // HA-TWO-SERVERS SW-2: режим «только чтение» на время переключения; без HA_SELF в .env ничего не делает
     consumer.apply(SwitchMiddleware).forRoutes('*');
-    // TZ-247.A: mount the idempotency middleware on MUTATING verbs only.
-    // GET / HEAD / OPTIONS requests pass through unchanged; the
-    // middleware itself additionally excludes /auth/login|register|refresh|logout
-    // and /health from caching even if they bear an Idempotency-Key header.
-    consumer
-      .apply(IdempotencyMiddleware)
-      // Квитанция оригинала проверяет байты и аккаунт при каждом вызове.
-      .exclude(
-        { path: 'photos/intake/:uid', method: RequestMethod.POST },
-        { path: 'supply/invoices/intake', method: RequestMethod.POST },
-        { path: 'supply/invoices/intake/:step', method: RequestMethod.POST },
-      )
-      .forRoutes(
-        { path: '*', method: RequestMethod.POST },
-        { path: '*', method: RequestMethod.PUT },
-        { path: '*', method: RequestMethod.PATCH },
-        { path: '*', method: RequestMethod.DELETE },
-      );
   }
 }

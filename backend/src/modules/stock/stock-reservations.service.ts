@@ -1,3 +1,4 @@
+import { claimStockLinks, withOrderWrite } from '../../common/order-archive/write';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
@@ -64,6 +65,7 @@ export class StockReservationsService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        await claimStockLinks(this.connection.db!, session, [dto, ...lines.values()]);
         short.length = 0; repeat = undefined;
         // повтор проверяется внутри транзакции первой строкой (HARDEN-1 п.5)
         if (dto.clientUid) {
@@ -165,6 +167,7 @@ export class StockReservationsService {
   async releaseWithin(r: ReservationDocument, session: ClientSession) {
     const cur = await this.reservations.findOne({ _id: r._id, status: 'active', deletedAt: null }).session(session).exec();
     if (!cur) throw new ConflictException('Бронь уже снята или выдана — обновите страницу');
+    await claimStockLinks(this.connection.db!, session, [cur]);
     const item = await this.core.loadStorage(cur.warehouseId as Types.ObjectId, cur.materialId as Types.ObjectId, session);
     item.reservedQty = Math.max(0, (item.reservedQty ?? 0) - cur.qty);
     await item.save({ session });
@@ -178,7 +181,11 @@ export class StockReservationsService {
     const list = await this.reservations.find({ batchId: oid(batchId, 'брони'), status: 'active', deletedAt: null }, { _id: 1, materialId: 1 }).lean().exec();
     if (!list.length) throw new NotFoundException('Бронь не найдена или уже снята');
     await this.core.assertMaterials(list.map((r) => r.materialId), scope, 'Эта бронь не из вашего склада');
-    for (const r of list) await this.releaseReservation(String(r._id));
+    await withOrderWrite(this.connection, [], async session => {
+      const rows = await this.reservations.find({ _id: { $in: list.map(r => r._id) } }).session(session).exec();
+      await claimStockLinks(this.connection.db!, session, rows);
+      for (const r of rows) await this.releaseWithin(r, session);
+    });
     return { batchId, released: list.length };
   }
   /**
@@ -212,6 +219,7 @@ export class StockReservationsService {
           if (prev) { repeat = (prev as { batchId?: Types.ObjectId }).batchId; return; }
         }
         const list = await this.reservations.find({ _id: { $in: [...want.keys()].map((id) => new Types.ObjectId(id)) }, status: 'active', deletedAt: null }).session(session).exec();
+        await claimStockLinks(this.connection.db!, session, list);
         if (list.length !== want.size) throw new ConflictException('Часть броней уже выдана или снята — обновите страницу');
         const mats = await this.materials.find({ _id: { $in: list.map((r) => r.materialId) } }, { name: 1 }).setOptions({ includeSoftDeleted: true }).lean().exec();
         const nameOf = new Map(mats.map((m) => [String(m._id), String(m.name)]));
@@ -286,17 +294,20 @@ export class StockReservationsService {
         // бронь перечитывается в транзакции: выдана или снята параллельно — правка не проходит
         const fresh = await this.reservations.findOne({ _id: r._id, status: 'active', deletedAt: null }).session(session).exec();
         if (!fresh) throw new ConflictException('Бронь уже снята или выдана — обновите страницу');
+        await claimStockLinks(db, session, [fresh, { salesOrderId: order, salesOrderLineId: line }]);
+        if (Number(fresh.qty) !== Number(r.qty) || String(fresh.salesOrderId ?? '') !== String(x.salesOrderId ?? '') || String(fresh.salesOrderLineId ?? '') !== String(x.salesOrderLineId ?? ''))
+          throw new ConflictException('Бронь изменилась — обновите страницу');
         if (delta !== 0) {
           const item = await this.core.loadStorage(r.warehouseId as Types.ObjectId, r.materialId as Types.ObjectId, session);
           const free = Math.round(((item.quantity ?? 0) - (item.reservedQty ?? 0)) * 1000) / 1000;
           if (delta > 0 && free < delta) throw new BadRequestException(`Недостаточно свободного остатка: свободно ${Math.max(0, free)}, нужно ещё ${delta}`);
           item.reservedQty = Math.max(0, Math.round(((item.reservedQty ?? 0) + delta) * 1000) / 1000);
           await item.save({ session });
-          r.qty = qty as number;
+          fresh.qty = qty as number;
         }
-        r.set('salesOrderId', order); r.set('salesOrderLineId', line);
-        if (dto.note !== undefined) r.notes = dto.note.trim();
-        await r.save({ session });
+        fresh.set('salesOrderId', order); fresh.set('salesOrderLineId', line);
+        if (dto.note !== undefined) fresh.notes = dto.note.trim();
+        await fresh.save({ session });
       });
     } finally { await session.endSession(); }
     return { id, qty: r.qty, salesOrderId: order ? String(order) : null, salesOrderLineId: line ? String(line) : null, notes: r.notes ?? null };

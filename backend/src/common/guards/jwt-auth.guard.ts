@@ -9,6 +9,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { APP_KEY_ROUTE } from '../decorators/app-key-route.decorator';
 import { User, UserDocument } from '../../modules/user/user.schema';
 import { Role, RoleDocument } from '../../modules/role/role.schema';
 import { userActivityCache } from './user-activity-cache';
@@ -80,6 +81,18 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedException('No user context');
+    }
+
+    // Для ключа своего приложения пара «пользователь и роль» проверена без кеша.
+    if (pairingToken && req.user?.keyScope?.access === 'app') {
+      const violation = keyScopeViolation(
+        req.user.keyScope,
+        req.method ?? 'GET',
+        req.originalUrl ?? req.url ?? '',
+        this.reflector.get<boolean>(APP_KEY_ROUTE, context.getHandler()),
+      );
+      if (violation) throw new ForbiddenException(violation);
+      return true;
     }
 
     const activity = await userActivityCache.getOrFetch(userId, async () => {

@@ -8,6 +8,7 @@ import { DesktopPairingKeyService } from './desktop-pairing-key.service';
 import { DesktopCompatService } from './desktop-compat.service';
 import { DesktopPairingController } from './desktop-pairing.controller';
 import { UserModule } from '../user/user.module';
+import { RoleModule } from '../role/role.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { UserModule } from '../user/user.module';
       { name: DesktopPairingKey.name, schema: DesktopPairingKeySchema },
     ]),
     forwardRef(() => UserModule),
+    RoleModule,
   ],
   controllers: [DesktopPairingController],
   providers: [DesktopPairingKeyService, DesktopCompatService],

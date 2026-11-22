@@ -15,6 +15,8 @@ import { CounterService } from '../counter/counter.service';
 import { parseCatalog } from './catalog-rows';
 import { legacyDefaultsReplacement, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { facetElementsPatch } from './facet-elements';
+import { writableCascadeRows } from '../../common/order-archive/cascade';
+import { withOrderWrite } from '../../common/order-archive/write';
 import { productNameKey, shortProductName } from './order-product-name';
 import { clean, LIVE, variants, type Doc } from './showcase-common';
 const key0 = (v: unknown) => clean(v).toLowerCase().replace(/ё/g, 'е');
@@ -78,7 +80,7 @@ export class ShowcaseService {
   // тяжёлые части вынесены в отдельные файлы (ПР-1); публичные методы сервиса прежние
   private readonly comp = new ShowcaseComposition(() => this.db, this.versions);
   private readonly bulkOps = new ShowcaseBulk({ db: () => this.db, present: (d) => this.present(d), applyRow: (raw, patch, defaults, incoming) => this.applyBulkRow(raw, patch, defaults, incoming) });
-  private readonly fromPp = new ShowcaseFromPassports(() => this.db, (dto) => this.create(dto));
+  private readonly fromPp = new ShowcaseFromPassports(this.connection, (dto) => this.create(dto));
   private readonly mi = new ShowcaseMaterials(() => this.db);
 
 
@@ -404,30 +406,36 @@ export class ShowcaseService {
 
   /** requireType — ручное создание из формы (ФИ2): раздел обязателен; загрузка каталога / из заказов / из паспортов — без него. */
   async create(dto: Record<string, unknown>, opts: { requireType?: boolean } = {}) {
+    const { id, skuWarning } = await this.createRecord(dto, opts);
+    const created = await this.get(String(id));
+    return skuWarning ? { ...created, skuWarning } : created;
+  }
+
+  /** Создание вместе с привязкой позиций заявки выполняется в её транзакции. */
+  async createRecord(dto: Record<string, unknown>, opts: { requireType?: boolean } = {}, session?: ClientSession) {
     let sku = clean(dto.sku);
     let skuWarning: string | undefined;
     if (!sku) {
       // без артикула: группа с номером (categories.groupNo) → автоартикул; иначе обязателен ручной
-      const gid = dto.group ? await this.category(dto.group as string, await this.category(dto.type as string, null)) : null;
-      const auto = await nextSku(this.db, this.counter, gid);
+      const gid = dto.group ? await this.category(dto.group as string, await this.category(dto.type as string, null, session), session) : null;
+      const auto = await nextSku(this.db, this.counter, gid, session);
       if (!auto) throw new BadRequestException('Укажите артикул или задайте группе номер: Справочники → Группы изделий');
       sku = auto.sku; skuWarning = auto.warning;
     }
     // дубль — и с другим регистром, похожими буквами (KC-01 = КС-01), лишними пробелами; в т. ч. в корзине и у изделий CRM
-    const dup = await this.db.collection('products').findOne({ sku: skuRegex(sku) }, { projection: { sku: 1, name: 1, deletedAt: 1 } });
+    const dup = await this.db.collection('products').findOne({ sku: skuRegex(sku) }, { session, projection: { sku: 1, name: 1, deletedAt: 1 } });
     if (dup) throw new ConflictException(`Изделие с артикулом ${dup.sku} уже есть: «${dup.name ?? ''}»${dup.deletedAt ? ' (в корзине — восстановите его)' : ''}`);
     if (opts.requireType && !clean(dto.type)) throw new BadRequestException('Укажите раздел изделия');
-    const set = await this.fields({ ...dto, name: dto.name ?? sku });
+    const set = await this.fields({ ...dto, name: dto.name ?? sku }, undefined, session);
     const now = new Date();
     const { insertedId } = await this.db.collection('products').insertOne({ sku, kind: 'good', unit: 'шт', status: 'draft', listPrice: 0, basePrice: 0, costPrice: 0, defaultMarkupPercent: 30, stockQty: 0,
-      photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], isActive: true, deletedAt: null, hasPassport: false, hasDrawing: false, ...set, ...(set.photoIds ? { mainPhotoId: (set.photoIds as Types.ObjectId[])[0] ?? null } : {}), source: 'showcase', createdAt: now, updatedAt: now });
+      photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], isActive: true, deletedAt: null, hasPassport: false, hasDrawing: false, ...set, ...(set.photoIds ? { mainPhotoId: (set.photoIds as Types.ObjectId[])[0] ?? null } : {}), source: 'showcase', createdAt: now, updatedAt: now }, { session });
     // C028: изделие, созданное по ходу воронки, сразу с признаками — их элементы в умолчания паспорта (как при правке)
     if (Array.isArray(set.facetValueIds) && (set.facetValueIds as unknown[]).length) {
-      const fromFacets = await facetElementsPatch(this.db, insertedId, set.facetValueIds as Types.ObjectId[]);
-      if (fromFacets) await this.db.collection('products').updateOne({ _id: insertedId }, { $set: { 'passportDefaults.elements': fromFacets } });
+      const fromFacets = await facetElementsPatch(this.db, insertedId, set.facetValueIds as Types.ObjectId[], session);
+      if (fromFacets) await this.db.collection('products').updateOne({ _id: insertedId }, { $set: { 'passportDefaults.elements': fromFacets } }, { session });
     }
-    const created = await this.get(String(insertedId));
-    return skuWarning ? { ...created, skuWarning } : created;
+    return { id: insertedId, skuWarning };
   }
 
   /**
@@ -627,7 +635,14 @@ export class ShowcaseService {
    * позициям productId (только где его не было). Текст и суммы позиций не трогаем — договор.
    */
   async fromOrders(apply: boolean, picks?: { key?: string; name?: string; group?: string }[]) {
-    const lines = await this.db.collection('incomes').find({ ...LIVE, orderId: { $ne: null }, productId: null }, { projection: { title: 1, orderNo: 1 } }).toArray();
+    const lines = await this.db.collection('incomes').aggregate([
+      { $match: { ...LIVE, orderId: { $ne: null }, productId: null, archiveProtected: { $ne: true } } },
+      { $set: { orderObjectId: { $convert: { input: '$orderId', to: 'objectId', onError: null, onNull: null } } } },
+      { $lookup: { from: 'salesorders', localField: 'orderObjectId', foreignField: '_id', as: 'order' } },
+      { $unwind: '$order' },
+      { $match: { 'order.activeArchiveVersion': null, 'order.deletedAt': null } },
+      { $project: { title: 1, orderNo: 1 } },
+    ]).toArray();
     const have = new Map<string, Types.ObjectId>();
     for (const p of await this.db.collection('products').find({ deletedAt: null }, { projection: { name: 1 } }).toArray()) { const k = productNameKey(String(p.name ?? '')); if (!have.has(k)) have.set(k, p._id as Types.ObjectId); }
     const groups = new Map<string, { name: string; description: string; ids: Types.ObjectId[]; orders: Set<string> }>();
@@ -652,31 +667,45 @@ export class ShowcaseService {
       for (const x of picks) if (x?.key && x.group) groupOf.set(String(x.key), clean(x.group));
       if (!chosen.size) throw new BadRequestException('Отметьте изделия, которые создать');
     }
-    let created = 0;
+    let created = 0, archiveSkipped = 0;
     for (const p of plan) {
-      let productId: Types.ObjectId | null = null;
-      if (p.action === 'new') {
-        if (chosen && !chosen.has(p.key)) continue; // не отмечено — позиции заказов остаются без изделия
-        const name = chosen?.get(p.key) || p.name;
-        const dup = have.get(productNameKey(name));
-        if (dup) { productId = dup; await this.db.collection('incomes').updateMany({ _id: { $in: p.ids }, productId: null }, { $set: { productId } }); continue; }
-        const description = p.description.length > name.length ? p.description : '';
-        const group = groupOf.get(p.key) ?? '';
-        try {
-          // группа известна и с номером — автоартикул, иначе прежний ЗК-<код>
-          let made: { id: string } | null = null;
-          if (group) { try { made = await this.create({ name, group, description }); } catch (e) { if (!(e instanceof BadRequestException)) throw e; } }
-          made ??= await this.create({ sku: 'ЗК-' + createHash('md5').update(p.key).digest('hex').slice(0, 6).toUpperCase(), name, description });
-          productId = new Types.ObjectId(made.id); created++;
-        } catch { continue; }
-      } else {
-        const e = have.get(p.key);
-        if (!e) continue;
-        productId = e;
+      if (p.action === 'new' && chosen && !chosen.has(p.key)) continue;
+      const name = chosen?.get(p.key) || p.name;
+      const description = p.description.length > name.length ? p.description : '';
+      const group = groupOf.get(p.key);
+      try {
+        const result = await withOrderWrite(this.connection, [], async session => {
+          const targets = await writableCascadeRows(this.db, session, 'incomes', { _id: { $in: p.ids }, ...LIVE, productId: null });
+          if (!targets.ids.length) return { skipped: targets.skipped, made: false };
+          let productId = have.get(p.key) ?? have.get(productNameKey(name));
+          const made = !productId;
+          if (!productId) {
+            if (group) {
+              try { productId = (await this.createRecord({ name, group, description }, {}, session)).id; }
+              catch (error) { if (!(error instanceof BadRequestException)) throw error; }
+            }
+            if (!productId) {
+              const sku = 'ЗК-' + createHash('md5').update(p.key).digest('hex').slice(0, 6).toUpperCase();
+              productId = (await this.createRecord({ sku, name, description }, {}, session)).id;
+            }
+          }
+          await this.db.collection('incomes').updateMany(
+            { _id: { $in: targets.ids } },
+            { $set: { productId }, $inc: { passportEpoch: 1, version: 1 } },
+            { session },
+          );
+          return { skipped: targets.skipped, made, productId };
+        });
+        archiveSkipped += result.skipped;
+        if (result.made) {
+          created++;
+          if (result.productId) have.set(productNameKey(name), result.productId);
+        }
+      } catch (error) {
+        if (!(error instanceof ConflictException || error instanceof BadRequestException)) throw error;
       }
-      await this.db.collection('incomes').updateMany({ _id: { $in: p.ids }, productId: null }, { $set: { productId } });
     }
-    return { ...report, applied: true, created };
+    return { ...report, applied: true, created, ...(archiveSkipped ? { archiveSkipped } : {}) };
   }
 
   /** Заменить строки состава (СИ) — подробности в showcase-composition.ts. */

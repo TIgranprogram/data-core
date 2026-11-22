@@ -20,6 +20,7 @@ if (require.main === module || String(module.id).includes('[stdin]')) (async () 
   if (apply && !outFile) outFile = '/tmp/passports-category-from-product-' + Date.now() + '.json';
   const base = [process.cwd(), path.join(__dirname, '..')];
   const { productCategories } = require(require.resolve('./dist/src/modules/product-passport/passport-from-product.js', { paths: base }));
+  const { claimPassportOrders } = require(path.join(process.cwd(), 'dist/src/common/order-archive/cascade.js'));
   const { MongoClient, ObjectId } = require(require.resolve('mongoose', { paths: base })).mongo;
   const client = await MongoClient.connect(uri);
   try {
@@ -48,9 +49,15 @@ if (require.main === module || String(module.id).includes('[stdin]')) (async () 
     if (!apply) { console.log('Ничего не записано. Записать: --apply'); return; }
     let n = 0;
     for (const f of fix) {
-      const r = await db.collection('productpassports').updateOne({ _id: new ObjectId(f.id), passportCategory: f.old, editedAt: null },
-        { $set: { passportCategory: f.next, updatedAt: new Date() }, $unset: { textSnapshot: '' } });
-      n += r.modifiedCount;
+      const session = client.startSession();
+      try { n += await session.withTransaction(async () => {
+        const passports = db.collection('productpassports');
+        const filter = { _id: new ObjectId(f.id), passportCategory: f.old, editedAt: null };
+        const current = await passports.findOne(filter, { session });
+        if (!current) return 0;
+        await claimPassportOrders(db, session, [current]);
+        return (await passports.updateOne(filter, { $set: { passportCategory: f.next, updatedAt: new Date() }, $unset: { textSnapshot: '' } }, { session })).modifiedCount;
+      }); } finally { await session.endSession(); }
     }
     console.log(`Готово: исправлено паспортов ${n}`);
   } finally { await client.close(); }

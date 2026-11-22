@@ -65,7 +65,8 @@ class Coll {
     for (const r of this.rows.filter((x) => x.deletedAt == null)) g[r.status] = (g[r.status] ?? 0) + 1;
     return Object.entries(g).map(([_id, n]) => ({ _id, n }));
   });
-  async create(d: Row) {
+  async create(d: Row): Promise<Row | Row[]> {
+    if (Array.isArray(d)) return Promise.all(d.map(row => this.create(row) as Promise<Row>));
     const u = this.uniqueSparse;
     if (u && d[u] && this.rows.some((r) => same(r[u], d[u]))) throw Object.assign(new Error('E11000'), { code: 11000 });
     const row = { _id: new Types.ObjectId(), deletedAt: null, createdAt: new Date(), ...d };
@@ -91,6 +92,8 @@ class Coll {
   });
 }
 
+const sessionStub = () => Promise.resolve({ withTransaction: (write: () => Promise<unknown>) => write(), endSession: async () => undefined });
+
 describe('DesignService', () => {
   let tasks: Coll, orders: Coll, incomes: Coll, persons: Coll, products: Coll, photos: Coll, marks: Coll, stickers: Coll;
   let service: DesignService, board: DesignBoardService, stickerSvc: DesignStickerService, extras: DesignExtrasService;
@@ -102,8 +105,8 @@ describe('DesignService', () => {
     [tasks, orders, incomes, persons, products, photos, marks, stickers] = [new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll(), new Coll()];
     tasks.uniqueSparse = 'openIncomeId';
     seq = 0;
-    const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos, designnotes: new Coll() };
-    const connection = { db: { collection: (n: string) => by[n] } };
+    const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos, designtasks: tasks, designnotes: new Coll() };
+    const connection = { startSession: sessionStub, db: { collection: (n: string) => by[n] } };
     const counters = { nextSeq: jest.fn(async () => ++seq) };
     service = new DesignService(connection as never, tasks as never, counters as never, marks as never, { safe: async () => true } as never, { recheck: async () => undefined } as never);
     stickerSvc = new DesignStickerService(stickers as never);
@@ -402,8 +405,8 @@ describe('DesignService', () => {
 
     it('замена фото (РУ-1): новое на месте старого, порядок сохранён, лимит не мешает, журнал — «убрано»', async () => {
       const audit = { log: jest.fn() };
-      const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos, designnotes: new Coll() };
-      const ex = new DesignExtrasService({ db: { collection: (n: string) => by[n] } } as never, tasks as never, stickerSvc, audit as never);
+      const by: Record<string, Coll> = { salesorders: orders, incomes, persons, products, photos, designtasks: tasks, designnotes: new Coll() };
+      const ex = new DesignExtrasService({ startSession: sessionStub, db: { collection: (n: string) => by[n] } } as never, tasks as never, stickerSvc, audit as never);
       const t = await service.create({ title: 'Эскиз' });
       const ph = [id(), id(), id()].map((x) => ({ _id: x, storageUrl: `/uploads/${x}.jpg` }));
       photos.rows.push(...ph);

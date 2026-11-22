@@ -25,7 +25,7 @@ describe('рисунки изделия в паспорте (effectiveImages / f
   const own = new Types.ObjectId();
   const make = (rows: unknown[], update = jest.fn()) => {
     const svc = Object.create(ProductPassportService.prototype) as Record<string, unknown>;
-    svc.connection = { collection: () => ({ find: () => ({ sort: () => ({ toArray: async () => rows }) }) }) };
+    svc.connection = { startSession: async () => ({ withTransaction: async (run: () => Promise<void>) => run(), endSession: async () => undefined }), db: { collection: () => ({ findOne: async () => ({}) }) }, collection: () => ({ find: () => ({ sort: () => ({ toArray: async () => rows }) }) }) };
     svc.model = { updateOne: (...a: unknown[]) => ({ exec: async () => update(...a) }) };
     svc.oid = (v: unknown) => new Types.ObjectId(String(v));
     return { svc: svc as unknown as ProductPassportService, update };

@@ -4,6 +4,7 @@ import { type ClientSession, type Connection } from 'mongoose';
 import { createHash } from 'crypto';
 import { oid } from '../../common/list-query';
 import { versionFilter } from '../../common/versioned';
+import { claimWritableOrders } from '../../common/order-archive/write';
 import { canSeeMoney, canSeePayroll, effectiveRoles } from '../../common/roles-hierarchy';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -98,6 +99,9 @@ export class FinancialClassificationService {
       if (!target.editable) throw new ConflictException({ message: target.reason || 'Классификация источника пока недоступна', code: 'CLASSIFICATION_READ_ONLY', plan: { readOnly: true, sourceId: target.sourceId, action: 'Сначала подготовьте источник или выполните сверку' } });
       const metadata = target.metadata, prior = (metadata.classificationHistory || []).find((h: Row) => h.clientUid === dto.clientUid);
       if (prior) { if (prior.requestHash !== requestHash) throw new ConflictException('Ключ уточнения уже использован с другими данными'); replayed = prior; return; }
+      if (target.source === 'income' && target.document.orderId) {
+        await claimWritableOrders(this.db, session, [target.document.orderId]);
+      }
       if (Number(metadata.classificationVersion || 0) !== dto.version) throw new ConflictException({ message: 'Классификация уже изменена — перечитайте операцию', currentVersion: Number(metadata.classificationVersion || 0) });
       if (patch.articleId) await this.articles.assertSelectable(patch.articleId, target.source === 'income' ? 'income' : 'expense', { session });
       if (patch.salesOrderId && !await this.db.collection('salesorders').findOne({ _id: oid(patch.salesOrderId, 'объекта'), deletedAt: null }, { session })) throw new BadRequestException('Аналитический объект не найден');

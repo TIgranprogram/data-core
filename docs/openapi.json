@@ -2217,19 +2217,10 @@
             }
           },
           {
-            "name": "page",
+            "name": "filter",
             "required": false,
             "in": "query",
-            "description": "Номер страницы, с 1",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Размер страницы, по умолчанию 50, максимум 200",
+            "description": "JSON: {\"field\": value} или {\"field\": {\"$op\": value}}; операторы: $eq $ne $gt $gte $lt $lte $in $nin $exists",
             "schema": {
               "type": "string"
             }
@@ -2244,10 +2235,19 @@
             }
           },
           {
-            "name": "filter",
+            "name": "limit",
             "required": false,
             "in": "query",
-            "description": "JSON: {\"field\": value} или {\"field\": {\"$op\": value}}; операторы: $eq $ne $gt $gte $lt $lte $in $nin $exists",
+            "description": "Размер страницы, по умолчанию 50, максимум 200",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Номер страницы, с 1",
             "schema": {
               "type": "string"
             }
@@ -2449,7 +2449,7 @@
       },
       "delete": {
         "operationId": "AppDataController_remove",
-        "summary": "Soft-delete (deletedAt); ?hard=true — физически, только с app-data:admin",
+        "summary": "Soft-delete (deletedAt); физическое удаление доступно отдельно",
         "parameters": [
           {
             "name": "app",
@@ -2479,7 +2479,7 @@
             "name": "hard",
             "required": false,
             "in": "query",
-            "description": "true — удалить физически (нужно app-data:admin)",
+            "description": "true — удалить физически с правом app-data:admin. Ключ своего приложения допускает мягкое удаление",
             "schema": {
               "type": "string"
             }
@@ -2532,6 +2532,13 @@
             "required": false,
             "in": "query",
             "description": "только эти позиции (id через запятую, ≤ 2000) — кнопки-признаки «Остатков» передают точный набор",
+            "schema": {}
+          },
+          {
+            "name": "held",
+            "required": false,
+            "in": "query",
+            "description": "1 — только закупаемые позиции с положительным физическим остатком, включая полностью забронированные",
             "schema": {}
           },
           {
@@ -2666,7 +2673,24 @@
     "/api/stock/categories": {
       "get": {
         "operationId": "StockController_categories",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "held",
+            "required": false,
+            "in": "query",
+            "description": "1 — категории позиций с положительным физическим остатком",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "zoneId",
+            "required": false,
+            "in": "query",
+            "description": "склад из GET /stock/zones; чужой — 403",
+            "schema": {}
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -3519,6 +3543,38 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/api/stock/duplicate-preview": {
+      "get": {
+        "operationId": "StockDuplicatePreviewController_preview",
+        "summary": "Сравнить две позиции и их складские связи без изменений в базе",
+        "parameters": [
+          {
+            "name": "sourceId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetId",
+            "required": true,
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -6243,6 +6299,229 @@
         },
         "tags": [
           "Зоны"
+        ]
+      }
+    },
+    "/api/documents/acts": {
+      "get": {
+        "operationId": "OrderActsController_list",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "live",
+                "archived"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Документация"
+        ]
+      }
+    },
+    "/api/salesorders/{id}/archive": {
+      "get": {
+        "operationId": "OrderArchiveController_history",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Архив договоров"
+        ]
+      },
+      "post": {
+        "operationId": "OrderArchiveController_close",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveCloseCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Архив договоров"
+        ]
+      }
+    },
+    "/api/salesorders/{id}/archive/readiness": {
+      "get": {
+        "operationId": "OrderArchiveController_readiness",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Архив договоров"
+        ]
+      }
+    },
+    "/api/salesorders/{id}/archive/reopen": {
+      "post": {
+        "operationId": "OrderArchiveController_reopen",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Архив договоров"
+        ]
+      }
+    },
+    "/api/salesorders/{id}/archive/{version}": {
+      "get": {
+        "operationId": "OrderArchiveController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Архив договоров"
+        ]
+      }
+    },
+    "/api/salesorders/{id}/archive/{version}/files/{fileId}": {
+      "get": {
+        "operationId": "OrderArchiveController_download",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "fileId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Архив договоров"
         ]
       }
     },
@@ -17096,6 +17375,135 @@
         }
       }
     },
+    "/api/passports/registry": {
+      "get": {
+        "operationId": "PassportRegistryController_list",
+        "summary": "Заказы с паспортами: реестры, рабочая очередь и история передач",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "work",
+                "handover",
+                "history"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/api/passports/registry/{orderId}": {
+      "get": {
+        "operationId": "PassportRegistryController_one",
+        "summary": "Реестр паспортов договора, ожидаемые позиции и история передач",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/api/passports/registry/{orderId}/pdf": {
+      "get": {
+        "operationId": "PassportRegistryController_pdf",
+        "summary": "Печатный реестр паспортов, включая ещё не выпущенные позиции",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
+    "/api/passports/registry/{orderId}/handover": {
+      "post": {
+        "operationId": "PassportRegistryController_handover",
+        "summary": "Подтвердить передачу полного комплекта паспортов заказчику",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassportHandoverDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Паспорта изделий"
+        ]
+      }
+    },
     "/api/products/{productId}/passport-import-context": {
       "get": {
         "operationId": "ProductPassportController_importContext",
@@ -19997,9 +20405,60 @@
         "type": "object",
         "properties": {}
       },
+      "PairingKeyScopeDto": {
+        "type": "object",
+        "properties": {
+          "access": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "full",
+              "app"
+            ],
+            "description": "app — данные одного указанного приложения"
+          },
+          "apps": {
+            "description": "В режиме app обязательно одно имя приложения. Прочие режимы допускают пустой список",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "access"
+        ]
+      },
       "IssuePairingKeyDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "ttl": {
+            "type": "string",
+            "enum": [
+              "1d",
+              "7d",
+              "30d",
+              "90d",
+              "never"
+            ],
+            "default": "30d"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "apiBaseUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/PairingKeyScopeDto"
+          }
+        },
+        "required": [
+          "apiBaseUrl"
+        ]
       },
       "AdminResetPasswordDto": {
         "type": "object",
@@ -21798,6 +22257,63 @@
         },
         "required": [
           "zoneCodes"
+        ]
+      },
+      "ArchiveCloseCommand": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string"
+          },
+          "expectedStateVersion": {
+            "type": "number"
+          },
+          "manufactureComplete": {
+            "type": "boolean"
+          },
+          "servicesComplete": {
+            "type": "boolean"
+          },
+          "installationComplete": {
+            "type": "boolean"
+          },
+          "documentsComplete": {
+            "type": "boolean"
+          },
+          "evidenceDocumentUid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "clientUid",
+          "expectedStateVersion",
+          "manufactureComplete",
+          "servicesComplete",
+          "installationComplete",
+          "documentsComplete"
+        ]
+      },
+      "ArchiveCommand": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "clientUid": {
+            "type": "string"
+          },
+          "expectedStateVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "reason",
+          "clientUid",
+          "expectedStateVersion"
         ]
       },
       "PartySnapshotDto": {
@@ -26107,6 +26623,30 @@
             "description": "Название не вписано — нужно заполнить"
           }
         }
+      },
+      "PassportHandoverDto": {
+        "type": "object",
+        "properties": {
+          "clientUid": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string"
+          },
+          "handedOn": {
+            "type": "string",
+            "example": "2026-11-22"
+          }
+        },
+        "required": [
+          "clientUid",
+          "fingerprint",
+          "recipient",
+          "handedOn"
+        ]
       },
       "PassportImportContextResponseDto": {
         "type": "object",

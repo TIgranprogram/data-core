@@ -1,3 +1,4 @@
+import { claimStockLinks } from '../../common/order-archive/write';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
@@ -117,6 +118,7 @@ export class StockSpecService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
+        await claimStockLinks(db, session, [{ salesOrderId: orderId }, ...dto.lines]);
         reserved.length = 0; skipped.length = 0; replaced = 0;
         if (dto.replace) {
           const all = await this.reservations.find({ salesOrderId: orderId, status: 'active', deletedAt: null, groupName: { $regex: '^' + SPEC_PREFIX } }).session(session).exec();

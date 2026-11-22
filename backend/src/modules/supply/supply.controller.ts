@@ -411,7 +411,7 @@ export class SupplyController {
   @AuditAction({ action: 'supply.request.created', entityType: 'SupplyRequest' })
   async create(@Body() dto: SupplyRequestDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.supply.assertNew(dto, scope);
-    return this.supply.create(dto, user?.id);
+    return this.supply.create(dto, user?.id, scope);
   }
 
   @Patch('requests/:id')

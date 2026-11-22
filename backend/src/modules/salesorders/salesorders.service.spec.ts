@@ -36,9 +36,9 @@ describe('SalesOrdersService: приоритет и изделие позици�
     distinct = jest.fn(async () => [orderId]);
     const coll = (name: string) => {
       const q = { sort: () => q, toArray: async () => rows[name] ?? [] };
-      return { findOne: jest.fn(async () => null), find: jest.fn(() => q), aggregate: jest.fn(() => q), updateMany: incomesUpdateMany, distinct };
+      return { updateOne: async () => ({ matchedCount: 1 }), findOne: jest.fn(async () => null), find: jest.fn(() => q), aggregate: jest.fn(() => q), updateMany: incomesUpdateMany, distinct };
     };
-    const connection = { db: { collection: jest.fn(coll) } };
+    const connection = { db: { collection: jest.fn(coll) }, startSession: async () => ({ withTransaction: async (run: () => Promise<void>) => run(), endSession: async () => undefined }) };
     model = {
       find: jest.fn(() => chain([])), findOne: jest.fn(() => chain({ _id: orderId, orderNo: '5', importKey: 'x|5', stage: 'new' })),
       countDocuments: jest.fn(() => chain(0)), aggregate: jest.fn(() => chain([])), updateOne: jest.fn(() => chain({ matchedCount: 1 })),
@@ -107,7 +107,7 @@ describe('SalesOrdersService: приоритет и изделие позици�
 
 describe('SalesOrdersService.matchProducts (ПРЖ-4)', () => {
   const orderId = new Types.ObjectId(), lineId = new Types.ObjectId(), prodId = new Types.ObjectId();
-  const updateOne = jest.fn();
+  const updateOne: jest.Mock = jest.fn(async () => ({ matchedCount: 1 }));
   let service: SalesOrdersService;
   beforeEach(() => {
     updateOne.mockClear();
@@ -115,20 +115,20 @@ describe('SalesOrdersService.matchProducts (ПРЖ-4)', () => {
       incomes: [{ _id: lineId, lineNo: 1, title: 'Скамья парковая цвет графит' }],
       products: [{ _id: prodId, name: 'Скамья парковая', sku: '3411' }],
     };
-    const coll = (n: string) => { const q = { sort: () => q, toArray: async () => rows[n] }; return { find: () => q, updateOne }; };
+    const coll = (n: string) => { const q = { sort: () => q, toArray: async () => rows[n] }; return { find: () => q, updateOne: n === 'salesorders' ? async () => ({ matchedCount: 1 }) : updateOne }; };
     const model = { findOne: () => chain({ _id: orderId }) };
-    service = new SalesOrdersService({ db: { collection: coll } } as never, model as never);
+    service = new SalesOrdersService({ db: { collection: coll }, startSession: async () => ({ withTransaction: async (run: () => Promise<void>) => run(), endSession: async () => undefined }) } as never, model as never);
   });
 
   it('без apply — предложения, записи нет', async () => {
     const r = await service.matchProducts(String(orderId));
-    expect(r.items?.[0].suggestions[0]).toMatchObject({ productId: String(prodId), sku: '3411' });
+    expect('items' in r && r.items[0].suggestions[0]).toMatchObject({ productId: String(prodId), sku: '3411' });
     expect(updateOne).not.toHaveBeenCalled();
   });
   it('apply — пишет productId; чужая позиция — 400', async () => {
     await service.matchProducts(String(orderId), true, [{ lineId: String(lineId), productId: String(prodId) }]);
     const [filter, pipeline] = updateOne.mock.calls[0];
-    expect(filter).toEqual({ _id: lineId });
+    expect(filter).toMatchObject({ _id: lineId, orderId });
     expect(pipeline).toHaveLength(2);
     expect(pipeline[0]).toEqual({ $set: {
       passportEpoch: { $add: [{ $ifNull: ['$passportEpoch', 0] }, 1] },

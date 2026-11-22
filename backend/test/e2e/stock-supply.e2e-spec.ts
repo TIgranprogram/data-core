@@ -187,9 +187,9 @@ describe('Stock & supply on shared CRM collections', () => {
     expect((await http().get('/api/stock/items?deleted=1').set(auth()).expect(200)).body.items.map((i: { id: string }) => i.id)).toContain(empty.body.id);
     expect((await http().post(`/api/stock/items/${empty.body.id}/restore`).set(auth()).expect(200)).body).toMatchObject({ name: 'Пустая позиция', minQuantity: 5 });
     // сводка по категориям (плитки склада)
-    const cats = await http().get('/api/stock/categories').set(auth()).expect(200);
+    const cats = await http().get('/api/stock/categories?held=1').set(auth()).expect(200);
     expect(cats.body.items.find((c: { name: string }) => c.name === 'Метизы')).toMatchObject({ total: 1, low: 0, none: 0 });
-    expect(cats.body.items.find((c: { id: string }) => c.id === 'none')).toMatchObject({ name: 'Без категории', none: 1 });
+    expect(cats.body.items.find((c: { id: string }) => c.id === 'none')).toMatchObject({ name: 'Без категории', none: 0 });
   });
 
   it('журнал движений: все позиции, фильтры; отмена = обратное движение, повторно нельзя', async () => {
@@ -249,7 +249,8 @@ describe('Stock & supply on shared CRM collections', () => {
     await http().patch(`/api/supply/requests/${r.id}`).set(auth()).send({ statusLabel: 'Получено' }).expect(400);
     const got = (await http().post(`/api/supply/requests/${r.id}/receive`).set(auth()).send({ qty: 5, toStock: false }).expect(200)).body;
     expect(got).toMatchObject({ status: 'received', receivedTo: 'direct', costCenter: 'office' });
-    expect((await http().get('/api/stock/items').query({ search: 'Бумага А4' }).set(auth()).expect(200)).body.total).toBe(0);
+    expect((await http().get('/api/stock/items').query({ search: 'Бумага А4', held: '1' }).set(auth()).expect(200)).body.total).toBe(0);
+    expect(await db().collection('storageitems').countDocuments({ materialId: new Types.ObjectId(r.materialId) })).toBe(0);
     // на склад — по умолчанию «Цех»
     const r2 = (await http().post('/api/supply/requests').set(auth()).send({ title: 'Саморез 4х16', qty: 10, clientUid: 'cc-2' }).expect(201)).body;
     const got2 = (await http().post(`/api/supply/requests/${r2.id}/receive`).set(auth()).send({ qty: 10 }).expect(200)).body;

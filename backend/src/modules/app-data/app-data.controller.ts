@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -15,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
+import { AppKeyRoute } from '../../common/decorators/app-key-route.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { effectivePermissions } from '../../common/contracts/rbac-contract';
 import { AppDataService } from './app-data.service';
@@ -44,6 +46,7 @@ export class AppDataController {
   constructor(private readonly service: AppDataService) {}
 
   @Get()
+  @AppKeyRoute()
   @Permissions('app-data:read')
   @ApiOperation({ summary: 'Приложения и их коллекции со счётчиками (count — живые, deleted — помеченные)' })
   listApps(@Req() req: AppDataRequest) {
@@ -51,28 +54,31 @@ export class AppDataController {
   }
 
   @Get(':app/:collection')
+  @AppKeyRoute()
   @Permissions('app-data:read')
   @ApiOperation({ summary: 'Список документов { items, total, page, limit }' })
-  @ApiQuery({ name: 'page', required: false, description: 'Номер страницы, с 1' })
-  @ApiQuery({ name: 'limit', required: false, description: `Размер страницы, по умолчанию 50, максимум ${MAX_LIMIT}` })
-  @ApiQuery({ name: 'sort', required: false, description: '`field` или `-field`, несколько через запятую' })
+  @ApiQuery({ name: 'page', type: String, required: false, description: 'Номер страницы, с 1' })
+  @ApiQuery({ name: 'limit', type: String, required: false, description: `Размер страницы, по умолчанию 50, максимум ${MAX_LIMIT}` })
+  @ApiQuery({ name: 'sort', type: String, required: false, description: '`field` или `-field`, несколько через запятую' })
   @ApiQuery({
     name: 'filter',
+    type: String,
     required: false,
     description: `JSON: {"field": value} или {"field": {"$op": value}}; операторы: ${FILTER_OPERATORS.join(' ')}`,
   })
   list(
     @Param('app') app: string,
     @Param('collection') collection: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('sort') sort?: string,
-    @Query('filter') filter?: string,
+    @Query('page') page?: unknown,
+    @Query('limit') limit?: unknown,
+    @Query('sort') sort?: unknown,
+    @Query('filter') filter?: unknown,
   ) {
     return this.service.list(app, collection, { page, limit, sort, filter });
   }
 
   @Get(':app/:collection/:id')
+  @AppKeyRoute()
   @Permissions('app-data:read')
   @ApiResponse({ status: 404, description: 'Нет документа (или он удалён)' })
   findOne(@Param('app') app: string, @Param('collection') collection: string, @Param('id') id: string) {
@@ -80,6 +86,7 @@ export class AppDataController {
   }
 
   @Post(':app/:collection')
+  @AppKeyRoute()
   @Permissions('app-data:write')
   @AuditAction({ action: 'create', entityType: ENTITY, details: auditDetails })
   @ApiOperation({ summary: `Создать документ (объект) или пачку (массив до ${MAX_BULK})` })
@@ -95,6 +102,7 @@ export class AppDataController {
   }
 
   @Patch(':app/:collection/:id')
+  @AppKeyRoute()
   @Permissions('app-data:write')
   @AuditAction({ action: 'update', entityType: ENTITY, idParam: 'id', details: auditDetails })
   @ApiOperation({ summary: 'Слияние верхнего уровня: переданные поля перезаписываются, остальные сохраняются' })
@@ -110,6 +118,7 @@ export class AppDataController {
   }
 
   @Put(':app/:collection/:id')
+  @AppKeyRoute()
   @Permissions('app-data:write')
   @AuditAction({ action: 'replace', entityType: ENTITY, idParam: 'id', details: auditDetails })
   @ApiOperation({ summary: 'Полная замена документа (служебные поля сохраняет сервер)' })
@@ -125,19 +134,26 @@ export class AppDataController {
   }
 
   @Delete(':app/:collection/:id')
+  @AppKeyRoute()
   @HttpCode(200)
   @Permissions('app-data:write')
   @AuditAction({ action: 'delete', entityType: ENTITY, idParam: 'id', details: auditDetails })
-  @ApiOperation({ summary: 'Soft-delete (deletedAt); ?hard=true — физически, только с app-data:admin' })
-  @ApiQuery({ name: 'hard', required: false, description: 'true — удалить физически (нужно app-data:admin)' })
+  @ApiOperation({ summary: 'Soft-delete (deletedAt); физическое удаление доступно отдельно' })
+  @ApiQuery({ name: 'hard', type: String, required: false, description: 'true — удалить физически с правом app-data:admin. Ключ своего приложения допускает мягкое удаление' })
   remove(
     @Param('app') app: string,
     @Param('collection') collection: string,
     @Param('id') id: string,
     @Req() req: AppDataRequest,
-    @Query('hard') hard?: string,
+    @Query('hard') hard?: unknown,
   ) {
+    if (hard !== undefined && typeof hard !== 'string') {
+      throw new BadRequestException('hard должен быть одним значением');
+    }
     const isHard = hard === 'true' || hard === '1';
+    if (isHard && req.user?.keyScope?.access === 'app') {
+      throw new ForbiddenException('Ключ своего приложения разрешает только мягкое удаление');
+    }
     if (isHard && !canHardDelete(req.user)) {
       throw new ForbiddenException('Физическое удаление требует права app-data:admin');
     }

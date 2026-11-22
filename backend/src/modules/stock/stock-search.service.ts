@@ -6,6 +6,7 @@ import { DataVersionService } from '../../common/data-version/data-version.servi
 import { oid, oids, parseList } from '../../common/list-query';
 import { inScope, type StockScope } from '../../common/stock-scope';
 import { sameRe } from '../../common/text/same-text';
+import { STOCK_VISIBLE } from '../../common/catalog/stock-visible';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { articleView } from './article';
 import { dimsOf, metalKind, isEmptyMetal } from './metal';
@@ -20,6 +21,7 @@ import { foldPurchases, type PurchaseSupplier, type ReceivedRow } from './purcha
 
 /** Коллекции, от которых зависят строки «Остатков» (кэш С9): изменилась любая — расчёт заново. */
 const STOCK_COLLS = ['materials', 'storageitems', 'supplyrequests', 'categories', 'warehouses'] as const;
+const EMPTY_LIST_KEY = [false, null, [], null, null, null, []] as const;
 
 /** Чтение позиций склада: список «Остатков» (с кэшем), карточка, «заказано», сводка по категориям. */
 @Injectable()
@@ -55,14 +57,15 @@ export class StockSearchService {
     // Поиск — в памяти (search-norm): «м10 гайка» = «Гайка …, M10 …», слова в любом порядке
     const tokens = q.search ? searchTokens(q.search) : [];
     // скорость С9: строки склада считаются один раз, пока не менялись данные (кэш по версиям коллекций); строки общие — не менять
-    const make = () => this.itemRows(q, p.deleted, tokens);
-    const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens, ...(q.wash || q.pipeLength || q.noGrade ? [q.wash, q.pipeLength, q.noGrade] : [])]);
+    const held = q.held === '1' && !p.deleted;
+    const make = () => this.itemRows(q, p.deleted, tokens, held);
+    const key = JSON.stringify([p.deleted, q.categoryId ?? null, (q.materialIds ?? []).map(String), q.grade ?? null, q.section ?? null, q.thickness ?? null, tokens, ...(q.wash || q.pipeLength || q.noGrade ? [q.wash, q.pipeLength, q.noGrade] : []), ...(held ? ['held'] : [])]);
     // Выборка по id (карточка позиции, ответ после записи, ids признаков — в т. ч. пустой список → 0 строк) — без кэша: версия коллекции растёт по потоку изменений
     // с задержкой, и сразу после правки/прихода кэш отдал бы старые цифры (находка qa 2026-10-24). Она и так быстрая.
     const { wh, rows: found } = this.versions && !q.materialIds ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     // склады (WZ): чужие позиции отсекаются здесь, после общего кэша строк; нулевой металл роль со складом видит (своя работа)
     const seen = scope ? found.filter((r) => inScope(scope, r)) : found;
-    const all = q.hideEmptyMetal ? seen.filter((r) => !isEmptyMetal(r)) : seen;
+    const all = !held && q.hideEmptyMetal ? seen.filter((r) => !isEmptyMetal(r)) : seen;
     // Счётчики по состоянию — для чипов фильтра (до фильтра по состоянию)
     const counts = { all: all.length, ok: 0, low: 0, none: 0, reserved: 0, ordered: 0 };
     for (const r of all) { counts[r.status as 'ok' | 'low' | 'none']++; if (r.reservedQty > 0) counts.reserved++; if (r.ordered > 0) counts.ordered++; }
@@ -89,7 +92,12 @@ export class StockSearchService {
       this.photoMap(page.flatMap((r) => r.photoIds)),
       hangingQtyByMaterial(this.connection.db!, page.filter((r) => r.reservedQty > 0).map((r) => new Types.ObjectId(r.materialId))),
     ]);
-    const items = page.map(({ photoIds, ...r }) => ({ ...r, hangingQty: hang.get(r.materialId) ?? 0, photos: photoIds.map((id) => photos.get(String(id))).filter(Boolean) }));
+    const items = page.map(({ photoIds, offcuts, ...r }) => ({
+      ...r,
+      offcuts: offcuts.filter((o) => !held || inScope(scope, o)).map(({ id, name, qty, length }) => ({ id, name, qty, length })),
+      hangingQty: hang.get(r.materialId) ?? 0,
+      photos: photoIds.map((id) => photos.get(String(id))).filter(Boolean),
+    }));
     return { items, total: rows.length, page: p.page, limit: p.limit, counts, warehouseId: String(wh._id), warehouseName: wh.name };
   }
 
@@ -98,7 +106,7 @@ export class StockSearchService {
    * Только поля для выбора, без фото, бронирований, заявок; строки — тот же кэш, что у полного списка без фильтров.
    */
   async lookup(scope?: StockScope | null) {
-    const key = JSON.stringify([false, null, [], null, null, null, []]); // = ключ listItems({}) — общий кэш
+    const key = JSON.stringify(EMPTY_LIST_KEY); // = ключ listItems({}) — общий кэш
     const make = () => this.itemRows({}, false, []);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const items = rows
@@ -109,9 +117,9 @@ export class StockSearchService {
   }
 
   /** Строки «Остатков» до фильтра по состоянию, сортировки и страниц: позиции, остатки, «уже заказано», обрезки. */
-  private async itemRows(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] }, deleted: boolean, tokens: string[]) {
+  private async itemRows(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] }, deleted: boolean, tokens: string[], held = false) {
     const wh = await this.core.defaultWarehouse();
-    const filter: Record<string, unknown> = { deletedAt: deleted ? { $ne: null } : null };
+    const filter: Record<string, unknown> = { deletedAt: deleted ? { $ne: null } : null, ...(held ? STOCK_VISIBLE : {}) };
     if (q.categoryId) { const ids = oids(q.categoryId); filter.categoryId = { $in: [...ids, ...ids.map(String)] }; }
     if (q.materialIds) filter._id = { $in: q.materialIds };
 
@@ -126,7 +134,8 @@ export class StockSearchService {
     // категория хранится и ObjectId, и строкой (пишет kppdf мимо схемы) — читаем сырой коллекцией,
     // чтобы `$in:[ObjectId, hex]` нашёл оба вида: Mongoose приводит строку к ObjectId, и строковая категория не находилась (T8).
     const mats = (await this.connection.db!.collection('materials').find(filter).toArray() as unknown as MaterialDocument[])
-      .filter((m) => matchesAll(tokens, m.name, m.fullName, m.invoiceName, m.article, m.sku, m.notes, m.assortment, m.materialGrade, (m as { internalArticle?: string }).internalArticle));
+      .filter((m) => matchesAll(tokens, m.name, m.fullName, m.invoiceName, m.article, m.sku, m.notes, m.assortment, m.materialGrade,
+        (m as { internalArticle?: string }).internalArticle, ...(held ? [m.pdmCode, ...(m.pdmAliases ?? [])] : [])));
     const ids = mats.map((m) => m._id as Types.ObjectId);
     // скорость С7: независимые чтения — разом, категории — только нужные (не все категории CRM)
     const catIds = [...new Set(mats.map((m) => m.categoryId).filter(Boolean).map(String))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
@@ -136,18 +145,19 @@ export class StockSearchService {
       // «уже заказано» (ЗП.2): открытые заявки на позицию — по materialId или по тому же наименованию
       this.openRequests(mats as { _id: Types.ObjectId; name?: string }[]),
       // обрезки этих позиций (СМ.2): родитель → [{ id, name, qty }] с остатком > 0 — «сначала брать обрезки»
-      this.connection.db!.collection('materials').find({ offcutOf: { $in: ids }, deletedAt: null }, { projection: { name: 1, offcutOf: 1, dimensions: 1 } }).toArray(),
+      this.connection.db!.collection('materials').find({ offcutOf: { $in: ids }, deletedAt: null, ...(held ? STOCK_VISIBLE : {}) },
+        { projection: { name: 1, offcutOf: 1, dimensions: 1, categoryId: 1 } }).toArray(),
     ]);
     const catName = new Map(cats.map((c) => [String(c._id), String(c.name)]));
     const kidStock = kids.length ? await this.storage.find({ warehouseId: wh._id, materialId: { $in: kids.map((k) => k._id) }, deletedAt: null }).lean().exec() : [];
     const kidQty = new Map<string, number>();
     for (const s of kidStock) kidQty.set(String(s.materialId), (kidQty.get(String(s.materialId)) ?? 0) + (s.quantity ?? 0));
-    const offcutsOf = new Map<string, { id: string; name: string; qty: number; length: number | null }[]>();
+    const offcutsOf = new Map<string, { id: string; name: string; qty: number; length: number | null; categoryId: unknown }[]>();
     for (const k of kids) {
       const n = kidQty.get(String(k._id)) ?? 0;
       if (n <= 0) continue;
       const list = offcutsOf.get(String(k.offcutOf)) ?? [];
-      list.push({ id: String(k._id), name: String(k.name), qty: n, length: dimsOf(k.dimensions).length ?? null });
+      list.push({ id: String(k._id), name: String(k.name), qty: n, length: dimsOf(k.dimensions).length ?? null, categoryId: k.categoryId });
       offcutsOf.set(String(k.offcutOf), list);
     }
     const byMat = new Map<string, { quantity: number; reservedQty: number; minQuantity: number; weightKg?: number; zoneName?: string; id: string; lastCountedAt?: Date }>();
@@ -157,11 +167,14 @@ export class StockSearchService {
       if (cur) { cur.quantity += s.quantity ?? 0; cur.reservedQty += s.reservedQty ?? 0; continue; }
       byMat.set(k, { id: String(s._id), quantity: s.quantity ?? 0, reservedQty: s.reservedQty ?? 0, minQuantity: s.minQuantity ?? 0, weightKg: s.weightKg, zoneName: s.zoneName, lastCountedAt: (s as { lastCountedAt?: Date }).lastCountedAt });
     }
-    const rows = mats.map((m) => {
+    // В «Остатках» смотрим на физическое количество; бронь и свободное не меняют видимость строки.
+    const shown = held ? mats.filter((m) => (byMat.get(String(m._id))?.quantity ?? 0) > 0) : mats;
+    const rows = shown.map((m) => {
       const st = byMat.get(String(m._id));
       const quantity = st?.quantity ?? 0, reservedQty = st?.reservedQty ?? 0, minQuantity = st?.minQuantity ?? 0;
       return {
         id: String(m._id), materialId: String(m._id), name: m.name, article: m.article, sku: m.sku, unit: m.unit,
+        materialKind: m.materialKind ?? null, pdmCode: m.pdmCode ?? null, pdmAliases: m.pdmAliases ?? [], standardRef: m.standardRef ?? null,
         // АР.1: артикул поставщика и внутренний код (СКЛ-… / sku) — раздельно; откуда взят артикул
         ...articleView(m as { article?: unknown; sku?: unknown; internalArticle?: unknown }), articleSource: (m as { articleSource?: string }).articleSource ?? null,
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,
@@ -249,10 +262,10 @@ export class StockSearchService {
   }
 
   /** Сводка по категориям (плитки «Склада»): сколько позиций, сколько к закупке и сколько нет на складе. */
-  async categorySummary(scope?: StockScope | null) {
+  async categorySummary(scope?: StockScope | null, held = false) {
     // строки — из общего кэша (тот же ключ, что у listItems({}) и lookup): без сортировки, фото и «висящей» брони
-    const key = JSON.stringify([false, null, [], null, null, null, []]);
-    const make = () => this.itemRows({}, false, []);
+    const key = JSON.stringify(held ? [...EMPTY_LIST_KEY, 'held'] : EMPTY_LIST_KEY);
+    const make = () => this.itemRows({}, false, [], held);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const by = new Map<string, { id: string; name: string; total: number; low: number; none: number; ordered: number }>();
     const mine = rows.filter((r) => (scope ? inScope(scope, r) : !isEmptyMetal(r)));

@@ -9,6 +9,7 @@ import { VersionConflictFilter } from '../../src/common/filters/version-conflict
 import { TEST_ADMIN_PASSWORD } from './admin.fixture';
 import { registerAppDataBodyParser } from '../../src/modules/app-data/app-data.body-parser';
 import { registerReviewedOriginalRoute } from '../../src/modules/photos/reviewed-original-route';
+import { ThrottlerBehindAuthGuard } from '../../src/common/guards/throttler-behind-auth.guard';
 
 export interface TestContext {
   app: INestApplication;
@@ -36,7 +37,7 @@ export interface TestContext {
  * Must be run with `jest --runInBand` so that only one suite bootstraps
  * at a time (each suite clears + re-seeds the same `datacore-test` db).
  */
-export async function createTestApp(options: { strictValidation?: boolean } = {}): Promise<TestContext> {
+export async function createTestApp(options: { strictValidation?: boolean; registerThrottler?: boolean } = {}): Promise<TestContext> {
   const testDb = process.env.MONGO_DB_TEST ?? 'datacore-test';
   process.env.MONGO_DB = testDb;
   process.env.NODE_ENV = 'test';
@@ -92,6 +93,7 @@ export async function createTestApp(options: { strictValidation?: boolean } = {}
     new HttpExceptionFilter(),
   );
   app.setGlobalPrefix('api');
+  if (options.registerThrottler) app.useGlobalGuards(app.get(ThrottlerBehindAuthGuard));
   registerAppDataBodyParser(app); // как в main.ts
   registerReviewedOriginalRoute(app);
   await app.init();
