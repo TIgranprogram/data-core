@@ -9,6 +9,7 @@ const LOOKALIKE = { a: 'а', b: 'в', c: 'с', e: 'е', h: 'н', k: 'к', m: 'м
 export function normSearch(s) {
   return String(s ?? '').toLowerCase().replace(/ё/g, 'е').replace(/[×*]/g, 'х')
     .replace(/[abcehkmoptxy]/g, (ch) => LOOKALIKE[ch]).replace(/(\d),(\d)/g, '$1.$2')
+    .replace(/\d+(?:\.\d+)?(?:\s*х\s*\d+(?:\.\d+)?)+/g, value => value.split(/\s*х\s*/).map(Number).join('х'))
     .replace(/[«»"'(),;]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 /** Артикул — тот же, если отличается регистром, «ё», похожими буквами (KC-01 = КС-01), пробелами по краям; как skuKey на сервере. */

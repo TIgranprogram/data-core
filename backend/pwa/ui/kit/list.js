@@ -14,7 +14,7 @@ import { openPopMenu } from './pop-menu.js';
 import { button } from './index.js';
 import { reportSlow } from '../../core/errors.js';
 import { mark } from './mark.js';
-import { viewStore, listKeys } from './list-view.js';
+import { viewStore, listKeys, listQuery } from './list-view.js';
 import { paintTiles } from './list-tiles.js';
 import { paintChips } from './list-chips.js';
 import { periodState, paintPeriods } from './list-periods.js';
@@ -45,7 +45,11 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const canCreate = section.form && canEditSection(section) && L.createLabel !== false;
   // «⇩ Excel» (МВ.5): весь список с текущими фильтрами — ui/list-export.js; L.export === false — без кнопки; 'admin' — только для роли admin
   const canExport = !(L.export === false || (L.export === 'admin' && session.role !== 'admin'));
-  const doExport = (btn) => { const { sort } = st(); exportList({ title: section.title, path: L.path, columns: L.columns, query: currentQuery(), sort }, btn); };
+  let tableSnapshot = null;
+  const doExport = (btn) => {
+    const snapshot = L.columnsFor || L.sortFor ? tableSnapshot : { columns: L.columns, query: currentQuery(), sort: st().sort };
+    if (snapshot) exportList({ title: section.title, path: L.path, ...snapshot, maxRows: L.exportLimit }, btn);
+  };
   // «Ещё ▾» (аудит П2): второстепенные действия и «⇩ Excel» — одним меню, в шапке одна главная кнопка
   const moreBtn = h('button', { class: 'btn', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Остальные действия' }, 'Ещё ▾');
   const moreGroups = () => {
@@ -242,18 +246,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   // ---------- Загрузка ----------
   let seq = 0; let destroyed = false;
   let loaded = false;
-  /** Параметры запроса из адреса: поиск, свои параметры раздела, фильтры. */
-  async function currentQuery(isBoard = false) {
-    const params = P;
-    const query = { search: params.q, ...(await L.query?.(params)) };
-    for (const f of activeFilters()) {
-      const v = params[f.key] !== undefined ? params[f.key] : (f.defaultValue || '');
-      if (v && v !== 'all' && !(isBoard && f.key === 'status')) query[f.key] = v;
-    }
-    // доска заказов сама режет по stage колонки; filter=active обнуляет «Отгружен» и тяжелит 5× list
-    if (isBoard && L.path === '/production-orders' && query.filter && query.filter !== 'all') delete query.filter;
-    return query;
-  }
+  const currentQuery = (isBoard = false) => listQuery(L, P, activeFilters(), isBoard);
   // ПГ-1: автоподгрузка — строки добавляются при прокрутке к низу; адресный page не используется
   let pagesLoaded = 1, loadingMore = false;
   const moreNote = h('span', { class: 'muted' });
@@ -276,6 +269,12 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
       return;
     }
     if (my !== seq || destroyed) return;
+    // query может загрузить контекст зоны. Его чистые колонки/default нужны до запроса и заголовка.
+    L.columns = (L.columnsFor?.(P) || section.list.columns).filter(c => !c.money || session.canMoney).map(c => ({ ...c }));
+    if (!P.sort && !isGallery) sort = st().sort;
+    const snapshot = { columns: L.columns.map(c => ({ ...c })), query: { ...query }, sort };
+    renderHead();
+    if (L.columnsFor || L.sortFor) extra?.update(P, st());
     const per = L.periods ? L.periods(P) : null;
     if (per && !isBoard) { limit = 2000; page = 1; }
     if (isGantt) {
@@ -329,6 +328,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (!timed) { timed = true; document.removeEventListener('visibilitychange', stopTiming); const ms = performance.now() - Math.max(t0, loadT0); if (ms > 2000) reportSlow(ms, Math.max(t0, loadT0)); }
     panel.classList.remove('loading');
     lastResp = resp; rawRows = resp.items;
+    tableSnapshot = snapshot;
     countEl.textContent = qty(resp.total);
     renderChips();
     rows = L.map ? resp.items.map(L.map) : resp.items; // L.map — привести строку ответа к виду { id, … } (список «Заказов»: key → id)

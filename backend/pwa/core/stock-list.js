@@ -8,11 +8,14 @@ import { loadZones, zoneNow } from './zone.js';
  */
 const TTL = 5 * 60 * 1000;
 let cached = null; let at = 0;
+let owner = '', lookupOwner = '';
+export const stockScopeKey = () => JSON.stringify(['id', 'role', 'baseRole', 'roleLabel', 'warehouseIds', 'stockCategoryIds', 'sections'].map(key => session.user?.[key]));
 
 export function stockList() {
+  if (owner !== stockScopeKey()) { owner = stockScopeKey(); cached = null; }
   if (!cached || Date.now() - at > TTL) {
     at = Date.now();
-    const p = api('/stock/items', { query: { limit: 10000, sort: 'name' } }).then((r) => r.items || []);
+    const p = loadStockPages({ sort: 'name' });
     cached = p;
     p.catch(() => { if (cached === p) cached = null; }); // сбой сети — следующее действие попробует снова
   }
@@ -24,22 +27,26 @@ const heldLists = new Map();
 export const resetHeldStock = () => heldLists.clear();
 
 /** Та же выборка, что в «Остатках». Отдельный кэш для признаков и плиток каждой зоны. */
-export async function heldStockList(zoneId) {
+export const heldStockList = zoneId => scopedStockList(zoneId, true);
+export const catalogueStockList = zoneId => scopedStockList(zoneId, false);
+export const catalogueStockQuery = zoneId => ({ withParts: '0', ...(zoneId ? { zoneId } : {}) });
+export async function loadStockPages(query = {}) {
+  const items = [];
+  for (let page = 1; ; page++) {
+    const response = await api('/stock/items', { query: { ...query, limit: 1000, page } });
+    items.push(...response.items);
+    if (items.length >= response.total || !response.items.length) return items;
+  }
+}
+async function scopedStockList(zoneId, held) {
   if (zoneId === undefined) {
     await loadZones().catch(() => []);
     zoneId = zoneNow();
   }
-  const key = JSON.stringify([session.user?.id, session.user?.role, zoneId]);
+  const key = JSON.stringify([stockScopeKey(), zoneId, held]);
   const cached = heldLists.get(key);
   if (cached && Date.now() - cached.at <= TTL) return cached.promise;
-  const promise = (async () => {
-    const items = [];
-    for (let page = 1; ; page++) {
-      const r = await api('/stock/items', { query: { ...heldStockQuery(zoneId), limit: 10000, sort: 'name', page } });
-      items.push(...r.items);
-      if (items.length >= r.total || !r.items.length) return items;
-    }
-  })();
+  const promise = loadStockPages({ ...(held ? heldStockQuery(zoneId) : catalogueStockQuery(zoneId)), sort: 'name' });
   heldLists.set(key, { at: Date.now(), promise });
   promise.catch(() => { if (heldLists.get(key)?.promise === promise) heldLists.delete(key); });
   return promise;
@@ -52,6 +59,7 @@ export async function heldStockList(zoneId) {
  */
 let cachedLookup = null; let atLookup = 0;
 export function stockLookup() {
+  if (lookupOwner !== stockScopeKey()) { lookupOwner = stockScopeKey(); cachedLookup = null; }
   if (!cachedLookup || Date.now() - atLookup > TTL) {
     atLookup = Date.now();
     const p = api('/stock/lookup').then((r) => r.items || []);

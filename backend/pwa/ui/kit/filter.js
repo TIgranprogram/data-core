@@ -1,4 +1,5 @@
-import { heldStockList } from '../../core/stock-list.js';
+import { heldStockList, stockScopeKey } from '../../core/stock-list.js';
+import { loadZones, zoneNow } from '../../core/zone.js';
 import { h } from '../../core/dom.js';
 import { patch } from '../../core/router.js';
 import { PREFIX } from '../../core/api.js';
@@ -67,10 +68,10 @@ function scope(items, P, categoryKey, sel) {
 
 const OPEN_MAX = 6; // группа до 6 значений раскрыта, длиннее — свёрнута
 
-export function facetFilter({ categoryKey = 'categoryId', inline = false } = {}) {
+export function facetFilter({ categoryKey = 'categoryId', inline = false, loadItems = heldStockList } = {}) {
   let items = null; let src = null; let P = {};
   const folded = new Map(); // key → открыто/свёрнуто, если пользователь сам нажал (иначе — по числу значений)
-  if (inline) return inlineFilter(categoryKey);
+  if (inline) return inlineFilter(categoryKey, loadItems);
   const btn = button({ label: '⌕ Поиск и фильтры' });
   btn.setAttribute('aria-expanded', 'false');
   const tags = h('span', { class: 'ff-tags' });
@@ -83,7 +84,11 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
   makeResizable(pop, { prefKey: 'filterW', edge: 'right', label: 'Ширина панели фильтров' }); // ШП
   const shade = h('div', { class: 'ff-shade', hidden: true, onclick: () => close() });
   const el = mark(h('div', { class: 'ff' }, btn, tags, shade, pop), 'filter');
-  const load = async () => { const list = await heldStockList(); if (list !== src) { src = list; items = index(list, { stockSearch: true }); } return items; };
+  const load = async () => {
+    await loadZones().catch(() => []); const scope = stockScopeKey(), zone = zoneNow(); const list = await loadItems(zone);
+    if (scope !== stockScopeKey() || zone !== zoneNow()) return false;
+    if (list !== src) { src = list; items = index(list.map(item => ({ ...item })), { stockSearch: true }); } return true;
+  };
   const onKey = (e) => { if (e.key === 'Escape' && !pop.hidden) close(); }; // с непустым поиском Esc сначала очищает его (searchBox гасит событие)
   let watch = null; // следит: открылась правая панель или экран ушёл — фильтр закрываем, слушатель снимаем
   const watchStart = () => {
@@ -94,7 +99,7 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false } = {})
   const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };
   async function renderPop() {
     if (!body.children.length) body.replaceChildren(busyBlock('', { cls: 'muted small' }));
-    await load();
+    if (!await load()) return;
     const keep = body.scrollTop;
     const fk = document.activeElement?.dataset?.fk; // фокус не теряем при перерисовке
     const sel = parseFt(P.ft);
@@ -155,18 +160,22 @@ function chipsOf(key, vals, label, set) {
   }));
 }
 
-function inlineFilter(categoryKey) {
+function inlineFilter(categoryKey, loadItems) {
   let items = null; let src = null; let P = {}; let seq = 0;
   const folded = new Map();
   const crumbs = h('div', { class: 'ff-crumbs', hidden: true });
   const body = h('div', { class: 'ff-body' });
   const el = mark(h('div', { class: 'ff ff-inline' }, h('div', { class: 'ls-h' }, 'Уточнить'), crumbs, body), 'filter');
-  const load = async () => { const list = await heldStockList(); if (list !== src) { src = list; items = index(list, { stockSearch: true }); } return items; };
+  const load = async () => {
+    await loadZones().catch(() => []); const scope = stockScopeKey(), zone = zoneNow(); const list = await loadItems(zone);
+    if (scope !== stockScopeKey() || zone !== zoneNow()) return false;
+    if (list !== src) { src = list; items = index(list.map(item => ({ ...item })), { stockSearch: true }); } return true;
+  };
   const set = (k, v) => { const sel = parseFt(P.ft); sel[k] = sel[k] === v ? undefined : v; patch({ ft: fmtFt(sel), page: undefined }); };
   async function render() {
     const my = ++seq;
     if (!body.children.length) body.replaceChildren(busyBlock('', { cls: 'muted small' }));
-    await load();
+    if (!await load()) return;
     if (my !== seq) return;
     const fk = document.activeElement?.dataset?.fk; // фокус не теряем при перерисовке
     const sel = parseFt(P.ft);

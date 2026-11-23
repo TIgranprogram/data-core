@@ -6,7 +6,7 @@
  *   toolbarExtra?() → { el, update(P) } — свой элемент в панели инструментов (фильтры по признакам у «Остатков»), extraKeys — его ключи в адресе;
  *   path, sortDefault, searchPlaceholder, createLabel, headActions?() → [кнопки рядом с «+ Создать»],
  *   moreActions?(reload) → [{ label, title?, onSelect?, href? }] | [{ title?, sep?, items }] — второстепенные действия шапки в меню «Ещё ▾» (вместе с «⇩ Excel»); в шапке остаётся одна главная кнопка (аудит П2),
- *   columns: [{ key, label, sort?, cls?, render(row) }],
+ *   columns: [{ key, label, sort?, cls?, render(row) }], columnsFor?(params) → новые колонки после query; sortFor?(params) → default сортировки,
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне
  *   filters: [{ key, label, type: 'chips'|'select'|'date'|'hidden', options: async () => [{ value, label, hint? }], count?(resp, value) }],
  *   footer?(resp), query?(params),
@@ -34,6 +34,17 @@
  * Возвращает { el, update(params), reload(), focusSearch(), destroy() }.
  */
 /** Вид списка (таблица / доска / галерея / гант): запоминается в localStorage по viewKey раздела; st() — состояние из адреса. */
+/** Запрос строится из одного снимка адреса до await; старые списки сохраняют прежний контракт. */
+export async function listQuery(L, params, filters, isBoard = false) {
+  const query = { search: params.q, ...(await L.query?.(params)) };
+  for (const filter of filters) {
+    const value = params[filter.key] !== undefined ? params[filter.key] : (filter.defaultValue || '');
+    if (value && value !== 'all' && !(isBoard && filter.key === 'status')) query[filter.key] = value;
+  }
+  if (isBoard && L.path === '/production-orders' && query.filter && query.filter !== 'all') delete query.filter;
+  return query;
+}
+
 export function viewStore(L, getP) {
   const vKey = () => L.viewKey ? 'dc-view-' + L.viewKey : null;
   const savedView = () => { const k = vKey(); if (!k) return ''; try { return localStorage.getItem(k) || ''; } catch { return ''; } };
@@ -46,7 +57,7 @@ export function viewStore(L, getP) {
     return {
       limit: Number(P.limit) || L.limit || 25,
       page: Math.max(1, Number(P.page) || 1),
-      sort: P.sort || L.sortDefault,
+      sort: P.sort || L.sortFor?.(P) || L.sortDefault,
       gantt: !!L.gantt && (P.view === 'gantt' || (!P.view && sv === 'gantt')),
       board: !!L.board && !(!!L.gantt && (P.view === 'gantt' || (!P.view && sv === 'gantt'))) && (P.view === 'board' || (!!L.board.default && !P.view && sv !== 'table') || (!!L.board.alt && P.view === L.board.alt) || (!P.view && sv === 'board')),
       gallery: !!L.gallery && (P.view === 'gallery' || (!!L.landing && !P.view && L.landing.when(P)) || (!!L.gallery.default && !P.view && sv !== 'table') || (!P.view && sv === 'gallery')),
