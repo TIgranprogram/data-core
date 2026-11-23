@@ -267,13 +267,13 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     const rest = r.total - col.shown;
     col.more = null;
     if (rest > 0) {
-      // c.portion — «ещё N →» дописывает порцию на месте; иначе остальное — списком (завершённое там свёрнуто по месяцам, фаза М)
+      // c.portion — «ещё N →» дописывает порцию на месте; иначе остальное — существующим списком; группировка определяется разделом
       col.more = c.portion
         ? link({ cls: 'col-more', label: `ещё ${qty(Math.min(rest, c.per || per))} из ${qty(rest)} →`, onClick: async (e) => {
           const btn = e.currentTarget; btn.disabled = true;
           try { const next = await fetchCol(c, ++col.page, my); paint(col, next, true, my); } catch (ex) { col.page--; btn.disabled = false; toastError(ex); }
         } })
-        : link({ cls: 'col-more', onClick: () => patch({ view: undefined, page: undefined, ...(c.query.status ? { status: c.query.status } : {}) }), label: `ещё ${qty(rest)} — списком по месяцам →` });
+        : link({ cls: 'col-more', onClick: () => patch({ view: 'table', page: undefined, ...(c.query.status ? { status: c.query.status } : {}) }), label: `ещё ${qty(rest)} — списком →` });
       body.append(col.more);
     }
     // тихая ссылка «+ Добавить задачу» внизу колонки (board.add(ключ колонки))
