@@ -1,3 +1,4 @@
+import { exerciseInstructions } from '../../common/passport/exercise-instructions';
 import type { mongo } from 'mongoose';
 import { Types } from 'mongoose';
 import { expandComposition, type GraphDb } from '../../common/catalog/composition-expand';
@@ -27,7 +28,7 @@ export async function productPassportCode(db: mongo.Db, prod: Doc, resolved?: Re
 }
 
 /** Поля паспорта, которые задаёт изделие: { поле паспорта: значение }. Пустые у изделия — не попадают. */
-export async function productPatch(db: mongo.Db, prod: Doc, opts: { presentation?: boolean; brief?: boolean } = {}): Promise<Doc> {
+export async function productPatch(db: mongo.Db, prod: Doc, opts: { presentation?: boolean; brief?: boolean; captureExercise?: boolean } = {}): Promise<Doc> {
   const out: Doc = {};
   const put = (k: string, v: unknown) => { if (filled(v)) out[k] = v; };
   put('name', String(prod.name ?? '').trim());
@@ -41,6 +42,7 @@ export async function productPatch(db: mongo.Db, prod: Doc, opts: { presentation
   put('materialsSpec', prod.materialsSpec);
   put('materials', typeof prod.materialsText === 'string' ? prod.materialsText.trim() : undefined);
   const pd = (prod.passportDefaults ?? {}) as Doc;
+  if (opts.captureExercise && pd.exerciseInstructions != null) out.exerciseInstructions = exerciseInstructions(pd.exerciseInstructions);
   for (const k of DEFAULT_KEYS) put(k, pd[k]);
   if (opts.presentation) {
     put('seatsCount', pd.seatsCount);

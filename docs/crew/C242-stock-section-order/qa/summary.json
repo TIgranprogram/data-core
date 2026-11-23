@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-23",
+  "baseCommit": "36bdd4dc",
+  "status": "PASS targeted HTTP",
+  "suites": 1,
+  "tests": 6,
+  "db": "datacore-test-c240-c242",
+  "sourceReport": "qa/http-independent.json",
+  "stdout": "tools/logs/c242-qa-http.log",
+  "initialFixtureFailures": {
+    "strictDto": "notes instead of note",
+    "categoryType": "material required by stockzones",
+    "categoryUnique": "unique skuPrefix/slug missing in raw fixtures",
+    "runtimeChanged": false,
+    "sourceReports": [
+      "docs/crew/C240-director-stock-screens/qa/c240-c242-http-fixture-errors.json",
+      "docs/crew/C240-director-stock-screens/qa/c240-c242-http.json"
+    ]
+  },
+  "cases": [
+    {
+      "title": "sectionSize сортирует весь HTTP-набор до страниц, priority не перегруппирует размеры; unknown/conflict в конце asc/desc",
+      "status": "passed"
+    },
+    {
+      "title": "sheetSize/woodSize и отдельные оси сортируют числа 2,10,100 через HTTP-страницы",
+      "status": "passed"
+    },
+    {
+      "title": "нулевая 80×60×3 без storageitem доступна поиску/lookup/categories, не создаёт остатки и движения",
+      "status": "passed"
+    },
+    {
+      "title": "availability — физическое наличие, counts прежние; held/status/search/zone сочетаются по AND",
+      "status": "passed"
+    },
+    {
+      "title": "invalid/empty availability даёт 400, новые нули не расширяют warehouse/category scope",
+      "status": "passed"
+    },
+    {
+      "title": "реальный change-stream cache переиспользуется, но sort/availability/scope не мутируют общий набор",
+      "status": "passed"
+    }
+  ],
+  "realCache": "DataVersion public lifecycle + actual Mongo change stream; cached method spy forwards real implementation, no fake connection",
+  "fullBackendRun": false,
+  "uiAccepted": false,
+  "productionWrites": false
+}

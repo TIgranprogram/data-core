@@ -58,7 +58,8 @@ export function fieldsOf(doc) {
   if (role === 'admin' || role === 'director') canMoney = true;
   else if (typeof doc.money === 'boolean') canMoney = doc.money;
   else canMoney = MONEY.has(baseRole);
-  return { role, baseRole, roleLabel: labelOf(doc), sections, canMoney };
+  return { role, baseRole, roleLabel: labelOf(doc), sections, canMoney,
+    ...(Object.hasOwn(doc, 'stockViews') ? { stockViews: Array.isArray(doc.stockViews) ? doc.stockViews.filter(view => ['pipe', 'sheet'].includes(view)) : [] } : {}) };
 }
 
 function readSnap(code) {
@@ -71,7 +72,7 @@ function readSnap(code) {
 
 function same(a, b) {
   if (!a || !b) return false;
-  return a.role === b.role && a.baseRole === b.baseRole && a.roleLabel === b.roleLabel && a.canMoney === b.canMoney && JSON.stringify(a.sections ?? null) === JSON.stringify(b.sections ?? null);
+  return a.role === b.role && a.baseRole === b.baseRole && a.roleLabel === b.roleLabel && a.canMoney === b.canMoney && JSON.stringify(a.sections ?? null) === JSON.stringify(b.sections ?? null) && JSON.stringify(a.stockViews) === JSON.stringify(b.stockViews);
 }
 
 function overlayFields() {
@@ -85,8 +86,10 @@ export function applyView(user) {
   if (!user || !canViewAsUser(user)) return user;
   const snap = overlayFields();
   if (!snap?.role) return user;
+  const profile = { ...user }; delete profile.stockViews; // настройка настоящего admin не переносится в просматриваемую роль
   return {
-    ...user,
+    ...profile,
+    ...(Object.hasOwn(snap, 'stockViews') ? { stockViews: snap.stockViews } : {}),
     role: snap.role,
     baseRole: snap.baseRole,
     roleLabel: snap.roleLabel,

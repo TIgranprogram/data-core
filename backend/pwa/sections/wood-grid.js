@@ -4,7 +4,8 @@ import { qty } from '../core/format.js';
 import { stockPositionCode, stockPositionName } from '../core/stock-display.js';
 import { current, patch } from '../core/router.js';
 import { viewAsActive } from '../core/view-as.js';
-import { busyBlock, button, empty, failBlock, searchBox, table, toolbar } from '../ui/kit/index.js';
+import { busyBlock, button, empty, failBlock, searchBox, table, toolbar, filter, enhanceSelect, select as kitSelect } from '../ui/kit/index.js';
+import { dimensionValue, stockAvailability, stockZero, inlineCountAllowed, stockCountCell } from './stock-dimension-columns.js';
 import { toast } from '../ui/kit/toast.js';
 import { lookups, unitList } from './lookups.js';
 import { gridField } from './sheet-grid.js';
@@ -12,7 +13,7 @@ import { gridField } from './sheet-grid.js';
 const PAGE_SIZE = 100;
 const zoneName = 'Деревообработка';
 const canEdit = () => session.canEdit && !viewAsActive(session.realUser);
-const sizeFields = [['length', 'Длина'], ['width', 'Ширина'], ['thickness', 'Толщина']];
+const sizeFields = [['length', 'Длина'], ['width', 'Ширина'], ['height', 'Высота'], ['thickness', 'Толщина'], ['depth', 'Глубина']];
 
 async function woodZone() {
   const { items } = await api('/stock/zones');
@@ -72,15 +73,9 @@ export const woodItem = {
   },
 };
 
-function dimensions(item) {
-  const d = item.dims || {};
-  return [['Д', d.length], ['Ш', d.width], ['Т', d.thickness], ['В', d.height]]
-    .filter(([, value]) => Number(value) > 0).map(([label, value]) => label + ' ' + qty(value)).join(' · ') || '—';
-}
-
 /** GET /stock/zones задаёт область роли. Без совпадения запрос остатков не выполняется. */
 export function mountWoodGrid() {
-  let search = '', page = 1, request = 0, destroyed = false;
+  let search = '', page = 1, request = 0, destroyed = false, sort = current().params.sort || 'woodSize', availability;
   const body = h('div');
   const searchControl = searchBox({ label: 'Найти материал', placeholder: 'Название или артикул', onSearch(value) {
     search = value.trim(); page = 1; load();
@@ -89,7 +84,13 @@ export function mountWoodGrid() {
     patch({ of: 'wooditem', new: '1', open: undefined }, { kind: 'card' });
   } }) : null;
   if (add) add.hidden = true;
-  const el = h('div', null, h('div', { class: 'page-head' }, h('h1', null, zoneName), add), toolbar(searchControl.el), body);
+  const sortControl = kitSelect({ label: 'Сортировка', value: sort,
+    options: [['woodSize', 'Ширина, высота, длина'], ['width', 'Ширина'], ['height', 'Высота'], ['thickness', 'Толщина'], ['length', 'Длина'], ['quantity', 'Остаток'], ['name', 'Название']]
+      .flatMap(([key, label]) => [[key, label + ' ↑'], ['-' + key, label + ' ↓']]),
+    onChange: value => { sort = value; page = 1; load(); } });
+  enhanceSelect(sortControl);
+  const presence = filter({ mode: 'chips', items: [{ key: '', label: 'Все' }, { key: 'in', label: 'В наличии' }, { key: 'none', label: 'Нет в наличии' }], onChange: value => { availability = value || undefined; page = 1; load(); } }).el;
+  const el = h('div', null, h('div', { class: 'page-head' }, h('h1', null, zoneName), add), toolbar(searchControl.el, presence, sortControl), body);
 
   const onCreated = (event) => {
     const { path, method, result } = event.detail || {};
@@ -106,18 +107,19 @@ export function mountWoodGrid() {
     const title = stockPositionName(item);
     const name = title && title !== code ? title : item.categoryName || 'Без наименования';
     const quantity = Number(item.quantity), reserved = Number(item.reservedQty || 0);
-    const count = editable ? gridField('pg-in', 'Фактически, ' + name, String(quantity).replace('.', ','), async value => {
+    const count = gridField('pg-in', 'Фактически, ' + name, String(quantity).replace('.', ','), async value => {
       const next = Number(value.replace(',', '.'));
       if (!value || !Number.isFinite(next) || next < 0) throw new Error('Введите неотрицательное количество.');
       await api('/stock/batch', { method: 'POST', body: { type: 'count', note: zoneName,
         lines: [{ materialId: id, qty: next, expected: quantity }] } });
       await load();
-    }) : qty(quantity);
+    }, !editable || !inlineCountAllowed(item));
     const note = editable ? gridField('pg-note', 'Примечание, ' + name, item.notes || '', async value => {
       await api('/stock/items/' + encodeURIComponent(id), { method: 'PATCH', body: { notes: value } });
     }) : item.notes || '—';
-    return { cells: [name, code || '—', item.categoryName || '—', dimensions(item),
-      item.unit || '—', count, qty(reserved), qty(item.free ?? quantity - reserved), note] };
+    return { cls: stockZero(item) ? 'muted' : '', data: id, cells: [name, code || '—', item.categoryName || '—',
+      ...['width', 'height', 'thickness', 'length'].map(key => dimensionValue(item.dims?.[key])),
+      item.unit || '—', inlineCountAllowed(item) ? count : { v: stockCountCell(item, count), cls: 'k-col-wrap' }, qty(reserved), qty(item.free ?? quantity - reserved), stockAvailability(item), note] };
   }
 
   async function load() {
@@ -132,14 +134,15 @@ export function mountWoodGrid() {
         body.replaceChildren(empty({ title: 'Зона «Деревообработка» недоступна', hint: 'Проверьте зону склада в настройках роли.' }));
         return;
       }
-      const result = await api('/stock/items', { query: { zoneId: zone.id, withParts: '0', search, sort: 'name', limit: PAGE_SIZE, page } });
+      const result = await api('/stock/items', { query: { zoneId: zone.id, withParts: '0', search, sort, availability, limit: PAGE_SIZE, page } });
       if (current !== request) return;
       if (page > 1 && !result.items.length) { page--; return load(); }
       const rows = result.items.map(row);
       const grid = table({ label: 'Материалы деревообработки', columns: [
-        { label: 'Материал', wrap: true }, { label: 'Артикул / код' }, { label: 'Категория' }, { label: 'Размеры, мм' },
-        { label: 'Ед.' }, { label: 'Фактически', num: true }, { label: 'В брони', num: true },
-        { label: 'Свободно', num: true }, { label: 'Примечание' },
+        { label: 'Материал', wrap: true }, { label: 'Артикул / код' }, { label: 'Категория' },
+        ...['Ширина, мм', 'Высота, мм', 'Толщина, мм', 'Длина, мм'].map(label => ({ label, num: true })),
+        { label: 'Ед. учёта' }, { label: 'Фактически, ед. учёта', num: true }, { label: 'В брони, ед. учёта', num: true },
+        { label: 'Свободно, ед. учёта', num: true }, { label: 'Наличие' }, { label: 'Примечание' },
       ], rows, empty: { title: search ? 'Материалы не найдены' : 'В зоне пока нет материалов',
         hint: !search && add?.hidden ? 'Проверьте, какие категории материалов назначены этой зоне.' : undefined } });
       body.replaceChildren(grid);

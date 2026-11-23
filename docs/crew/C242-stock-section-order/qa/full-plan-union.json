@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-23",
+  "waitFor": "C236 final backend freeze",
+  "expectedUnionAdditions": [
+    "test/e2e/c240-stock-views.e2e-spec.ts",
+    "test/e2e/c242-stock-catalog-http.e2e-spec.ts"
+  ],
+  "fixedDatabase": "datacore-test-c240-c242",
+  "runInBand": true,
+  "groupSeparateFromMain": true,
+  "alreadyExistingUpdatedSuite": "test/e2e/passport-import.e2e-spec.ts (C241, separate approved DB)",
+  "discoverCompleteListAtFinalFreeze": true,
+  "guardsChanged": false
+}

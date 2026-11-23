@@ -1,0 +1,118 @@
+{
+  "expectedSuites": 111,
+  "actualSuites": 111,
+  "passedSuites": 110,
+  "failedSuites": 1,
+  "passedTests": 910.0,
+  "totalTests": 914.0,
+  "failedTests": 4.0,
+  "pendingTests": 0.0,
+  "missingGroups": [],
+  "missing": [],
+  "extra": [],
+  "duplicates": [],
+  "changedSources": [],
+  "groups": [
+    {
+      "failedTests": 0,
+      "name": "batch-1",
+      "tests": 293,
+      "success": true,
+      "passedTests": 293,
+      "passedSuites": 26,
+      "suites": 26,
+      "pendingTests": 0
+    },
+    {
+      "failedTests": 0,
+      "name": "batch-2",
+      "tests": 187,
+      "success": true,
+      "passedTests": 187,
+      "passedSuites": 26,
+      "suites": 26,
+      "pendingTests": 0
+    },
+    {
+      "failedTests": 0,
+      "name": "batch-3",
+      "tests": 138,
+      "success": true,
+      "passedTests": 138,
+      "passedSuites": 26,
+      "suites": 26,
+      "pendingTests": 0
+    },
+    {
+      "failedTests": 0,
+      "name": "batch-4",
+      "tests": 172,
+      "success": true,
+      "passedTests": 172,
+      "passedSuites": 24,
+      "suites": 24,
+      "pendingTests": 0
+    },
+    {
+      "failedTests": 0,
+      "name": "c172",
+      "tests": 74,
+      "success": true,
+      "passedTests": 74,
+      "passedSuites": 3,
+      "suites": 3,
+      "pendingTests": 0
+    },
+    {
+      "failedTests": 0,
+      "name": "c240c242",
+      "tests": 14,
+      "success": true,
+      "passedTests": 14,
+      "passedSuites": 2,
+      "suites": 2,
+      "pendingTests": 0
+    },
+    {
+      "failedTests": 0,
+      "name": "c188",
+      "tests": 7,
+      "success": true,
+      "passedTests": 7,
+      "passedSuites": 1,
+      "suites": 1,
+      "pendingTests": 0
+    },
+    {
+      "failedTests": 0,
+      "name": "c198",
+      "tests": 3,
+      "success": true,
+      "passedTests": 3,
+      "passedSuites": 1,
+      "suites": 1,
+      "pendingTests": 0
+    },
+    {
+      "failedTests": 4,
+      "name": "stockscope",
+      "tests": 14,
+      "success": false,
+      "passedTests": 10,
+      "passedSuites": 0,
+      "suites": 1,
+      "pendingTests": 0
+    },
+    {
+      "failedTests": 0,
+      "name": "t26",
+      "tests": 12,
+      "success": true,
+      "passedTests": 12,
+      "passedSuites": 1,
+      "suites": 1,
+      "pendingTests": 0
+    }
+  ],
+  "success": false
+}

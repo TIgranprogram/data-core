@@ -1,0 +1,47 @@
+{
+  "baseCommit": "36bdd4dc",
+  "expectedSuites": 111,
+  "ordinarySuites": 102,
+  "batches": [
+    26,
+    26,
+    26,
+    24
+  ],
+  "specialGroups": {
+    "c172": [
+      "c170-passport-source.e2e-spec.ts",
+      "passport-import.e2e-spec.ts",
+      "passport-presentation.e2e-spec.ts"
+    ],
+    "c240c242": [
+      "c240-stock-views.e2e-spec.ts",
+      "c242-stock-catalog-http.e2e-spec.ts"
+    ],
+    "c188": [
+      "c188-order-archive.e2e-spec.ts"
+    ],
+    "c198": [
+      "c198-order-acts.e2e-spec.ts"
+    ],
+    "stockscope": [
+      "stock-scope.e2e-spec.ts"
+    ],
+    "t26": [
+      "stock-catalog-atomicity.e2e-spec.ts"
+    ]
+  },
+  "ordinaryDatabase": "datacore-test-c236-release",
+  "fixedDatabases": {
+    "c172": "datacore-test-c172-release",
+    "c240c242": "datacore-test-c240-c242",
+    "c188": "datacore-test-c236-release",
+    "c198": "datacore-test-c198-acts",
+    "stockscope": "datacore-test-c236-release",
+    "t26": "datacore-test-t26-c236"
+  },
+  "loopbackPort": 27237,
+  "runInBand": true,
+  "sequentialProcesses": true,
+  "maxOldSpaceMiB": 6144
+}

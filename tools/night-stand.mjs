@@ -270,7 +270,7 @@ export function createNightStand({ docker, sh, root, composeFile, nightDir, back
     if (!run) { ctx.say('Собственный night стенд не создан. Legacy dcnight не управляется.'); return 1; }
     const s = inventory(run); // только чтение, не создаёт env и не обращается к production
     for (const c of s.containers) ctx.say(`${c.name}: ${c.running ? 'запущен' : 'остановлен'}`);
-    ctx.say(`Project ${run.project} · БД ${run.db} · volumes сохранены`);
+    ctx.say(`Project ${run.project} · БД ${run.db} · найдено контейнеров: ${s.containers.length}, томов: ${s.volumes.length}`);
     return s.containers.some((c) => c.running) ? 0 : 1;
   }
   /** Готовый собственный стенд с проверенными метками владельца (только чтение Docker); иначе — отказ. */

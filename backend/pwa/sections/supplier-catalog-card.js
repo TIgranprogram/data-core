@@ -254,7 +254,7 @@ export function cardExtra(r) {
       load();
       return box;
     }
-    if (isMaterial(r)) return hint('Поставщика нет, цены нет. Чтобы появились — загрузите прайс поставщика кнопкой «Загрузить Excel» или сопоставьте его строку с этой позицией.');
+    if (isMaterial(r)) return hint('Предложения в каталоге нет. Чтобы добавить предложение, загрузите прайс или свяжите его строку с этой позицией. Поставщики и цены прошлых закупок могут сохраняться в истории.');
     const hist = [...(r.priceHistory || [])].reverse();
     return stack(section({ title: 'История цен', tone: 'money', count: hist.length,
       body: hist.length ? table({ columns: [{ label: 'Дата' }, { label: 'Цена', num: true, money: true }, { label: 'Откуда' }],

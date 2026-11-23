@@ -18,6 +18,7 @@ import { RegisterDto } from './dto/register.dto';
 import { effectivePermissions } from '../../common/contracts/rbac-contract';
 import { CONFIRM_TTL_SEC, signConfirmToken } from '../../common/confirm-token';
 import { appSectionsFor } from '../../common/app-sections';
+import { stockViewsFor } from '../../common/stock-views';
 import { canSeeMoney, roleLabelOf } from '../../common/roles-hierarchy';
 
 /**
@@ -315,7 +316,7 @@ export class AuthService {
   private toAuthUser(
     user: UserDocument,
     resolved?: {
-      role: { name: string; label?: string | null; appSections?: string[] | null } | null;
+      role: { name: string; label?: string | null; appSections?: string[] | null; stockViews?: unknown } | null;
       access: { name: string; permissions?: string[] | null; pages?: string[] | null } | null;
       baseRole: string;
     } | null,
@@ -345,6 +346,7 @@ export class AuthService {
       pages: visiblePages,
       // SK-8a: разделы «Рабочего места» по роли; null — как раньше (по иерархии), у admin всегда null.
       sections: appSectionsFor(user.role, roleDoc?.appSections),
+      stockViews: stockViewsFor(resolved?.baseRole ?? user.role, roleDoc?.stockViews),
       // TZ-92.1: optional fields preserved from UserDocument. Null is the
       // pre-TZ-92.1 default for users created before phone/fullName fields
       // were added to RegisterDto.

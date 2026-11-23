@@ -1,0 +1,33 @@
+{
+  "elements": [
+    "6ada091046ad81616709da44"
+  ],
+  "materialIds": [
+    "6adceeeb3ca001b9b3b0e4e0",
+    "6adceeeb3ca001b9b3b0e4f5"
+  ],
+  "installationTypeId": "6ada090c7536f8509feb4244",
+  "isKit": false,
+  "textChoices": {
+    "6add909915d601111692a410": "6adb5ab2edd024ba63d7f1aa",
+    "6add909915d601111692a40f": "6adb5ab2edd024ba63d7f192"
+  },
+  "joints": [
+    "bolts"
+  ],
+  "weightMax": 150,
+  "maxUsers": 1,
+  "serviceLifeYears": 10,
+  "warrantyMonths": 12,
+  "foundationDepth": 0,
+  "simpleDescription": {
+    "text": "тест",
+    "partIds": [
+      "6af81f883389de160b2c97d9",
+      "6adceeeb3ca001b9b3b0e575",
+      "6adceeeb3ca001b9b3b0e571",
+      "6adceeeb3ca001b9b3b0e577",
+      "6adceeeb3ca001b9b3b0e57a"
+    ]
+  }
+}

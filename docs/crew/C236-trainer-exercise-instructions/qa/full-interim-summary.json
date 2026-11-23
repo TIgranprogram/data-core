@@ -1,0 +1,30 @@
+{
+  "status": "FAIL_PENDING_RUNTIME_FIX",
+  "unit": {
+    "suites": 401,
+    "tests": 4135,
+    "passed": true
+  },
+  "e2e": {
+    "failedSuites": 1,
+    "remainingSuites": 56,
+    "passedTests": 548,
+    "passedSuites": 54,
+    "expectedSuites": 111,
+    "completedSuites": 55,
+    "failedTests": 4
+  },
+  "typecheckExit": 0,
+  "eslintExit": 0,
+  "retainedMongo": {
+    "name": "datacore-c236-qa-mongo",
+    "labels": {
+      "datacore.task": "C236",
+      "datacore.owner": "codex",
+      "datacore.ephemeral": "true"
+    },
+    "port": 27237
+  },
+  "diagnostic": "products-order-diagnostic.json",
+  "reason": "POST /api/passports expected201 actual409; create -> snapshot installation guard"
+}

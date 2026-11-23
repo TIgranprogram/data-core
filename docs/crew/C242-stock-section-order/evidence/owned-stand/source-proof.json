@@ -1,0 +1,24 @@
+{
+  "ownedId": "86836a670995169a99eee2ed",
+  "project": "dc-86836a670995169a99eee2ed-night",
+  "code": {
+    "branch": "main",
+    "head": "36bdd4dc126e4c35caa45eabd3cfddf52854b988",
+    "dirty": true,
+    "builtAt": "2026-11-23T09:24:53.702Z"
+  },
+  "localSourceHashes": {
+    "backend/pwa/sections/stock.js": "48fb8dd876beecbb1a7cdb13af33be4e4c13b865e53edabbafd04494324bc646",
+    "backend/pwa/sections/stock-worktable.js": "b4ebac019f383743398ff05f5ae4aecc6544ebefbeab63daca1e409647950dff",
+    "backend/pwa/sections/stock-dimension-columns.js": "2da97b0898f5c209d62e31a0478b85830bdc44ff3fefb76a829c6e9886b88b5a",
+    "backend/pwa/sections/passports/book-exercise.js": "f961a449eacaeb2caa4755c5b4284c3b0e1a50b1a0314ce887df444e6d7e8949"
+  },
+  "note": "Built dirty checkout: not a HEAD-only acceptance; runtime fields/columns/exercise verified by actual GET+book screenshots",
+  "runtimeAssetHashes": {
+    "/app/sections/stock.js": "48fb8dd876beecbb1a7cdb13af33be4e4c13b865e53edabbafd04494324bc646",
+    "/app/sections/stock-worktable.js": "b4ebac019f383743398ff05f5ae4aecc6544ebefbeab63daca1e409647950dff",
+    "/app/sections/stock-dimension-columns.js": "2da97b0898f5c209d62e31a0478b85830bdc44ff3fefb76a829c6e9886b88b5a",
+    "/app/sections/passports/book-exercise.js": "f961a449eacaeb2caa4755c5b4284c3b0e1a50b1a0314ce887df444e6d7e8949"
+  },
+  "runtimeMatchesLocal": true
+}

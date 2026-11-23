@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { withPlanWrite } from './plan-write';
 import { InjectConnection } from '@nestjs/mongoose';
-import type { Connection } from 'mongoose';
+import type { ClientSession, Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { personWorkTypeIds } from '../../common/catalog/person-work-types';
 import { DataVersionService } from '../../common/data-version/data-version.service';
@@ -58,25 +58,28 @@ export class WorkScheduleService {
   private db() { return this.connection.db!; }
 
   /** Виды работ (имя и цвет) — справочник редкий, на каждый запрос Ганта не читаем (кэш по версии коллекции). */
-  private workTypes(): Promise<Doc[]> {
-    const load = async () => (await this.db().collection('worktypes').find({ deletedAt: null }, { projection: { name: 1, accentHue: 1 } }).toArray()) as Doc[];
-    return this.versions ? this.versions.cached('work-schedule.worktypes', ['worktypes'], '', load) : load();
+  private workTypes(session?: ClientSession): Promise<Doc[]> {
+    const load = async () => (await this.db().collection('worktypes').find({ deletedAt: null }, { projection: { name: 1, accentHue: 1 }, ...(session ? { session } : {}) }).toArray()) as Doc[];
+    // Снимок общей транзакции не читается из глобального кэша и не публикуется в него до commit.
+    return this.versions && !session ? this.versions.cached('work-schedule.worktypes', ['worktypes'], '', load) : load();
   }
 
   /** Полосы всех планов (с позициями «жив») — в порядке плана, с названиями и статусом по заданию «В работе». */
-  private async barsOf(plans: Doc[], today: Date): Promise<Array<Bar & { startAt: Date; endAt: Date }>> {
+  private async barsOf(plans: Doc[], today: Date, session?: ClientSession): Promise<Array<Bar & { startAt: Date; endAt: Date }>> {
     if (!plans.length) return [];
     const incomeIds = plans.map((p) => p.incomeId as Types.ObjectId);
-    const incomes = await this.db().collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null }, { projection: { orderNo: 1, title: 1, qty: 1, orderId: 1, productId: 1 } }).toArray();
+    const options = session ? { session } : {};
+    const incomes = await this.db().collection('incomes').find({ _id: { $in: incomeIds }, deletedAt: null }, { projection: { orderNo: 1, title: 1, qty: 1, orderId: 1, productId: 1 }, ...options }).toArray();
     const orderIds = [...new Set(incomes.map((i) => i.orderId).filter(Boolean))] as Types.ObjectId[];
     const productIds = [...new Set(incomes.map((i) => i.productId).filter(Boolean).map(String))].map((x) => new Types.ObjectId(x));
-    const [tasks, types, orders, designs, products] = await Promise.all([
-      this.db().collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, stepIndex: 1, route: 1, createdAt: 1, moduleWork: 1 } }).sort({ createdAt: 1 }).toArray(),
-      this.workTypes(),
-      orderIds.length ? this.db().collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionNo: 1, productionDeadline: 1, shipDate: 1 } }).toArray() : Promise.resolve([] as Doc[]),
-      this.db().collection('designtasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $nin: ['done'] } }, { projection: { incomeId: 1 } }).toArray(),
-      productIds.length ? this.db().collection('products').find({ _id: { $in: productIds } }, { projection: { name: 1 } }).toArray() : Promise.resolve([] as Doc[]),
-    ]);
+    const tasksOf = () => this.db().collection('worktasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { incomeId: 1, status: 1, stepIndex: 1, route: 1, createdAt: 1, moduleWork: 1 }, ...options }).sort({ createdAt: 1 }).toArray();
+    const ordersOf = () => orderIds.length ? this.db().collection('salesorders').find({ _id: { $in: orderIds } }, { projection: { orderNo: 1, productionNo: 1, productionDeadline: 1, shipDate: 1 }, ...options }).toArray() : Promise.resolve([] as Doc[]);
+    const designsOf = () => this.db().collection('designtasks').find({ incomeId: { $in: incomeIds }, deletedAt: null, status: { $nin: ['done'] } }, { projection: { incomeId: 1 }, ...options }).toArray();
+    const productsOf = () => productIds.length ? this.db().collection('products').find({ _id: { $in: productIds } }, { projection: { name: 1 }, ...options }).toArray() : Promise.resolve([] as Doc[]);
+    // В одной Mongo session нельзя параллелить операции. Обычное чтение диапазона остаётся параллельным.
+    const [tasks, types, orders, designs, products] = session
+      ? [await tasksOf(), await this.workTypes(session), await ordersOf(), await designsOf(), await productsOf()]
+      : await Promise.all([tasksOf(), this.workTypes(), ordersOf(), designsOf(), productsOf()]);
     const productName = new Map(products.map((p) => [String(p._id), String(p.name ?? '')]));
     const income = new Map(incomes.map((i) => [String(i._id), i as Doc]));
     const task = new Map(tasks.filter((t) => !t.moduleWork).map((t) => [String(t.incomeId), t as Doc])); // последнее полное задание перекрывает прежние
@@ -229,19 +232,19 @@ export class WorkScheduleService {
       const at = steps.findIndex((s) => String(s._id) === sid);
       if (at < 0) throw new NotFoundException('Шага нет в плане');
       const today = dayOf(new Date());
-      const before = (await this.barsOf([plan], today)).find((b) => b.stepId === sid);
+      const before = (await this.barsOf([plan], today, session)).find((b) => b.stepId === sid);
       if (!before) throw new NotFoundException('Позиция плана удалена или вид работ шага удалён');
 
       const set: Doc = {}, unset: Doc = {};
       if (dto.assigneeId !== undefined) {
         if (dto.assigneeId === null) unset[`steps.${at}.assigneeId`] = '';
         else {
-          const p = await this.db().collection('persons').findOne({ _id: oid(dto.assigneeId, 'сотрудника'), deletedAt: null }, { projection: { status: 1, workTypeIds: 1, workTypeId: 1 } });
+          const p = await this.db().collection('persons').findOne({ _id: oid(dto.assigneeId, 'сотрудника'), deletedAt: null }, { projection: { status: 1, workTypeIds: 1, workTypeId: 1 }, session });
           if (!p) throw new BadRequestException('Сотрудник не найден — выберите из списка');
           if (p.status === 'fired') throw new BadRequestException('Сотрудник уволен — выберите другого');
           const wt = steps[at].workTypeId; // шаг без вида работ — без проверки
           if (wt && !personWorkTypeIds(p).some((x) => String(x) === String(wt))) {
-            const type = await this.db().collection('worktypes').findOne({ _id: wt as Types.ObjectId }, { projection: { name: 1 } });
+            const type = await this.db().collection('worktypes').findOne({ _id: wt as Types.ObjectId }, { projection: { name: 1 }, session });
             throw new BadRequestException(`У сотрудника нет вида работ «${String(type?.name ?? 'шага')}»`);
           }
           set[`steps.${at}.assigneeId`] = p._id;

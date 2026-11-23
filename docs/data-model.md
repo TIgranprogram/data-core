@@ -115,6 +115,7 @@ Data-core — платформенное ядро (`auth`, `user`, `role`, `perm
 | `sortOrder` | `number` | — |
 | `sectionIds` | `string[]` | Связь с секциями UI |
 | `appSections` | `string[]?` | SK-8a: разделы «Рабочего места», видимые роли (ид из `common/app-sections.ts`); нет / пусто — по иерархии роли; только видимость, не права |
+| `stockViews` | `('pipe'\|'sheet')[]?` | C240: дополнительные экраны склада для чтения в интерфейсе. Нет поля — директор наследует оба, остальные без дополнительных экранов; `[]` явно отключает. Не меняет appSections, API-права, warehouseIds/stockCategoryIds. PATCH `resetStockViews:true` удаляет поле и возвращает наследование; команда не хранится |
 | `baseRole` | `string?` | SK-8c: только у своей роли (код `r-…`, задаёт сервер, неизменяем) — «права как у»: `user`/`manager`/`accountant`/`director` (не `admin`); права, деньги, permissions и pages — от неё. У встроенных и старых ролей поля нет |
 | `warehouseIds` | `string[]?` | WZ: склады (`stockzones._id`), которые видит и меняет роль; объединение; пусто — весь склад. `stockCategoryIds` (СМ.4, категории напрямую) — запасной путь, пока не перенесён скриптом `stockzones-init` |
 | `isActive` | `boolean` | — |
@@ -868,6 +869,10 @@ C132: `textSnapshot.refs` хранит устойчивую запись ист�
 | `dict_values` (`passportParts`) | `name`, `genSingular`, `genPlural`, `categories` | часть изделия; в тексте — род. п. мн. ч. («Состоит из стоек…») |
 | `productpassports` | `printFile` | только data-core (C062, CRM не читает): `{ path, originalName, uploadedAt, uploadedBy? }` — свой PDF номера. В API путь не отдаётся: `printFile: { name, hasFile }`, `printSource: file\|app`. Нет файла — PDF собирает сайт |
 
+
+**C236 — упражнение.** `products.passportDefaults.exerciseInstructions?` и захваченная копия `productpassports.exerciseInstructions?`: `{initialPosition,movement,muscles}`, три непустые plain-text строки суммарно≤4000. В `textSnapshot.exerciseInstructions` копия дополнена `source:{kind:"product",productId}`. Capture только в новых create/template; модельные edit/clear не меняют сохранённые draft/issued. Редактор только шаблон/CAS, прямой Create/Update instance payload400; legacy смена SKU при сохранённой инструкции409 с предложением создать новый паспорт.
+
+**C241 — установка при импорте Inventor.** Новых коллекций/полей установки не добавлено: подтверждённый `confirmed.installationTypeId` сохраняется в существующий `products.passportDefaults.installationTypeId`; уже существующий legacy `products.installationTypeId` синхронизируется в той же транзакции, отсутствующий root не создаётся. У `productpassports.installationTypeId` остаётся смысл собственного снимка; импорт не переносит экземпляр на другую установку. Для новой редакции issued прежний ID сохраняется в `revisions[].data` вместе с изображениями/снимками. Отсутствующий/неизвестный способ старого экземпляра не подменяется новым default при чтении там, где существующие правила требуют установку; категории legacy без такого требования не получают нового запрета. [C241](crew/C241-inventor-installation-choice/ARCH-PLAN.md).
 
 ### ФОТ и «Старт учёта» (2026-10-28, модули `payroll`, `finance`)
 - `payroll_timesheets` {personId, month `ГГГГ-ММ`, hours?, days?, normDays?, note?, deletedAt} — табель; уникально (personId, month).

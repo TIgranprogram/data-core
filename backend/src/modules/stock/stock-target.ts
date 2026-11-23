@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { mongo } from 'mongoose';
+import type { mongo, ClientSession } from 'mongoose';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 
@@ -22,11 +22,11 @@ export interface TargetInput {
  * заказ берётся из позиции; сотрудник существует. Возвращает поля для записи в `stockmovements`
  * (`orderId` — тот же id строкой: списание видно и в CRM).
  */
-export async function resolveTarget(db: Db, p: TargetInput): Promise<Record<string, unknown>> {
+export async function resolveTarget(db: Db, p: TargetInput, session?: ClientSession): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   let orderId: Types.ObjectId | undefined = p.salesOrderId ? oid(p.salesOrderId, 'заказа') : undefined;
   if (p.salesOrderLineId) {
-    const line = await db.collection('incomes').findOne({ _id: oid(p.salesOrderLineId, 'позиции заказа'), deletedAt: null }, { projection: { orderId: 1 } });
+    const line = await db.collection('incomes').findOne({ _id: oid(p.salesOrderLineId, 'позиции заказа'), deletedAt: null }, { projection: { orderId: 1 }, ...(session ? { session } : {}) });
     if (!line) throw new BadRequestException('Позиция заказа не найдена — обновите страницу');
     if (!line.orderId) throw new BadRequestException('Позиция не привязана к заказу');
     if (orderId && !orderId.equals(line.orderId as Types.ObjectId)) throw new BadRequestException('Позиция относится к другому заказу — выберите позицию выбранного заказа');
@@ -34,13 +34,13 @@ export async function resolveTarget(db: Db, p: TargetInput): Promise<Record<stri
     out.salesOrderLineId = line._id;
   }
   if (orderId) {
-    const so = await db.collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { projection: { _id: 1 } });
+    const so = await db.collection('salesorders').findOne({ _id: orderId, deletedAt: null }, { projection: { _id: 1 }, ...(session ? { session } : {}) });
     if (!so) throw new BadRequestException('Заказ не найден или в корзине — обновите страницу');
     out.salesOrderId = so._id;
     out.orderId = String(so._id);
   }
   if (p.personId) {
-    const person = await db.collection('persons').findOne({ _id: oid(p.personId, 'сотрудника'), deletedAt: null }, { projection: { _id: 1 } });
+    const person = await db.collection('persons').findOne({ _id: oid(p.personId, 'сотрудника'), deletedAt: null }, { projection: { _id: 1 }, ...(session ? { session } : {}) });
     if (!person) throw new BadRequestException('Сотрудник не найден — обновите страницу');
     out.issuedToPersonId = person._id;
   }
@@ -83,8 +83,8 @@ export function checkMoveFlags(m: FlagsInput): { writeOff: boolean; reason?: str
 }
 
 /** Причина из справочника «Причины списания» (без учёта регистра); возвращает название, как оно записано в справочнике. */
-export async function resolveReason(db: Db, reason: string): Promise<string> {
-  const names = (await db.collection('dict_values').find({ dict: WRITE_OFF_DICT, deletedAt: null }, { projection: { name: 1 } }).toArray())
+export async function resolveReason(db: Db, reason: string, session?: ClientSession): Promise<string> {
+  const names = (await db.collection('dict_values').find({ dict: WRITE_OFF_DICT, deletedAt: null }, { projection: { name: 1 }, ...(session ? { session } : {}) }).toArray())
     .map((d) => String(d.name ?? '').trim()).filter(Boolean);
   const key = reason.trim().toLowerCase().replace(/ё/g, 'е');
   const hit = names.find((n) => n.toLowerCase().replace(/ё/g, 'е') === key);
@@ -96,11 +96,11 @@ export async function resolveReason(db: Db, reason: string): Promise<string> {
  * Всё про «кому / под что» одного движения/пакета: проверки признаков, поля для записи и причина.
  * Нужно ли это типу: выдача (`out`) и возврат (`in` + isReturn). Прочие типы — как раньше, без этих полей.
  */
-export async function prepareTarget(db: Db, m: FlagsInput): Promise<Record<string, unknown>> {
+export async function prepareTarget(db: Db, m: FlagsInput, session?: ClientSession): Promise<Record<string, unknown>> {
   const { writeOff, reason } = checkMoveFlags(m);
   const wantsTarget = m.type === 'out' || (m.type === 'in' && !!m.isReturn);
-  const target = wantsTarget ? await resolveTarget(db, m) : {};
-  if (writeOff && reason) target.reason = await resolveReason(db, reason);
+  const target = wantsTarget ? await resolveTarget(db, m, session) : {};
+  if (writeOff && reason) target.reason = await resolveReason(db, reason, session);
   if (m.type === 'in' && m.isReturn) target.isReturn = true;
   return target;
 }

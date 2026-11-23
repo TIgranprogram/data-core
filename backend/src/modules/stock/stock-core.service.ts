@@ -21,17 +21,25 @@ export class StockCoreService {
   ) {}
 
   /** Склад по умолчанию; если не назначен — первый действующий («Главный склад») становится им. */
-  async defaultWarehouse(): Promise<WarehouseDocument> {
+  async defaultWarehouse(session?: ClientSession): Promise<WarehouseDocument> {
     const active = { $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }] };
-    const def = await this.warehouses.findOne({ isDefault: true, ...active }).exec();
+    const defaultQuery = this.warehouses.findOne({ isDefault: true, ...active });
+    if (session) defaultQuery.session(session);
+    const def = await defaultQuery.exec();
     if (def) return def;
-    const first = await this.warehouses.findOne({ isActive: { $ne: false }, ...active }).sort({ createdAt: 1 }).exec();
+    const firstQuery = this.warehouses.findOne({ isActive: { $ne: false }, ...active }).sort({ createdAt: 1 });
+    if (session) firstQuery.session(session);
+    const first = await firstQuery.exec();
     if (first) {
-      await this.warehouses.updateOne({ _id: first._id }, { $set: { isDefault: true } }).exec();
+      const update = this.warehouses.updateOne({ _id: first._id }, { $set: { isDefault: true } });
+      if (session) update.session(session);
+      await update.exec();
       first.isDefault = true;
       return first;
     }
-    return this.warehouses.create({ name: 'Главный склад', type: 'main', isActive: true, isDefault: true });
+    const value = { name: 'Главный склад', type: 'main', isActive: true, isDefault: true };
+    if (session) return (await this.warehouses.create([value], { session }))[0];
+    return this.warehouses.create(value);
   }
 
   async listWarehouses() {

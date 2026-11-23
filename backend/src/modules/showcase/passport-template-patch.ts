@@ -1,3 +1,4 @@
+import { exerciseInstructions } from '../../common/passport/exercise-instructions';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { checkChoices, toNode } from '../../common/passport/phrase-tree';
@@ -114,6 +115,9 @@ export function parseTemplatePatch(changes: Rec, expected: Rec) {
       const values = parse(changes[key]);
       to[key] = values === null ? null : [...new Map(values.map((v) => [String(v), v])).values()];
       from[key] = parse(expected[key]);
+    } else if (key === 'exerciseInstructions') {
+      to[key] = changes[key] === null ? null : exerciseInstructions(changes[key]);
+      from[key] = expected[key] === null ? null : exerciseInstructions(expected[key], true);
     } else if (key === 'simpleDescription') {
       to[key] = simpleDescription(changes[key], false);
       from[key] = simpleDescription(expected[key], true);
@@ -139,7 +143,7 @@ function replaceKeys(path: string, changes: Rec) {
 
 function compareOwnValue(path: string, key: string, value: unknown) {
   const current = `${path}.${key}`;
-  if (key !== 'simpleDescription' || value === null) return { $eq: [{ $ifNull: [current, null] }, { $literal: value }] };
+  if (!['simpleDescription', 'exerciseInstructions'].includes(key) || value === null) return { $eq: [{ $ifNull: [current, null] }, { $literal: value }] };
   // BSON учитывает порядок ключей объекта. Порядок ссылок внутри partIds остаётся частью сравнения.
   const fields = Object.entries(value as Rec).map(([k, v]) => ({ k, v }));
   return { $cond: [{ $eq: [{ $type: current }, 'object'] }, { $setEquals: [{ $objectToArray: current }, { $literal: fields }] }, false] };

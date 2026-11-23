@@ -202,20 +202,43 @@ export class ProductPassportService {
   }
 
   /** Что задаёт изделие в паспорте-черновике (только отличия от `cur`); пусто — паспорт без изделия или выдан. */
-  private async fromProductDiff(cur: Doc, session?: ClientSession): Promise<Doc> {
+  private async fromProductDiff(cur: Doc, session?: ClientSession, binding?: { installationMismatch: boolean; existing?: boolean; installationUnknown?: boolean; captureExercise?: boolean }): Promise<Doc> {
     if (!followsProduct(cur)) return {};
     const presentation = cur.presentationVersion === 1;
     const prod = await this.connection.collection('products').findOne(
       { _id: this.oid(cur.productId), ...(presentation ? { deletedAt: null } : {}) }, session ? { session } : undefined,
     );
+    const unknown = binding?.existing && this.requiresInstallation(cur)
+      && (!cur.installationTypeId || !installationProfile((await this.installs(session)).get(String(cur.installationTypeId))).known);
+    const present = (value: unknown) => value !== undefined && value !== null && value !== '';
+    const defaults = prod?.passportDefaults as Doc | undefined;
+    // Legacy без способа в обоих источниках продолжает обычную синхронизацию имени/категории.
+    // Непустой неизвестный ID и любой кандидат изделия остаются защищёнными снимками.
+    const blocked = () => { if (binding) { binding.installationMismatch = true; binding.installationUnknown = true; } return {}; };
+    if (unknown && (!prod || present(cur.installationTypeId) || present(prod.installationTypeId) || present(defaults?.installationTypeId))) return blocked();
     if (!prod) return presentation ? { passportCategory: null, simpleDescription: null } : {};
-    const patch = await productPatch(this.connection.db!, prod as Doc, { presentation, brief: isBriefPresentation(cur) });
+    if (this.installationDiffers(cur, prod as Doc)) {
+      if (binding) binding.installationMismatch = true;
+      return {}; // Материализованный способ экземпляра не является разрешением сменить его при чтении.
+    }
+    const patch = await productPatch(this.connection.db!, prod as Doc, { presentation, brief: isBriefPresentation(cur), captureExercise: binding?.captureExercise === true });
+    if (unknown && (present(patch.installationTypeId) || await this.computedInstallation({ ...cur, ...patch }, session))) return blocked();
     if (presentation) {
       // Снятие значения изделия действует и в существующем черновике.
       for (const k of ['simpleDescription', 'passportCategory', 'kindId', 'height', 'width', 'length', 'weight', 'purpose', 'installationMethod', 'description']) patch[k] ??= null;
       patch.manualText ??= [];
     }
     return diffPatch(cur, patch);
+  }
+
+  /** Воронка тоже может поставить ID: отсутствие raw/default ещё не доказывает отсутствие источника. */
+  private async computedInstallation(p: Doc, session?: ClientSession): Promise<boolean> {
+    if (!p.passportCategory) return false;
+    const product = await this.productCtx(p.productId, p.presentationVersion === 1 ? String(p.kindId ?? '') : undefined, false, session);
+    const forest = printPhraseRoots(forProduct(await this.forest(String(p.passportCategory), session), product), isBriefPresentation(p));
+    const resolved = resolveChoices(forest, p.textChoices as Record<string, string> | undefined, product);
+    const root = forest.find(node => node.section === 'installation');
+    return !!(root && resolved.leaves.get(root.id)?.leaf?.installTypeId);
   }
 
   /**
@@ -239,7 +262,9 @@ export class ProductPassportService {
     const cur = doc.toObject() as unknown as Doc;
     if (cur.status !== 'draft') return false;
     if (cur.presentationVersion === 1) return false; // открытие и печать v1 используют проекцию без записи
-    const diff = await this.fromProductDiff(cur);
+    const binding = { installationMismatch: false, existing: true };
+    const diff = await this.fromProductDiff(cur, undefined, binding);
+    if (binding.installationMismatch) return false;
     const next = { ...cur, ...diff };
     if (Object.keys(diff).length) doc.set(diff);
     let rebuilt = false;
@@ -362,8 +387,9 @@ export class ProductPassportService {
       set._id = new Types.ObjectId(); set.passportNumber = DRAFT_PREFIX + String(set._id); set.status = 'draft';
       // C148: явно введённое имя сохраняется; автоматические вызовы заказа не передают название строки.
       const ownName = String(set.name ?? '').trim();
-      const productDiff = await this.fromProductDiff({ ...set });
+      const productDiff = await this.fromProductDiff({ ...set }, undefined, { installationMismatch: false, captureExercise: true });
       Object.assign(set, productDiff);
+      if ((dto as unknown as Doc).exerciseInstructions) set.exerciseInstructions = (dto as unknown as Doc).exerciseInstructions;
       if (ownName && productDiff.name && ownName !== String(productDiff.name).trim()) {
         set.name = ownName;
         set.manualText = [...new Set([...(set.manualText as string[] ?? []), 'name'])];
@@ -386,7 +412,7 @@ export class ProductPassportService {
         return session ? (await this.model.create([attempt], { session }))[0] : await this.model.create(attempt);
       }), [{ salesOrderId: set.salesOrderId }]);
       // v2: паспорт с категорией — сразу снимок текста (правка справочников потом его не меняет)
-      if (!baseline && set.passportCategory) return (await this.snapshot(String(doc._id))) ?? doc;
+      if (!baseline && set.passportCategory) return (await this.refreshSnapshot(String(doc._id), undefined, false)) ?? doc;
       return doc;
     } catch (e) {
       if (isScopeDuplicate(e)) throw new ConflictException('На эту позицию уже есть паспорт');
@@ -437,7 +463,8 @@ export class ProductPassportService {
     const _id = new Types.ObjectId();
     const productVersion = await passportProductVersion(this.connection, bound.productId);
     const set: Doc = { ...bound, _id, presentationVersion: 1, variant, creationScopeKey, date: dayUtc(), status: 'draft', passportNumber: DRAFT_PREFIX + String(_id), source: 'app', bom: DEFAULT_BOM };
-    const diff = await this.fromProductDiff(set);
+    const diff = await this.fromProductDiff(set, undefined, { installationMismatch: false, captureExercise: true });
+    if ((dto as unknown as Doc).exerciseInstructions) diff.exerciseInstructions = (dto as unknown as Doc).exerciseInstructions;
     Object.assign(set, diff);
     const draft = new this.model(set);
     await this.applySnapshot(draft, { ...set });
@@ -512,7 +539,10 @@ export class ProductPassportService {
             if (e instanceof BadRequestException || e instanceof ConflictException) return [e.message];
             throw e;
           }
-          return (await this.readiness({ ...next, ...await this.fromProductDiff(next) })).map((m) => m.label);
+          const binding = { existing: true, installationMismatch: false, installationUnknown: false };
+          const inherited = await this.fromProductDiff(next, undefined, binding);
+          if (binding.installationUnknown) return ['Собственный способ установки не задан или неизвестен'];
+          return (await this.readiness({ ...next, ...inherited })).map((m) => m.label);
         }
         const card = await this.getPresentation(next);
         return ((card.readiness as PassportReadiness | undefined)?.missing ?? []).map((m) => m.label);
@@ -558,6 +588,7 @@ export class ProductPassportService {
     const src = (await this.findById(id)).toObject() as unknown as Doc;
     const dto: Doc = {};
     for (const f of MODEL_FIELDS) if (src[f] !== undefined && src[f] !== null) dto[f] = src[f];
+    if (over.productId && String(over.productId) !== String(src.productId)) delete dto.exerciseInstructions;
     dto.images = ((src.images as Array<Doc>) || []).map((i) => ({ kind: i.kind || 'overview', photoId: String(i.photoId), order: i.order, caption: i.caption }));
     for (const f of OID_FIELDS) if (dto[f]) dto[f] = String(dto[f]);
     return this.create({ ...(dto as unknown as CreateProductPassportDto), ...over });
@@ -572,6 +603,7 @@ export class ProductPassportService {
     const baseline = targetIncome ? await passportLine(this.connection.db!, targetIncome) : null;
     assertSitePassport(baseline);
     const set = this.normalize(dto);
+    if (cur.exerciseInstructions && 'productId' in set && String(set.productId ?? '') !== String(cur.productId ?? '')) throw new ConflictException('Инструкция привязана к прежнему изделию; создайте новый паспорт выбранного изделия');
     const issued = isIssued(cur);
     const presentation = cur.presentationVersion === 1;
     if (!presentation && (dto.presentationVersion !== undefined || dto.variant !== undefined)) throw new ConflictException('Сохранённый паспорт прежней формы остаётся в своей версии');
@@ -603,7 +635,12 @@ export class ProductPassportService {
     }
     if (!issued) { for (const f of ['passportNumber', 'passportNo', 'productCode', 'warrantyCode'] as const) delete set[f]; } // у черновика номеров нет
     // изделие главнее формы: категория и общие поля черновика с изделием берутся у изделия, что бы ни прислал клиент
-    if (!issued) Object.assign(set, await this.fromProductDiff({ ...cur, ...set }));
+    const installationBinding = { existing: true, installationMismatch: false, installationUnknown: false };
+    if (!issued) Object.assign(set, await this.fromProductDiff({ ...cur, ...set }, opts.session, installationBinding));
+    // Обычная правка примечания не разрешает сменить установку/снимок сохранённого экземпляра.
+    // Явный выбор живого способа остаётся прежним редактированием с очисткой старой монтажной группы.
+    const preserveInstallation = installationBinding.installationMismatch
+      && (installationBinding.installationUnknown || !Object.prototype.hasOwnProperty.call(dto, 'installationTypeId'));
     const touched = NUMBER_FIELDS.filter((f) => f in set && String(set[f] ?? '') !== String(cur[f] ?? ''));
     if (issued && touched.length) {
       if (!dto.confirmNumbers) throw new ConflictException(`Номер, талон и дата выданного паспорта меняются только с подтверждением (confirmNumbers): ${touched.join(', ')}`);
@@ -650,14 +687,14 @@ export class ProductPassportService {
     const after = { ...cur, ...set };
     if (presentation && issued && set.revision) {
       await this.refreshRevisionPrint(doc, cur, after, locked);
-    } else if (presentation && !issued) {
+    } else if (presentation && !issued && !preserveInstallation) {
       const prepared = await this.evaluatePresentation(after, 'instance');
       if (prepared.readiness.missing.some((m) => m.key === 'textSnapshot')) throw new ConflictException('Не удалось пересобрать ручной текст — перечитайте книжку');
       doc.set({
         textSnapshot: prepared.document.textSnapshot,
         ...(prepared.document.installationTypeId ? { installationTypeId: prepared.document.installationTypeId } : {}),
       });
-    } else if ((!issued || set.revision) && after.passportCategory) {
+    } else if ((!issued || set.revision) && after.passportCategory && !preserveInstallation) {
       // Новая редакция, поля и снимок сохраняются атомарно; ручные абзацы не исчезают при пересборке.
       if (set.revision) after.textSnapshot = { ...(cur.textSnapshot as Snap ?? {}), sizeLayout: 2 };
       if (hadText && issued) {
@@ -915,6 +952,11 @@ export class ProductPassportService {
   }
 
   async snapshot(id: string, session?: ClientSession): Promise<ProductPassportDocument | null> {
+    return this.refreshSnapshot(id, session, true);
+  }
+
+  /** Только create передаёт existing=false; повторная публичная пересборка всегда проверяет сохранённую установку. */
+  private async refreshSnapshot(id: string, session: ClientSession | undefined, existing: boolean): Promise<ProductPassportDocument | null> {
     const doc = await this.findById(id, session);
     const previous = doc.toObject() as unknown as Doc;
     const sealed = previous.status === 'issued' || previous.status === 'annulled';
@@ -925,7 +967,9 @@ export class ProductPassportService {
     }
     const p = { ...previous };
     // черновик с изделием: поля и категория — из изделия (в память; запишет doc.save() в конце)
-    const fp = await this.fromProductDiff(p);
+    const binding = { existing, installationMismatch: false, installationUnknown: false };
+    const fp = await this.fromProductDiff(p, session, binding);
+    if (binding.installationMismatch) throw new ConflictException('Способ установки экземпляра не подтверждён или отличается от изделия. Снимок сохранён без подстановок; подтвердите способ явно');
     if (Object.keys(fp).length) { doc.set(fp); Object.assign(p, fp); }
     return await this.applySnapshot(doc, p) ? this.saveCurrent(doc, previous, session) : null;
   }
@@ -990,7 +1034,7 @@ export class ProductPassportService {
     if (!Types.ObjectId.isValid(productId)) throw new NotFoundException(`Изделие ${productId} не найдено`);
     const prod = await this.connection.collection('products').findOne({ _id: new Types.ObjectId(productId), deletedAt: null });
     if (!prod) throw new NotFoundException(`Изделие ${productId} не найдено`);
-    const p: Doc = { _id: new Types.ObjectId(), productId: prod._id, status: 'draft', passportNumber: '', ...(await productPatch(this.connection.db!, prod as Doc)) };
+    const p: Doc = { _id: new Types.ObjectId(), productId: prod._id, status: 'draft', passportNumber: '', ...(await productPatch(this.connection.db!, prod as Doc, { captureExercise: true })) };
     const built = await this.buildText(p);
     if (!built) throw new BadRequestException('У изделия не выбран тип паспорта — PDF собирается по нему. Задайте тип паспорта в группе или виде изделия');
     return { ...p, textSnapshot: { ...built.text, sizeLayout: 2, at: new Date() } };
@@ -1013,7 +1057,7 @@ export class ProductPassportService {
     if (!Types.ObjectId.isValid(productId)) throw new NotFoundException('Изделие не найдено');
     const prod = await this.connection.collection('products').findOne({ _id: new Types.ObjectId(productId), deletedAt: null });
     if (!prod) throw new NotFoundException('Изделие не найдено');
-    const productFields = await productPatch(this.connection.db!, prod as Doc, { presentation: true, brief: variant === 'short' });
+    const productFields = await productPatch(this.connection.db!, prod as Doc, { presentation: true, brief: variant === 'short', captureExercise: true });
     const { document, readiness, suggestions } = await this.evaluatePresentation({
       ...productFields, productId, presentationVersion: 1, variant, status: 'draft',
     }, 'template');
@@ -1084,7 +1128,7 @@ export class ProductPassportService {
       }
     }
     if (!previous?.reuseText) installationPlan = installationProfile(installs.get(String(document.installationTypeId ?? '')));
-    const effective = await this.effectiveImages(document, session);
+    const effective = await this.effectiveImages(document, session, mode === 'instance');
     const installation = installs.get(String(document.installationTypeId ?? ''));
     const frozenStandard = previous?.reuseText && document.schemeSource !== 'own' ? previous.print.standardImages : undefined;
     const currentSchemes = hasCategory ? standardSchemes({ ...document, images: effective } as never, installation) : [];
@@ -1243,15 +1287,23 @@ export class ProductPassportService {
         if (raw.incomeId) await assertOneLive(this.model, raw.incomeId, raw._id as Types.ObjectId);
       } catch (e) { bindingError = e; }
     }
-    const evaluated = draft ? await this.evaluatePresentation({ ...own, ...bound, ...await this.fromProductDiff(raw) }, 'instance') : null;
-    const readiness = evaluated?.readiness ?? (printSnapshot as { readiness?: PassportReadiness } | undefined)?.readiness;
+    const binding = { installationMismatch: false, installationUnknown: false, existing: true };
+    const inherited = draft ? await this.fromProductDiff(raw, undefined, binding) : {};
+    const evaluated = draft && !binding.installationMismatch ? await this.evaluatePresentation({ ...own, ...bound, ...inherited }, 'instance') : null;
+    const readiness = binding.installationUnknown
+      ? { ready: false, missing: [{ key: 'installationTypeId', label: 'Собственный способ установки не задан или неизвестен', hint: 'Выберите способ установки явно; подстановка из изделия не выполняется' }], recommendations: [], defaulted: [], requiredImages: [], imageSlots: [] } as PassportReadiness
+      : evaluated?.readiness ?? (printSnapshot as { readiness?: PassportReadiness } | undefined)?.readiness;
     if (readiness && bindingError) addBindingBlocker(readiness, bindingError);
     const document = evaluated?.document ?? own;
     const frozenSource = (raw.textSnapshot as { simpleDescriptionSource?: SimpleDescriptionSource } | undefined)?.simpleDescriptionSource;
     const installationPlan = evaluated?.installationPlan ?? (printSnapshot as PassportPrintSources | undefined)?.installationPlan ?? installationProfile((await this.installs()).get(String(raw.installationTypeId ?? '')));
     const revisionList = await this.revisionList(raw);
+    const savedImages = binding.installationMismatch ? ((own.images as Doc[]) ?? []) : [];
+    const savedIds = savedImages.map(image => String(image.photoId ?? '')).filter(value => Types.ObjectId.isValid(value)).map(value => this.oid(value));
+    const savedPhotos = savedIds.length ? await this.connection.collection('photos').find({ _id: { $in: savedIds }, deletedAt: null }, { projection: { storageUrl: 1 } }).toArray() : [];
+    const savedUrls = new Map(savedPhotos.map(photo => [String(photo._id), String(photo.storageUrl ?? '')]));
     return {
-      ...document, ...presentPrint(raw), installationPlan, fromProduct: draft && !!raw.productId,
+      ...document, ...presentPrint(raw), installationPlan, fromProduct: draft && !!raw.productId && !binding.installationMismatch,
       ...(!draft && frozenSource?.kind === 'parts' ? { simpleDescriptionSource: frozenSource } : {}),
       ...(revisionList.length ? { revisionList } : {}),
       ...(readiness ? { readiness, missing: readiness.missing.map((m) => m.label), requiredImages: readiness.requiredImages, imageSlots: readiness.imageSlots } : {}),
@@ -1260,6 +1312,7 @@ export class ProductPassportService {
         standardImages: (printSnapshot as Doc).standardImages,
         supplierOrg: (printSnapshot as Doc).supplier,
       } : {}),
+      ...(binding.installationMismatch ? { effectiveImages: presentEffectiveImages(savedImages, savedImages, savedUrls), standardImages: [] } : {}),
     };
   }
 
@@ -1272,7 +1325,9 @@ export class ProductPassportService {
       addBindingBlocker(readiness, e);
       throw new BadRequestException({ message: e.message, missing: readiness.missing });
     }
-    const fromProduct = await this.fromProductDiff(current, session);
+    const binding = { installationMismatch: false, installationUnknown: false, existing: true };
+    const fromProduct = await this.fromProductDiff(current, session, binding);
+    if (binding.installationUnknown) throw new BadRequestException({ message: 'Выберите собственный способ установки паспорта перед выпуском', missing: [{ key: 'installationTypeId', label: 'Способ установки не задан или неизвестен', hint: 'Выберите способ установки явно' }] });
     const next = { ...current, ...bound, ...fromProduct };
     const evaluated = await this.evaluatePresentation(next, 'instance', session);
     if (!evaluated.readiness.ready) throw new BadRequestException({ message: 'Заполните недостающее перед выпуском', missing: evaluated.readiness.missing });
@@ -1503,10 +1558,27 @@ export class ProductPassportService {
    * Рисунки паспорта для проверки и печати: у черновика с изделием — рисунки изделия по видам, остальные виды из images[];
    * у выпущенного и аннулированного — только его images[] (замороженные при выпуске).
    */
-  async effectiveImages(doc: Doc, session?: ClientSession): Promise<Doc[]> {
+  async effectiveImages(doc: Doc, session?: ClientSession, existing = true): Promise<Doc[]> {
     const own = ((doc.images as Doc[]) || []);
     if (isIssued(doc) || doc.status === 'annulled' || !doc.productId) return own;
+    if (existing && this.requiresInstallation(doc) && (!doc.installationTypeId || !installationProfile((await this.installs(session)).get(String(doc.installationTypeId))).known)) return own;
+    if (doc.installationTypeId) {
+      const product = await this.connection.collection('products').findOne({ _id: this.oid(doc.productId) }, session ? { session } : undefined);
+      if (product && this.installationDiffers(doc, product as Doc)) return own;
+    }
     return mergeProductImages(await this.productImageRows(String(doc.productId), session), own as PassportImageLike[]) as Doc[];
+  }
+
+  /** Схемы/поля изделия не относятся к экземпляру с другим материализованным способом установки. */
+  private installationDiffers(passport: Doc, product: Doc): boolean {
+    const own = passport.installationTypeId;
+    const selected = product.installationTypeId ?? (product.passportDefaults as Doc | undefined)?.installationTypeId;
+    return own != null && own !== '' && String(own) !== String(selected ?? '');
+  }
+
+  /** Не добавляем обязательную установку legacy-категориям, где прежние правила её не требуют. */
+  private requiresInstallation(passport: Doc): boolean {
+    return missingFieldsV2(passport as never, undefined, { install: 'unknown' }).includes('Способ установки');
   }
 
   /** При выпуске: photoId из изделия записываются в images[] паспорта — дальше он печатается сам по себе, как раньше. */

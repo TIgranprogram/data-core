@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-23",
+  "baseCommit": "36bdd4dc",
+  "status": "PASS targeted backend P2",
+  "unit": {
+    "suites": 3,
+    "tests": 40,
+    "report": "qa/unit-independent.json",
+    "stdout": "tools/logs/c241-qa-unit.log"
+  },
+  "http": {
+    "suites": 1,
+    "tests": 34,
+    "db": "datacore-test-c172-release",
+    "report": "qa/http-independent.json",
+    "stdout": "tools/logs/c241-qa-http.log"
+  },
+  "p2Callers": [
+    "orderHost.lineMissing existing:true",
+    "update existing:true/preserveInstallation",
+    "snapshot existing:true/conflict before save"
+  ],
+  "fullBackendRun": false,
+  "realInventorRun": false,
+  "productionWrites": false
+}

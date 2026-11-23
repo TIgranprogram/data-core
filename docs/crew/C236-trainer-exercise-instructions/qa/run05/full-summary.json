@@ -1,0 +1,129 @@
+{
+  "expectedSuites": 111,
+  "actualSuites": 111,
+  "passedSuites": 111,
+  "failedSuites": 0,
+  "passedTests": 914.0,
+  "totalTests": 914.0,
+  "failedTests": 0.0,
+  "pendingTests": 0.0,
+  "missingGroups": [],
+  "missing": [],
+  "extra": [],
+  "duplicates": [],
+  "changedSources": [],
+  "groups": [
+    {
+      "suites": 26,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "batch-1",
+      "success": true,
+      "passedTests": 293,
+      "tests": 293,
+      "passedSuites": 26
+    },
+    {
+      "suites": 26,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "batch-2",
+      "success": true,
+      "passedTests": 187,
+      "tests": 187,
+      "passedSuites": 26
+    },
+    {
+      "suites": 26,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "batch-3",
+      "success": true,
+      "passedTests": 138,
+      "tests": 138,
+      "passedSuites": 26
+    },
+    {
+      "suites": 24,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "batch-4",
+      "success": true,
+      "passedTests": 172,
+      "tests": 172,
+      "passedSuites": 24
+    },
+    {
+      "suites": 3,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "c172",
+      "success": true,
+      "passedTests": 74,
+      "tests": 74,
+      "passedSuites": 3
+    },
+    {
+      "suites": 2,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "c240c242",
+      "success": true,
+      "passedTests": 14,
+      "tests": 14,
+      "passedSuites": 2
+    },
+    {
+      "suites": 1,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "c188",
+      "success": true,
+      "passedTests": 7,
+      "tests": 7,
+      "passedSuites": 1
+    },
+    {
+      "suites": 1,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "c198",
+      "success": true,
+      "passedTests": 3,
+      "tests": 3,
+      "passedSuites": 1
+    },
+    {
+      "suites": 1,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "stockscope",
+      "success": true,
+      "passedTests": 14,
+      "tests": 14,
+      "passedSuites": 1
+    },
+    {
+      "suites": 1,
+      "failedTests": 0,
+      "pendingTests": 0,
+      "name": "t26",
+      "success": true,
+      "passedTests": 12,
+      "tests": 12,
+      "passedSuites": 1
+    }
+  ],
+  "freezeBeforeStartChanges": [],
+  "newSources": [],
+  "success": true,
+  "t26FixtureHistory": {
+    "supersededFail": "t26-fixture-reused-db-fail.json",
+    "newDatabase": "datacore-test-t26-c236-run05",
+    "finalJson": "t26.json",
+    "oldDatabase": "datacore-test-t26-c236",
+    "runtimeChanges": false,
+    "finalStdout": "tools/logs/c236-run05-t26-fresh.log",
+    "cause": "beforeAll explicit createCollection(counters) on reused disposable database"
+  }
+}

@@ -97,7 +97,11 @@ export class StockService {
   listMovements(q: Record<string, unknown>, scope: StockScope | null) { return this.moves.listMovements(q, scope); }
   movementMaterialId(id: string) { return this.moves.movementMaterialId(id); }
   correctMovement(id: string, qty: number, userId?: string) { return this.moves.correctMovement(id, qty, userId); }
-  cancelMovement(id: string, userId?: string, session?: ClientSession) { return this.moves.cancelMovement(id, userId, session); }
+  cancelMovement(id: string, userId?: string, session?: undefined): ReturnType<StockSearchService['getItem']>;
+  cancelMovement(id: string, userId: string | undefined, session: ClientSession): Promise<void>;
+  cancelMovement(id: string, userId?: string, session?: ClientSession) {
+    return session ? this.moves.cancelMovement(id, userId, session) : this.moves.cancelMovement(id, userId);
+  }
 
   // --- брони
   reserveList(dto: Parameters<StockReservationsService['reserveList']>[0], userId?: string) { return this.resv.reserveList(dto, userId); }

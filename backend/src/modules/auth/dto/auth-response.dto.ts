@@ -1,4 +1,5 @@
 import type { UiPrefs } from '../../user/user.schema';
+import type { StockView } from '../../../common/stock-views';
 
 /**
  * AuthUserPayload — the canonical "safe" projection of a user record.
@@ -48,6 +49,8 @@ export interface AuthUserPayload {
    * роли (у admin всегда null). Только видимость меню, не права.
    */
   sections?: string[] | null;
+  /** Дополнительные экраны склада для чтения; раздел stock и рабочие ограничения проверяются отдельно. */
+  stockViews?: StockView[];
   /**
    * TZ-AUTH-306 — `true` only for the single hidden owner; `false` for
    * everyone else. Owner-only pages (e.g. `admin-roles`) are already

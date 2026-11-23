@@ -1,0 +1,21 @@
+# C241 — выбор установки перед импортом Inventor
+
+1. Канон — `backend/pwa/ilogic/passport-images.iLogicVb`; `tools/passport-images.iLogicVb` лишь указатель. `book-ilogic.js:13–34` копирует статический файл, генератора VB нет.
+2. `UploadPassportImages` (`.iLogicVb:454–564`) ищет точный SKU, подтверждает числа, читает context, загружает три PNG и одним POST фиксирует импорт; JSON/файлы неизменны при повторе.
+3. GET `/products/:id/passport-import-context` (`product-passport.controller.ts:48–51`) возвращает только `contextToken`; `passport-import.service.ts:68–73` уже читает все живые `dict_values.dict=passportInstall` и включает их в digest.
+4. Существующего отдельного precheck с выбранным способом нет. `PassportImportConfirmedDto:18–29` принимает только dimensions/weightKg/foundationDepth; новый ID whitelist сейчас отклонит.
+5. Текущий 409 возникает в `importInstallationKind` (`passport-import.service.ts:28–34`): ID берётся из документа либо `passportDefaults`, а не из запроса.
+6. `apply:115–135` в транзакции сначала определяет вид третьей картинки по текущему изделию. Одним изменением VB без серверной дельты выбор передать нельзя; отдельный PATCH до импорта создаст частичный успех.
+7. Минимум: аддитивно расширить context текущим ID и вариантами `{id,name,code,thirdImportKind,depthApplicable}`; брать только живые/поддержанные/применимые `passportInstall`, не захардкодить ObjectId в VB.
+8. Альтернатива чтения уже есть: GET `/dicts/passportInstall` → `{items,...}` (`dicts.controller.ts:52–56`, `dicts.service.ts:121–146`); но projection в context избегает новой зависимости клиента от общего справочника.
+9. В VB до UploadPng показать явный выбор с текущим значением; отмена ничего не записывает. Отправить выбранный ID как optional `confirmed.installationTypeId` в тот же commit.
+10. Сервер валидирует ID/живую запись/применимость/профиль; строит эффективный контекст по выбору и в той же транзакции пишет `products.passportDefaults.installationTypeId`, рисунки и необходимые редакции паспортов.
+11. Учесть legacy-приоритет корневого `installationTypeId` над defaults; выбранное значение не должно оказаться затенено старым корневым полем.
+12. Каноническое отображение задаёт `installationProfile` (`passport-variants.ts:40–57`): ANCHORS→mounting, CONCRETE_POSTS→foundation; прочие поддержанные коды уже описаны там. Клиент по-прежнему посылает третий kind=`foundation`, сервер нормализует.
+13. Для анкеров глубина Г не применяется: не предлагать её запись; сервер сохраняет прежнее значение и предупреждает (`apply:133–136`). Нельзя определять способ по изображению/названию модели.
+14. Нужна явная политика экземпляров: сейчас каждый паспорт использует собственный installationTypeId (`apply:167`). Нельзя незаметно подложить новую схему под прежний способ или игнорировать подтверждённую смену; согласовать с архитектором обновление применимых паспортов/конфликты собственных значений.
+15. Сохранять текущую атомарность/контекст/CAS, skipped закрытых/готовых PDF, историю прежних images/textSnapshot/printSnapshot и прежние номера (`apply:189–225`); не выполнять два независимых изменения.
+16. Права: импорт/context — WORK=admin/director/manager + AppSection passports. GET dicts разрешён user; scope write/full машинного ключа допускает GET и импорт, read не допускает POST, app-key ограничен `/api/apps` (`common/guards/key-scope.ts:105–127`). Расширять права ключа не требуется.
+17. Совместимость: отсутствие optional выбора сохраняет старое поведение; незаданный/неизвестный способ должен блокировать до загрузки PNG в новом VB. Изменение справочника после context →409 без привязок/изменения изделия.
+18. Регрессии: `passport-images.test.mjs` (выбор до upload, один commit, retry), `passport-inventor-import.spec.ts`/`passport-installation-profile.spec.ts`, `test/e2e/passport-import.e2e-spec.ts` + C179/C188: anchor/concrete, очистка legacy foundation, rejected/removed ID, stale context, rollback, issued revision/архив, отсутствие лишней Г.
+19. После реализации — Swagger DTO/context response, `docs/MAP.md` и `docs/openapi.json`; статический канон копируется из книжки. В этой проверке код прочитан адресно; прод/секреты не читались, данные и backend не менялись во время выпуска C237/238.

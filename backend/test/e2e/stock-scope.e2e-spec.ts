@@ -187,8 +187,8 @@ describe('Исправление списания и фильтры трубы (
   });
 });
 
-/** Металл без остатка и заказа (isEmptyMetal, 2026-10-30): нулевая труба скрыта от admin и всех ролей без категории, видна роли со своей категорией. */
-describe('Металл без остатка скрыт, с остатком — виден всем (СМ.6)', () => {
+/** C242: существующая нулевая номенклатура видна всем в своей области; остаток отбирается явно. */
+describe('Нулевой металл виден в каталоге без расширения области роли (СМ.6)', () => {
   let ctx: TestContext | undefined;
   let app: INestApplication;
   let admin: AuthTokens;
@@ -221,33 +221,47 @@ describe('Металл без остатка скрыт, с остатком —
   });
   afterAll(async () => { await ctx?.cleanup(); });
 
-  it('admin: нулевая труба не видна в /items, /lookup и /categories; с остатком и не-металл — видны', async () => {
+  it('admin: нулевая труба видна в /items, /lookup и /categories; held и availability отбирают положительный остаток', async () => {
     const a = as(admin.access);
     const items = names((await http().get('/api/stock/items').set(a).expect(200)).body);
     expect(items).toContain('Труба с остатком МЕТ');
     expect(items).toContain('Болт пустой МЕТ');
-    expect(items).not.toContain('Труба пустая МЕТ');
+    expect(items).toContain('Труба пустая МЕТ');
     const lk = names((await http().get('/api/stock/lookup').set(a).expect(200)).body);
     expect(lk).toContain('Труба с остатком МЕТ');
-    expect(lk).not.toContain('Труба пустая МЕТ');
+    expect(lk).toContain('Труба пустая МЕТ');
     const cats = (await http().get('/api/stock/categories').set(a).expect(200)).body;
     const list = (Array.isArray(cats) ? cats : cats.items) as Array<{ name: string; total: number }>;
-    expect(list.find((c) => c.name === 'Круглая труба')?.total).toBe(1);
+    expect(list.find((c) => c.name === 'Круглая труба')?.total).toBe(2);
+    for (const query of [{ held: '1' }, { availability: 'in' }]) {
+      expect(names((await http().get('/api/stock/items').query(query).set(a).expect(200)).body)).toEqual(['Труба с остатком МЕТ']);
+    }
   });
 
   it('роль со своей категорией «Круглая труба»: нулевая труба видна в /items, /lookup и /categories', async () => {
     const r = as(tokRound);
-    expect(names((await http().get('/api/stock/items').set(r).expect(200)).body)).toEqual(expect.arrayContaining(['Труба пустая МЕТ', 'Труба с остатком МЕТ']));
-    expect(names((await http().get('/api/stock/lookup').set(r).expect(200)).body)).toContain('Труба пустая МЕТ');
+    expect(names((await http().get('/api/stock/items').set(r).expect(200)).body).sort()).toEqual(['Труба пустая МЕТ', 'Труба с остатком МЕТ'].sort());
+    expect(names((await http().get('/api/stock/lookup').set(r).expect(200)).body).sort()).toEqual(['Труба пустая МЕТ', 'Труба с остатком МЕТ'].sort());
     const cats = (await http().get('/api/stock/categories').set(r).expect(200)).body;
     const list = (Array.isArray(cats) ? cats : cats.items) as Array<{ name: string; total: number }>;
     expect(list.find((c) => c.name === 'Круглая труба')?.total).toBe(2);
+    expect(list.some(c => c.name === 'Крепёж МЕТ')).toBe(false);
+    for (const query of [{ held: '1' }, { availability: 'in' }]) {
+      expect(names((await http().get('/api/stock/items').query(query).set(r).expect(200)).body)).toEqual(['Труба с остатком МЕТ']);
+    }
   });
 
-  it('роль без категорий: с остатком видна, нулевая скрыта (правило одно для всех без скоупа)', async () => {
+  it('роль без категорий: нулевая труба видна в каталоге/lookup/categories; фильтры остатков исключают нули', async () => {
     const f = as(tokFree);
     const items = names((await http().get('/api/stock/items').set(f).expect(200)).body);
     expect(items).toContain('Труба с остатком МЕТ');
-    expect(items).not.toContain('Труба пустая МЕТ');
+    expect(items).toContain('Труба пустая МЕТ');
+    expect(names((await http().get('/api/stock/lookup').set(f).expect(200)).body)).toContain('Труба пустая МЕТ');
+    const cats = (await http().get('/api/stock/categories').set(f).expect(200)).body;
+    const list = (Array.isArray(cats) ? cats : cats.items) as Array<{ name: string; total: number }>;
+    expect(list.find(c => c.name === 'Круглая труба')?.total).toBe(2);
+    for (const query of [{ held: '1' }, { availability: 'in' }]) {
+      expect(names((await http().get('/api/stock/items').query(query).set(f).expect(200)).body)).toEqual(['Труба с остатком МЕТ']);
+    }
   });
 });

@@ -1,0 +1,18 @@
+{
+  "sku": "QA-C236-1068",
+  "name": "QA-C236-1068 — Вело",
+  "type": "Спортивное оборудование",
+  "group": "Тренажеры",
+  "status": "draft",
+  "dimensions": {
+    "length": 726,
+    "width": 939,
+    "height": 1623,
+    "unit": "мм"
+  },
+  "weightKg": 5.8,
+  "description": null,
+  "purpose": null,
+  "installation": null,
+  "unit": "шт"
+}

@@ -53,7 +53,7 @@ describe('C172: атомарный импорт рисунков Inventor', () =
     const context = async () => (await http().get(`${url}-context`).set(auth()).expect(200)).body.contextToken as string;
     const body = { contextToken: await context(), images: fresh, confirmed: { weightKg: 14 } };
     const apply = (b: object = body) => http().post(url).set(auth()).send(b);
-    return { productId, passportId, old, fresh, url, context, body, apply };
+    return { productId, passportId, installId, old, fresh, url, context, body, apply };
   }
   it('C179 неизвестный способ даёт409 без изменения изделия/паспортов/защиты файлов', async () => {
     const f = await fixture();
@@ -116,7 +116,9 @@ describe('C172: атомарный импорт рисунков Inventor', () =
   });
   it('ошибка пересборки второго паспорта откатывает первый паспорт и изделие', async () => {
     const f = await fixture();
-    await db().collection('productpassports').insertOne({ productId: f.productId, passportNumber: `draft-${new Types.ObjectId()}`, status: 'draft', images: [], deletedAt: null });
+    const anchor = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'ANCHORS', name: 'C241 Анкеры для rollback', deletedAt: null })).insertedId;
+    await db().collection('productpassports').updateOne({ _id: f.passportId }, { $set: { installationTypeId: anchor } });
+    await db().collection('productpassports').insertOne({ productId: f.productId, installationTypeId: anchor, passportNumber: `draft-${new Types.ObjectId()}`, status: 'draft', images: [], deletedAt: null });
     f.body.contextToken = await f.context();
     const service = app.get(ProductPassportService), original = service.prepareImportedPassport.bind(service);
     let calls = 0;
@@ -124,8 +126,9 @@ describe('C172: атомарный импорт рисунков Inventor', () =
       if (++calls === 2) throw new Error('C172 контролируемый сбой');
       return original(...args);
     });
-    try { await f.apply().expect(409); } finally { spy.mockRestore(); }
+    try { await f.apply({ ...f.body, confirmed: { ...f.body.confirmed, installationTypeId: String(anchor) } }).expect(409); } finally { spy.mockRestore(); }
     expect((await db().collection('products').findOne({ _id: f.productId }))!.weightKg).toBe(12);
+    expect(String((await db().collection('products').findOne({ _id: f.productId }))!.passportDefaults.installationTypeId)).toBe(String(f.installId));
     expect((await db().collection('productpassports').findOne({ _id: f.passportId }))!.revision).toBe(1);
   });
   it.each(['annulled', 'printFile'])('%s защищён и явно указан в skipped', async reason => {
@@ -295,24 +298,33 @@ describe('C172: атомарный импорт рисунков Inventor', () =
       else expect(input.images.mounting).toBeUndefined();
     }
   });
-  it('черновик с прежним concrete читает новый anchor изделия без дубля схемы в PDF', async () => {
+  it('C241 черновик с прежним concrete после двух GET и PDF сохраняет собственную схему, ID и снимок', async () => {
     const f = await fixture();
     const anchor = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'anchor', name: 'Анкер', deletedAt: null })).insertedId;
     const concrete = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'concrete', name: 'Бетон', deletedAt: null })).insertedId;
     for (const category of ['ALL_V2', 'BLG']) await db().collection('passporttemplates').updateOne({ category, version: 1 }, { $set: { isActive: true, sections: [{ key: 'general', title: 'Безопасность', paragraphs: ['Осмотр перед использованием.'] }], tables: [], deletedAt: null } }, { upsert: true });
     await db().collection('products').updateOne({ _id: f.productId }, { $set: { purpose: 'Отдых', passportDefaults: { installationTypeId: anchor, passportCategory: 'BLG', simpleDescription: { text: 'Урна для мусора.', partIds: [] } } } });
-    await db().collection('productpassports').updateOne({ _id: f.passportId }, { $set: { status: 'draft', presentationVersion: 1, variant: 'short', manualText: [], installationTypeId: concrete, passportCategory: 'BLG', textSnapshot: { sections: [{ key: 'general', title: 'C172', paragraphs: ['Безопасность.'] }] } } });
+    await db().collection('productpassports').updateOne({ _id: f.passportId }, { $set: { status: 'draft', presentationVersion: 1, variant: 'short', manualText: [], installationTypeId: concrete, installationMethod: 'Свой бетонный монтаж', foundationDepth: 600, passportCategory: 'BLG', textSnapshot: { sections: [{ key: 'general', title: 'C172', paragraphs: ['Безопасность.'] }] } } });
+    const before = await db().collection('productpassports').findOne({ _id: f.passportId });
     f.body.contextToken = await f.context();
-    await f.apply().expect(200);
-    const card = await http().get(`/api/passports/${f.passportId}`).set(auth()).expect(200);
-    expect(String(card.body.installationTypeId)).toBe(String(anchor));
+    const imported = await f.apply().expect(200);
+    expect(imported.body.skipped).toContainEqual({ id: String(f.passportId), reason: 'installation_mismatch' });
+    for (let repeat = 0; repeat < 2; repeat++) {
+      const card = await http().get(`/api/passports/${f.passportId}`).set(auth()).expect(200);
+      expect(String(card.body.installationTypeId)).toBe(String(concrete));
+      expect(card.body.textSnapshot).toEqual(before!.textSnapshot);
+      expect(await db().collection('productpassports').findOne({ _id: f.passportId })).toEqual(before);
+    }
     const template = await http().get(`/api/showcase/${f.productId}/passport-template`).set(auth()).expect(200);
     expect(String(template.body.document.installationTypeId)).toBe(String(anchor));
     const render = jest.spyOn(renderer, 'renderPassportPdfV2');
     await app.get(PassportPdfService).pdf(String(f.passportId), { readOnly: false, pack: 'passport' });
     const input = render.mock.calls.at(-1)![0];
-    expect(input.images.mounting).toHaveLength(1);
-    expect(input.images.foundation).toBeUndefined();
+    expect(input.images.foundation).toHaveLength(1);
+    expect(input.images.mounting).toBeUndefined();
+    const oldPhoto = (await db().collection('photos').findOne({ _id: new Types.ObjectId(f.old[2].photoId) }))!;
+    expect(input.images.foundation![0].buf).toEqual(await readPassportImage(oldPhoto.storageUrl));
+    expect(await db().collection('productpassports').findOne({ _id: f.passportId })).toEqual(before);
   });
   it('anchor cleanup защищает каждый старый файл, дубли и own foundation вне productlinks', async () => {
     const f = await fixture(), extra = await images('#778899');
@@ -332,6 +344,99 @@ describe('C172: атомарный импорт рисунков Inventor', () =
     expect(await db().collection('photos').countDocuments({ _id: { $in: historicalIds }, deletedAt: null, sourceProtected: true })).toBe(historicalIds.length);
     expect(current.images.filter((i: { kind: string }) => i.kind === 'foundation')).toHaveLength(0);
     for (const kind of ['overview', 'dimensions', 'mounting']) expect(await db().collection('productphotos').countDocuments({ productId: f.productId, purpose: 'passport', kind, deletedAt: null })).toBe(1);
+  });
+  it('C241 context возвращает текущий legacy ID и только живые поддержанные варианты своей категории', async () => {
+    const f = await fixture();
+    const add = async (fields: object) => (await db().collection('dict_values').insertOne({ dict: 'passportInstall', deletedAt: null, ...fields })).insertedId;
+    const anchor = await add({ code: 'ANCHORS', name: 'C241 Анкеры', categories: 'TRN' });
+    const foreign = await add({ code: 'ANCHORS', name: 'C241 Чужой', categories: 'DIO' });
+    const removed = await add({ code: 'ANCHORS', name: 'C241 Удалён', deletedAt: new Date() });
+    const future = await add({ code: 'FUTURE', name: 'C241 Неизвестный' });
+    await db().collection('products').updateOne({ _id: f.productId }, { $set: { installationTypeId: anchor, 'passportDefaults.passportCategory': 'TRN' } });
+    const context = (await http().get(`${f.url}-context`).set(auth()).expect(200)).body;
+    expect(context.installationTypeId).toBe(String(anchor));
+    expect(context.installations).toContainEqual({ id: String(anchor), name: 'C241 Анкеры', code: 'ANCHORS', thirdImportKind: 'mounting', depthApplicable: false });
+    expect(context.installations).toContainEqual(expect.objectContaining({ id: String(f.installId), thirdImportKind: 'foundation', depthApplicable: true }));
+    for (const excluded of [foreign, removed, future]) expect(context.installations.some((row: { id: string }) => row.id === String(excluded))).toBe(false);
+  });
+  it('C241 явный выбор атомарно синхронизирует legacy/default и обновляет только exact-ID экземпляр', async () => {
+    const f = await fixture();
+    const anchor = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'ANCHORS', name: 'C241 Анкеры', deletedAt: null })).insertedId;
+    await db().collection('products').updateOne({ _id: f.productId }, { $set: { installationTypeId: f.installId, 'passportDefaults.foundationDepth': 600 } });
+    const old = (await db().collection('productpassports').findOne({ _id: f.passportId }))!;
+    const exact = { ...old, _id: new Types.ObjectId(), installationTypeId: anchor, passportNumber: 'C241-' + String(new Types.ObjectId()) };
+    await db().collection('productpassports').insertOne(exact);
+    const body = { ...f.body, contextToken: await f.context(), confirmed: { installationTypeId: String(anchor), weightKg: 15, foundationDepth: 999 } };
+    const r = (await f.apply(body).expect(200)).body;
+    expect(r.skipped).toContainEqual({ id: String(f.passportId), reason: 'installation_mismatch' });
+    expect(r.issued).toContainEqual(expect.objectContaining({ id: String(exact._id), number: exact.passportNumber, toRevision: 2 }));
+    const product = (await db().collection('products').findOne({ _id: f.productId }))!;
+    expect(String(product.installationTypeId)).toBe(String(anchor));
+    expect(String(product.passportDefaults.installationTypeId)).toBe(String(anchor));
+    expect(product.passportDefaults.foundationDepth).toBe(600);
+    expect(await db().collection('productpassports').findOne({ _id: f.passportId })).toEqual(old);
+    const updated = (await db().collection('productpassports').findOne({ _id: exact._id }))!;
+    expect(updated.weight).toBe(15);
+    expect(String(updated.installationTypeId)).toBe(String(anchor));
+    expect(updated.images.some((image: { kind: string }) => image.kind === 'foundation')).toBe(false);
+    expect(updated.images.some((image: { kind: string }) => image.kind === 'mounting')).toBe(true);
+    expect(String(updated.revisions[0].data.installationTypeId)).toBe(String(anchor));
+    expect((await f.apply(body).expect(200)).body.status).toBe('unchanged');
+    expect((await db().collection('productpassports').findOne({ _id: exact._id }))!.revision).toBe(2);
+  });
+  it.each(['missing', 'unknown', 'deleted'])('C241 %s установка сохраняет весь существующий draft после импорта и двух GET', async mode => {
+    const f = await fixture();
+    const anchor = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'ANCHORS', name: 'C241 Новый анкер', deletedAt: null })).insertedId;
+    const unknown = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'FUTURE', name: 'C241 Неизвестный', deletedAt: null })).insertedId;
+    if (mode === 'deleted') await db().collection('dict_values').updateOne({ _id: f.installId }, { $set: { deletedAt: new Date() } });
+    await db().collection('productpassports').updateOne({ _id: f.passportId }, {
+      $set: { status: 'draft', presentationVersion: 1, passportCategory: 'BLG', manualText: [], installationMethod: 'Сохранённый способ', foundationDepth: 650,
+        ...(mode === 'unknown' ? { installationTypeId: unknown } : {}), textSnapshot: { purpose: 'Своё назначение', sections: [{ key: 'general', title: 'Свой текст', paragraphs: ['Сохранить без подстановок.'] }] } },
+      ...(mode === 'missing' ? { $unset: { installationTypeId: '' } } : {}),
+    });
+    const before = await db().collection('productpassports').findOne({ _id: f.passportId });
+    const imported = await f.apply({ ...f.body, contextToken: await f.context(), confirmed: { installationTypeId: String(anchor), weightKg: 99 } }).expect(200);
+    expect(imported.body.skipped).toContainEqual({ id: String(f.passportId), reason: 'installation_unknown' });
+    for (let repeat = 0; repeat < 2; repeat++) {
+      const response = (await http().get(`/api/passports/${f.passportId}`).set(auth()).expect(200)).body;
+      expect(response.readiness).toMatchObject({ ready: false, missing: expect.arrayContaining([expect.objectContaining({ key: 'installationTypeId' })]) });
+      expect(response.textSnapshot).toEqual(before!.textSnapshot);
+      expect(response.effectiveImages.map((image: { photoId: string }) => image.photoId)).toEqual(f.old.map(image => image.photoId));
+      expect(await db().collection('productpassports').findOne({ _id: f.passportId })).toEqual(before);
+    }
+  });
+  it('C241 legacy draft без своего ID после skip и двух GET не получает способ или новую схему изделия', async () => {
+    const f = await fixture();
+    const anchor = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'ANCHORS', name: 'C241 Анкеры legacy', deletedAt: null })).insertedId;
+    await db().collection('productpassports').updateOne({ _id: f.passportId }, {
+      $set: { status: 'draft', passportCategory: 'BLG', manualText: [], installationMethod: 'Сохранённый монтаж', foundationDepth: 650, textSnapshot: { sections: [{ key: 'general', title: 'Legacy', paragraphs: ['Не заменять исходный текст.'] }] } },
+      $unset: { installationTypeId: '' },
+    });
+    const before = await db().collection('productpassports').findOne({ _id: f.passportId });
+    const imported = await f.apply({ ...f.body, contextToken: await f.context(), confirmed: { installationTypeId: String(anchor), weightKg: 99 } }).expect(200);
+    expect(imported.body.skipped).toContainEqual({ id: String(f.passportId), reason: 'installation_unknown' });
+    for (let repeat = 0; repeat < 2; repeat++) {
+      const response = (await http().get(`/api/passports/${f.passportId}`).set(auth()).expect(200)).body;
+      expect(response.installationTypeId).toBeUndefined();
+      expect(response.installationMethod).toBe('Сохранённый монтаж');
+      expect(response.effectiveImages.map((image: { photoId: string }) => image.photoId)).toEqual(f.old.map(image => image.photoId));
+      expect(await db().collection('productpassports').findOne({ _id: f.passportId })).toEqual(before);
+    }
+  });
+  it('C241 null/пустой/удалённый/неизвестный выбор и stale справочник не оставляют частичных записей', async () => {
+    const f = await fixture();
+    const unknown = String(new Types.ObjectId());
+    const removed = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'ANCHORS', name: 'C241 Удалённый выбор', deletedAt: new Date() })).insertedId;
+    const before = await db().collection('products').findOne({ _id: f.productId });
+    for (const [installationTypeId, status] of [[null, 400], ['', 400], [unknown, 409], [String(removed), 409]] as const) {
+      await f.apply({ ...f.body, contextToken: await f.context(), confirmed: { installationTypeId } }).expect(status);
+      expect(await db().collection('products').findOne({ _id: f.productId })).toEqual(before);
+    }
+    f.body.contextToken = await f.context();
+    await db().collection('dict_values').updateOne({ _id: f.installId }, { $set: { name: 'Справочник изменился' } });
+    await f.apply({ ...f.body, confirmed: { installationTypeId: String(f.installId) } }).expect(409);
+    expect(await db().collection('products').findOne({ _id: f.productId })).toEqual(before);
+    expect(await db().collection('photos').countDocuments({ _id: { $in: f.fresh.map(image => new Types.ObjectId(image.photoId)) }, sourceProtected: true })).toBe(0);
   });
   it('legacy issue после readiness перечитывает свежую HTTP-связь рисунка в транзакции', async () => {
     const f = await fixture();
@@ -358,5 +463,41 @@ describe('C172: атомарный импорт рисунков Inventor', () =
     const issued = (await db().collection('productpassports').findOne({ _id: f.passportId }))!;
     expect(issued.status).toBe('issued');
     expect(issued.images.filter((i: { kind: string }) => i.kind === 'overview').map((i: { photoId: unknown }) => String(i.photoId))).toEqual([f.fresh[0].photoId]);
+  });
+  async function missingInstallationAfterImport(presentation = false) {
+    const f = await fixture();
+    const supplierOrgId = (await db().collection('organizations').insertOne({ name: 'C241 P2 наша фирма', inn: `C241-${new Types.ObjectId()}`, isOurCompany: true, deletedAt: null })).insertedId;
+    const anchor = (await db().collection('dict_values').insertOne({ dict: 'passportInstall', code: 'ANCHORS', name: 'C241 P2 новые анкеры', deletedAt: null })).insertedId;
+    await db().collection('products').updateOne({ _id: f.productId }, { $set: { 'passportDefaults.passportCategory': 'BLG' } });
+    await db().collection('productpassports').updateOne({ _id: f.passportId }, {
+      $set: { status: 'draft', supplierOrgId, ...(presentation ? { presentationVersion: 1, variant: 'short' } : {}), passportCategory: 'BLG', manualText: [],
+        installationMethod: 'Мой способ установки', foundationDepth: 650,
+        textSnapshot: { purpose: 'Своё назначение', sections: [{ key: 'general', title: 'Сохранённый текст', paragraphs: ['Исходное пояснение.'] }] } },
+      $unset: { installationTypeId: '' },
+    });
+    const imported = await f.apply({ ...f.body, contextToken: await f.context(), confirmed: { installationTypeId: String(anchor) } }).expect(200);
+    expect(imported.body.skipped).toContainEqual({ id: String(f.passportId), reason: 'installation_unknown' });
+    return { ...f, anchor, before: (await db().collection('productpassports').findOne({ _id: f.passportId }))! };
+  }
+  it.each([false, true])('C241 P2 ordinary PATCH note не наследует установку и не очищает snapshot/images; v1=%s', async presentation => {
+    const f = await missingInstallationAfterImport(presentation);
+    await http().patch(`/api/passports/${f.passportId}`).set(auth()).send({ note: 'Изменено только примечание' }).expect(200);
+    for (let repeat = 0; repeat < 2; repeat++) await http().get(`/api/passports/${f.passportId}`).set(auth()).expect(200);
+    const saved = (await db().collection('productpassports').findOne({ _id: f.passportId }))!;
+    expect(saved.note).toBe('Изменено только примечание');
+    expect(saved.installationTypeId).toBeUndefined();
+    for (const key of ['images', 'textSnapshot', 'installationMethod', 'foundationDepth', 'revision', 'passportNumber']) expect(saved[key]).toEqual(f.before[key]);
+  });
+  it('C241 P2 snapshot отказывает missing-экземпляру без неявного наследования и записи', async () => {
+    const f = await missingInstallationAfterImport();
+    await http().post(`/api/passports/${f.passportId}/snapshot`).set(auth()).expect(409);
+    expect(await db().collection('productpassports').findOne({ _id: f.passportId })).toEqual(f.before);
+  });
+  it('C241 P2 явный PATCH установки по-прежнему разрешает смену монтажной группы', async () => {
+    const f = await missingInstallationAfterImport();
+    await http().patch(`/api/passports/${f.passportId}`).set(auth()).send({ installationTypeId: String(f.anchor) }).expect(200);
+    const saved = (await db().collection('productpassports').findOne({ _id: f.passportId }))!;
+    expect(String(saved.installationTypeId)).toBe(String(f.anchor));
+    expect(saved.images.filter((i: { kind: string }) => i.kind === 'foundation')).toEqual([]);
   });
 });

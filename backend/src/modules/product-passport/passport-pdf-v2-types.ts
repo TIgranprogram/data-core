@@ -19,6 +19,7 @@ export interface PdfPassportV2 extends PdfPassport {
 }
 /** Снимок текста (V2Text) — терпимо к неполным старым снимкам. */
 export interface PdfV2Text {
+  exerciseInstructions?: import('../../common/passport/exercise-instructions').ExerciseSnapshot;
   sections: ComposedSection[];
   description?: string; purpose?: string; rules?: string[];
   maintenance?: MaintenanceTable[]; install?: Partial<InstallParts>;

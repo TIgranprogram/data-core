@@ -1010,6 +1010,204 @@
         ]
       }
     },
+    "/api/auth/me/desk/tasks/{taskId}/files": {
+      "get": {
+        "operationId": "DeskFilesController_list",
+        "summary": "Показать файлы своей задачи",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeskFileDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      },
+      "post": {
+        "operationId": "DeskFilesController_upload",
+        "summary": "Прикрепить файл к своей задаче",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeskFileDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/me/desk/tasks/{taskId}/files/{fileId}": {
+      "get": {
+        "operationId": "DeskFilesController_download",
+        "summary": "Скачать файл своей задачи",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fileId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      },
+      "delete": {
+        "operationId": "DeskFilesController_remove",
+        "summary": "Убрать файл своей задачи в корзину задачи",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fileId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeskFileDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/me/desk/tasks/{taskId}/files/{fileId}/restore": {
+      "post": {
+        "operationId": "DeskFilesController_restore",
+        "summary": "Вернуть файл из корзины своей задачи",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fileId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeskFileDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/api/settings": {
       "get": {
         "operationId": "SettingController_findAll",
@@ -2590,6 +2788,8 @@
     "/api/stock/items": {
       "get": {
         "operationId": "StockController_list",
+        "summary": "Номенклатура и остатки склада",
+        "description": "quantity/reservedQty — сумма живых ячеек материала в складе по умолчанию. Read-only countMode=single (0/1 ячейка) или multiple (>1): общий пересчёт count/batch(count) при multiple отклоняется409 без изменения остатков.",
         "parameters": [
           {
             "name": "ids",
@@ -2661,6 +2861,19 @@
             "schema": {}
           },
           {
+            "name": "availability",
+            "required": false,
+            "in": "query",
+            "description": "none — физический остаток равен0; in — больше0, включая полностью забронированное; без параметра — вся номенклатура. Применяется вместе со status до сортировки/страниц; counts до этого отбора.",
+            "schema": {
+              "enum": [
+                "none",
+                "in"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "name": "status",
             "required": false,
             "in": "query",
@@ -2671,7 +2884,7 @@
             "name": "sort",
             "required": false,
             "in": "query",
-            "description": "name | categoryName | unit | article | quantity | reservedQty | free | minQuantity | status | updatedAt | deletedAt; «-» — по убыванию",
+            "description": "name | categoryName | unit | article | quantity | reservedQty | free | minQuantity | status | updatedAt | deletedAt | lastCountedAt | sectionSize | sheetSize | woodSize | thickness | width | height | depth | length | diameter; «-» — по убыванию. Размеры численно до страниц, неизвестные в конце.",
             "schema": {}
           },
           {
@@ -18862,7 +19075,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Шаблон и готовность паспорта. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:\"parts\",partIds,text,invalidPartIds?} и в textSnapshot.description."
+            "description": "Шаблон и готовность паспорта. Optional defaults.exerciseInstructions={initialPosition,movement,muscles}; textSnapshot.exerciseInstructions содержит те же части и source:{kind:product,productId}. Редактируется только шаблон, существующие экземпляры автоматически не обновляются. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:\"parts\",partIds,text,invalidPartIds?} и в textSnapshot.description."
           }
         },
         "tags": [
@@ -18906,7 +19119,7 @@
         },
         "responses": {
           "200": {
-            "description": "Шаблон и готовность паспорта. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:\"parts\",partIds,text,invalidPartIds?} и в textSnapshot.description."
+            "description": "Шаблон и готовность паспорта. Optional defaults.exerciseInstructions={initialPosition,movement,muscles}; textSnapshot.exerciseInstructions содержит те же части и source:{kind:product,productId}. Редактируется только шаблон, существующие экземпляры автоматически не обновляются. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:\"parts\",partIds,text,invalidPartIds?} и в textSnapshot.description."
           }
         },
         "tags": [
@@ -20619,204 +20832,6 @@
           }
         }
       }
-    },
-    "/api/auth/me/desk/tasks/{taskId}/files": {
-      "get": {
-        "operationId": "DeskFilesController_list",
-        "summary": "Показать файлы своей задачи",
-        "parameters": [
-          {
-            "name": "taskId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DeskFileDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Auth"
-        ]
-      },
-      "post": {
-        "operationId": "DeskFilesController_upload",
-        "summary": "Прикрепить файл к своей задаче",
-        "parameters": [
-          {
-            "name": "taskId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "file"
-                ],
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeskFileDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Auth"
-        ]
-      }
-    },
-    "/api/auth/me/desk/tasks/{taskId}/files/{fileId}": {
-      "get": {
-        "operationId": "DeskFilesController_download",
-        "summary": "Скачать файл своей задачи",
-        "parameters": [
-          {
-            "name": "taskId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "fileId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Auth"
-        ]
-      },
-      "delete": {
-        "operationId": "DeskFilesController_remove",
-        "summary": "Убрать файл своей задачи в корзину задачи",
-        "parameters": [
-          {
-            "name": "taskId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "fileId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeskFileDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Auth"
-        ]
-      }
-    },
-    "/api/auth/me/desk/tasks/{taskId}/files/{fileId}/restore": {
-      "post": {
-        "operationId": "DeskFilesController_restore",
-        "summary": "Вернуть файл из корзины своей задачи",
-        "parameters": [
-          {
-            "name": "taskId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "fileId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeskFileDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Auth"
-        ]
-      }
     }
   },
   "info": {
@@ -20915,6 +20930,17 @@
                 "offers",
                 "stock-mobile",
                 "my-tasks"
+              ]
+            }
+          },
+          "stockViews": {
+            "type": "array",
+            "description": "Дополнительные экраны склада для просмотра: нет — по базовой роли, [] — отключены; права API не меняются",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pipe",
+                "sheet"
               ]
             }
           },
@@ -21041,6 +21067,28 @@
           "isSystem": {
             "type": "boolean",
             "description": "Системная роль (нельзя удалить)"
+          },
+          "resetStockViews": {
+            "allOf": [
+              {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              }
+            ],
+            "description": "Удалить явную настройку экранов и наследовать базовую роль; нельзя одновременно со stockViews"
+          },
+          "stockViews": {
+            "type": "array",
+            "description": "Дополнительные экраны склада для просмотра: нет — без изменения, [] — отключены; права API не меняются",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pipe",
+                "sheet"
+              ]
+            }
           }
         }
       },
@@ -21197,6 +21245,189 @@
         "type": "object",
         "properties": {}
       },
+      "DeskLaneDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Ключ стопки: встроенный или UUID"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "key",
+          "title"
+        ]
+      },
+      "DeskRefDto": {
+        "type": "object",
+        "properties": {
+          "of": {
+            "type": "string",
+            "enum": [
+              "salesorders",
+              "salesorder",
+              "orders",
+              "design",
+              "work",
+              "products",
+              "modules",
+              "parts",
+              "requests",
+              "stock",
+              "offers",
+              "passarchive",
+              "passports",
+              "contract",
+              "suppliercatalog",
+              "partners"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "of",
+          "id"
+        ]
+      },
+      "DeskTaskDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180
+          },
+          "due": {
+            "type": "string",
+            "format": "date"
+          },
+          "done": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "done"
+        ]
+      },
+      "DeskCardDto": {
+        "type": "object",
+        "properties": {
+          "of": {
+            "type": "string",
+            "enum": [
+              "salesorders",
+              "salesorder",
+              "orders",
+              "design",
+              "work",
+              "products",
+              "modules",
+              "parts",
+              "requests",
+              "stock",
+              "offers",
+              "passarchive",
+              "passports",
+              "contract",
+              "suppliercatalog",
+              "partners",
+              "personal"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "lane": {
+            "type": "string",
+            "description": "Ключ стопки"
+          },
+          "refs": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskRefDto"
+            }
+          },
+          "deletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Личная задача в корзине"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "description": "Название личной задачи (of: personal)"
+          },
+          "due": {
+            "type": "string",
+            "format": "date",
+            "description": "Срок личной задачи (of: personal)"
+          },
+          "done": {
+            "type": "boolean",
+            "description": "Личная отметка завершения карточки на рабочем столе"
+          },
+          "tasks": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskTaskDto"
+            }
+          }
+        },
+        "required": [
+          "of",
+          "id",
+          "lane"
+        ]
+      },
+      "DeskLayoutDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740990
+          },
+          "lanes": {
+            "minItems": 1,
+            "maxItems": 9,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskLaneDto"
+            }
+          },
+          "items": {
+            "maxItems": 660,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeskCardDto"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "items"
+        ]
+      },
       "ProfileDto": {
         "type": "object",
         "properties": {
@@ -21216,6 +21447,35 @@
             "description": "preset:<код> (saturn, uranus, moon, sun, earth, mars, jupiter, neptune, comet, galaxy) или photo:<photoId>; пустая строка — убрать"
           }
         }
+      },
+      "DeskFileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{24}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "uploadedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deletedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "size",
+          "uploadedAt"
+        ]
       },
       "UpsertCatalogAppearanceDto": {
         "type": "object",
@@ -21447,7 +21707,7 @@
           },
           "dims": {
             "type": "object",
-            "description": "Размеры, мм: { length, width, thickness, diameter } (null — стереть)"
+            "description": "Размеры, мм: { length, width, height, depth, thickness, diameter } (null — стереть ось, отсутствующая ось сохраняется)"
           }
         }
       },
@@ -25424,19 +25684,6 @@
           "text"
         ]
       },
-      "OfferBlockPositionDto": {
-        "type": "object",
-        "properties": {
-          "xMm": {
-            "type": "number",
-            "description": "Сдвиг вправо, мм"
-          },
-          "gapMm": {
-            "type": "number",
-            "description": "Отступ перед блоком, мм"
-          }
-        }
-      },
       "OfferFreeTextDto": {
         "type": "object",
         "properties": {
@@ -25460,6 +25707,19 @@
           "id",
           "text"
         ]
+      },
+      "OfferBlockPositionDto": {
+        "type": "object",
+        "properties": {
+          "xMm": {
+            "type": "number",
+            "description": "Сдвиг вправо, мм"
+          },
+          "gapMm": {
+            "type": "number",
+            "description": "Отступ перед блоком, мм"
+          }
+        }
       },
       "OfferLayoutDto": {
         "type": "object",
@@ -27705,15 +27965,60 @@
           "handedOn"
         ]
       },
+      "PassportImportInstallationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "thirdImportKind": {
+            "type": "string",
+            "enum": [
+              "foundation",
+              "mounting"
+            ]
+          },
+          "depthApplicable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "code",
+          "thirdImportKind",
+          "depthApplicable"
+        ]
+      },
       "PassportImportContextResponseDto": {
         "type": "object",
         "properties": {
           "contextToken": {
             "type": "string"
+          },
+          "installationTypeId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Текущий effective ID изделия: legacy поле перед defaults; неизвестный ID не выбирает первый вариант."
+          },
+          "installations": {
+            "description": "Живые поддержанные способы установки, применимые к типу паспорта изделия.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PassportImportInstallationResponseDto"
+            }
           }
         },
         "required": [
-          "contextToken"
+          "contextToken",
+          "installationTypeId",
+          "installations"
         ]
       },
       "PassportImportImageDto": {
@@ -27770,6 +28075,10 @@
       "PassportImportConfirmedDto": {
         "type": "object",
         "properties": {
+          "installationTypeId": {
+            "type": "string",
+            "description": "Явно выбранный живой способ установки из context.installations; отсутствие сохраняет прежний выбор изделия."
+          },
           "dimensions": {
             "description": "Только одобренные габариты. Отсутствие поля сохраняет прежние значения.",
             "allOf": [
@@ -27860,7 +28169,9 @@
               "order_mismatch",
               "order_missing",
               "order_closed",
-              "source_attachment"
+              "source_attachment",
+              "installation_mismatch",
+              "installation_unknown"
             ]
           }
         },
@@ -27887,7 +28198,7 @@
             }
           },
           "confirmedFields": {
-            "description": "Одобренные поля изделия: dimensions, weightKg, passportDefaults.foundationDepth.",
+            "description": "Одобренные поля изделия: dimensions, weightKg, passportDefaults.foundationDepth, passportDefaults.installationTypeId.",
             "type": "array",
             "items": {
               "type": "string"
@@ -28006,6 +28317,30 @@
           "changes": {
             "type": "object",
             "additionalProperties": true,
+            "properties": {
+              "exerciseInstructions": {
+                "type": "object",
+                "nullable": true,
+                "additionalProperties": false,
+                "required": [
+                  "initialPosition",
+                  "movement",
+                  "muscles"
+                ],
+                "properties": {
+                  "initialPosition": {
+                    "type": "string"
+                  },
+                  "movement": {
+                    "type": "string"
+                  },
+                  "muscles": {
+                    "type": "string"
+                  }
+                },
+                "description": "Необязательный блок упражнения: три непустые plain-text части, суммарно ≤4000 после CRLF→LF и trim; null удаляет только блок."
+              }
+            },
             "description": "Собственные поля для записи. simpleDescription: {mode:\"parts\",partIds:[...]} для сборки из частей, {text,partIds} или {mode:\"manual\",text,partIds} для своего текста, null для сброса.",
             "example": {
               "simpleDescription": {
@@ -28019,7 +28354,31 @@
           "expected": {
             "type": "object",
             "additionalProperties": true,
-            "description": "Прежние собственные значения с теми же ключами. simpleDescription передаётся целиком из defaults или как null, если поле отсутствует.",
+            "properties": {
+              "exerciseInstructions": {
+                "type": "object",
+                "nullable": true,
+                "additionalProperties": false,
+                "required": [
+                  "initialPosition",
+                  "movement",
+                  "muscles"
+                ],
+                "properties": {
+                  "initialPosition": {
+                    "type": "string"
+                  },
+                  "movement": {
+                    "type": "string"
+                  },
+                  "muscles": {
+                    "type": "string"
+                  }
+                },
+                "description": "Необязательный блок упражнения: три непустые plain-text части, суммарно ≤4000 после CRLF→LF и trim; null удаляет только блок."
+              }
+            },
+            "description": "Прежние собственные значения с теми же ключами. exerciseInstructions передаётся целиком без изменения строк baseline или null при отсутствии; CAS сравнивает весь блок, stale409. simpleDescription передаётся целиком из defaults или как null, если поле отсутствует.",
             "example": {
               "simpleDescription": null
             }
@@ -28245,218 +28604,6 @@
       "SetAttributeValueDto": {
         "type": "object",
         "properties": {}
-      },
-      "DeskTaskDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 180
-          },
-          "due": {
-            "type": "string",
-            "format": "date"
-          },
-          "done": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "done"
-        ]
-      },
-      "DeskCardDto": {
-        "type": "object",
-        "properties": {
-          "of": {
-            "type": "string",
-            "enum": [
-              "salesorders",
-              "salesorder",
-              "orders",
-              "design",
-              "work",
-              "products",
-              "modules",
-              "parts",
-              "requests",
-              "stock",
-              "offers",
-              "passarchive",
-              "passports",
-              "contract",
-              "suppliercatalog",
-              "partners",
-              "personal"
-            ]
-          },
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 160
-          },
-          "lane": {
-            "type": "string",
-            "description": "Ключ стопки"
-          },
-          "refs": {
-            "maxItems": 30,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DeskRefDto"
-            }
-          },
-          "deletedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Личная задача в корзине"
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 180,
-            "description": "Название личной задачи (of: personal)"
-          },
-          "due": {
-            "type": "string",
-            "format": "date",
-            "description": "Срок личной задачи (of: personal)"
-          },
-          "done": {
-            "type": "boolean",
-            "description": "Личная отметка завершения карточки на рабочем столе"
-          },
-          "tasks": {
-            "maxItems": 12,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DeskTaskDto"
-            }
-          }
-        },
-        "required": [
-          "of",
-          "id",
-          "lane"
-        ]
-      },
-      "DeskLayoutDto": {
-        "type": "object",
-        "properties": {
-          "version": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740990
-          },
-          "lanes": {
-            "minItems": 1,
-            "maxItems": 9,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DeskLaneDto"
-            }
-          },
-          "items": {
-            "maxItems": 660,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DeskCardDto"
-            }
-          }
-        },
-        "required": [
-          "version",
-          "items"
-        ]
-      },
-      "DeskLaneDto": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string",
-            "description": "Ключ стопки: встроенный или UUID"
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80
-          }
-        },
-        "required": [
-          "key",
-          "title"
-        ]
-      },
-      "DeskRefDto": {
-        "type": "object",
-        "properties": {
-          "of": {
-            "type": "string",
-            "enum": [
-              "salesorders",
-              "salesorder",
-              "orders",
-              "design",
-              "work",
-              "products",
-              "modules",
-              "parts",
-              "requests",
-              "stock",
-              "offers",
-              "passarchive",
-              "passports",
-              "contract",
-              "suppliercatalog",
-              "partners"
-            ]
-          },
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 160
-          }
-        },
-        "required": [
-          "of",
-          "id"
-        ]
-      },
-      "DeskFileDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{24}$"
-          },
-          "name": {
-            "type": "string"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "uploadedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "deletedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "size",
-          "uploadedAt"
-        ]
       }
     }
   }

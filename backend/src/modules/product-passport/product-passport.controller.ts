@@ -28,7 +28,7 @@ import { PassportOrderQueryDto, PassportPresentationDto, PassportTemplateQueryDt
 import type { PassportTemplateContent } from './passport-template.default';
 
 const VIEW = ['admin', 'director', 'manager'] as const;
-const TEMPLATE_PROJECTION = 'Шаблон и готовность паспорта. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:"parts",partIds,text,invalidPartIds?} и в textSnapshot.description.';
+const TEMPLATE_PROJECTION = 'Шаблон и готовность паспорта. Optional defaults.exerciseInstructions={initialPosition,movement,muscles}; textSnapshot.exerciseInstructions содержит те же части и source:{kind:product,productId}. Редактируется только шаблон, существующие экземпляры автоматически не обновляются. Для краткого описания из частей defaults.simpleDescription содержит mode и partIds; вычисленный текст доступен в simpleDescriptionSource {kind:"parts",partIds,text,invalidPartIds?} и в textSnapshot.description.';
 // Работа с отдельными паспортами и заказом; общие настройки остаются EDIT.
 const READ = ['admin', 'director', 'manager', 'user'] as const;
 const WORK = ['admin', 'director', 'manager'] as const;

@@ -13,6 +13,7 @@ import { SRC_LABEL } from './card-blocks.js';
 import { tableNumbers, figureNumbers, refsOf } from './book-refs.js';
 import { compositionSheet } from './book-composition-tree.js';
 import { passportNamePatch } from './book-inline-events.js';
+import { exerciseBookBlocks } from './book-exercise.js';
 
 const numText = (v) => (v === undefined || v === null || v === '' ? '' : String(v).replace('.', ','));
 const SPEC = [['Длина (L), мм', 'length', 1], ['Ширина (B), мм', 'width', 1], ['Высота (H), мм', 'height', 1], ['Ширина посадки (Bп), мм', 'seatWidth'],
@@ -167,12 +168,15 @@ export function buildBook(ctx) {
   const firstSec = (plan.sectionNo || []).find(Boolean);
   const before = plan.descrNo && firstSec ? parseInt(plan.descrNo, 10) < parseInt(firstSec, 10) : !!plan.descrNo && !firstSec;
   if (before) { descrSection(); rulesSection(); }
+  let exerciseShown = false;
   (t.sections || []).forEach((s, si) => {
     if (!plan.sectionNo[si] || !s.items?.length) return;
     push(hd(`${plan.sectionNo[si]} ${shown(s.title)}`));
     for (const i of s.items) push(textP(i.text, itemSpec(s, i), i.src, { prefix: plan.itemNo(si, i.number) || (i.bullet && !dashed(i.text) ? '—' : ''), edit: i.edited }));
+    if (s.key === 'use' && !exerciseShown) { push(...exerciseBookBlocks(ctx)); exerciseShown = true; }
     if (plan.mergeInstall && si === plan.mountIdx) installBlocks();
   });
+  if (!exerciseShown) { const exercise = exerciseBookBlocks(ctx); if (exercise.length) push(hd('Правила пользования'), ...exercise); }
   if (!before) { descrSection(); rulesSection(); }
 
   const maint = (t.maintenance || []).filter((m) => m.rows?.length);

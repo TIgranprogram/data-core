@@ -17,3 +17,6 @@
 
 - C237/C238: `UI-REVIEW.md` в папках crew — PASS назначенной дельты; заполненные desktop в двух темах и PDF просмотрены. Якоря: `sections/order-footer.js:64`, `ui/kit/board.js:276`. Не принимать skeleton таблицы за заполненное состояние; theme проверять по actual dataset, не только имени PNG/localStorage. Унаследованные белёсые кнопки dark вынесены координатору отдельно.
 - C239: `DESIGN-REVIEW.md` — PASS независимой приёмки: один договор 18/11/44, 9 строк/8 рисунков, 7 PNG light1440/dark1024 (верх/низ), явное подтверждение и disabled повтор. Реальный API-backfill отдельно от синтетического UI. Якорь: `pult/ui/document-intake-images.js:57`.
+- C240: UI-REVIEW — PASS показанных readonly/config элементов по четырём заполненным fixture; полная админка/ACL/C242 отдельно. C243: UI-REVIEW — PASS минимальной дельты: settled light/dark показывают Нет предложения рядом с историей DNS/85 299; prod/server filter отдельно.
+- C236: UI-REVIEW — PASS после secondary recheck light/dark; PDF-блок ранее проверен на42страницах, use/rules сохранены. 1069 draft; весь стандарт не принят.
+- C242: UI-REVIEW — scoped PASS таблиц/новых W/H/D/readonly по19PNG, light/dark; отдельного edit PNG нет, serverintegration не подтверждена fixture. Общий старый dark-neutral finding отдельно.

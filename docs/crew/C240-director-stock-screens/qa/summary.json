@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-23",
+  "baseCommit": "36bdd4dc",
+  "status": "PASS targeted HTTP",
+  "tests": 6,
+  "db": "datacore-test-c240-c242",
+  "sourceReport": "qa/c240-c242-http.json",
+  "sourceSharedProcessSuccess": false,
+  "sharedFailureReason": "Other suite C242 fixture missing category unique skuPrefix; no C240 runtime failure",
+  "stdout": "tools/logs/c240-c242-qa-http.log",
+  "cases": [
+    {
+      "title": "login.user и auth/me: builtin/custom director наследуют pipe+sheet, основная роль и деньги прежние",
+      "status": "passed"
+    },
+    {
+      "title": "HTTP PATCH []/omit/reset применяются свежим auth/me и не меняют остальные права/scope",
+      "status": "passed"
+    },
+    {
+      "title": "strict create/PATCH отклоняют null/unknown/duplicate/reset-комбинации без изменения роли",
+      "status": "passed"
+    },
+    {
+      "title": "просмотр не выдаёт CRUD ролей или owner-only; прежние права записи директора и границы склада сохранены",
+      "status": "passed"
+    },
+    {
+      "title": "stockViews не обходит отключённый раздел stock",
+      "status": "passed"
+    },
+    {
+      "title": "CRUD собственной роли остаётся прежним: незанятая удаляется, назначенная защищена",
+      "status": "passed"
+    }
+  ],
+  "fullBackendRun": false,
+  "productionWrites": false
+}

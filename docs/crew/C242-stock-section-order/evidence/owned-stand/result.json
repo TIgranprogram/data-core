@@ -1,0 +1,182 @@
+{
+  "status": "PASS_WITH_SKIPS",
+  "target": "http://localhost:3102",
+  "authProjection": "UI-only director over real manager JWT; NOT server director ACL proof",
+  "stock": [
+    {
+      "zone": "Основной",
+      "zoneId": "6ae722517cfafdae6c36721d",
+      "scope": "real server withParts=0",
+      "total": 320,
+      "zeros": 30,
+      "headers": "\t\tНАИМЕНОВАНИЕ\tКАТЕГОРИЯ / ТИП\tМАТЕРИАЛ\tМАРКА\tТОЛЩИНА / СТЕНКА, ММ\tДЛИНА, ММ\tЕД. УЧЁТА\tОСТАТОК, ЕД. УЧЁТА↑\tВ БРОНИ, ЕД. УЧЁТА\tСВОБОДНО, ЕД. УЧЁТА\tНАЛИЧИЕ\tМИН.\tПЕРЕСЧЁТ\t\n"
+    },
+    {
+      "zone": "Трубы",
+      "zoneId": "6ae722517cfafdae6c36721e",
+      "scope": "real server withParts=0",
+      "total": 91,
+      "zeros": 40,
+      "headers": "\t\tСОРТАМЕНТ / СЕЧЕНИЕ, ММ\tМАТЕРИАЛ\tМАРКА\tМОЙКА\tДЛИНА ЕДИНИЦЫ, М↑\tЕД. УЧЁТА\tОСТАТОК, ЕД. УЧЁТА\tВ БРОНИ, ЕД. УЧЁТА\tСВОБОДНО, ЕД. УЧЁТА\tНАЛИЧИЕ\tНАИМЕНОВАНИЕ\tМИН.\tПЕРЕСЧЁТ\t\n"
+    },
+    {
+      "zone": "Листовой материал",
+      "zoneId": "6ae722517cfafdae6c36721f",
+      "scope": "real server withParts=0",
+      "total": 46,
+      "zeros": 28,
+      "headers": "\t\tМАТЕРИАЛ\tМАРКА\tПОВЕРХНОСТЬ\tТОЛЩИНА / СТЕНКА, ММ↑\tШИРИНА, ММ\tДЛИНА, ММ\tВИД\tЕД. УЧЁТА\tОСТАТОК, ЕД. УЧЁТА\tВ БРОНИ, ЕД. УЧЁТА\tСВОБОДНО, ЕД. УЧЁТА\tНАЛИЧИЕ\tНАИМЕНОВАНИЕ\tМИН.\tПЕРЕСЧЁТ\t\n"
+    },
+    {
+      "zone": "Деревообработка",
+      "zoneId": "6ae9bb8c0763e430e8cf8272",
+      "scope": "real server withParts=0",
+      "total": 0,
+      "zeros": 0,
+      "headers": "\t\tНАИМЕНОВАНИЕ\tКАТЕГОРИЯ / ТИП\tШИРИНА, ММ↑\tВЫСОТА, ММ\tТОЛЩИНА / СТЕНКА, ММ\tДЛИНА, ММ\tЕД. УЧЁТА\tОСТАТОК, ЕД. УЧЁТА\tВ БРОНИ, ЕД. УЧЁТА\tСВОБОДНО, ЕД. УЧЁТА\tНАЛИЧИЕ\tМИН.\tПЕРЕСЧЁТ\t\n"
+    },
+    {
+      "view": "pipe",
+      "readOnly": true,
+      "authProjection": "UI-only director",
+      "headers": "СОРТАМЕНТ / СЕЧЕНИЕ, ММ\tМАТЕРИАЛ\tМАРКА\tМОЙКА\tДЛИНА ЕДИНИЦЫ, М\tЕД. УЧЁТА\tФАКТИЧЕСКИ, ЕД. УЧЁТА\tВ БРОНИ, ЕД. УЧЁТА\tСВОБОДНО, ЕД. УЧЁТА\tНАЛИЧИЕ\tНАЗВАНИЕ / КОД\tПРИМЕЧАНИЕ\n",
+      "uiSort": "-quantity"
+    },
+    {
+      "view": "sheet",
+      "readOnly": true,
+      "authProjection": "UI-only director",
+      "headers": "МАТЕРИАЛ\tМАРКА\tПОВЕРХНОСТЬ\tТОЛЩИНА / СТЕНКА, ММ\tШИРИНА, ММ\tДЛИНА, ММ\tВИД\tЕД. УЧЁТА\tФАКТИЧЕСКИ, ЕД. УЧЁТА\tВ БРОНИ, ЕД. УЧЁТА\tСВОБОДНО, ЕД. УЧЁТА\tНАЛИЧИЕ\tНАЗВАНИЕ / КОД\tПРИМЕЧАНИЕ\n",
+      "uiSort": "-quantity"
+    }
+  ],
+  "numeric": [
+    {
+      "zone": "Основной",
+      "sort": "quantity",
+      "total": 320
+    },
+    {
+      "zone": "Основной",
+      "sort": "-quantity",
+      "total": 320
+    },
+    {
+      "zone": "Трубы",
+      "sort": "length",
+      "total": 91
+    },
+    {
+      "zone": "Трубы",
+      "sort": "-length",
+      "total": 91
+    },
+    {
+      "zone": "Листовой материал",
+      "sort": "thickness",
+      "total": 46
+    },
+    {
+      "zone": "Листовой материал",
+      "sort": "-thickness",
+      "total": 46
+    },
+    {
+      "zone": "Деревообработка",
+      "sort": "width",
+      "total": 0
+    },
+    {
+      "zone": "Деревообработка",
+      "sort": "-width",
+      "total": 0
+    }
+  ],
+  "zeroSearch": [
+    {
+      "search": "80×60×3",
+      "ids": [
+        "6ae45d4ad29aaee2976a2717"
+      ],
+      "total": 1
+    },
+    {
+      "search": "80x60x3",
+      "ids": [
+        "6ae45d4ad29aaee2976a2717"
+      ],
+      "total": 1
+    },
+    {
+      "search": "80х60х3",
+      "ids": [
+        "6ae45d4ad29aaee2976a2717"
+      ],
+      "total": 1
+    },
+    {
+      "search": "80*60*3",
+      "ids": [
+        "6ae45d4ad29aaee2976a2717"
+      ],
+      "total": 1
+    },
+    {
+      "search": "80 х 60 х 3",
+      "ids": [
+        "6ae45d4ad29aaee2976a2717"
+      ],
+      "total": 1
+    }
+  ],
+  "books": [
+    {
+      "sku": "1067",
+      "testProductId": "6b0406f9a076c5478ab540c2",
+      "variants": [
+        "short",
+        "full"
+      ],
+      "issued": false,
+      "proof": "fresh document deep-link with exact productId + variant GET and rendered QA heading/three parts; SPA model-to-model switch NOT tested"
+    },
+    {
+      "sku": "1068",
+      "testProductId": "6b040708a076c5478ab54146",
+      "variants": [
+        "short",
+        "full"
+      ],
+      "issued": false,
+      "proof": "fresh document deep-link with exact productId + variant GET and rendered QA heading/three parts; SPA model-to-model switch NOT tested"
+    }
+  ],
+  "skips": [
+    {
+      "name": "Деревообработка",
+      "reason": "SKIP_DATA empty real zone; empty table screenshot retained"
+    },
+    {
+      "name": "native wood",
+      "reason": "SKIP_AUTH_PROJECTION: director does not receive native wood; main wood scope checked, no role escalation"
+    }
+  ],
+  "pageErrors": [],
+  "blockedWrites": [],
+  "phase": "book 1068",
+  "zeroFacet": {
+    "zoneId": "6ae722517cfafdae6c36721e",
+    "search": "80×60×3",
+    "availability": "none",
+    "ids": [
+      "6ae45d4ad29aaee2976a2717"
+    ],
+    "held": false
+  },
+  "metadataEdit": {
+    "id": "6ae45d4ad29aaee2976a2717",
+    "zeroQuantity": 0,
+    "mode": "opened only via More actions → Edit; fields not changed, save/cancel not pressed",
+    "serverWrites": 0
+  }
+}

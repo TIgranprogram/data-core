@@ -10,9 +10,11 @@ import {
   IsString,
   Length,
   Matches,
+  ValidateIf,
   Min, IsMongoId } from 'class-validator';
 import { APP_SECTION_IDS } from '../../../common/app-sections';
 import { BASE_ROLES } from '../../../common/roles-hierarchy';
+import { STOCK_VIEWS, type StockView } from '../../../common/stock-views';
 
 export class CreateRoleDto {
   /**
@@ -85,6 +87,14 @@ export class CreateRoleDto {
   @ArrayUnique({ message: 'Раздел указан дважды' })
   @IsIn(APP_SECTION_IDS, { each: true, message: `Неизвестный раздел. Допустимо: ${APP_SECTION_IDS.join(', ')}` })
   appSections?: string[];
+
+  @ApiPropertyOptional({ type: [String], enum: STOCK_VIEWS, description: 'Дополнительные экраны склада для просмотра: нет — по базовой роли, [] — отключены; права API не меняются' })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsArray({ message: 'Экраны склада — список' })
+  @ArrayMaxSize(2, { message: 'Дополнительных экранов склада не больше двух' })
+  @ArrayUnique({ message: 'Экран склада указан дважды' })
+  @IsIn(STOCK_VIEWS, { each: true, message: 'Доступны экраны pipe и sheet' })
+  stockViews?: StockView[];
 
   /** СМ.4: категории склада роли; пусто — весь склад. */
   @ApiPropertyOptional({ type: [String], description: 'Категории склада, которые видит и меняет роль; пусто — весь склад' })

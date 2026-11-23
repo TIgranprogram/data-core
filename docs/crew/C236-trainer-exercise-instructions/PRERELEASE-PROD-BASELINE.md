@@ -1,0 +1,8 @@
+# Свежий PROD baseline перед общим выпуском
+
+23.11.2026, начало10:23:59UTC. **PASS GET_ONLY,0записей.** api.shprodGET; рабочая версияb0b60aec/v2.46,n1045,healthreadyok. База сравнения отдельно в tools/logs/c236-prerelease-prod-baseline/; старыйpreparebaseline и утверждённыеCAS тела не перезаписывались.
+Три договора44–46:19строк,legal и предметные поля/sourceLine совпали с journalC239; документы3/2/2,productionNo отсутствует,paid0. Все7PDF скачаны через safe same-origin uploads URL,фактическиеSHA совпали с legal.sourceSha256. Все8originalизображенийSHA совпали сjournal;9incomeсвязей ровно по одному,прежние предметные поля сохранены.
+1067/1068 short/fullexerciseInstructionsnull и согласованы. Полные product/defaults/image/dims/source сохранены; сравнением с ранним tools/logs/c236-apply-preparation подтверждены нулевые дельты всех полей product и defaults.
+Три issued1067 №628/614/396 прочитаны сreadOnly1,полные ответы без единого отличия от раннегоbaseline; snapshots/истории/номер/статус сохранены. Totalissued1067=3,1068=0. Полные SHA ответов в summary.json.
+1069 толькоGET,никакихзаписей; полные product/short/full зафиксированы отдельным baseline для послерелизного unchangedсравнения,exerciseInstructionsnull,issued0. Незавершённая модель не является целью CAS.
+Runner tools/logs/c236-prerelease-prod-baseline.mjs выполняет толькоGET;summary.json хранит19lines/7pdfOriginals/8images/9attachments/полныеbaselineSHA. Применение1067/1068 по-прежнему не выполнялось; свежийCASprecheck непосредственно перед разрешённой записью обязателен.

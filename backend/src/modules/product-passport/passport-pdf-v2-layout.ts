@@ -1,3 +1,4 @@
+import { EXERCISE_LABELS, EXERCISE_TITLE, exerciseParagraphs } from '../../common/passport/exercise-instructions';
 import { warranty } from './passport-pdf';
 import { PdfV2Input } from './passport-pdf-v2-types';
 import { substituteRefs, PlannedFig, planFigures, maintenanceColumns } from './passport-pdf-v2-refs';
@@ -30,6 +31,8 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   const maintenance = (t.maintenance || []).filter((m) => m.rows?.length);
   const installLines = lines(t.install?.text);
   const requirements = (t.install?.requirements || []).map((x) => String(x).trim()).filter(Boolean);
+  const exercise = t.exerciseInstructions;
+  const exerciseInUse = !!exercise && sections.some(s => s.key === 'use' && s.items?.length);
   const rules = (t.rules || []).map((x) => String(x).trim()).filter(Boolean);
   const brief = p.presentationVersion === 1 && p.variant === 'short';
   const descr = lines(brief ? t.description : t.description || p.description);
@@ -44,7 +47,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
   // (номера текста из снимка, обычно с 3; свободные 1…start-1 — под описание и правила).
   const plan = planNumbers({
     sections, layout: t.layout,
-    hasDescr: !!(descr.length || purpose.length || specs.length || modules.length || sheet.length), hasRules: rules.length > 0,
+    hasDescr: !!(descr.length || purpose.length || specs.length || modules.length || sheet.length), hasRules: rules.length > 0 || (!!exercise && !exerciseInUse),
     hasMaintenance: maintenance.length > 0, hasInstall: !!(installLines.length || requirements.length),
   });
   const { before, mergeRules, descrNo, rulesNo, toNo, installNo, bomNo, journalNo } = plan;
@@ -272,13 +275,22 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     if (specs.length) { sub(`${descrNo}.${++k} Основные технические данные`); table(`Таблица ${tab.get('specs')} — Габаритные размеры и масса изделия`, ['Наименование', 'Значение'], [70, 30], specs, 9); }
     if (sheet.length) { sub(`${descrNo}.${++k} Состав изделия`); compositionBlock(sheet); }
     if (modules.length) { sub(`${descrNo}.${++k} Состав изделия: модули`); modulesBlock(); }
-    if (mergeRules && rules.length) { sub(`${descrNo}.${++k} Правила пользования`); rules.forEach((s) => item(s, null, true)); }
+    if (mergeRules && (rules.length || (!!exercise && !exerciseInUse))) { sub(`${descrNo}.${++k} Правила пользования`); rules.forEach((s) => item(s, null, true)); if (!exerciseInUse) exerciseBlock(); }
     y += 4;
+  };
+  const exerciseBlock = () => {
+    if (!exercise) return;
+    sub(EXERCISE_TITLE);
+    for (const key of Object.keys(EXERCISE_LABELS) as Array<keyof typeof EXERCISE_LABELS>) {
+      sub(EXERCISE_LABELS[key]);
+      exerciseParagraphs(exercise[key]).forEach(text => para(text));
+    }
   };
   const rulesSection = () => {
     if (!rulesNo) return;
     heading(`${rulesNo} Правила пользования`);
     rules.forEach((s) => item(s, null, true));
+    if (!exerciseInUse) exerciseBlock();
     y += 4;
   };
 
@@ -287,6 +299,7 @@ export function layoutV2(doc: PDFKit.PDFDocument, input: PdfV2Input, color: stri
     if (!s.items?.length) return;
     heading(`${plan.sectionNo[si]} ${R(s.title)}`.trim());
     for (const it of s.items) item(it.text, plan.itemNo(si, it.number), it.bullet);
+    if (exerciseInUse && s.key === 'use') exerciseBlock();
     if (plan.mergeInstall && s.key === 'mounting') installBlock(plan.sectionNo[si], s.items.filter((it) => it.number).length);
     y += 4;
   });

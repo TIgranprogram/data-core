@@ -1,6 +1,6 @@
 # Карта роли backend
 
-коммит: 88fe3eff · опорная ревизия для поиска, 23.11.2026. Приёмка конкретного изменения фиксируется отдельно.
+коммит: 36bdd4dc · опорная ревизия для поиска, 23.11.2026. Приёмка конкретного изменения фиксируется отдельно.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
 Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
@@ -14,5 +14,17 @@
 - Реальную транзакцию проверяй адресным e2e на выделенной тестовой БД. Новые обязательные ворота и межмодульный стык согласуй с архитектором.
 
 - C237: внутренний вид печати договора/заказа — `backend/src/modules/salesorders/order-pdf.ts:21`, выбор по productionNo и имя файла — `production-orders.service.ts:360`; регрессии рендера — `order-pdf.spec.ts:32`, сервиса — `production-orders.pdf.spec.ts:25`. [Проверки и PDF](../../crew/C237-contract-order-labels/BACKEND-REPORT.md).
+- C240: дополнительные экраны роли, без смены ACL/scope — `backend/src/common/stock-views.ts:6`, auth projection — `modules/auth/auth.service.ts:349`; PATCH reset исключает команду из записи и удаляет override — `modules/role/role.service.ts:148`, `:169`; $unset/omit регрессия — `modules/role/stock-views.reset.spec.ts:22`. [Проверки](../../crew/C240-director-stock-screens/BACKEND-REPORT.md).
+- C241: выбор установки/context и exact-ID skip — `backend/src/modules/product-passport/passport-import.service.ts:91`, `:145`, `:197`; существующий read/create различаются явно — `product-passport.service.ts:205`, `:1257`, `:1528`. HTTP/PDF/rollback регрессии — `backend/test/e2e/passport-import.e2e-spec.ts`, запуск только разрешённой test-БД. [Проверки и расширение scope](../../crew/C241-inventor-installation-choice/BACKEND-REPORT.md).
 
 История карты до сокращения: `git show 3929ea33:docs/roles/maps/backend.md | rg -n 'слово|Cxxx'`. Подробные результаты остаются в отчётах задач.
+- C241 P2: saved lineMissing/update/snapshot передают existing явно — `product-passport.service.ts:526`, `:620`, `:948`; ordinary PATCH сохраняет снимки/изображения при конфликте установки, snapshot отвечает 409 без записи; explicit installation PATCH сохранён. 80/836 unit и 34 e2e PASS. Коммит:36bdd4dc, карта обновлена.
+- C242 stageB: чистая проекция сечения и глобальные размерные sort — `backend/src/modules/stock/stock-dimensions.ts:1`; нулевая номенклатура и пагинация — `stock-search.service.ts:57`; сохранение осей/метаданных — `metal.ts:29`; регрессии >10000 строк/80×60×3/scope — `stock-dimensions.spec.ts:1`. [Контракт и проверки](../../crew/C242-stock-section-order/BACKEND-REPORT.md). Коммит:36bdd4dc.
+- C242 availability none/in: строгая валидация до чтения — `stock-search.service.ts:57`; AND по физическому остатку после scope/status до страниц — `:84`; регрессии fullyreserved/zero/invalid/cache/pages в `stock-dimensions.spec.ts`. 20 наборов/191 тест PASS, tsc0/eslint0. Коммит:36bdd4dc.
+
+- C236: модельный whole-block CAS — `backend/src/modules/showcase/passport-template-patch.ts:118`; чистый контракт/4000 — `common/passport/exercise-instructions.ts:10`; explicit capture — `passport-from-product.ts:31`, четыре caller в `product-passport.service.ts`; snapshot — `passport-v2-text.ts:153`, PDF use-блок — `passport-pdf-v2-layout.ts:283`. [Отчёт](../../crew/C236-trainer-exercise-instructions/BACKEND-REPORT.md). Коммит:36bdd4dc, карта обновлена.
+
+- C241 full-QA regression: explicit create-only initial snapshot — `product-passport.service.ts:415`, `:959`; both-absent legacy exception без raw/computed источника — `:211`, leaf check — `:235`. [FAIL-first и проверки](../../crew/C241-inventor-installation-choice/REGRESSION-REPORT.md): 1042 unit/55HTTP PASS, tsc0/eslint0. Коммит:36bdd4dc, карта обновлена.
+- C242 P2: read-only countMode single/multiple — `stock-search.service.ts` (byMat); count/batch(count) проверяют живые ячейки до loadStorage внутри транзакции — `stock-movements.service.ts:34`, регрессии14/14 — `stock-count-mode.spec.ts`. Полный stock21/203PASS +2новыхtargetedPASS, tsc0/eslint0. Коммит:36bdd4dc.
+- C242 TX-fix: `stock-movements.service.ts` outer move/cancel читают строго session и не строят response доcommit; `stock-core.service.ts` defaultWarehouse(session) всеfallbacks; `stock-target.ts` target/reason(session); facade overload `stock.service.ts`. [FAIL→PASS и SHA](../../crew/C242-stock-section-order/TX-FIX-REPORT.md), HTTPstock-scope14/14PASS, unit22/212PASS, tsc0/eslint0. Коммит:36bdd4dc.
+- TX2 Гант: `modules/order-line-plan/work-schedule.service.ts` barsOf/workTypes(session), sequential source reads/cachebypass внутри patchStep; `work-schedule-session.spec.ts` exactsession/warmcache/CAS/eligibility. [FAIL→PASS/SHA](../../crew/C242-stock-section-order/TX2-GANTT-FIX-REPORT.md): HTTP7/7PASS,unit4/24PASS,tsc0/eslint0. Опорный коммит18ef2ec5.

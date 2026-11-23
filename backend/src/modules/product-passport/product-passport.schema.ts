@@ -71,6 +71,7 @@ export class ProductPassport {
   @Prop() creationScopeKey?: string;
   /** Использованные источники печати редакции. */
   @Prop({ type: Object }) printSnapshot?: Record<string, unknown>;
+  @Prop({ type: Object }) exerciseInstructions?: import('../../common/passport/exercise-instructions').ExerciseInstructions;
   @Prop({ type: Object }) simpleDescription?: SimpleDescription<Types.ObjectId>;
   @Prop() kindId?: string;
   /** Готовность к отдаче: ready / notReady / rework. Не путать с status. Нет поля: выпущенный = готов, черновик = не готов (считается на чтении). kppdf поле не читает — только добавлено, синхронно не нужно. */
@@ -258,7 +259,7 @@ export class ProductPassport {
   /** Изготовитель, если не совпадает с поставщиком. */
   @Prop({ type: Types.ObjectId }) manufacturerOrgId?: Types.ObjectId;
   /** Снимок собранного текста на момент выдачи: правка справочника не меняет выданный паспорт. */
-  @Prop({ type: Object }) textSnapshot?: { templateVersion?: number; ownVersion?: number | null; category?: string; at?: Date; sections?: unknown[]; missing?: string[]; traits?: string[]; traitsFrom?: Record<string, string[]>; unknownTraits?: string[]; excluded?: unknown[]; needJoints?: boolean; layout?: number };
+  @Prop({ type: Object }) textSnapshot?: { exerciseInstructions?: import('../../common/passport/exercise-instructions').ExerciseSnapshot; templateVersion?: number; ownVersion?: number | null; category?: string; at?: Date; sections?: unknown[]; missing?: string[]; traits?: string[]; traitsFrom?: Record<string, string[]>; unknownTraits?: string[]; excluded?: unknown[]; needJoints?: boolean; layout?: number };
 
   /** Когда последний раз скачали PDF. */
   @Prop()

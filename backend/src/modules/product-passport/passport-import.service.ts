@@ -10,8 +10,9 @@ import { claimPassportLine, epochOf, type PassportLine } from '../../common/pass
 import { canon } from './passport-snapshot-refresh';
 import { isIssued, type Doc } from './passport-consts';
 import { ProductPassportService } from './product-passport.service';
-import { IMPORT_KINDS, PassportImportDto, type PassportImportConfirmedDto } from './dto/passport-import.dto';
+import { IMPORT_KINDS, PassportImportDto, type PassportImportConfirmedDto, type PassportImportInstallationResponseDto } from './dto/passport-import.dto';
 import { installationProfile } from './passport-variants';
+import { productPassportCode } from './passport-from-product';
 
 export interface PassportImportResult {
   status: 'applied' | 'unchanged'; updatedKinds: string[]; confirmedFields: string[];
@@ -24,11 +25,27 @@ const targetKind = (kind: unknown) => (IMPORT_KINDS as readonly unknown[]).inclu
 const CAD_KINDS = [...IMPORT_KINDS, 'mounting'];
 const LIMIT = 500;
 
+/** Legacy поле изделия имеет прежний приоритет; у экземпляра его собственный ID — снимок. */
+export function importInstallationId(document: Doc): string | null {
+  const value = document.installationTypeId ?? (document.passportDefaults as Doc | undefined)?.installationTypeId;
+  return value == null || value === '' ? null : String(value);
+}
+
+/** В context нет нераспознанных/удалённых способов и вариантов чужой категории. */
+export function importInstallations(installs: Doc[], category?: string | null): PassportImportInstallationResponseDto[] {
+  return installs.flatMap(install => {
+    const plan = installationProfile(install);
+    const categories = String(install.categories ?? '').split(/[,;\s]+/).filter(Boolean);
+    if (install.deletedAt || install.isActive === false || !plan.thirdImportKind || !Types.ObjectId.isValid(String(install._id))
+      || categories.length && !categories.includes(String(category ?? ''))) return [];
+    return [{ id: String(install._id), name: String(install.name || plan.code), code: plan.code, thirdImportKind: plan.thirdImportKind, depthApplicable: plan.depthApplicable }];
+  }).sort((a, b) => a.name.localeCompare(b.name, 'ru') || a.id.localeCompare(b.id));
+}
+
 /** Третий лист Inventor — схема установки: анкеры не являются фундаментом. */
 export function importInstallationKind(document: Doc, installs: Doc[]): 'foundation' | 'mounting' {
-  const defaults = (document.passportDefaults ?? {}) as Doc;
-  const id = document.installationTypeId ?? defaults.installationTypeId;
-  const install = id ? installs.find(i => String(i._id) === String(id)) : undefined;
+  const id = importInstallationId(document);
+  const install = id ? installs.find(i => !i.deletedAt && i.isActive !== false && String(i._id) === id) : undefined;
   const plan = installationProfile(install);
   if (!plan.thirdImportKind) throw new ConflictException('Выберите способ установки в карточке изделия перед отправкой из Inventor');
   return plan.thirdImportKind;
@@ -67,10 +84,14 @@ export class PassportImportService {
     const orders = await db.collection('salesorders').find({ _id: { $in: ids([...passports.map(p => p.salesOrderId), ...incomes.map(i => i.orderId)]) } }, { session }).sort({ _id: 1 }).toArray();
     const installs = await db.collection('dict_values').find({ dict: 'passportInstall', deletedAt: null }, { session }).sort({ _id: 1 }).limit(LIMIT + 1).toArray();
     if (installs.length > LIMIT) throw new BadRequestException('Справочник способов установки превышает допустимый размер импорта');
-    return { product, links, passports, incomes, orders, installs, token: digest({ product, links, passports, incomes, orders, installs }) };
+    const category = await productPassportCode(db, product as Doc);
+    return { product, links, passports, incomes, orders, installs, category, token: digest({ product, links, passports, incomes, orders, installs, category }) };
   }
 
-  async context(id: string) { return { contextToken: (await this.state(this.oid(id))).token }; }
+  async context(id: string) {
+    const current = await this.state(this.oid(id));
+    return { contextToken: current.token, installationTypeId: importInstallationId(current.product), installations: importInstallations(current.installs, current.category) };
+  }
 
   /** Общий протокол с PhotosService: запись защиты сериализуется с захватом удаления. */
   private async file(id: unknown, session: ClientSession, incoming: boolean): Promise<string | null> {
@@ -121,7 +142,16 @@ export class PassportImportService {
           return hashes.get(key)!;
         };
         const selected = new Map<string, { photoId: Types.ObjectId; sha: string }>();
-        const productInstallationKind = importInstallationKind(current.product, current.installs);
+        const requested = dto.confirmed.installationTypeId;
+        if (requested !== undefined && (!Types.ObjectId.isValid(String(requested ?? '')) || typeof requested !== 'string')) {
+          throw new BadRequestException('Некорректный способ установки');
+        }
+        const chosen = requested === undefined ? undefined : this.oid(requested).toHexString();
+        if (chosen !== undefined && !importInstallations(current.installs, current.category).some(option => option.id === chosen)) {
+          throw new ConflictException('Выбранный способ установки удалён, неизвестен или не применяется к типу изделия. Перечитайте контекст');
+        }
+        const productInstallId = chosen ?? importInstallationId(current.product);
+        const productInstallationKind = importInstallationKind({ installationTypeId: productInstallId }, current.installs);
         for (const input of dto.images) {
           const kind = input.kind === 'foundation' ? productInstallationKind : input.kind;
           const sha = (await hash(input.photoId, true))!;
@@ -130,7 +160,6 @@ export class PassportImportService {
           selected.set(kind, { photoId: keep ? old.photoId as Types.ObjectId : this.oid(input.photoId), sha });
         }
         result = { status: 'unchanged', updatedKinds: [], confirmedFields: [], issued: [], drafts: [], skipped: [], warnings: [] };
-        const productInstallId = current.product.installationTypeId ?? (current.product.passportDefaults as Doc | undefined)?.installationTypeId;
         const productPlan = installationProfile(current.installs.find(i => String(i._id) === String(productInstallId)) as Doc | undefined);
         const numbers = importNumbers(dto.confirmed);
         if (!productPlan.depthApplicable) delete numbers.product['passportDefaults.foundationDepth'];
@@ -140,12 +169,19 @@ export class PassportImportService {
           const prev = key === 'passportDefaults.foundationDepth' ? (current.product.passportDefaults as Doc | undefined)?.foundationDepth : current.product[key];
           if (!same(prev, value)) productSet[key] = value;
         }
+        if (chosen !== undefined) {
+          if (String((current.product.passportDefaults as Doc | undefined)?.installationTypeId ?? '') !== chosen) productSet['passportDefaults.installationTypeId'] = this.oid(chosen);
+          if (Object.prototype.hasOwnProperty.call(current.product, 'installationTypeId') && String(current.product.installationTypeId ?? '') !== chosen) productSet.installationTypeId = this.oid(chosen);
+        }
         const productKinds = ['overview', 'dimensions', productInstallationKind];
         const changedLinks = productKinds.filter(kind => {
           const links = current.links.filter(i => i.kind === kind);
           return links.length !== 1 || String(links[0].photoId) !== String(selected.get(kind)!.photoId);
         });
         if (productInstallationKind === 'mounting' && current.links.some(i => i.kind === 'foundation')) changedLinks.push('foundation');
+        const priorInstall = current.installs.find(i => String(i._id) === importInstallationId(current.product));
+        if (chosen !== undefined && productInstallationKind === 'foundation' && installationProfile(priorInstall as Doc | undefined).thirdImportKind !== 'foundation'
+          && current.links.some(i => i.kind === 'mounting')) changedLinks.push('mounting');
         const changes: Array<{ current: Doc; patch: Doc; line?: PassportLine; order?: Doc }> = [];
         for (const passport of current.passports) {
           const pid = String(passport._id);
@@ -157,9 +193,11 @@ export class PassportImportService {
             : line && (String(line.productId) !== String(productId) || !line.orderId || passport.salesOrderId && String(passport.salesOrderId) !== String(line.orderId)) ? 'order_mismatch'
             : orderId && (!order || order.deletedAt || order.cancelledAt || order.stage === 'cancelled') ? 'order_missing'
             : order?.activeArchiveVersion != null || order?.stage === 'closed' ? 'order_closed'
-            : (line?.passportSelection as { mode?: string } | undefined)?.mode === 'attachment' ? 'source_attachment' : null;
+            : (line?.passportSelection as { mode?: string } | undefined)?.mode === 'attachment' ? 'source_attachment'
+            : !passport.installationTypeId || !current.installs.some(i => !i.deletedAt && i.isActive !== false && String(i._id) === String(passport.installationTypeId) && installationProfile(i as Doc).thirdImportKind) ? 'installation_unknown'
+            : String(passport.installationTypeId) !== productInstallId ? 'installation_mismatch' : null;
           if (reason) {
-            const messages: Record<string, string> = { annulled: 'аннулирован', printFile: 'прикреплён готовый PDF', line_missing: 'позиция удалена, отменена или не найдена', order_mismatch: 'связи изделия и заказа противоречат друг другу', order_missing: 'договор удалён, отменён или не найден', order_closed: 'договор закрыт', source_attachment: 'для позиции выбран вложенный паспорт' };
+            const messages: Record<string, string> = { annulled: 'аннулирован', printFile: 'прикреплён готовый PDF', line_missing: 'позиция удалена, отменена или не найдена', order_mismatch: 'связи изделия и заказа противоречат друг другу', order_missing: 'договор удалён, отменён или не найден', order_closed: 'договор закрыт', source_attachment: 'для позиции выбран вложенный паспорт', installation_unknown: 'собственный способ установки не задан, удалён или неизвестен', installation_mismatch: 'собственный способ установки отличается от подтверждённого в Inventor' };
             result.skipped.push({ id: pid, reason }); result.warnings.push(`Паспорт ${passport.passportNumber ?? pid}: ${messages[reason]}, оставлен без изменений`); continue;
           }
           if (!orderId) result.warnings.push(`Паспорт ${passport.passportNumber ?? pid}: без заказа`);
@@ -210,7 +248,7 @@ export class PassportImportService {
             const set: Doc = { ...prepared, updatedAt: new Date() };
             if (isIssued(passport)) {
               const fromRevision = Number(passport.revision ?? 1);
-              const keep = Object.fromEntries([...new Set([...Object.keys(prepared), 'images', 'textSnapshot', 'printSnapshot'])].map(k => [k, passport[k] ?? null]));
+              const keep = Object.fromEntries([...new Set([...Object.keys(prepared), 'installationTypeId', 'images', 'textSnapshot', 'printSnapshot'])].map(k => [k, passport[k] ?? null]));
               set.revisions = [...((passport.revisions as unknown[]) ?? []), { revision: fromRevision, at: new Date(), by: actor?.id ?? null, data: keep }];
               set.revision = fromRevision + 1;
               result.issued.push({ id: pid, number: String(passport.passportNumber ?? ''), fromRevision, toRevision: fromRevision + 1 });
@@ -222,7 +260,7 @@ export class PassportImportService {
             throw new ConflictException(`Паспорт ${passport.passportNumber ?? pid}: ${error instanceof Error ? error.message : 'не удалось подготовить редакцию'}. Весь импорт отменён`);
           }
         }
-        result.status = 'applied'; result.updatedKinds = [...changedLinks]; result.confirmedFields = Object.keys(numbers.product);
+        result.status = 'applied'; result.updatedKinds = [...changedLinks]; result.confirmedFields = [...Object.keys(numbers.product), ...(chosen !== undefined ? ['passportDefaults.installationTypeId'] : [])];
       });
       return result;
     } finally { await session.endSession(); }

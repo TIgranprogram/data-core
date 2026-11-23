@@ -20,6 +20,8 @@ export class PassportImportDimensionsDto {
   @Equals('мм') unit!: 'мм';
 }
 export class PassportImportConfirmedDto {
+  @ApiPropertyOptional({ type: String, description: 'Явно выбранный живой способ установки из context.installations; отсутствие сохраняет прежний выбор изделия.' })
+  @ValidateIf((_o, v) => v !== undefined) @IsMongoId() installationTypeId?: string;
   @ApiPropertyOptional({ type: PassportImportDimensionsDto, description: 'Только одобренные габариты. Отсутствие поля сохраняет прежние значения.' })
   @ValidateIf((_o, v) => v !== undefined) @IsObject() @ValidateNested() @Type(() => PassportImportDimensionsDto) dimensions?: PassportImportDimensionsDto;
   @ApiPropertyOptional({ type: Number, minimum: 0.001, description: 'Одобренная масса, кг.' })
@@ -37,8 +39,17 @@ export class PassportImportDto {
   @IsObject() @ValidateNested() @Type(() => PassportImportConfirmedDto) confirmed!: PassportImportConfirmedDto;
 }
 
+export class PassportImportInstallationResponseDto {
+  @ApiProperty({ type: String }) id!: string;
+  @ApiProperty({ type: String }) name!: string;
+  @ApiProperty({ type: String }) code!: string;
+  @ApiProperty({ enum: ['foundation', 'mounting'] }) thirdImportKind!: 'foundation' | 'mounting';
+  @ApiProperty({ type: Boolean }) depthApplicable!: boolean;
+}
 export class PassportImportContextResponseDto {
   @ApiProperty({ type: String }) contextToken!: string;
+  @ApiProperty({ type: String, nullable: true, description: 'Текущий effective ID изделия: legacy поле перед defaults; неизвестный ID не выбирает первый вариант.' }) installationTypeId!: string | null;
+  @ApiProperty({ type: [PassportImportInstallationResponseDto], description: 'Живые поддержанные способы установки, применимые к типу паспорта изделия.' }) installations!: PassportImportInstallationResponseDto[];
 }
 export class PassportImportIssuedResponseDto {
   @ApiProperty({ type: String }) id!: string;
@@ -48,12 +59,12 @@ export class PassportImportIssuedResponseDto {
 }
 export class PassportImportSkippedResponseDto {
   @ApiProperty({ type: String }) id!: string;
-  @ApiProperty({ type: String, enum: ['annulled', 'printFile', 'line_missing', 'order_mismatch', 'order_missing', 'order_closed', 'source_attachment'] }) reason!: string;
+  @ApiProperty({ type: String, enum: ['annulled', 'printFile', 'line_missing', 'order_mismatch', 'order_missing', 'order_closed', 'source_attachment', 'installation_mismatch', 'installation_unknown'] }) reason!: string;
 }
 export class PassportImportResponseDto {
   @ApiProperty({ enum: ['applied', 'unchanged'] }) status!: 'applied' | 'unchanged';
   @ApiProperty({ type: [String], description: 'Обновлённые canonical kind; у анкеров содержит mounting, возможна очистка legacy foundation.' }) updatedKinds!: string[];
-  @ApiProperty({ type: [String], description: 'Одобренные поля изделия: dimensions, weightKg, passportDefaults.foundationDepth.' }) confirmedFields!: string[];
+  @ApiProperty({ type: [String], description: 'Одобренные поля изделия: dimensions, weightKg, passportDefaults.foundationDepth, passportDefaults.installationTypeId.' }) confirmedFields!: string[];
   @ApiProperty({ type: [PassportImportIssuedResponseDto] }) issued!: PassportImportIssuedResponseDto[];
   @ApiProperty({ type: [String] }) drafts!: string[];
   @ApiProperty({ type: [PassportImportSkippedResponseDto] }) skipped!: PassportImportSkippedResponseDto[];

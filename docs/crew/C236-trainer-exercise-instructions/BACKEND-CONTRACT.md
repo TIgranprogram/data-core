@@ -1,0 +1,5 @@
+# C236 — контракт backend для frontend
+PATCH /showcase/:id/passport-template?variant=short|full: прежний {expected,changes}; ключ exerciseInstructions — целый объект {initialPosition,movement,muscles} либо null. Expected null означает отсутствие, changes null удаляет только блок; omit не меняет. CAS stale409; повтор no-op прежний.
+Три непустых plain-text строки; CRLF→LF, trim краёв, внутренние абзацы сохранены. Сумма нормализованных длин ≤4000; 400 для partial/unknown keys/HTML/{placeholders}/нестрок/пустоты/лимита, без truncate. Expected сохраняет исходные строки для CAS.
+GET шаблона: defaults.exerciseInstructions — собственный baseline; textSnapshot.exerciseInstructions/PdfV2Text содержат три части и source:{kind:'product',productId}. Подписи: Инструкция упражнения / Исходное положение / Движения и завершение / Задействованные мышцы.
+Только шаблон редактируем; public Create/UpdatePassportDTO поле не принимают(400). Захват только new/create/template; existing draft/issued/GET не получают изменений/очистки модели. Safety/use/rules неизменны. 1069 — draft, записи на прод нет.

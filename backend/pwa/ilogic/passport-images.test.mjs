@@ -35,7 +35,45 @@ test('только подтверждённые конечные числа, о�
   assert.match(upload, /If writeSize Then confirmed.Add\("dimensions", New With \{\s+\.length = dimensions\(0\), \.width = dimensions\(1\), \.height = dimensions\(2\), \.unit = "мм"\}\)/);
   assert.match(upload, /If writeMass Then confirmed.Add\("weightKg", massKg\)/);
   assert.match(upload, /If writeDepth Then confirmed.Add\("foundationDepth", depthMm\)/);
-  assert.match(upload, /Dim writeDepth As Boolean = depthMm >= 0 .*Not Double.IsNaN\(depthMm\)/);
+  assert.match(upload, /Dim writeDepth As Boolean = depthApplicable AndAlso depthMm >= 0 .*Not Double.IsNaN\(depthMm\)/);
+});
+
+test('C241: явный выбор из контекста и отмена раньше любого upload', () => {
+  const choose = rule.match(/Function ChooseInstallation[\s\S]*?End Function/)?.[0];
+  const selectAt = upload.indexOf('ChooseInstallation(context)');
+  assert.ok(selectAt > upload.indexOf('importPath & "-context"'));
+  assert.ok(selectAt < upload.indexOf('Dim sizeKnown'));
+  assert.ok(selectAt < upload.indexOf('Dim overviewId As String = UploadPng'));
+  assert.match(upload, /If installation.ValueKind = Global.System.Text.Json.JsonValueKind.Undefined Then Return ""/);
+  assert.match(choose, /variants.GetArrayLength\(\) = 0 Then Throw/);
+  assert.match(choose, /Dim selected As Integer = -1/);
+  assert.match(choose, /If String.Equals\(id, currentId, StringComparison.Ordinal\) Then selected = choices.Count - 1/);
+  assert.match(choose, /selectBox.Items.Add\(name\)/); // Unicode-имя из ответа, не код/захардкоженный ID.
+  assert.match(choose, /\.DropDownStyle = Global.System.Windows.Forms.ComboBoxStyle.DropDownList/);
+  assert.match(choose, /\.Enabled = False/);
+  assert.match(choose, /If dialog.ShowDialog\(\) <> DialogResult.OK OrElse selectBox.SelectedIndex < 0 Then Return Nothing/);
+  assert.doesNotMatch(choose, /HttpMethod|UploadPng|[a-f0-9]{24}|SelectedIndex = 0/);
+});
+
+test('C241: тип третьего листа и применимость глубины берутся из выбранного профиля', () => {
+  const choose = rule.match(/Function ChooseInstallation[\s\S]*?End Function/)?.[0];
+  assert.match(choose, /kind <> "mounting" AndAlso kind <> "foundation"/);
+  assert.match(choose, /Not item.TryGetProperty\("depthApplicable", depth\)/);
+  assert.match(choose, /depth.ValueKind <> Global.System.Text.Json.JsonValueKind.True AndAlso depth.ValueKind <> Global.System.Text.Json.JsonValueKind.False/);
+  assert.match(choose, /JsonString\(item, "thirdImportKind"\) = "mounting", "схема монтажа", "схема фундамента"/);
+  assert.match(upload, /Dim depthApplicable As Boolean = installation.GetProperty\("depthApplicable"\).GetBoolean\(\)/);
+  assert.match(upload, /confirmed.Add\("installationTypeId", installationId\)/);
+  assert.match(upload, /Dim installationId As String = ApiId\(installation\)/);
+  // AndAlso не открывает диалог глубины, когда профиль её исключает.
+  assert.match(upload, /Dim writeDepth As Boolean = depthApplicable AndAlso[^\r\n]*AndAlso\s+MessageBox.Show/);
+});
+
+test('C241: конфликт останавливает импорт; неизменные JSON, файлы и выбор при сетевом повторе', () => {
+  const retry = upload.slice(upload.indexOf('For attempt As Integer = 1 To 3'));
+  assert.ok(upload.indexOf('Dim json As String = Global.System.Text.Json.JsonSerializer.Serialize(payload)') < upload.indexOf('For attempt As Integer = 1 To 3'));
+  assert.match(retry, /Catch ex As InvalidOperationException When ex.Message.Contains\("HTTP 409"\)\s+Throw New InvalidOperationException/);
+  assert.doesNotMatch(retry, /ChooseInstallation|confirmed.Add|UploadPng|passport-import-context|\.Serialize\(/);
+  assert.equal((upload.match(/HttpMethod.Post, importPath, body/g) || []).length, 1);
 });
 
 test('повтор использует те же файлы; успех только после проверенного ответа', () => {

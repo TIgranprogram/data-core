@@ -3,7 +3,7 @@ import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.inter
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Throttle } from '@nestjs/throttler';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards, UseInterceptors } from '@nestjs/common';
-import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -42,11 +42,13 @@ export class StockController {
 
   /** Позиции склада по умолчанию: материал + остаток / бронь / свободно; counts — для чипов «к закупке / нет / в брони». */
   @Get('items')
+  @ApiOperation({ summary: 'Номенклатура и остатки склада', description: 'quantity/reservedQty — сумма живых ячеек материала в складе по умолчанию. Read-only countMode=single (0/1 ячейка) или multiple (>1): общий пересчёт count/batch(count) при multiple отклоняется409 без изменения остатков.' })
   @Roles('admin', 'director', 'manager', 'user')
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤1000, по умолчанию 1000' })
   @ApiQuery({ name: 'search', required: false, description: 'наименование, артикул, код, примечание' })
-  @ApiQuery({ name: 'sort', required: false, description: 'name | categoryName | unit | article | quantity | reservedQty | free | minQuantity | status | updatedAt | deletedAt; «-» — по убыванию' })
+  @ApiQuery({ name: 'sort', required: false, description: 'name | categoryName | unit | article | quantity | reservedQty | free | minQuantity | status | updatedAt | deletedAt | lastCountedAt | sectionSize | sheetSize | woodSize | thickness | width | height | depth | length | diameter; «-» — по убыванию. Размеры численно до страниц, неизвестные в конце.' })
   @ApiQuery({ name: 'status', required: false, description: 'через запятую: ok, low, none, reserved' })
+  @ApiQuery({ name: 'availability', required: false, enum: ['none', 'in'], description: 'none — физический остаток равен0; in — больше0, включая полностью забронированное; без параметра — вся номенклатура. Применяется вместе со status до сортировки/страниц; counts до этого отбора.' })
   @ApiQuery({ name: 'priority', required: false, description: '1 — «заканчивается» и «в брони» сверху' })
   @ApiQuery({ name: 'grade', required: false, description: 'марка стали' }) @ApiQuery({ name: 'section', required: false, description: 'сортамент / сечение' }) @ApiQuery({ name: 'thickness', required: false, description: 'толщина, мм' })
   @ApiQuery({ name: 'categoryId', required: false }) @ApiQuery({ name: 'deleted', required: false, description: '1 — корзина' })
@@ -58,7 +60,7 @@ export class StockController {
     const scope = narrowToZone(own, q.zoneId);
     const ids = q.ids ? String(q.ids).split(',').map((x) => x.trim()).filter((x) => Types.ObjectId.isValid(x)).slice(0, 2000) : null;
     const base = { ...q, ...(ids ? { materialIds: ids.map((x) => new Types.ObjectId(x)) } : {}) };
-    return this.stock.listItems(scope ? base : { ...base, hideEmptyMetal: '1' }, scope);
+    return this.stock.listItems(base, scope);
   }
 
   /** SK-8d: короткий список позиций для выбора из «Заявок» и «Продукции» (без фото, броней, заявок) — `{items}`. */

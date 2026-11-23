@@ -29,7 +29,7 @@ import { section, card, badge, empty, hint, landing, tileGrid, navList, posPic, 
  */
 
 const canWrite = () => session.canEdit;
-const FLAGS = [['unmatched', 'Не связаны со складом'], ['noPrice', 'Без цены'], ['stale', 'Цена устарела']];
+const FLAGS = [['unmatched', 'Не связаны со складом'], ['noPrice', 'Предложения без цены'], ['stale', 'Цена предложения устарела']];
 
 // ---------- данные ----------
 let countsP = null;
@@ -103,7 +103,7 @@ function sideFilters() {
         for (let grew = true; grew;) { grew = false; for (const x of c.categories || []) if (branch.has(String(x.parentId)) && !branch.has(x.id)) { branch.add(x.id); grew = true; } }
       }
       const sups = (c.suppliers || []).filter((s) => !branch || (s.cats || []).some((k) => branch.has(k))).map((s) => ({ value: s.id, label: s.name, n: s.count }));
-      if (c.noSupplier > 0) sups.push({ value: 'none', label: 'Без поставщика', n: c.noSupplier });
+      if (c.noSupplier > 0) sups.push({ value: 'none', label: 'Без предложений', n: c.noSupplier });
       return { catId: tops, subId: subs, supplierId: sups };
     },
   });
@@ -345,13 +345,13 @@ export const supplierCatalog = {
       : null),
     columns: [
       { key: 'photo', label: '', render: (r) => thumb(r) },
-      { key: 'supplierName', label: 'Поставщик', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return isMaterial(r) ? badge('Поставщика нет', 'dim') : r.supplierName || h('span', { class: 'muted' }, '—'); } },
+      { key: 'supplierName', label: 'Поставщик предложения', cls: 'clip', render: (r) => { rowCache.set(r.id, r); return isMaterial(r) ? Object.assign(badge('Нет предложения', 'dim'), { title: 'Нет действующего предложения в каталоге. Поставщики и цены прошлых закупок могут быть в карточке.' }) : r.supplierName || h('span', { class: 'muted' }, '—'); } },
       { key: 'article', label: 'Артикул поставщика', cls: 'nowrap', render: (r) => r.article && !r.article.startsWith('manual:') ? r.article : h('span', { class: 'muted' }, '—') },
       { key: 'name', label: 'Название у поставщика', cls: 'clip', render: (r) => h('span', { title: r.name }, r.name, r.color ? h('span', { class: 'muted' }, ' · ' + r.color) : null) },
       { key: 'material', label: 'Наш материал', cls: 'clip md-hide', render: (r) => r.materialId ? h('span', { title: r.materialArticle }, r.materialName) : h('span', { class: 'badge warn', title: 'Не связана с позицией склада' }, 'нет связи') },
       { key: 'unit', label: 'Ед. изм.', cls: 'md-hide', render: (r) => r.unit || '' },
-      { key: 'priceHint', money: true, label: 'Цена, ₽', cls: 'num right', render: (r) => r.priceHint != null ? money(r.priceHint) : h('span', { class: 'muted' }, '—') },
-      { key: 'priceDate', label: 'Дата цены', cls: 'nowrap md-hide muted', render: (r) => (isStale(r) ? staleBadge(r.priceDate) : r.priceDate ? date(r.priceDate) : '') },
+      { key: 'priceHint', money: true, label: 'Цена предложения, ₽', cls: 'num right', render: (r) => r.priceHint != null ? money(r.priceHint) : h('span', { class: 'muted' }, '—') },
+      { key: 'priceDate', label: 'Дата цены предложения', cls: 'nowrap md-hide muted', render: (r) => (isStale(r) ? staleBadge(r.priceDate) : r.priceDate ? date(r.priceDate) : '') },
       { key: 'stockQty', label: 'Остаток', cls: 'num right md-hide', render: (r) => r.stockQty != null ? qty(r.stockQty) : '' },
     ],
     card: {

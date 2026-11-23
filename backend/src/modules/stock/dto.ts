@@ -18,7 +18,7 @@ export class StockItemDto {
   @ApiPropertyOptional({ description: 'Марка стали (Ст3, AISI 304); null — стереть' }) @IsOptional() @IsString() @Length(0, 100) materialGrade?: string | null;
   @ApiPropertyOptional({ description: 'C043: тип позиции вручную (пусто — вычисляется из названия); пусто — стереть' }) @IsOptional() @IsString() @Length(0, 120) typeName?: string | null;
   @ApiPropertyOptional({ description: 'Труба: мытая (true) / не мытая (false); null — стереть' }) @IsOptional() @IsBoolean() washed?: boolean | null;
-  @ApiPropertyOptional({ description: 'Размеры, мм: { length, width, thickness, diameter } (null — стереть)' }) @IsOptional() @IsObject() dims?: { length?: number | null; width?: number | null; thickness?: number | null; diameter?: number | null };
+  @ApiPropertyOptional({ description: 'Размеры, мм: { length, width, height, depth, thickness, diameter } (null — стереть ось, отсутствующая ось сохраняется)' }) @IsOptional() @IsObject() dims?: { length?: number | null; width?: number | null; height?: number | null; depth?: number | null; thickness?: number | null; diameter?: number | null };
 }
 
 /** Исправить списание (СМ.5): сколько выдано на самом деле. */

@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import { STOCK_VIEWS, type StockView } from '../../common/stock-views';
 
 export type RoleDocument = HydratedDocument<Role>;
 
@@ -37,6 +38,10 @@ export class Role {
    */
   @Prop({ type: [String], default: undefined })
   appSections?: string[];
+
+  /** Дополнительные экраны склада: нет — по базовой роли, [] — отключены. Не меняет права API. */
+  @Prop({ type: [String], enum: STOCK_VIEWS, default: undefined })
+  stockViews?: StockView[];
 
   /** СМ.4: категории склада (categories.id, тип material), которые видит и меняет роль; пусто — весь склад. */
   @Prop({ type: [String], default: undefined })

@@ -1,3 +1,4 @@
+import { exerciseInstructions, type ExerciseSnapshot } from '../../common/passport/exercise-instructions';
 import { compose, legacyStartNumber, legacyTemplateToBlocks, usedStandards, TRAITS_FIELD, type ComposedSection, type ExcludedItem, type LegacyTemplateLike, type PassportTextBlock, type StandardsDict, type TextSrc } from './passport-compose';
 import { collectTraits, filterByWhen } from './passport-traits';
 import { overrideFor } from '../../common/passport/text-overrides';
@@ -39,6 +40,7 @@ export interface FunnelText {
 }
 
 export interface V2Text {
+  exerciseInstructions?: ExerciseSnapshot;
   templateVersion: number;
   ownVersion: number | null;
   category: string;
@@ -148,6 +150,7 @@ export function buildV2Text(input: V2TextInput): V2Text {
   const rowRefs = new Map<MaintenanceRow, FieldRef>();
   const maintenance = maintenanceTables(materials, elements, defects.kept, install, rowRefs);
   return {
+    ...(p.exerciseInstructions ? { exerciseInstructions: { ...exerciseInstructions(p.exerciseInstructions), source: { kind: 'product' as const, productId } } } : {}),
     templateVersion: all.version ?? 0,
     ownVersion: own?.version ?? null,
     category,

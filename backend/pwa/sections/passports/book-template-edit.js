@@ -44,6 +44,7 @@ export function sideForm(slot, { title, form, extra, changed, save, done, read, 
   } });
   setSideWide(slot, false, { editing: true });
   slot.replaceChildren(sidePanel(title, stack(body, error, actions(ok, cancel))));
+  return { submit: () => ok.click() };
 }
 
 function descriptionHelp(slot, template, { done, openParts }, message, dictionary = 'passportPhrases') {

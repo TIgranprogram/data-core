@@ -1,0 +1,14 @@
+# Общий выпуск — точный план access-проверки
+
+23.11.2026. Подготовлен; новый выпуск и применение инструкций ещё не выполнены. Код/пароли/сессии не менялись и не извлекались.
+
+1. После подтверждения root о завершении final standRefresh: только api.sh stand GET health/ready и meta/openapi.json. Сверить runtime-схемы availability/countMode, role stockViews/resetStockViews и nullable exerciseInstructions; отсутствие отдельного schema-name не ошибка, блок inline в PatchPassportTemplateDto.expected/changes. UI повторно не запускать: runtime исправлен только в transaction/session.
+2. После общего выпуска и явного сигнала: api.sh prod GET health/ready, health и app/version.json; сверить хэш опубликованного кода с сигналом root. CRM doctor/7проверок выполняется штатным путём без изменения CRM.
+3. GET нулевой номенклатуры80×60×3 id6ae45d4ad29aaee2976a2717: существующий material, quantity0, availabilitynone; separator-варианты поиска дают этот ID, held1/availabilityin исключают. Не создавать строк/остатков.
+4. Повторить read-only контроль C237: три договора44–46,19строк/ручные связи/productionNo отсутствует/paid0; legal3/2/2 документов. Все7оригинальных PDF и8изображений проверить скачиванием по safe same-origin uploads URL и SHA;9привязок income без дублей. Runner tools/logs/c237-prod-postcheck.mjs можно использовать после проверки, не перезаписывая прежнее доказательство.
+5. Непосредственно перед возможным CAS: GET showcase1067/1068, short/full шаблоны, три oldissued1067 с readOnly1 и полную baseline1069. Сохранить новый before отдельно; не запускать ранний prepare-runner, который пересоздаёт утверждённые PATCH тела.
+6. Контроль утверждённых файлов: apply1067SHA4c32df0b8d3747b62d7c322e81f8ee3bbe04302153f49445802f24066a45def0;1068SHA ccd95e3bdd1b255d11a3289b6e00397c1d7cf5894d8f969b13418da04d6700e2. Оба expectedexerciseInstructionsnull, короткий/полный baseline согласованы. Чужой существующий блок →стоп, expected не подменять.
+7. PATCH допускается только по отдельному позднейшему указанию root «пользователь разрешил» с ровно двумя SKU/телами после релиза. Один writer; неизвестный исход/409 сначала GET, без слепого повтора.1069 полностью исключён.
+8. После каждого разрешённого изменения: short/full содержат точный блок/sourceproductID, прочие defaults/фото/данные карточки и use11/rules4 либо use15/rules0 прежние; issued1067 ids6b01bfe3909e4722e0795922/6aff1251fd285cf4215c59bd/6ad8d487371b65d090d8c792 полностью сохранены, total3; issued1068total0;1069 unchanged. Не выдавать новые номера/паспорта/редакции.
+
+Отчёт исполнения — отдельный фактический POSTRELEASE-REPORT; этот файл не является разрешением записи или доказательством PASS.

@@ -10,8 +10,8 @@ describe('metal (СМ.1–СМ.2)', () => {
 
   it('размеры: из массива схемы и правка (null — убрать, undefined — не трогать)', () => {
     const cur = [{ type: 'length', value: 6000 }, { type: 'thickness', value: 2 }, { type: 'height', value: 5 }];
-    expect(dimsOf(cur)).toEqual({ length: 6000, thickness: 2 });
-    expect(mergeDims(cur, { thickness: null, width: 1250 })).toEqual([{ type: 'length', value: 6000, isImmutable: false }, { type: 'width', value: 1250, isImmutable: false }]);
+    expect(dimsOf(cur)).toEqual({ length: 6000, thickness: 2, height: 5 });
+    expect(mergeDims(cur, { thickness: null, width: 1250 })).toEqual([{ type: 'length', value: 6000 }, { type: 'height', value: 5 }, { type: 'width', value: 1250, isImmutable: false }]);
   });
 
   it('название обрезка: труба в метрах, лист — формат', () => {

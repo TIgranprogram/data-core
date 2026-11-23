@@ -1031,7 +1031,7 @@
     lMoney.append(money, el('span', '', 'Деньги'));
     const moneyHint = el('p', 'muted small', 'Без галочки цены и суммы скрыты везде.');
     let box = null, stockBox = null, zoneBox = null;
-    const api = { wrap, name, base, box, stockBox, zoneBox, own, money, warnings: () => [] };
+    const api = { wrap, name, base, box, stockBox, zoneBox, own, money, isNew, warnings: () => [] };
     if (r.name === 'admin') { wrap.append(lMoney, moneyHint); return api; }
 
     const known = roleState.sections;
@@ -1046,6 +1046,7 @@
       const g = checkGrid(items, on); g.grid.classList.add("rl-secs"); Object.assign(cells, g.byId);
       const kids = [g.grid];
       if (title === 'Деньги') kids.unshift(lMoney, moneyHint);
+      if (title === 'Склад') kids.push(...(api.stockViewSettings = window.DataCoreRoleStockViews.mount(r, { el, checkGrid })).nodes);
       if (title === 'Склад' && roleState.zones.length) {
         kids.push(el('p', 'muted small', 'Склады: какие склады роль видит и меняет. Пусто — весь склад.'));
         const zg = checkGrid(roleState.zones.map((z) => ({ id: z.id, label: z.name })), new Set(r.warehouseIds || []));
@@ -1133,6 +1134,7 @@
     if (f.box) body.appSections = [...f.box.querySelectorAll('input:checked')].map((c) => c.value);
     if (f.zoneBox) body.warehouseIds = [...f.zoneBox.querySelectorAll('input:checked')].map((c) => c.value);
     if (f.stockBox && !(body.warehouseIds && body.warehouseIds.length)) body.stockCategoryIds = [...f.stockBox.querySelectorAll('input:checked')].map((c) => c.value);
+    Object.assign(body, window.DataCoreRoleStockViews.read(f.stockViewSettings, { isNew: f.isNew, checkedOf }));
     if (f.base) body.baseRole = f.base.value;
     if (!f.money.disabled) body.money = f.money.checked;
     return body;

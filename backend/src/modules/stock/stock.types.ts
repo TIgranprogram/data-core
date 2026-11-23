@@ -65,5 +65,5 @@ export function countGuard(target: number, current: number, reserved: number, fo
 }
 
 /** Поля, по которым можно сортировать позиции склада. */
-export const ITEM_SORT = ['name', 'categoryName', 'unit', 'article', 'quantity', 'reservedQty', 'free', 'minQuantity', 'status', 'updatedAt', 'deletedAt', 'lastCountedAt'];
+export const ITEM_SORT = ['name', 'categoryName', 'unit', 'article', 'quantity', 'reservedQty', 'free', 'minQuantity', 'status', 'updatedAt', 'deletedAt', 'lastCountedAt', 'sectionSize', 'sheetSize', 'woodSize', 'thickness', 'width', 'height', 'depth', 'length', 'diameter'];
 export const MOVE_LABEL: Record<string, string> = { in: 'Приход', out: 'Списание', adjust: 'Корректировка', transfer: 'Перемещение' };

@@ -29,7 +29,7 @@ async function fixture(t, { width = 1920, user = role, zone = true, items = samp
   const page = await browser.newPage({ viewport: { width, height: width === 1920 ? 1080 : 1440 }, serviceWorkers: 'block' });
   t.after(() => page.close());
   const person = { id: 'test-wood', username: 'wood-test', displayName: 'Проверка', ...user };
-  const calls = [], errors = [], records = structuredClone(items);
+  const calls = [], errors = [], records = structuredClone(items).map(item => ({ countMode: 'single', ...item }));
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(({ person, theme }) => {
     localStorage.setItem('dc-theme', theme);
@@ -51,7 +51,7 @@ async function fixture(t, { width = 1920, user = role, zone = true, items = samp
       if (pathname === '/api/stock/items') {
         if (query.zoneId !== 'wood-zone' || query.held || query.withParts !== (method === 'GET' ? '0' : undefined)) return route.fulfill({ status: 403, json: {} });
         if (method === 'POST') {
-          const item = { id: 'created', ...body, categoryName: categories.find(category => category.id === body.categoryId).name, quantity: 0, reservedQty: 0 };
+          const item = { id: 'created', countMode: 'single', ...body, categoryName: categories.find(category => category.id === body.categoryId).name, quantity: 0, reservedQty: 0 };
           records.push(item);
           return route.fulfill({ json: item });
         }
@@ -82,11 +82,11 @@ for (const width of [1920, 2560]) {
     assert.equal(await table.locator('tbody tr').count(), 4);
     const zero = table.getByRole('row').filter({ hasText: 'Доска берёзовая' });
     assert.equal(await zero.getByLabel('Фактически, Доска берёзовая').inputValue(), '0');
-    assert.equal(await zero.locator('td').nth(7).textContent(), '0');
+    assert.equal(await zero.locator('td').nth(10).textContent(), '0');
     assert.equal(await table.getByText('Доска чужой зоны').count(), 0);
     const plywood = table.getByRole('row').filter({ hasText: 'Фанера ФСФ' });
-    assert.equal(await plywood.locator('td').nth(6).textContent(), '6');
-    assert.equal(await plywood.locator('td').nth(7).textContent(), '0');
+    assert.equal(await plywood.locator('td').nth(9).textContent(), '6');
+    assert.equal(await plywood.locator('td').nth(10).textContent(), '0');
     assert.equal(await table.getByText(/Цена|Сумма|Стоимость/).count(), 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
     if (process.env.C194_PROOF_DIR) {
@@ -96,11 +96,11 @@ for (const width of [1920, 2560]) {
     await search.fill('Ф-02'); await page.waitForFunction(() => document.querySelectorAll('tbody tr').length === 1);
     const count = page.getByRole('textbox', { name: 'Фактически, Фанера ФСФ' });
     await count.fill('8'); await count.press('Enter');
-    await page.waitForFunction(() => document.querySelector('tbody tr')?.children[7]?.textContent === '2');
+    await page.waitForFunction(() => document.querySelector('tbody tr')?.children[10]?.textContent === '2');
     assert.deepEqual(calls.find(c => c.pathname === '/api/stock/batch').body.lines[0], { materialId: 'ply', qty: 8, expected: 6 });
     const note = page.getByRole('textbox', { name: 'Примечание, Фанера ФСФ' });
     await note.fill('Проверено'); await note.press('Enter');
-    await page.waitForFunction(() => document.querySelector('input.pg-note.saved'));
+    await page.waitForFunction(() => document.querySelector('input.pg-note[data-saved]'));
     assert.deepEqual(calls.find(c => c.pathname === '/api/stock/items/ply').body, { notes: 'Проверено' });
     assert.ok(calls.filter(c => c.pathname === '/api/stock/items').every(c => !c.query.held && c.query.withParts === '0' && c.query.zoneId === 'wood-zone'));
     assert.deepEqual(errors, []);
@@ -159,7 +159,7 @@ test('Пустой остаток, роль только просмотра и �
 
 test('Роли другого участка и мобильная роль сохраняют собственный старт', async t => {
   const other = await fixture(t, { user: { ...role, roleLabel: 'Лазер лист' }, hash: '#stock?view=wood' });
-  await other.page.getByRole('heading', { name: 'Листы' }).waitFor();
+  await other.page.getByRole('heading', { name: 'Листовой материал' }).waitFor();
   assert.ok(!other.calls.some(c => c.query.zoneId === 'wood-zone'));
   const mobile = await fixture(t, { user: { ...role, sections: ['stock-mobile'], roleLabel: 'Кладовщик дерева (телефон)' }, hash: '#stock?view=wood' });
   await mobile.page.locator('.shell.k-kiosk').waitFor();

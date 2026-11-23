@@ -9,7 +9,8 @@ import { sameRe } from '../../common/text/same-text';
 import { STOCK_VISIBLE } from '../../common/catalog/stock-visible';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { articleView } from './article';
-import { dimsOf, metalKind, isEmptyMetal } from './metal';
+import { dimsOf, metalKind } from './metal';
+import { sectionProfile, compareDimensions, isDimensionSort, compactStockDimensions } from './stock-dimensions';
 import { StockCoreService } from './stock-core.service';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
 import { ITEM_SORT } from './stock.types';
@@ -53,9 +54,12 @@ export class StockSearchService {
    * (сотни–тысячи позиций — это быстро). status: ok | low | none | reserved | ordered (через запятую; ordered — есть открытые заявки, ждут поставку). deleted=1 — корзина.
    */
   async listItems(q: Record<string, unknown> & { materialIds?: Types.ObjectId[] } = {}, scope?: StockScope | null) {
+    if (q.availability !== undefined && q.availability !== 'none' && q.availability !== 'in') {
+      throw new BadRequestException('Наличие: выберите «Нет в наличии» или «В наличии»');
+    }
     const p = parseList(q, { sortable: ITEM_SORT, defaultSort: 'name', defaultLimit: 1000, maxLimit: 10000 });
     // Поиск — в памяти (search-norm): «м10 гайка» = «Гайка …, M10 …», слова в любом порядке
-    const tokens = q.search ? searchTokens(q.search) : [];
+    const tokens = q.search ? searchTokens(compactStockDimensions(q.search)) : [];
     // скорость С9: строки склада считаются один раз, пока не менялись данные (кэш по версиям коллекций); строки общие — не менять
     const held = q.held === '1' && !p.deleted;
     const hideParts = !held && q.withParts === '0';
@@ -66,7 +70,8 @@ export class StockSearchService {
     const { wh, rows: found } = this.versions && !q.materialIds ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     // склады (WZ): чужие позиции отсекаются здесь, после общего кэша строк; нулевой металл роль со складом видит (своя работа)
     const seen = scope ? found.filter((r) => inScope(scope, r)) : found;
-    const all = !held && q.hideEmptyMetal ? seen.filter((r) => !isEmptyMetal(r)) : seen;
+    // C242: нулевая номенклатура остаётся видимой; held=1 — отдельный явный отбор наличия.
+    const all = seen;
     // Счётчики по состоянию — для чипов фильтра (до фильтра по состоянию)
     const counts = { all: all.length, ok: 0, low: 0, none: 0, reserved: 0, ordered: 0 };
     for (const r of all) { counts[r.status as 'ok' | 'low' | 'none']++; if (r.reservedQty > 0) counts.reserved++; if (r.ordered > 0) counts.ordered++; }
@@ -75,17 +80,21 @@ export class StockSearchService {
       const want = new Set(String(q.status).split(','));
       rows = rows.filter((r) => want.has(r.status) || (want.has('reserved') && r.reservedQty > 0) || (want.has('ordered') && r.ordered > 0));
     }
+    // Наличие — физический остаток, не свободное количество. Счётчики выше сохраняют прежнюю семантику.
+    if (q.availability === 'none') rows = rows.filter((r) => r.quantity === 0);
+    else if (q.availability === 'in') rows = rows.filter((r) => r.quantity > 0);
     const [[field, dir]] = Object.entries(p.sort);
     const key2 = field as keyof (typeof rows)[number];
     rows.sort((a, b) => {
+      if (isDimensionSort(field)) return compareDimensions(a, b, field, dir);
       const x = a[key2], y = b[key2];
       const c = typeof x === 'number' || typeof y === 'number' ? Number(x ?? 0) - Number(y ?? 0)
         : x instanceof Date || y instanceof Date ? new Date((x as Date) ?? 0).getTime() - new Date((y as Date) ?? 0).getTime()
           : String(x ?? '').localeCompare(String(y ?? ''), 'ru');
-      return c * dir || String(a.name).localeCompare(String(b.name), 'ru');
+      return c * dir || String(a.name).localeCompare(String(b.name), 'ru') || a.materialId.localeCompare(b.materialId);
     });
     // priority=1 (SK-4a): «заканчивается» и «в брони» — сверху; внутри групп порядок выбранной сортировки (sort стабилен)
-    if (String(q.priority) === '1') rows.sort((a, b) => attentionRank(a) - attentionRank(b));
+    if (String(q.priority) === '1' && !isDimensionSort(field)) rows.sort((a, b) => attentionRank(a) - attentionRank(b));
     const page = rows.slice(p.skip, p.skip + p.limit);
     // «висящая» бронь (СК-6): сколько в брони под отгруженный / аннулированный заказ — считаем только для строк страницы с бронью
     // фото и «висящая» бронь независимы — читаем разом
@@ -111,7 +120,7 @@ export class StockSearchService {
     const make = () => this.itemRows({}, false, []);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const items = rows
-      .filter((r) => (scope ? inScope(scope, r) : !isEmptyMetal(r)))
+      .filter((r) => !scope || inScope(scope, r))
       .map((r) => ({ id: r.id, materialId: r.materialId, name: r.name, article: r.article ?? null, unit: r.unit ?? null, categoryName: r.categoryName, quantity: r.quantity, free: r.free }))
       .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ru'));
     return { items };
@@ -135,8 +144,8 @@ export class StockSearchService {
     // категория хранится и ObjectId, и строкой (пишет kppdf мимо схемы) — читаем сырой коллекцией,
     // чтобы `$in:[ObjectId, hex]` нашёл оба вида: Mongoose приводит строку к ObjectId, и строковая категория не находилась (T8).
     const mats = (await this.connection.db!.collection('materials').find(filter).toArray() as unknown as MaterialDocument[])
-      .filter((m) => matchesAll(tokens, m.name, m.fullName, m.invoiceName, m.article, m.sku, m.notes, m.assortment, m.materialGrade,
-        (m as { internalArticle?: string }).internalArticle, ...(held ? [m.pdmCode, ...(m.pdmAliases ?? [])] : [])));
+      .filter((m) => matchesAll(tokens, ...[m.name, m.fullName, m.invoiceName, m.article, m.sku, m.notes, m.assortment, m.materialGrade,
+        (m as { internalArticle?: string }).internalArticle, ...(held ? [m.pdmCode, ...(m.pdmAliases ?? [])] : [])].map(compactStockDimensions)));
     const ids = mats.map((m) => m._id as Types.ObjectId);
     // скорость С7: независимые чтения — разом, категории — только нужные (не все категории CRM)
     const catIds = [...new Set(mats.map((m) => m.categoryId).filter(Boolean).map(String))].filter((x) => Types.ObjectId.isValid(x)).map((x) => new Types.ObjectId(x));
@@ -161,12 +170,12 @@ export class StockSearchService {
       list.push({ id: String(k._id), name: String(k.name), qty: n, length: dimsOf(k.dimensions).length ?? null, categoryId: k.categoryId });
       offcutsOf.set(String(k.offcutOf), list);
     }
-    const byMat = new Map<string, { quantity: number; reservedQty: number; minQuantity: number; weightKg?: number; zoneName?: string; id: string; lastCountedAt?: Date }>();
+    const byMat = new Map<string, { quantity: number; reservedQty: number; minQuantity: number; weightKg?: number; zoneName?: string; id: string; lastCountedAt?: Date; countMode: 'single' | 'multiple' }>();
     for (const s of stocks) {
       const k = String(s.materialId);
       const cur = byMat.get(k);
-      if (cur) { cur.quantity += s.quantity ?? 0; cur.reservedQty += s.reservedQty ?? 0; continue; }
-      byMat.set(k, { id: String(s._id), quantity: s.quantity ?? 0, reservedQty: s.reservedQty ?? 0, minQuantity: s.minQuantity ?? 0, weightKg: s.weightKg, zoneName: s.zoneName, lastCountedAt: (s as { lastCountedAt?: Date }).lastCountedAt });
+      if (cur) { cur.quantity += s.quantity ?? 0; cur.reservedQty += s.reservedQty ?? 0; cur.countMode = 'multiple'; continue; }
+      byMat.set(k, { id: String(s._id), quantity: s.quantity ?? 0, reservedQty: s.reservedQty ?? 0, minQuantity: s.minQuantity ?? 0, weightKg: s.weightKg, zoneName: s.zoneName, lastCountedAt: (s as { lastCountedAt?: Date }).lastCountedAt, countMode: 'single' });
     }
     // В «Остатках» смотрим на физическое количество; бронь и свободное не меняют видимость строки.
     const shown = held ? mats.filter((m) => (byMat.get(String(m._id))?.quantity ?? 0) > 0) : mats;
@@ -183,9 +192,11 @@ export class StockSearchService {
         ordered: Math.round((openReq.get(String(m._id)) ?? []).reduce((s, r) => s + (r.qty || 0), 0) * 1000) / 1000,
         assortment: m.assortment ?? null, materialGrade: m.materialGrade ?? null, typeName: m.typeName ?? null, washed: (m as { washed?: boolean }).washed ?? null, dims: dimsOf(m.dimensions),
         metal: metalKind(m.categoryId ? catName.get(String(m.categoryId)) : null, m.unit),
+        sectionProfile: sectionProfile({ metal: metalKind(m.categoryId ? catName.get(String(m.categoryId)) : null, m.unit), assortment: m.assortment, dims: dimsOf(m.dimensions) }),
         offcutOf: (m as { offcutOf?: Types.ObjectId }).offcutOf ? String((m as { offcutOf?: Types.ObjectId }).offcutOf) : null,
         offcuts: offcutsOf.get(String(m._id)) ?? [],
         weightKg: st?.weightKg ?? m.weightKg, weightG: weightGOf(m as { weightKg?: unknown; weightUnit?: unknown }), zoneName: st?.zoneName ?? null, storageItemId: st?.id ?? null,
+        countMode: st?.countMode ?? 'single',
         lastCountedAt: st?.lastCountedAt ?? null,
         photoIds: (m.photoIds ?? []) as Types.ObjectId[],
         status: quantity <= 0 ? 'none' : minQuantity > 0 && quantity - reservedQty < minQuantity ? 'low' : 'ok',
@@ -269,7 +280,7 @@ export class StockSearchService {
     const make = () => this.itemRows({}, false, [], held);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
     const by = new Map<string, { id: string; name: string; total: number; low: number; none: number; ordered: number }>();
-    const mine = rows.filter((r) => (scope ? inScope(scope, r) : !isEmptyMetal(r)));
+    const mine = rows.filter((r) => !scope || inScope(scope, r));
     for (const i of mine) {
       const id = i.categoryId ?? 'none';
       const c = by.get(id) ?? { id, name: i.categoryName ?? 'Без категории', total: 0, low: 0, none: 0, ordered: 0 };

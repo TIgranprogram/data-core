@@ -1,0 +1,134 @@
+{
+  "date": "2026-11-23",
+  "baseCommit": "36bdd4dc",
+  "status": "CODE FROZEN; implementation/self-check PASS; independent review pending",
+  "node": {
+    "skipped": 0,
+    "log": "qa/frontend-tests.log",
+    "failed": 0,
+    "total": 55,
+    "exitCode": 0,
+    "passed": 55
+  },
+  "checks": {
+    "guards": 411,
+    "imports": 418,
+    "diff": "PASS",
+    "atlas": "PASS",
+    "designNew": 0
+  },
+  "environment": "isolated synthetic HTTP/DOM with actual main.js/full shell; no prod or stand",
+  "invariants": [
+    "no physical pieces derived from metre division",
+    "one row per materialId",
+    "withParts0 and ACL retained",
+    "old generic stockList parameters retained",
+    "no stageC backfill via unchanged form dimensions",
+    "server sort/filter before pages; fakeAPI not proof of backend implementation",
+    "P2: inline count only countMode single; multiple and unknown 0countPOST; materials.notes separate"
+  ],
+  "files": [
+    {
+      "sha256": "4ed7039feaac0907c98b3fabef8bb61b4b7924d76d64900c3b5e66f2994ec48d",
+      "path": "backend/pwa/core/facets.js"
+    },
+    {
+      "sha256": "a97cf15a28790c314b76f3b9fd8a2127ac386895af652d65d49a661598bde37e",
+      "path": "backend/pwa/core/stock-list.js"
+    },
+    {
+      "sha256": "48fb8dd876beecbb1a7cdb13af33be4e4c13b865e53edabbafd04494324bc646",
+      "path": "backend/pwa/sections/stock.js"
+    },
+    {
+      "sha256": "b3ecf244b78f187c37937f0ca53806897de3779513d75de66281ad2f9685feaf",
+      "path": "backend/pwa/sections/stock-types.js"
+    },
+    {
+      "sha256": "e865ca93f3ffaa51139048326698ec507e7b430bbf8868d725c40c9af113fcc6",
+      "path": "backend/pwa/sections/pipe-grid.js"
+    },
+    {
+      "sha256": "e45d33bb11f6c2705dbc85b3fa203a4ced6f1080ecc909701ec2f967a3d91d75",
+      "path": "backend/pwa/sections/sheet-grid.js"
+    },
+    {
+      "sha256": "cd885fd1929f983abcf4910af7148aeaf79a3c39acd3ad2c9fe5b6bb1dd3b12a",
+      "path": "backend/pwa/sections/wood-grid.js"
+    },
+    {
+      "sha256": "54e98199657901e25552b4d43ee341a96e48ff1ede46eb586179186cf7328421",
+      "path": "backend/pwa/sections/metal.js"
+    },
+    {
+      "sha256": "2da97b0898f5c209d62e31a0478b85830bdc44ff3fefb76a829c6e9886b88b5a",
+      "path": "backend/pwa/sections/stock-dimension-columns.js"
+    },
+    {
+      "sha256": "c277146b0fee47fbb1fd63e2906c2c6dd276b1dec3ff552d6b65c9a2e0af76cd",
+      "path": "backend/pwa/sections/stock-grid-input.js"
+    },
+    {
+      "sha256": "f79300f5cec3d772fe170834d0ae9b774c92d9ab86b622177e78e15cb3e78c6e",
+      "path": "backend/pwa/sections/stock-table-columns.js"
+    },
+    {
+      "sha256": "b4ebac019f383743398ff05f5ae4aecc6544ebefbeab63daca1e409647950dff",
+      "path": "backend/pwa/sections/stock-worktable.js"
+    },
+    {
+      "sha256": "c4fab77e6c78e021ab5a9bf1ac89b0fd849866532298f7060620e90d8bf52c63",
+      "path": "backend/pwa/ui/kit/list.js"
+    },
+    {
+      "sha256": "7900fbc0d1a9d34efbbab605b9a379b71c2a1db78744f9bc2bbc493c41da5224",
+      "path": "backend/pwa/ui/kit/list-view.js"
+    },
+    {
+      "sha256": "d5a67bde08a76d2981e7e23aa62bffe4da2c5a8a596b574ba5a36a550dc3f6c3",
+      "path": "backend/pwa/ui/kit/filter.js"
+    },
+    {
+      "sha256": "8d5d401ec6e4f5c5d0edd57523d30cc8c4842582c4e791c2151a12be02060008",
+      "path": "backend/pwa/ui/list-export.js"
+    },
+    {
+      "sha256": "357a19f356188ad901a2ca07bbe14eb0e087f8665828ae10ff13d5d1e8c7a8f6",
+      "path": "backend/pwa/sections/atlas-stock.js"
+    },
+    {
+      "sha256": "2186ed7a3c7526f4c4ed74fd79623eb0c9e6bad414109660cc8b2ab64ef19ee1",
+      "path": "backend/pwa/sections/help-guide-data.js"
+    },
+    {
+      "sha256": "481d6beeffd995d089afc0e510524e8a69256517cab87adb68070b146cd36617",
+      "path": "backend/pwa/sections/kit.js"
+    },
+    {
+      "sha256": "50fa76e0122cf37368e9ed4ed12ebd0c8bed126296031c584392eaee1555c8c5",
+      "path": "backend/pwa/index.html"
+    },
+    {
+      "sha256": "7678b16de306364dc884ce1c7c800d48937177562f8b5c2174688b0ce781e3db",
+      "path": "backend/pwa/sections/c242-stock-tables.test.mjs"
+    },
+    {
+      "sha256": "13baa8afb0a447068c68017664af07677d2fdf7a763bfc038f3668eac21473b7",
+      "path": "backend/pwa/sections/c240-stock-grids.test.mjs"
+    },
+    {
+      "sha256": "ad45d3db4b5e0eaa11db8798b8000ad3c3431f28cca66e668703eb451cfbc9b2",
+      "path": "backend/pwa/sections/wood-grid.test.mjs"
+    },
+    {
+      "sha256": "335087d35db4b15e067bad04d9c72b0d9c186b9b3f9c6211c6c650709d6555b4",
+      "path": "backend/pwa/ui/kit/c242-list-export.test.mjs"
+    }
+  ],
+  "p2": {
+    "tests": "qa/p2-frontend-tests.log:33/33; full latest55/55",
+    "screenshot": "evidence/p2/multiple-pipe-dark.png",
+    "runtime": "FROZEN",
+    "countMode": "single=new/one storage; multiple/unknown read-only"
+  }
+}

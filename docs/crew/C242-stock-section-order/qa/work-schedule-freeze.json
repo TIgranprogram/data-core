@@ -1,0 +1,51 @@
+{
+  "at": "2026-11-23T10:08:03.143Z",
+  "files": [
+    {
+      "path": "backend/src/modules/order-line-plan/work-schedule.service.ts",
+      "sha256": "c1d66429092906908aec516e8d1d950d26757eada6b7d5ba129d50c489396169"
+    },
+    {
+      "path": "backend/src/modules/order-line-plan/work-schedule-session.spec.ts",
+      "sha256": "1e02651b8dc8efb66b67d46969585c5bc7667540cd283a62bf4a965fc58dbae3"
+    }
+  ],
+  "validation": {
+    "http": {
+      "suites": 1,
+      "passed": 7,
+      "failed": 0,
+      "ganttCaseMs": 89
+    },
+    "unit": {
+      "suites": 4,
+      "passed": 24,
+      "failed": 0
+    },
+    "tsc": 0,
+    "eslint": 0,
+    "mongoCurrentOpTestNamespaceAndAllTransactions": []
+  },
+  "chain": [
+    {
+      "url": "/api/orderline-plans/6b041035d84f88afa497f19e/steps/6b04103571778b17927819c6",
+      "status": 409,
+      "ms": 10
+    },
+    {
+      "url": "/api/orderline-plans/6b041035d84f88afa497f19e/steps/6b04103571778b17927819c6",
+      "status": 200,
+      "ms": 21
+    },
+    {
+      "url": "/api/orderline-plans/6b041035d84f88afa497f19e/steps/6b04103571778b17927819c6",
+      "status": 200,
+      "ms": 18
+    },
+    {
+      "url": "/api/orderline-plans/6b041035d84f88afa497f19e/steps/6b04103571778b17927819c6",
+      "status": 409,
+      "ms": 8
+    }
+  ]
+}

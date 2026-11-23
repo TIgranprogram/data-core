@@ -1,4 +1,4 @@
-import { allowsWoodPanel, canOpen, canViewStock, stockView, woodScreen, OWNER } from './core/route-access.js';
+import { allowsStockPanel, allowsWoodPanel, canOpen, canViewStock, stockScreenAccess, stockView, woodScreen, OWNER } from './core/route-access.js';
 import { startRain, stopRain } from './ui/cat-rain.js';
 import { startLiveSync, stopLiveSync } from './core/live-sync.js';
 import { resetHeldStock } from './core/stock-list.js';
@@ -156,7 +156,6 @@ const root = $('#root');
 const isPipeRole = () => stockView(session.user) === 'pipe';
 const isSheetRole = () => stockView(session.user) === 'sheet';
 const isStockRole = () => Boolean(stockView(session.user));
-const adminSees = (params, v) => (session.role === 'admin' || session.user?.isOwner) && params?.view === v; // админ смотрит экраны ролей склада (2026-11-06)
 /** Фон и подпись меню склада: после входа, «Смотреть как» и обновления /me — иначе котики не появляются. */
 const stockTheme = () => { if (isPipeRole()) startRain('cats'); else if (isSheetRole()) startRain('dogs'); else stopRain(); };
 const stockNavLabel = () => (isPipeRole() ? 'Трубы' : isSheetRole() ? 'Листы' : stockView(session.user) === 'wood' ? 'Деревообработка' : 'Остатки');
@@ -255,7 +254,7 @@ function shell() {
     // «Сопоставление» не в меню (C016/C017): вход из Заказов и бейджа «не сопоставлено»; #matching и права в NAV оставляем
     group('Производство', navLinks.salesorders, navLinks.design, navLinks.work), // Гант — один: «В работе → Гант» (C053); #workschedule — для старых ссылок
     group('Продукция', navLinks.products, navLinks.modules, navLinks.parts, navLinks.offers, session.canEdit ? navLinks.docs : null),
-    group('Склад', navLinks.stock, navLinks['stock-mobile'], ...(navLinks.stock && session.isAdmin ? [link('stock?view=pipe', 'Экран «Труборез»', 'stock'), link('stock?view=sheet', 'Экран «Лазер лист»', 'stock'), link('stock?view=wood', 'Деревообработка', 'stock')] : [])),
+    group('Склад', navLinks.stock, navLinks['stock-mobile'], ...(navLinks.stock && (session.isAdmin || !isStockRole()) ? [canViewStock(session, 'pipe') ? link('stock?view=pipe', 'Экран «Труборез»', 'stock') : null, canViewStock(session, 'sheet') ? link('stock?view=sheet', 'Экран «Лазер лист»', 'stock') : null, session.isAdmin ? link('stock?view=wood', 'Деревообработка', 'stock') : null] : [])),
     group('Снабжение', navLinks.requests, navLinks.suppliercatalog, navLinks.contracts),
     session.canMoney ? group('Деньги', navLinks.money, navLinks.expenses, FEATURES.payroll && session.canMoney && session.canPayroll ? navLinks.payroll : null) : null,
     group('Управление', navLinks.staff),
@@ -437,7 +436,7 @@ function render(c) {
     go(defaultSection(), {}, { replace: true }); return;
   }
   const isWood = section === 'stock' && woodScreen(session, params.view);
-  if ((isWood && !allowsWoodPanel(session, params)) || (params.of === 'wooditem' && !isWood)) {
+  if ((section === 'stock' && !allowsStockPanel(session, params)) || (isWood && !allowsWoodPanel(session, params)) || (params.of === 'wooditem' && !isWood)) {
     const screen = Object.fromEntries(Object.entries(params).filter(([key]) => !CARD_PARAMS.includes(key)));
     go(section, screen, { replace: true }); return;
   }
@@ -476,11 +475,12 @@ function render(c) {
   if (!mounted || mounted.key !== key) {
     unmountList();
     let list = null;
+    const stockAccess = section === 'stock' ? stockScreenAccess(session, params.view) : null;
     // ОШ2: раздел упал при отрисовке — в сборщик и «Не открылось · Повторить» на его месте, а не пустой экран
     try {
     if (isWood) list = FN.mountWoodGrid();
-    else if (section === 'stock' && (isPipeRole() || adminSees(params, 'pipe'))) list = FN.mountPipeGrid();
-    else if (section === 'stock' && (isSheetRole() || adminSees(params, 'sheet'))) list = FN.mountSheetGrid();
+    else if (stockAccess?.view === 'pipe') list = FN.mountPipeGrid({ readOnly: stockAccess.readOnly });
+    else if (stockAccess?.view === 'sheet') list = FN.mountSheetGrid({ readOnly: stockAccess.readOnly });
     else if (section === 'docs') list = FN.mountDocs(params, { onChanged: () => refreshCounts() });
     else if (section === 'requests') list = FN.mountRequests(params, (p) => mountList(sec, p, {
       onOpen: (row) => openRecord(section, row.id),
@@ -665,7 +665,7 @@ function refreshMe() {
   return api('/auth/me').then(async (me) => {
     if (!(me?.id || me?.username)) return;
     const access = () => JSON.stringify([session.role, session.user?.role, session.user?.isOwner,
-      session.user?.sections, session.canMoney, stockView(session.user), session.user?.roleLabel]);
+      session.user?.sections, session.user?.stockViews, session.canMoney, stockView(session.user), session.user?.roleLabel]);
     const was = access();
     const face = (u) => `${u?.avatar ?? ''}|${u?.displayName ?? ''}`;
     const wasFace = face(session.realUser);

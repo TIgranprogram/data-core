@@ -38,7 +38,7 @@ export function metalView(r) {
   ].filter(Boolean);
 }
 
-const METAL_KEYS = ['assortment', 'materialGrade', 'thickness', 'lengthM', 'wash', 'widthM'];
+const METAL_KEYS = ['assortment', 'materialGrade', 'thickness', 'lengthM', 'wash', 'widthM', 'profileWidth', 'profileHeight', 'diameterMm'];
 
 /** Поля формы: блок «Труба» / «Лист»; видимость — mount по категории и ед. (C022-1). */
 export async function metalFields() {
@@ -73,7 +73,7 @@ export async function metalFields() {
           const show = (key, on) => { const el = f.field(key); if (el) el.hidden = !on; };
           for (const key of METAL_KEYS) show(key, !!kind);
           if (kind === 'pipe') { show('widthM', false); show('wash', true); }
-          if (kind === 'sheet') { show('wash', false); show('widthM', true); }
+          if (kind === 'sheet') { for (const key of ['wash', 'profileWidth', 'profileHeight', 'diameterMm']) show(key, false); show('widthM', true); }
           const th = thickHint();
           if (th) {
             th.hidden = !kind;
@@ -106,6 +106,9 @@ export async function metalFields() {
     { key: 'lengthM', label: 'Длина, м', type: 'number', min: 0, span: 1 },
     { key: 'wash', label: 'Мойка трубы', type: 'select', span: 1, options: [{ value: '1', label: 'Мытая' }, { value: '0', label: 'Не мытая' }] },
     { key: 'widthM', label: 'Ширина, м', type: 'number', min: 0, span: 1 },
+    { key: 'profileWidth', label: 'Ширина профиля, мм', type: 'number', min: 0, span: 1, hint: 'Для прямоугольной трубы; не длина хлыста.' },
+    { key: 'profileHeight', label: 'Высота профиля, мм', type: 'number', min: 0, span: 1 },
+    { key: 'diameterMm', label: 'Диаметр, мм', type: 'number', min: 0, span: 1, hint: 'Только для круглой трубы.' },
   ];
 }
 
@@ -114,27 +117,35 @@ export const metalInitial = (r) => ({
   lengthM: r.dims?.length ? r.dims.length / 1000 : null,
   widthM: r.dims?.width ? r.dims.width / 1000 : null,
   wash: r.washed == null ? '' : r.washed ? '1' : '0',
+  profileWidth: r.dims?.width ?? null,
+  profileHeight: r.dims?.height ?? null,
+  diameterMm: r.dims?.diameter ?? null,
 });
 
 /**
  * В тело запроса по виду (C022-2). wasKind — вид при открытии формы (null = создаём / не было металла).
- * Пустое число → null. Диаметр не кладём.
+ * Пустое число → null; неизменённая ось previous не отправляется. W/H/D трубы — явные поля, не разбор имени.
  */
-export const metalBody = (v, { wasKind = null } = {}) => {
+export const metalBody = (v, { wasKind = null, previous } = {}) => {
   const kind = metalKindUi(v.categoryName, v.unit);
   const num = (x) => { const n = Number(x); return Number.isFinite(n) && n > 0 ? n : null; };
   if (!kind) {
     if (!wasKind) return {}; // метиз как был — ключи металла не трогаем
-    return { assortment: null, materialGrade: null, washed: null, dims: { thickness: null, length: null, width: null } };
+    return { assortment: null, materialGrade: null, washed: null, dims: { thickness: null, length: null, width: null,
+      ...(wasKind === 'pipe' ? { height: null, diameter: null } : {}) } };
   }
   const thickness = num(v.thickness);
   const length = v.lengthM ? Math.round(num(v.lengthM) * 1000) : null;
   const width = kind === 'sheet' && v.widthM ? Math.round(num(v.widthM) * 1000) : null;
+  const dimensions = { thickness, length, width: kind === 'pipe' ? num(v.profileWidth) : width,
+    ...(kind === 'pipe' ? { height: num(v.profileHeight), diameter: num(v.diameterMm) } : {}) };
+  // Обычная правка не мигрирует read-only разбор и не трогает чужую/неизменённую ось.
+  if (previous) for (const key of Object.keys(dimensions)) if (dimensions[key] === num(previous.dims?.[key])) delete dimensions[key];
   return {
     assortment: v.assortment || null,
     materialGrade: v.materialGrade || null,
     washed: kind === 'pipe' ? (v.wash === '' || v.wash == null ? null : v.wash === '1') : null,
-    dims: { thickness, length, width: kind === 'pipe' ? null : width },
+    dims: dimensions,
   };
 };
 

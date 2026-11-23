@@ -1,3 +1,4 @@
+import { exerciseInstructions, type ExerciseInstructions } from '../../common/passport/exercise-instructions';
 import { parseModules, type PassportModule } from '../../common/passport/modules';
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
@@ -13,10 +14,11 @@ import type { SimpleDescription } from '../../common/passport/simple-description
 export const PASSPORT_CATEGORY_CODES = ['DIO', 'DSP', 'TRN', 'WRK', 'BLG'] as const;
 export const MANUAL_TEXT_KEYS = ['description', 'purpose', 'installationMethod'] as const;
 export const NUMS = ['ageFrom', 'ageTo', 'heightMin', 'heightMax', 'weightMax', 'maxUsers', 'fallHeight', 'siteLength', 'siteWidth', 'serviceLifeYears', 'warrantyMonths', 'foundationDepth'] as const; // foundationDepth — глубина Г, мм (iLogic «Схема установки», 2026-11-13)
-export const PRESENTATION_DEFAULT_KEYS = ['simpleDescription', 'manualDescription', 'manualPurpose', 'manualInstall'] as const;
+export const PRESENTATION_DEFAULT_KEYS = ['simpleDescription', 'manualDescription', 'manualPurpose', 'manualInstall', 'exerciseInstructions'] as const;
 
 export interface PassportDefaults {
   passportCategory?: string;
+  exerciseInstructions?: ExerciseInstructions;
   simpleDescription?: SimpleDescription<Types.ObjectId>;
   /** C100: вид изделия (id записи справочника «Виды изделий», строкой) — свой вид изделия главнее вида группы. */
   kindId?: string;
@@ -42,6 +44,7 @@ const oidOf = (v: unknown, what: string) => {
 /** Тело запроса → значения для записи; пустые поля не сохраняются, неизвестные — отбрасываются. */
 export function normalizePassportDefaults(b: Record<string, unknown>): PassportDefaults {
   const out: PassportDefaults = {};
+  if (b.exerciseInstructions !== undefined && b.exerciseInstructions !== null) out.exerciseInstructions = exerciseInstructions(b.exerciseInstructions);
   const raw = String(b.passportCategory ?? '').trim();
   const cat = raw === 'MAF' ? 'BLG' : raw; // старый код (2026-10-25: MAF → BLG)
   if (cat) {

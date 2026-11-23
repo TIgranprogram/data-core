@@ -33,3 +33,19 @@ ReadOnly передавать в mount явно. Для остатков/кол�
 - После реализации backend — адресные auth/role/stock-scope/RBAC проверки и unit по правилам verify; релевантные e2e отделить от прежнего неизменённого C237 baseline109/884. Архитектор принимает точную дельту, QA — сценарии; вид — дизайнер.
 
 Не выполнялись: код, новые тесты и любые записи на прод. Источники: C240/TZ, роль/DTO/auth projection, route-access/main/grid, stock controller/scope и существующий guards-контракт.
+
+## Уточнение контракта сброса наследования
+
+Omit в PATCH сохраняет прежний explicit stockViews и потому не может означать «По умолчанию». Принято аддитивное служебное `UpdateRoleDto.resetStockViews?: true` только для обновления: ValidateIf(value!==undefined)+Equals(true); null/false отклоняются. В create DTO/schema/auth такого поля нет.
+
+`resetStockViews:true` вместе с переданным stockViews →400, независимо от значения массива. Отдельный reset выполняет $unset поля stockViews (для doc.save — присваивание undefined); служебный reset не сохраняется в БД. Отсутствие обоих полей не меняет настройку. Явное [] остаётся отключением дополнительных экранов.
+
+Форма при редактировании «По умолчанию» отправляет resetStockViews:true; при создании просто опускает stockViews. Вычисленный клиентом default массив не заменяет отсутствие поля. Тесты: explicit[]/array→reset→поле отсутствует, профиль вновь получает default; обычный PATCH label с omission сохраняет explicit; both/false/null/create-reset→400; role rollback при ошибке сохраняет прежние настройки. Scope сервиса и update DTO расширяется только этой адресной операцией.
+
+Адресное расширение frontend scope: `core/view-as.js` и его тесты. `fieldsOf/same/applyView` переносят stockViews, различая undefined (default) и [] (явно отключено); поле прошлого admin-профиля не остаётся у выбранной роли. Режим отображения вычисляется по target-профилю, а прежняя блокировка записи при viewAsActive/realUser сохраняется.
+
+## Адресные уточнения реализации формы и прямых URL
+
+Для соблюдения лимита размера admin.js выделить только UI-настройку дополнительных экранов в `admin/role-stock-views.js`: classic IIFE с одним `window.DataCoreRoleStockViews` и методами mount/read, необходимые DOM/checkGrid/checkedOf передавать как аргументы. В index.html обычный script перед admin.js, без async/module/нового динамического загрузчика. В admin.js оставить вызов mount в roleForm и read при сборке body. Baseline/лимит не поднимать, пустые строки ради лимита не удалять.
+
+Дополнительный readonly grid не должен открывать editable-панель через `#stock?view=pipe&of=stockop&new=1` или open/bulkedit. Ввести единый `allowsStockPanel(session,params)`, используемый canFollow и main до keepScreen/mount/openCard: для stockScreenAccess.readOnly разрешены отсутствие of/open/new или собственный profile без open/new; при запрете сбросить CARD_PARAMS и оставить readonly экран. Для остальных видов сохранить прежние wood/nonnative/admin правила. Обычный #stock и серверные права директора не менять. Проверить прямые URL/of/new/open/bulkedit/profile, readonly sheet/pipe, обычный stock директора и прежние native/admin сценарии.

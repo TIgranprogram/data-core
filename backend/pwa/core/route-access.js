@@ -63,8 +63,29 @@ export function canOpen(session, route, screen) {
   return sections.has(id) && permitted(id);
 }
 
+/** Один выбор экрана для меню, прямого URL и mount. Дополнительные экраны — только просмотр. */
+export function stockScreenAccess(session, requestedView) {
+  const native = stockView(session.user);
+  const view = ['pipe', 'sheet', 'wood'].includes(requestedView) ? requestedView : native;
+  const denied = { allowed: false, view, readOnly: true };
+  if (!canOpen(session, 'stock')) return denied;
+  if (!view) return { allowed: true, view: null, readOnly: false };
+  if (session.isAdmin) return { allowed: true, view, readOnly: false };
+  if (native) return native === view ? { allowed: true, view, readOnly: false } : denied;
+  const user = session.user;
+  const views = Object.hasOwn(user, 'stockViews')
+    ? (Array.isArray(user.stockViews) ? user.stockViews.filter(value => ['pipe', 'sheet'].includes(value)) : [])
+    : (session.role === 'director' ? ['pipe', 'sheet'] : []);
+  return views.includes(view) ? { allowed: true, view, readOnly: true } : denied;
+}
+
 export function canViewStock(session, view) {
-  return !['pipe', 'sheet', 'wood'].includes(view) || session.isAdmin || stockView(session.user) === view;
+  return stockScreenAccess(session, view).allowed;
+}
+
+/** В дополнительном режиме просмотра нет панелей складских операций. */
+export function allowsStockPanel(session, params) {
+  return !stockScreenAccess(session, params.view).readOnly || ((!params.of || params.of === 'profile') && !params.open && !params.new);
 }
 
 export function canFollow(session, href) {
@@ -73,6 +94,7 @@ export function canFollow(session, href) {
   const params = new URLSearchParams(query);
   const panel = params.get('of');
   const isWood = route === 'stock' && woodScreen(session, params.get('view'));
+  if (route === 'stock' && !allowsStockPanel(session, { view: params.get('view'), of: panel, open: params.get('open'), new: params.get('new') })) return false;
   if (panel === 'wooditem' && !isWood) return false;
   if (isWood && !allowsWoodPanel(session, { of: panel, open: params.get('open'), new: params.get('new') })) return false;
   return canOpen(session, route) && (route !== 'stock' || canViewStock(session, params.get('view'))) &&

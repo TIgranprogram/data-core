@@ -5,7 +5,7 @@ import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
 import { ProductPassportService } from '../../src/modules/product-passport/product-passport.service';
 
-/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
 const fillDefaults = require('../../scripts/products-fill-defaults.js');
 const seriesFill = require('../../scripts/series-dict-fill.js');
 
@@ -34,9 +34,48 @@ describe('Изделия: порядок (ИЗ)', () => {
   const prod = async (over: Record<string, unknown> = {}) => (await db().collection('products').insertOne({ name: 'Турник', sku: `T-${new Types.ObjectId()}`, deletedAt: null, passportDefaults: { passportCategory: 'TRN' }, weightKg: 20, ...over })).insertedId;
   const bin = (res: NodeJS.ReadableStream, cb: (e: Error | null, b: Buffer) => void) => { const b: Buffer[] = []; res.on('data', (c: Buffer) => b.push(c)); res.on('end', () => cb(null, Buffer.concat(b))); };
 
+  it('C241 new legacy create201 и existing both-absent snapshot200 без повторного создания/номеров', async () => {
+    const pid = await prod();
+    const before = await db().collection('productpassports').countDocuments({ productId: pid });
+    const created = (await http().post('/api/passports').set(as()).send({ productId: String(pid) }).expect(201)).body;
+    expect(await db().collection('productpassports').countDocuments({ productId: pid })).toBe(before + 1);
+    const saved = await db().collection('productpassports').findOne({ _id: new Types.ObjectId(created.id) });
+    expect(saved!.passportNumber).toMatch(/^draft-/);
+    expect(saved!.passportNo).toBeUndefined();
+    expect(saved!.textSnapshot).toBeTruthy();
+    await http().post(`/api/passports/${created.id}/snapshot`).set(as()).expect(200);
+    const refreshed = await db().collection('productpassports').findOne({ _id: new Types.ObjectId(created.id) });
+    expect({ ...refreshed!.textSnapshot, at: null }).toEqual({ ...saved!.textSnapshot, at: null });
+    expect(refreshed!.passportNumber).toBe(saved!.passportNumber);
+    for (let repeat = 0; repeat < 2; repeat++) await http().get(`/api/passports/${created.id}`).set(as()).expect(200);
+    expect(await db().collection('productpassports').findOne({ _id: new Types.ObjectId(created.id) })).toEqual(refreshed);
+    expect(await db().collection('productpassports').countDocuments({ productId: pid })).toBe(before + 1);
+  });
+
+  it('C241 raw both absent не разрешает новый installation leaf подставить ID/схему', async () => {
+    const pid = await prod();
+    const created = (await http().post('/api/passports').set(as()).send({ productId: String(pid) }).expect(201)).body;
+    const saved = await db().collection('productpassports').findOne({ _id: new Types.ObjectId(created.id) });
+    const root = new Types.ObjectId(), leaf = new Types.ObjectId(), install = new Types.ObjectId();
+    await db().collection('dict_values').insertMany([
+      { _id: install, dict: 'passportInstall', code: 'ANCHORS', name: 'Новая установка', deletedAt: null },
+      { _id: root, dict: 'passportPhrases', section: 'installation', name: 'C241 computed', allCategories: true, deletedAt: null },
+      { _id: leaf, dict: 'passportPhrases', parentId: root, section: 'installation', text: 'Новый монтаж', installTypeId: install, allCategories: true, deletedAt: null },
+    ]);
+    try {
+      await http().post(`/api/passports/${created.id}/snapshot`).set(as()).expect(409);
+      await http().patch(`/api/passports/${created.id}`).set(as()).send({ note: 'Только примечание' }).expect(200);
+      for (let repeat = 0; repeat < 2; repeat++) await http().get(`/api/passports/${created.id}`).set(as()).expect(200);
+      const after = await db().collection('productpassports').findOne({ _id: new Types.ObjectId(created.id) });
+      expect(after!.installationTypeId).toBeUndefined();
+      expect(after!.textSnapshot).toEqual(saved!.textSnapshot);
+      expect(after!.images).toEqual(saved!.images);
+    } finally { await db().collection('dict_values').deleteMany({ _id: { $in: [root, leaf, install] } }); }
+  });
+
   it('черновик с изделием: категория и поля из изделия при GET/PATCH/PDF', async () => {
     const pid = await prod();
-    const p = (await http().post('/api/passports').set(as()).send({ productId: String(pid), passportCategory: 'BLG' }).expect(201)).body;
+    const p = (await http().post('/api/passports').set(as()).send({ productId: String(pid), passportCategory: 'BLG' }).expect(res => { if (res.status !== 201) throw new Error(JSON.stringify(res.body)); }).expect(201)).body;
     const g = (await http().get(`/api/passports/${p.id}`).set(as()).expect(200)).body;
     expect(g.passportCategory).toBe('TRN');
     expect(g.name).toBe('Турник');

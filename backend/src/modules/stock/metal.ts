@@ -5,8 +5,8 @@
  * (единица «шт», `offcutOf` → родитель; поле только data-core), чтобы в «Операциях» его брали первым.
  */
 export type MetalKind = 'pipe' | 'sheet';
-export type Dims = { length?: number | null; width?: number | null; thickness?: number | null; diameter?: number | null };
-const DIM_TYPES = ['length', 'width', 'thickness', 'diameter'] as const;
+export type Dims = { length?: number | null; width?: number | null; height?: number | null; depth?: number | null; thickness?: number | null; diameter?: number | null };
+const DIM_TYPES = ['length', 'width', 'height', 'depth', 'thickness', 'diameter'] as const;
 
 export function metalKind(categoryName?: string | null, unit?: string | null): MetalKind | null {
   const c = String(categoryName ?? '').toLowerCase();
@@ -15,24 +15,30 @@ export function metalKind(categoryName?: string | null, unit?: string | null): M
   return null;
 }
 
-/** dimensions (массив CRM-схемы) → { length, width, thickness, diameter } в мм. */
+/** dimensions общей CRM-схемы → именованные оси в мм. */
 export function dimsOf(dimensions: unknown): Dims {
   const out: Dims = {};
   for (const d of Array.isArray(dimensions) ? dimensions as { type?: string; value?: number }[] : []) {
-    if (d && DIM_TYPES.includes(d.type as (typeof DIM_TYPES)[number]) && Number(d.value) > 0) out[d.type as keyof Dims] = Number(d.value);
+    if (d && DIM_TYPES.includes(d.type as (typeof DIM_TYPES)[number]) && Number.isFinite(Number(d.value)) && Number(d.value) > 0) out[d.type as keyof Dims] = Number(d.value);
   }
   return out;
 }
 
 /** Слить правку размеров с текущими: null/0 — убрать, undefined — не трогать. Возвращает массив для `dimensions`. */
 export function mergeDims(current: unknown, patch: Dims) {
-  const cur = dimsOf(current);
+  const cur = (Array.isArray(current) ? current : []).map((d) => ({ ...d }));
   for (const k of DIM_TYPES) {
     if (patch[k] === undefined) continue;
     const v = Number(patch[k]);
-    if (patch[k] === null || !(v > 0)) delete cur[k]; else cur[k] = Math.round(v * 100) / 100;
+    const index = cur.findIndex((d) => d.type === k);
+    if (patch[k] === null || !(v > 0) || !Number.isFinite(v)) {
+      for (let i = cur.length - 1; i >= 0; i--) if (cur[i].type === k) cur.splice(i, 1);
+    } else if (index >= 0) {
+      for (let i = 0; i < cur.length; i++) if (cur[i].type === k) cur[i] = { ...cur[i], value: Math.round(v * 100) / 100 };
+    }
+    else cur.push({ type: k, value: Math.round(v * 100) / 100, isImmutable: false });
   }
-  return DIM_TYPES.filter((k) => cur[k]).map((k) => ({ type: k, value: cur[k] as number, isImmutable: false }));
+  return cur;
 }
 
 /** Металл без остатка и заказа: виден только ролям «Трубарез» и «Лазер лист» (пользователь 2026-10-30). */

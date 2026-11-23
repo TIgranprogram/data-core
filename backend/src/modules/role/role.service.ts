@@ -145,6 +145,9 @@ export class RoleService implements OnModuleInit {
   }
 
   async update(id: string, dto: UpdateRoleDto): Promise<RoleDocument> {
+    if (dto.resetStockViews !== undefined && (dto.resetStockViews !== true || dto.stockViews !== undefined)) {
+      throw new BadRequestException('Нельзя одновременно задать и сбросить экраны склада; сброс допускает только true');
+    }
     const doc = await this.findById(id);
     if (dto.name !== undefined && dto.name !== doc.name) {
       throw new BadRequestException('Код роли менять нельзя — меняйте название');
@@ -163,7 +166,9 @@ export class RoleService implements OnModuleInit {
     if (!builtin && doc.baseRole && 'baseRole' in dto && !dto.baseRole) {
       throw new BadRequestException('У своей роли «Права как у» обязательно');
     }
-    Object.assign(doc, dto);
+    const { resetStockViews, ...changes } = dto;
+    Object.assign(doc, changes);
+    if (resetStockViews === true) doc.stockViews = undefined;
     if (typeof dto.label === 'string') doc.label = dto.label.trim();
     await doc.save();
     setCustomRoleBase(doc.name, doc.baseRole);

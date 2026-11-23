@@ -43,7 +43,7 @@ describe('C155. Шаблон и новые паспорта', () => {
     if (!/^datacore-test(?:-[a-z0-9-]+)?$/.test(testDb) || !['127.0.0.1', 'localhost'].includes(mongoHost)) {
       throw new Error('C155 e2e требует локальный Mongo и отдельную БД datacore-test или datacore-test-*');
     }
-    ctx = await createTestApp();
+    ctx = await createTestApp({ strictValidation: true });
     expect(ctx.connection.name).toBe(testDb);
     app = ctx.app;
     token = (await loginAsAdmin(app)).access;
@@ -72,6 +72,82 @@ describe('C155. Шаблон и новые паспорта', () => {
   afterAll(async () => {
     await ctx?.cleanup();
     await fs.unlink(path()).catch(() => undefined);
+  });
+
+  it('C236 whole-block CAS, capture, clear и запрет instance payload', async () => {
+    const model = await makeProduct();
+    const exercise = { initialPosition: ' Сесть.\r\n\r\nДержаться за рукояти. ', movement: 'Плавно двигаться.', muscles: 'Мышцы ног.' };
+    const normalized = { ...exercise, initialPosition: 'Сесть.\n\nДержаться за рукояти.' };
+    const patch = (changes: Record<string, unknown>, expected: Record<string, unknown>) => http().patch(templateUrl(model)).set(auth()).send({ changes, expected });
+    const count = await passports().countDocuments();
+    const original = (await products().findOne({ _id: model }))!.passportDefaults;
+    await patch({ exerciseInstructions: exercise }, { exerciseInstructions: null }).expect(200);
+    const baseline = (await products().findOne({ _id: model }))!.passportDefaults;
+    expect(baseline).toEqual({ ...original, exerciseInstructions: normalized });
+    for (const variant of ['short', 'full']) {
+      const t = (await http().get(templateUrl(model) + '?variant=' + variant).set(auth()).expect(200)).body;
+      expect(t.defaults.exerciseInstructions).toEqual(normalized);
+      expect(t.textSnapshot.exerciseInstructions).toEqual({ ...normalized, source: { kind: 'product', productId: String(model) } });
+    }
+    expect(await passports().countDocuments()).toBe(count);
+    await patch({ exerciseInstructions: { ...exercise, movement: 'Другой текст' } }, { exerciseInstructions: null }).expect(409);
+    await patch({ foundationDepth: 0 }, { foundationDepth: null }).expect(200);
+    for (const bad of [{ ...exercise, muscles: '' }, { ...exercise, extra: 'x' }, { ...exercise, movement: '<b>Шаг</b>' }, { ...exercise, movement: '{name}' }, { ...exercise, movement: 'а'.repeat(4000) }]) await patch({ exerciseInstructions: bad }, { exerciseInstructions: normalized }).expect(400);
+    const created = await http().post('/api/passports').set(auth()).send({ presentationVersion: 1, variant: 'short', productId: String(model), supplierOrgId: String(our), creationKey: randomUUID() }).expect(201);
+    const savedId = created.body.id;
+    const before = await passports().findOne({ _id: new Types.ObjectId(savedId) });
+    expect(before!.exerciseInstructions).toEqual(normalized);
+    await http().patch('/api/passports/' + savedId).set(auth()).send({ exerciseInstructions: normalized }).expect(400);
+    await http().post('/api/passports').set(auth()).send({ productId: String(model), exerciseInstructions: normalized }).expect(400);
+    await patch({ exerciseInstructions: null }, { exerciseInstructions: normalized }).expect(200);
+    expect((await products().findOne({ _id: model }))!.passportDefaults.foundationDepth).toBe(0);
+    for (let repeat = 0; repeat < 2; repeat++) await http().get('/api/passports/' + savedId).set(auth()).expect(200);
+    expect(await passports().findOne({ _id: new Types.ObjectId(savedId) })).toEqual(before);
+    const fresh = (await http().get(templateUrl(model)).set(auth()).expect(200)).body;
+    expect(fresh.defaults).not.toHaveProperty('exerciseInstructions');
+    expect(fresh.textSnapshot).not.toHaveProperty('exerciseInstructions');
+  });
+
+  it('C236 два concurrent CAS редактора не затирают модельный блок', async () => {
+    const model = await makeProduct();
+    const make = (movement: string) => ({ initialPosition: 'Сесть.', movement, muscles: 'Мышцы ног.' });
+    const send = (movement: string) => http().patch(templateUrl(model)).set(auth()).send({ expected: { exerciseInstructions: null }, changes: { exerciseInstructions: make(movement) } });
+    const responses = await Promise.all([send('Первая правка.'), send('Вторая правка.')]);
+    expect(responses.map(r => r.status).sort()).toEqual([200, 409]);
+    const own = (await products().findOne({ _id: model }))!.passportDefaults.exerciseInstructions;
+    expect(['Первая правка.', 'Вторая правка.']).toContain(own.movement);
+    await http().patch(templateUrl(model)).set(auth()).send({ expected: { exerciseInstructions: own }, changes: { exerciseInstructions: own } }).expect(200);
+    expect((await products().findOne({ _id: model }))!.passportDefaults.exerciseInstructions).toEqual(own);
+  });
+
+  it('C236 issued снимок/номер/история не меняются после правки модели, copy сохраняет свой блок', async () => {
+    const exercise = { initialPosition: 'Сесть.', movement: 'Двигаться плавно.', muscles: 'Мышцы ног.' };
+    const model = await makeProduct({ passportDefaults: { passportCategory: 'BLG', installationTypeId: install, simpleDescription: shortDescription, exerciseInstructions: exercise } });
+    await db().collection('productphotos').insertOne({ productId: model, purpose: 'passport', kind: 'overview', photoId: photo, deletedAt: null });
+    const created = (await http().post('/api/passports').set(auth()).send({ productId: String(model), presentationVersion: 1, supplierOrgId: String(our), creationKey: randomUUID() }).expect(201)).body;
+    const url = '/api/passports/' + created.id;
+    await http().post(url + '/issue').set(auth()).send({ presentationVersion: 1, variant: 'short' }).expect(200);
+    const before = await passports().findOne({ _id: new Types.ObjectId(created.id) });
+    const pdfBefore = await http().get(url + '/pdf').query({ readOnly: 1 }).set(auth()).expect(200);
+    await http().patch(templateUrl(model)).set(auth()).send({ expected: { exerciseInstructions: exercise }, changes: { exerciseInstructions: { ...exercise, movement: 'Новый текст модели.' } } }).expect(200);
+    for (let repeat = 0; repeat < 2; repeat++) {
+      const read = (await http().get(url).set(auth()).expect(200)).body;
+      expect(read.textSnapshot.exerciseInstructions.movement).toBe(exercise.movement);
+      const pdf = await http().get(url + '/pdf').query({ readOnly: 1 }).set(auth()).expect(200);
+      expect(pdf.headers['content-type']).toMatch(/pdf/);
+      expect(pdfBefore.headers['content-type']).toMatch(/pdf/);
+    }
+    expect(await passports().findOne({ _id: new Types.ObjectId(created.id) })).toEqual(before);
+    const copied = (await http().post(url + '/copy').set(auth()).send({}).expect(201)).body;
+    expect(copied.exerciseInstructions).toEqual(exercise);
+    await http().patch('/api/passports/' + copied.id).set(auth()).send({ note: 'Обычная правка' }).expect(200);
+    const other = await makeProduct();
+    const sameBefore = await passports().findOne({ _id: new Types.ObjectId(copied.id) });
+    const rejected = await http().patch('/api/passports/' + copied.id).set(auth()).send({ productId: String(other) }).expect(409);
+    expect(rejected.body.message).toContain('создайте новый паспорт');
+    expect(await passports().findOne({ _id: new Types.ObjectId(copied.id) })).toEqual(sameBefore);
+    const swapped = (await http().post(url + '/copy').set(auth()).send({ productId: String(other) }).expect(201)).body;
+    expect(swapped).not.toHaveProperty('exerciseInstructions');
   });
 
   it('GET строит проекцию без паспорта и CAS сохраняет независимые поля, явный null и старый PUT', async () => {

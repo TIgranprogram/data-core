@@ -1,0 +1,47 @@
+{
+  "at": "2026-11-23T09:51:47.877Z",
+  "baseCommit": "36bdd4dc",
+  "files": [
+    {
+      "path": "backend/src/modules/stock/stock-movements.service.ts",
+      "sha256": "246dff9b535d3ebe6f18aef5118906e693117b035425589314f34fa5baefc05e"
+    },
+    {
+      "path": "backend/src/modules/stock/stock-core.service.ts",
+      "sha256": "d54782e604930820bb08d3cd2792260a8794d4ff564fa6ef304ccd16ca6db267"
+    },
+    {
+      "path": "backend/src/modules/stock/stock-target.ts",
+      "sha256": "e234d74dc0ce96b1f8e0ba306911dcd03bb2dd7c0f769d20ec6316d0ba238c5d"
+    },
+    {
+      "path": "backend/src/modules/stock/stock.service.ts",
+      "sha256": "54005a4b89ddc715a5f1d02c7b7bca5945ef9004733232baa0db1cc15927e2b7"
+    },
+    {
+      "path": "backend/src/modules/stock/stock-correct-session.spec.ts",
+      "sha256": "d7bfdd4582ee31656aae0ce807648471495aa49010eab1d8ec942c1bb82ba61c"
+    }
+  ],
+  "validation": {
+    "http": {
+      "suite": "stock-scope.e2e-spec.ts",
+      "passed": 14,
+      "failed": 0,
+      "durationMs": 23348,
+      "correctMs": [
+        151,
+        113
+      ]
+    },
+    "unit": {
+      "suites": 22,
+      "passed": 212,
+      "failed": 0
+    },
+    "tsc": 0,
+    "eslint": 0,
+    "mongoCorrectNamespaceAndAllTransactionsCurrentOp": []
+  },
+  "reviewHead": "18ef2ec5"
+}

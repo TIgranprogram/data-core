@@ -1,6 +1,6 @@
 # Карта роли architect
 
-коммит: 3929ea33 · опорная ревизия для поиска, 21.11.2026. Приёмка конкретного изменения фиксируется отдельно.
+коммит: 36bdd4dc · опорная ревизия C242, 23.11.2026. Приёмка конкретного изменения фиксируется отдельно.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
 Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
@@ -15,3 +15,8 @@
 - В выводе укажи принятые пути и контракт, проверенную дельту, выполненные проверки и остаток. Для исправленного дефекта перечитай затронутый участок и необходимый стык.
 
 История карты до сокращения: `git show 3929ea33:docs/roles/maps/architect.md | rg -n 'слово|Cxxx'`. Подробные результаты остаются в отчётах задач.
+
+- C242: [точечное ревью склада/kit, P2 закрыт](../../crew/C242-stock-section-order/ARCH-REVIEW.md), [контракты](../../crew/C242-stock-section-order/ARCH-PLAN.md). Aggregate quantity не является baseline одной storageitem; countMode failclosed + transaction multiple409 проверены18адресными тестами.
+- C241: [повтор legacy-create/both-absent](../../crew/C241-inventor-installation-choice/ARCH-REVIEW-BACKEND.md): private create bypass не публичен; отсутствие raw ID проверяется также против вычисленного installation leaf.
+- C242: [outer transaction/session repeat](../../crew/C242-stock-section-order/ARCH-TX-REVIEW.md): preflight в той жеsession, outer write возвращаетvoid безprecommitresponse; публичная проекция послеcommit сохранена.
+- C242 QA TX2: [локальная граница PATCH шага/barsOf](../../crew/C242-stock-section-order/QA-TX2-ARCH.md); shared transaction wrapper не меняется, txworktypes обходят globalcache.

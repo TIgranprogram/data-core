@@ -3,7 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Types, type ClientSession } from 'mongoose';
 import { PassportImportDto } from './dto/passport-import.dto';
-import { importNumbers, importInstallationKind } from './passport-import.service';
+import { importNumbers, importInstallationId, importInstallationKind, importInstallations } from './passport-import.service';
 import { ProductPassportService } from './product-passport.service';
 import type { Doc } from './passport-consts';
 
@@ -26,12 +26,44 @@ describe('C172 контракт подтверждённых полей', () => 
     expect(importNumbers({ dimensions: { length: 110, width: 220, height: 330, unit: 'мм' }, weightKg: 7 })).toEqual({ product: { dimensions: { length: 110, width: 220, height: 330, unit: 'мм' }, weightKg: 7 }, passport: { length: 110, width: 220, height: 330, weight: 7 } });
   });
   it('принимает три разных вида и пустое подтверждение', async () => { expect(await errors(input())).toHaveLength(0); });
+  it('принимает явный ID способа установки, но не null/пустой/чужой формат', async () => {
+    expect(await errors({ ...input(), confirmed: { installationTypeId: String(new Types.ObjectId()) } })).toHaveLength(0);
+    for (const installationTypeId of [null, '', 'anchor', 42, {}]) {
+      expect((await errors({ ...input(), confirmed: { installationTypeId } })).length).toBeGreaterThan(0);
+    }
+  });
   it.each([{ weightKg: null }, { foundationDepth: null }, { dimensions: null }, { weightKg: -1 }, { unapproved: 1 }, { dimensions: { length: 1, width: 2, height: 3, unit: 'м' } }])('отклоняет очистку/чужие поля/другую единицу %j', async confirmed => {
     expect((await errors({ ...input(), confirmed })).length).toBeGreaterThan(0);
   });
   it('отклоняет дубли вида и чужой kind', async () => {
     const body = input(); body.images[2].kind = 'overview'; expect((await errors(body)).length).toBeGreaterThan(0);
     body.images[2].kind = 'mounting'; expect((await errors(body)).length).toBeGreaterThan(0);
+  });
+});
+
+describe('C241 context — текущий способ и доступные варианты', () => {
+  const id = () => new Types.ObjectId();
+  it('root legacy имеет приоритет, без выбора возвращается null', () => {
+    const legacy = id(), defaults = id();
+    expect(importInstallationId({ installationTypeId: legacy, passportDefaults: { installationTypeId: defaults } })).toBe(String(legacy));
+    expect(importInstallationId({ passportDefaults: { installationTypeId: defaults } })).toBe(String(defaults));
+    expect(importInstallationId({})).toBeNull();
+  });
+  it('только живые известные применимые варианты с правильным третьим kind и Г', () => {
+    const anchor = id(), concrete = id();
+    const rows: Doc[] = [
+      { _id: anchor, code: 'ANCHORS', name: 'Анкеры', categories: 'BLG, TRN' },
+      { _id: concrete, code: 'CONCRETE_POSTS', name: 'Бетон' },
+      { _id: id(), code: 'ON_SURFACE', name: 'Чужая категория', categories: 'DIO' },
+      { _id: id(), code: 'FUTURE', name: 'Неизвестный' },
+      { _id: id(), code: 'ANCHORS', name: 'Удалён', deletedAt: new Date() },
+      { _id: id(), code: 'ANCHORS', name: 'Отключён', isActive: false },
+    ];
+    expect(importInstallations(rows, 'TRN')).toEqual([
+      { id: String(anchor), name: 'Анкеры', code: 'ANCHORS', thirdImportKind: 'mounting', depthApplicable: false },
+      { id: String(concrete), name: 'Бетон', code: 'CONCRETE_POSTS', thirdImportKind: 'foundation', depthApplicable: true },
+    ]);
+    expect(importInstallations(rows).map(option => option.id)).toEqual([String(concrete)]);
   });
 });
 

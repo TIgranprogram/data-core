@@ -1,4 +1,4 @@
-import { heldStockList } from '../core/stock-list.js';
+import { catalogueStockList } from '../core/stock-list.js';
 import { index, typeGroups } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { plural } from '../core/format.js';
@@ -17,7 +17,7 @@ export function typeTiles({ categoryId, categoryName, zoneId, onPick }) {
   async function load() {
     el.replaceChildren(busyBlock('типы'));
     try {
-      const items = index(await heldStockList(zoneId), { stockSearch: true }).filter((it) => it.categoryId === categoryId);
+      const items = index((await catalogueStockList(zoneId)).map(item => ({ ...item })), { stockSearch: true }).filter((it) => it.categoryId === categoryId);
       const groups = typeGroups(items);
       // C043: плитки типов в раскрытой категории — компактные (рисунок 28 px, название в одну строку): все типы видны без прокрутки
       const tile = (t) => card({ size: 'S', artCover: true, compact: true, art: art(t.label, categoryName), title: t.label, meta: nPos(t.count), onClick: () => onPick(t.id) });

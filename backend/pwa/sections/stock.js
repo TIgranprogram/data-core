@@ -1,16 +1,17 @@
 import { stockCard } from './stock-card.js';
-import { heldStockList, heldStockQuery, stockLookup } from '../core/stock-list.js';
+import { stockTableColumns, stockRowClass } from './stock-table-columns.js';
+import { catalogueStockList, catalogueStockQuery, heldStockQuery, stockLookup, stockScopeKey } from '../core/stock-list.js';
 import { stockPositionCode, stockPositionName } from '../core/stock-display.js';
 import { normSearch } from '../core/facets.js';
 import { api, PREFIX } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { date, qty, plural } from '../core/format.js';
-import { go, patch } from '../core/router.js';
+import { qty, plural } from '../core/format.js';
+import { go, patch, current } from '../core/router.js';
 import { STOCK_STATUS } from '../ui/kit/badges.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups, UNITS, unitList } from './lookups.js';
 import { facetFilter, parseFt } from '../ui/kit/index.js';
-import { facetLabel, stockPipeProfile, index as facetIndex, pick as facetPick } from '../core/facets.js';
+import { index as facetIndex, pick as facetPick } from '../core/facets.js';
 import { typeExpand } from './stock-types.js';
 import { stockRequestsBox, requestFromHash, catalogFromHash, closeRequest } from './stock-requests.js';
 import { loadZones, setZone, zoneNow } from '../core/zone.js';
@@ -52,6 +53,24 @@ const unit = (r) => r.unit || '';
 /** Миниатюра в строке списка (или пустое место того же размера — колонки не прыгают). */
 /** Миниатюра в ячейке таблицы; фото нет (или битое) — ячейка пустая, без квадрата-заглушки. */
 export const pic = (p) => (p ? h('img', { class: 'pic', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null);
+let knownStockZones = [];
+const columnScopes = new Map();
+const scopeKey = () => JSON.stringify([stockScopeKey(), zoneNow()]);
+const columnScope = (params = {}) => {
+  const rows = columnScopes.get(scopeKey()) || [];
+  const categories = params.categoryId ? new Set(params.categoryId.split(',')) : null;
+  return categories ? rows.filter(item => categories.has(item.categoryId || 'none')) : rows;
+};
+const zoneStockKind = () => {
+  const name = knownStockZones.find(zone => zone.id === zoneNow())?.name?.toLowerCase() || '';
+  return /труб/.test(name) ? 'pipe' : /лист/.test(name) ? 'sheet' : /дерев/.test(name) ? 'wood' : 'main';
+};
+const stockKind = (params = {}) => {
+  const zoneKind = zoneStockKind();
+  const rows = params.categoryId ? columnScope(params) : [];
+  return zoneKind !== 'main' ? zoneKind : rows.length && rows.every(item => item.metal === 'pipe') ? 'pipe'
+    : rows.length && rows.every(item => item.metal === 'sheet') ? 'sheet' : 'main';
+};
 const photoThumb = (r) => posPic((r.photos || [])[0], 'sm');
 
 /** Шапка «Остатков» (УПР-1/Д5): одна синяя «Принять на склад» + «Ещё ▾» (Бронь по списку, Пересчёт, Движения; ⇩ Excel добавляет list.js автоматически). */
@@ -66,16 +85,21 @@ const stockMore = () => [
 /** Новая позиция: подсказка «уже есть на складе», иначе одно и то же заводится второй раз с другим написанием. */
 const similarOnStock = () => ({
   suggestTitle: 'Уже есть на складе — проверьте, не дубль ли',
-  suggest: async () => (await stockLookup()).map((x) => ({ label: x.name, sub: `${qty(x.quantity ?? 0)} ${x.unit || ''}`.trim(), cat: x.categoryName || '', search: normSearch(x.name), values: { name: x.name } })),
+  suggest: async () => (await stockLookup()).map((x) => ({ label: x.name, sub: `${qty(x.quantity ?? 0)} ${x.unit || ''}`.trim(), cat: x.categoryName || '', search: normSearch([x.name, x.assortment].filter(Boolean).join(' ')), values: { name: x.name } })),
 });
 
 /** Выборка «Остатков»: список и признаки получают одну зону с сервера. */
 async function balanceQuery(P) {
-  await loadZones().catch(() => []);
+  knownStockZones = await loadZones().catch(() => []);
   const zoneId = zoneNow();
-  const query = { priority: 1, ...heldStockQuery(zoneId) };
+  const query = { priority: 1, ...(P.held === '1' ? heldStockQuery(zoneId) : catalogueStockQuery(zoneId)) };
+  let catalogue;
+  if (zoneStockKind() === 'main' || P.ft) {
+    const key = scopeKey(); catalogue = await catalogueStockList(zoneId);
+    if (key === scopeKey()) columnScopes.set(key, catalogue);
+  }
   if (P.ft) {
-    const items = facetIndex(await heldStockList(zoneId), { stockSearch: true });
+    const items = facetIndex(catalogue.map(item => ({ ...item })), { stockSearch: true });
     const candidates = facetPick(items, { q: P.q || '', cat: P.categoryId || '' });
     const matching = facetPick(candidates, { sel: parseFt(P.ft) });
     if (!matching.length || matching.length !== candidates.length) {
@@ -87,11 +111,9 @@ async function balanceQuery(P) {
 
 // ---------- первая страница «Остатков»: плитки категорий (эталон cat-tile, как «Каталог поставщиков») ----------
 const nPos = (n) => `${qty(n)} ${plural(n, 'позиция', 'позиции', 'позиций')}`;
-const stockTag = (text, title, tone = 'dim') => { const b = badge(text, tone); b.title = title; return b; }; // метка в ячейке «Состояние»: бронь / «висит»
 /** Метка у названия трубы (эталон badge): «нерж.» / «Мытая». */
-const pipeBadge = (text, tone) => { const b = badge(text, tone); b.setAttribute('style', 'margin-left: 6px'); return b; };
 async function stockLanding() {
-  const categories = (zoneId) => api('/stock/categories', { query: heldStockQuery(zoneId) });
+  const categories = (zoneId) => api('/stock/categories', { query: catalogueStockQuery(zoneId) });
   const [summary, zones] = await Promise.all([categories(), loadZones().catch(() => [])]);
   const cats = (summary.items || []).filter((c) => c.id !== 'none');
   const open = (p) => patch({ ...p, view: 'table', page: undefined });
@@ -127,19 +149,23 @@ export const stock = {
     // левая панель (NAV F2): поиск → категории → состояние → признаки «тип / резьба / длина / стандарт»; выбранное уходит словами поиска
     sidebar: true,
     chipsTop: true, // СКФ.2: «Состояние» — строкой над таблицей
-    toolbarExtra: () => facetFilter({ categoryKey: 'categoryId', inline: true }),
-    extraKeys: ['ft', 'all'],
+    toolbarExtra: () => facetFilter({ categoryKey: 'categoryId', inline: true, loadItems: catalogueStockList }),
+    extraKeys: ['ft', 'all', 'held'],
     // первая страница — плитки категорий с рисунками (как «Продукция» и «Каталог номенклатуры»); галерея — карточки позиций с фото
     gallery: { limit: 100, card: (r) => ({ pic: r.photos?.[0] ? PREFIX + (r.photos[0].thumb || r.photos[0].url) : null, title: stockPositionName(r), meta: [r.categoryName, stockPositionCode(r)].filter(Boolean).join(' · '), price: `${qty(r.quantity)} ${unit(r)}` }) },
     landing: { when: (P) => !P.categoryId && !P.q && !P.ft && !P.status && !P.all, render: stockLanding },
     // priority=1: «заканчивается» и «в брони» — сверху (внутри групп — выбранный порядок)
     query: balanceQuery,
     export: 'admin',
+    exportLimit: Infinity,
     bulk: { open: (ids, { done }) => openStockBulk({ ids, done }), extra: [stockOrderAction, stockDuplicateAction(), qrBulkAction('S')] },
     headActions: () => [kitButton({ label: 'Выдать материалы', kind: 'primary', onClick: openStockIssue }), stockActions()],
     moreActions: stockMore,
     top: (_reload) => h('div', null, zoneBar(), stockRequestsBox(), mobileStockDashboard()),
     sortDefault: 'name',
+    sortFor: P => ({ pipe: 'sectionSize', sheet: 'sheetSize', wood: 'woodSize' }[stockKind(P)] || 'name'),
+    columnsFor: P => stockTableColumns(stockKind(P), pic, columnScope(P)),
+    rowClass: stockRowClass,
     createLabel: 'Новая позиция склада',
     searchPlaceholder: 'Название, размер, стандарт…',
     emptyText: 'На складе пока нет позиций.', emptyHint: 'Позиции появляются из прихода по заявке или кнопкой «Новая позиция склада» (категория, ед. изм., остаток).',
@@ -153,10 +179,11 @@ export const stock = {
         ],
         count: (resp, v) => resp.counts?.[v || 'all'],
       },
+      { key: 'availability', label: 'Наличие', type: 'select', options: () => [{ value: 'in', label: 'В наличии' }, { value: 'none', label: 'Нет в наличии' }] },
       { key: 'categoryId', label: 'Категория', type: 'hidden' }, // выбирается списком «Категории» в левой панели
     ],
     hints: {
-      '': 'Позиции с остатком в выбранном складе. «+ Принять» и «Забронировать» — в строке.',
+      '': 'Вся номенклатура выбранного склада. Серые строки — нет в наличии. «+ Принять» — в строке.',
       low: 'Меньше минимального остатка — пора заказать: откройте позицию → «Заказать».',
       ordered: 'Заказано, ждём поставку. Приехало — откройте позицию и нажмите «Принять» у заявки.',
       reserved: 'Отложено под заказы. В строке — «Выдать». Снять бронь — в карточке позиции.',
@@ -168,48 +195,19 @@ export const stock = {
       const main = r.reservedQty > 0
         ? { label: 'Выдать', title: 'Выдать из брони', run: (row) => { openStockOp('fromres', row.id); return false; } }
         : { label: 'Забронировать', title: 'Забронировать под заказ', run: (row) => { openStockOp('reserve', row.id); return false; } };
-      return [main, inc];
+      return Number(r.free ?? r.quantity) > 0 || r.reservedQty > 0 ? [main, inc] : [inc];
     },
     tiles: {
       key: 'categoryId', title: 'Категории',
       load: async () => {
-        await loadZones().catch(() => []);
-        return (await api('/stock/categories', { query: heldStockQuery(zoneNow()) })).items.filter((c) => c.id !== 'none').map((c) => ({
+        knownStockZones = await loadZones().catch(() => []);
+        return (await api('/stock/categories', { query: catalogueStockQuery(zoneNow()) })).items.filter((c) => c.id !== 'none').map((c) => ({
           value: c.id, label: c.name, n: c.total,
           sub: h('span', null, c.low ? h('span', { class: 'warn' }, `к закупке ${c.low}`) : 'всё в норме', c.ordered ? ` · заказано ${c.ordered}` : null),
         }));
       },
     },
-    columns: [
-      { key: 'pic', label: '', pic: true, render: (r) => pic(r.photos?.[0]) },
-      { key: 'name', label: 'Название', sort: 'name', cls: 'clip name-2', export: stockPositionName, render: (r) => {
-        const profile = stockPipeProfile(r);
-        const title = stockPositionName(r);
-        const code = stockPositionCode(r);
-        const shown = profile ? facetLabel('pipe', profile) : title;
-        return h('div', { title },
-          h('span', null, shown),
-          profile && /нерж/i.test(r.name) ? pipeBadge('нерж.', 'dim') : null,
-          profile && r.washed != null ? pipeBadge(r.washed ? 'Мытая' : 'Не мытая', r.washed ? 'info' : 'warn') : null,
-          code && code !== shown ? h('div', { class: 'muted small' }, code) : null);
-      } },
-      { key: 'categoryName', label: 'Категория', sort: 'categoryName', cls: 'md-hide', render: (r) => r.categoryName || '' },
-      { key: 'quantity', label: 'Остаток', sort: 'quantity', cls: 'num right', render: (r) => {
-        // C022-4: «м» и пересчёт хлыстов — только труба в метрах с длиной хлыста; обрезок в шт — как штуки
-        const pipeM = r.metal === 'pipe' && String(r.unit || '').toLowerCase() === 'м';
-        return h('span', { class: 'nowrap' }, h('b', null, qty(r.quantity), pipeM ? ' м' : ''), pipeM && r.dims?.length ? h('span', { class: 'muted' }, ` · ${qty(Math.floor(r.quantity * 1000 / r.dims.length))} шт`) : null);
-      } },
-      { key: 'unit', label: 'Ед. изм.', render: unit },
-      { key: 'reservedQty', label: 'В брони', sort: 'reservedQty', cls: 'num right', render: (r) => (r.reservedQty ? qty(r.reservedQty) : '') },
-      { key: 'free', label: 'Свободно', sort: 'free', cls: 'num right', render: (r) => h('span', { title: r.ordered ? `С учётом заказанного: ${qty(r.free + r.ordered)}` : '' }, qty(r.free)) },
-      { key: 'minQuantity', label: 'Мин.', sort: 'minQuantity', cls: 'num right md-hide', render: (r) => (r.minQuantity ? qty(r.minQuantity) : '') },
-      { key: 'lastCountedAt', label: 'Пересчёт', sort: 'lastCountedAt', cls: 'md-hide muted', render: (r) => (r.lastCountedAt ? date(r.lastCountedAt) : '') },
-      { key: 'status', label: 'Состояние', sort: 'status', nowrap: true, render: (r) => h('span', { class: 'nowrap' },
-          badge(STOCK_STATUS, r.status),
-          r.ordered ? h('span', { class: 'muted small', title: 'Открытые заявки на позицию' }, `  зак. ${qty(r.ordered)}`) : null,
-          r.reservedQty ? stockTag(`бронь ${qty(r.reservedQty)}`, 'Отложено под заказы. Снять — откройте позицию, кнопка «Снять бронь»') : null,
-          r.hangingQty ? stockTag(`висит ${qty(r.hangingQty)}`, 'Заказ уже отгружен, закрыт или аннулирован, а материал всё ещё в брони. Откройте позицию, кнопка «Снять бронь»', 'warn') : null) },
-    ],
+    columns: stockTableColumns('main', pic, []),
     card: {
       thumb: photoThumb,
       title: stockPositionName,
@@ -268,7 +266,8 @@ export const stock = {
     initial: () => {
       const fromReq = requestFromHash();
       const fromCat = catalogFromHash();
-      return { unit: 'шт', photos: [], name: fromReq.name || fromCat.name || '', article: fromCat.article || '' };
+      const context = current().params;
+      return { unit: context.unit || 'шт', categoryName: context.categoryName || '', photos: [], name: fromReq.name || fromCat.name || '', article: fromCat.article || '' };
     },
     toInitial: (r) => ({ ...r, article: r.supplierArticle || '', ...metalInitial(r), weightG: r.weightG ?? null, photos: r.photos || [] }),
     toBody: (v, row) => {
@@ -280,7 +279,7 @@ export const stock = {
       if (v.initial) b.initial = v.initial;
       if (v.passportSpec) b.passportSpec = v.passportSpec;
       const wasKind = row ? (row.metal || metalKindUi(row.categoryName, row.unit)) : null;
-      return { ...b, ...metalBody(v, { wasKind }) };
+      return { ...b, ...metalBody(v, { wasKind, previous: row }) };
     },
     create: async (body) => {
       const same = await api('/stock/items', { query: { search: body.name, limit: 20 } });

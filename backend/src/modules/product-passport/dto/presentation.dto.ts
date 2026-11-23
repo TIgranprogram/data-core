@@ -27,9 +27,11 @@ export class PassportOrderQueryDto extends PassportPresentationDto {
   supplierOrgId?: string;
 }
 
+const EXERCISE_SCHEMA = { type: 'object' as const, nullable: true, additionalProperties: false, required: ['initialPosition', 'movement', 'muscles'], properties: { initialPosition: { type: 'string' as const }, movement: { type: 'string' as const }, muscles: { type: 'string' as const } }, description: 'Необязательный блок упражнения: три непустые plain-text части, суммарно ≤4000 после CRLF→LF и trim; null удаляет только блок.' };
+
 export class PatchPassportTemplateDto {
   @ApiProperty({
-    type: 'object', additionalProperties: true,
+    type: 'object', additionalProperties: true, properties: { exerciseInstructions: EXERCISE_SCHEMA },
     description: 'Собственные поля для записи. simpleDescription: {mode:"parts",partIds:[...]} для сборки из частей, {text,partIds} или {mode:"manual",text,partIds} для своего текста, null для сброса.',
     example: { simpleDescription: { mode: 'parts', partIds: ['6537c21dd0f2c297559c4394'] } },
   })
@@ -37,8 +39,8 @@ export class PatchPassportTemplateDto {
   changes!: Record<string, unknown>;
 
   @ApiProperty({
-    type: 'object', additionalProperties: true,
-    description: 'Прежние собственные значения с теми же ключами. simpleDescription передаётся целиком из defaults или как null, если поле отсутствует.',
+    type: 'object', additionalProperties: true, properties: { exerciseInstructions: EXERCISE_SCHEMA },
+    description: 'Прежние собственные значения с теми же ключами. exerciseInstructions передаётся целиком без изменения строк baseline или null при отсутствии; CAS сравнивает весь блок, stale409. simpleDescription передаётся целиком из defaults или как null, если поле отсутствует.',
     example: { simpleDescription: null },
   })
   @IsObject()

@@ -26,6 +26,7 @@ import { paintBookHead, canEditBookInstance, bookEditMessage } from './book-head
 import { editBookTemplateText, openBookCategory, openBookSetting, openDescriptionSetup, openSimpleDescription, openBookInstanceInstallation } from './book-template-edit.js';
 import { openCompositionInBook, openDimsInBook, openMaterialsInBook } from './book-side-edit.js';
 import { bookSettingOpener, bookFocusSettingOpener, paintBookSetup } from './book-setup.js';
+import { openExerciseInstructions } from './book-exercise-edit.js';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 
@@ -190,6 +191,7 @@ export async function openBookEditor(passport, { template = null, position, onCl
   function openDescription() { editTemplateSide(openSimpleDescription, { description: true }); }
   function openDictionaryDescription() { editTemplateSide(openDescriptionSetup, { description: true, followDictionary: true }); }
   ctx.openSimple = openDescription;
+  ctx.openExercise = () => { if (S.template && can()) editTemplateSide((slot, tpl, opts) => openExerciseInstructions(slot, tpl, { ...opts, isCurrent: () => isCurrent() && opts.isCurrent() })); };
   const editSetting = bookSettingOpener(S, editTemplateSide, openDescription);
   ctx.openDimensions = () => openProductSide(openDimsInBook);
   function openProductSide(open) {

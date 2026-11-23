@@ -9,7 +9,7 @@
 '
 ' Делает: PNG (общий вид, габариты, схема установки) → загрузка в изделие →
 '          по согласию пишет Д×Ш×В, массу и глубину Г; обновляет действующие паспорта с историей.
-' Версия текста: 2026-11-21 (C172: единый импорт и редакции паспортов)
+' Версия текста: 2026-11-23 (C241: подтверждённый способ установки перед загрузкой)
 '==============================================================================
 AddReference "System.Net.Http.dll"
 AddReference "System.Net.Primitives.dll"
@@ -498,10 +498,20 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             Loop
             If productId Is Nothing Then Throw New InvalidOperationException("Изделие с точным артикулом не найдено.")
             If MessageBox.Show("Артикул: " & sku & vbCrLf & "Изделие: " & productName & vbCrLf & vbCrLf &
-                               "Обновить общий вид, габариты и схему установки изделия и его действующих паспортов?" & vbCrLf &
-                               "Номера сохранятся, прежние данные останутся в истории редакций. Паспорта закрытых договоров не изменятся.",
+                               "Обновить общий вид, габариты и схему установки изделия и подходящих действующих паспортов?" & vbCrLf &
+                               "Паспорта с другим или неизвестным способом установки будут пропущены. Номера сохранятся, прежние данные останутся в истории. Закрытые договоры не изменятся.",
                                "Подтвердите изделие", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                                MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
+            Dim photosPath As String = "products/" & productId & "/photos"
+            Dim importPath As String = "products/" & productId & "/passport-import"
+            stage = "Получение способов установки"
+            Dim context As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, importPath & "-context")
+            Dim contextToken As String = JsonString(context, "contextToken")
+            If String.IsNullOrWhiteSpace(contextToken) Then Throw New InvalidOperationException("Сайт не подтвердил готовность к импорту. Обновите правило iLogic и сайт.")
+            Dim installation As Global.System.Text.Json.JsonElement = ChooseInstallation(context)
+            If installation.ValueKind = Global.System.Text.Json.JsonValueKind.Undefined Then Return ""
+            Dim installationId As String = ApiId(installation)
+            Dim depthApplicable As Boolean = installation.GetProperty("depthApplicable").GetBoolean()
             ' Значения в карточку — по отдельному согласию: на сайте их могли уже поправить вручную (пользователь 2026-11-13)
             Dim sizeKnown As Boolean = Global.System.Linq.Enumerable.All(dimensions, Function(mm) mm > 0 AndAlso Not Double.IsInfinity(mm) AndAlso Not Double.IsNaN(mm))
             Dim massKnown As Boolean = massKg > 0 AndAlso Not Double.IsInfinity(massKg) AndAlso Not Double.IsNaN(massKg)
@@ -518,19 +528,14 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             End If
             Dim writeSize As Boolean = writeSizeAndMass AndAlso sizeKnown
             Dim writeMass As Boolean = writeSizeAndMass AndAlso massKnown
-            Dim writeDepth As Boolean = depthMm >= 0 AndAlso Not Double.IsInfinity(depthMm) AndAlso Not Double.IsNaN(depthMm) AndAlso
+            Dim writeDepth As Boolean = depthApplicable AndAlso depthMm >= 0 AndAlso Not Double.IsInfinity(depthMm) AndAlso Not Double.IsNaN(depthMm) AndAlso
                 MessageBox.Show(
                     "Записать в карточку изделия глубину Г = " & FormatMm(depthMm) & " мм?" & vbCrLf & vbCrLf &
                     "«Нет» — на сайте останется прежнее значение.",
                     "Глубина Г", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                     MessageBoxDefaultButton.Button1) = DialogResult.Yes
 
-            Dim photosPath As String = "products/" & productId & "/photos"
-            Dim importPath As String = "products/" & productId & "/passport-import"
             stage = "Проверка существующих рисунков"
-            Dim context As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, importPath & "-context")
-            Dim contextToken As String = JsonString(context, "contextToken")
-            If String.IsNullOrWhiteSpace(contextToken) Then Throw New InvalidOperationException("Сайт не подтвердил готовность к импорту. Обновите правило iLogic и сайт.")
             Dim previous As Global.System.Collections.Generic.Dictionary(Of String, String) = ReadPassportSlots(client, photosPath)
             If previous.Count > 0 Then
                 Dim overviewCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = "overview")
@@ -551,6 +556,7 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             Dim foundationId As String = UploadPng(client, System.IO.Path.Combine(folder, "03_Схема установки.png"))
             ' Только одобренные числа. Даже совпавшее число передаём: паспорт мог остаться со старым значением.
             Dim confirmed As New Global.System.Collections.Generic.Dictionary(Of String, Object)
+            confirmed.Add("installationTypeId", installationId)
             If writeSize Then confirmed.Add("dimensions", New With {
                 .length = dimensions(0), .width = dimensions(1), .height = dimensions(2), .unit = "мм"})
             If writeMass Then confirmed.Add("weightKg", massKg)
@@ -571,6 +577,8 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                         saved = RequestJson(client, Global.System.Net.Http.HttpMethod.Post, importPath, body)
                     End Using
                     Exit For
+                Catch ex As InvalidOperationException When ex.Message.Contains("HTTP 409")
+                    Throw New InvalidOperationException("Контекст изделия изменился. Запустите правило заново: получите новый контекст и подтвердите способ установки. Автоматической смены способа нет." & vbCrLf & ex.Message, ex)
                 Catch ex As InvalidOperationException When attempt < 3 AndAlso IsBusy(ex)
                     System.Threading.Thread.Sleep(3000)
                 Catch ex As Global.System.Net.Http.HttpRequestException When attempt < 3
@@ -583,6 +591,61 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             importSummary = PassportImportSummary(saved)
             Return productId
         End Using
+    End Using
+End Function
+
+Function ChooseInstallation(context As Global.System.Text.Json.JsonElement) As Global.System.Text.Json.JsonElement
+    Dim variants As Global.System.Text.Json.JsonElement
+    If Not context.TryGetProperty("installations", variants) OrElse variants.ValueKind <> Global.System.Text.Json.JsonValueKind.Array Then
+        Throw New InvalidOperationException("Сайт не вернул способы установки. Обновите сайт и правило iLogic.")
+    End If
+    If variants.GetArrayLength() = 0 Then Throw New InvalidOperationException("Для изделия нет поддержанных способов установки. Проверьте категорию и справочник на сайте. Рисунки не загружены.")
+    Dim choices As New Global.System.Collections.Generic.List(Of Global.System.Text.Json.JsonElement)
+    Dim currentId As String = JsonString(context, "installationTypeId")
+    Using dialog As New Global.System.Windows.Forms.Form()
+        dialog.Text = "Подтвердите способ установки"
+        dialog.Width = 620
+        dialog.Height = 250
+        dialog.FormBorderStyle = Global.System.Windows.Forms.FormBorderStyle.FixedDialog
+        dialog.StartPosition = Global.System.Windows.Forms.FormStartPosition.CenterScreen
+        dialog.MaximizeBox = False
+        dialog.MinimizeBox = False
+        Dim explanation As New Global.System.Windows.Forms.Label With {.Left = 16, .Top = 16, .Width = 570, .Height = 48,
+            .Text = "Выберите способ, которому соответствуют все три рисунка. Для анкеров третий лист — монтаж, для бетонирования — фундамент. Другие способы паспортов не изменятся."}
+        Dim selectBox As New Global.System.Windows.Forms.ComboBox With {.Left = 16, .Top = 72, .Width = 570,
+            .DropDownStyle = Global.System.Windows.Forms.ComboBoxStyle.DropDownList}
+        Dim details As New Global.System.Windows.Forms.Label With {.Left = 16, .Top = 108, .Width = 570, .Height = 40,
+            .Text = "Выберите способ установки. Без подтверждения рисунки на сайт не отправляются."}
+        Dim accept As New Global.System.Windows.Forms.Button With {.Left = 364, .Top = 160, .Width = 110, .Text = "Подтвердить", .Enabled = False, .DialogResult = DialogResult.OK}
+        Dim cancel As New Global.System.Windows.Forms.Button With {.Left = 484, .Top = 160, .Width = 102, .Text = "Отмена", .DialogResult = DialogResult.Cancel}
+        Dim selected As Integer = -1
+        For Each item As Global.System.Text.Json.JsonElement In variants.EnumerateArray()
+            Dim id As String = ApiId(item)
+            Dim name As String = JsonString(item, "name")
+            Dim kind As String = JsonString(item, "thirdImportKind")
+            Dim depth As Global.System.Text.Json.JsonElement
+            If String.IsNullOrWhiteSpace(name) OrElse (kind <> "mounting" AndAlso kind <> "foundation") OrElse
+                Not item.TryGetProperty("depthApplicable", depth) OrElse
+                (depth.ValueKind <> Global.System.Text.Json.JsonValueKind.True AndAlso depth.ValueKind <> Global.System.Text.Json.JsonValueKind.False) Then
+                Throw New InvalidOperationException("Неподдержанный контекст способа установки. Обновите сайт и правило iLogic. Рисунки не загружены.")
+            End If
+            choices.Add(item)
+            selectBox.Items.Add(name)
+            If String.Equals(id, currentId, StringComparison.Ordinal) Then selected = choices.Count - 1
+        Next
+        AddHandler selectBox.SelectedIndexChanged, Sub(sender, args)
+            accept.Enabled = selectBox.SelectedIndex >= 0
+            If Not accept.Enabled Then Return
+            Dim item As Global.System.Text.Json.JsonElement = choices(selectBox.SelectedIndex)
+            details.Text = "Третий лист: " & If(JsonString(item, "thirdImportKind") = "mounting", "схема монтажа", "схема фундамента") & ". " &
+                If(item.GetProperty("depthApplicable").GetBoolean(), "Глубина Г — по отдельному подтверждению.", "Глубина Г не применяется и не отправляется.")
+        End Sub
+        selectBox.SelectedIndex = selected
+        dialog.Controls.AddRange(New Global.System.Windows.Forms.Control() {explanation, selectBox, details, accept, cancel})
+        dialog.AcceptButton = accept
+        dialog.CancelButton = cancel
+        If dialog.ShowDialog() <> DialogResult.OK OrElse selectBox.SelectedIndex < 0 Then Return Nothing
+        Return choices(selectBox.SelectedIndex)
     End Using
 End Function
 
