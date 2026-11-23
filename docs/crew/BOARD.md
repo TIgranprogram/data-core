@@ -4,14 +4,14 @@
 
 | ID | Суть | Статус |
 |--|--|--|
-| C243 | Поставщик в каталоге против истории закупок | Проверка · [ТЗ](C243-catalog-supplier-history/TZ.md) |
-| C242 | Чистые параметры и сортировки всех таблиц склада | Разведка · [ТЗ](C242-stock-section-order/TZ.md) |
-| C241 | Выбор способа установки в Inventor перед импортом | Разведка · [Карта](C241-inventor-installation-choice/EXPLORER.md) |
-| C240 | Дополнительные возможности роли и экраны склада директора | Реализация · [План](C240-director-stock-screens/ARCH-PLAN.md) |
+| C243 | Поставщик в каталоге против истории закупок | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |
+| C242 | Чистые параметры и сортировки всех таблиц склада | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |
+| C241 | Выбор способа установки в Inventor перед импортом | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |
+| C240 | Дополнительные возможности роли и экраны склада директора | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |
 | C239 | Рисунки из КП в позиции договора через Пульт | done · [QA](C239-intake-document-images/QA-REPORT.md), [приёмка](C239-intake-document-images/DESIGN-REVIEW.md) |
 | C238 | Переход «ещё … — списком по месяцам» из доски | done · v2.46 · [Выпуск](C237-contract-order-labels/PROD-REPORT.md) |
 | C237 | Подпись договора без заказа в карточке и печати | done · v2.46 · [Выпуск](C237-contract-order-labels/PROD-REPORT.md) |
-| C236 | Подробные упражнения в паспортах тренажёров | Требования · [ТЗ](C236-trainer-exercise-instructions/TZ.md) |
+| C236 | Подробные упражнения в паспортах тренажёров | v2.49;1067/1068 заполнены;1069 отложен · [факт](C236-trainer-exercise-instructions/APPLY-REPORT.md) |
 | C235 | Тексты эксплуатации изделий: что готово и где получить | done · [Возможности](C235-product-usage-texts/REPORT.md), [рабочий пример](C235-product-usage-texts/PROD-SAMPLE.md) |
 | C234 | Исходящие счета к договорам и препятствие загрузки КП | done · [Три счёта и КП в комплектах](C234-sales-invoices-and-offer/LIVE-REPORT.md) |
 | C233 | Создание заказчика и загрузка договоров из рабочего разбора | done · [Три договора на сайте](C233-live-intake-control/LIVE-REPORT.md) |
