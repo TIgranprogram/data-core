@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { apiAddress, authorize, checkAutomaticDuplicate, checkOrderAttachment, checkSalesCandidates, connectApi, executeIntake, executeOrderAttachment, makeInvoicePayload, proveReviewedInvoice, resolveSalesParties } from './api.mjs';
+import { apiAddress, authorize, checkAutomaticDuplicate, checkOrderAttachment, checkSalesCandidates, connectApi, ensureSalesCustomer, executeIntake, executeOrderAttachment, makeInvoicePayload, proveReviewedInvoice, resolveSalesParties } from './api.mjs';
 import { checkBinding, draftFile, findReview, reviewStatus } from './analysis.mjs';
 import { IntakeError, jsonAtomic, lock, openRoot, readJson, sha256, uid } from './store.mjs';
 
@@ -82,12 +82,19 @@ async function recover(store, api, draft, bytes, version) {
 async function prepareSales(api, draft, bytes) {
   if (bytes.length > 15 * 1024 * 1024) throw new IntakeError('QUESTION', 'PDF превышает 15 МиБ.');
   if (draft.proposal.revision) throw new IntakeError('QUESTION', 'Редакцию нужно сверить с существующей карточкой.');
-  const parties = await resolveSalesParties(api, draft.proposal);
-  if (parties.companyId !== draft.parties?.companyId || parties.counterpartyId !== draft.parties?.counterpartyId) {
+  const pending = draft.parties?.pendingCustomer;
+  const parties = await resolveSalesParties(api, draft.proposal, { allowMissingCustomer: draft.proposal.kind === 'contract' });
+  if (parties.companyId !== draft.parties?.companyId
+    || (!pending && parties.counterpartyId !== draft.parties?.counterpartyId)
+    || (pending && (pending.inn !== draft.proposal.buyer.inn || pending.name !== draft.proposal.buyer.name))) {
     throw new IntakeError('QUESTION', 'Стороны документа изменились в справочнике.');
   }
   const doc = draft.salesDelivery || { uid: 'c169-' + draft.hash, hash: draft.hash, proposal: draft.proposal, parties,
     orderContract: draft.orderContract, orderReference: draft.orderReference };
+  if (draft.salesDelivery && (doc.parties.companyId !== parties.companyId
+    || (doc.parties.counterpartyId && doc.parties.counterpartyId !== parties.counterpartyId))) {
+    throw new IntakeError('QUESTION', 'Сохранённый заказчик договора изменился или недоступен.');
+  }
   if (doc.proposal.kind === 'order') await checkOrderAttachment(api, doc);
   else await checkSalesCandidates(api, doc);
   return doc;
@@ -101,6 +108,12 @@ async function sendSales(store, api, draft, item, found) {
     draft.salesDelivery = doc;
     draft.sendStarted = true;
     draft.state = 'sending';
+    await save(store, draft);
+  }
+  if (doc.parties.pendingCustomer) {
+    const counterpartyId = await ensureSalesCustomer(api, doc.parties.pendingCustomer);
+    doc.parties = { companyId: doc.parties.companyId, counterpartyId };
+    // Подтверждённый draft/proof остаётся неизменным; фактический ID живёт в журнале отправки.
     await save(store, draft);
   }
   // Оригинал и строки используют устойчивые ключи записи. При обрыве продолжаем с локальных квитанций.

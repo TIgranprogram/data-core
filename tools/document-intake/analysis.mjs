@@ -67,6 +67,11 @@ async function validate(draft, api, loadColumns, raw = draft.raw) {
       draft.pages, draft.partyColumns || [], draft.printedRows, draft.manualParties);
     if (evidence !== draft.raw) draft.evidence = evidence;
 
+    if (['supplier_invoice', 'customer_invoice'].includes(draft.kind) && sides.every(side => side.party && !side.issue)) {
+      try { draft.kind = (await decideInvoice(api, { seller: evidence.seller, buyer: evidence.buyer })).kind; }
+      catch (error) { if (!(error instanceof IntakeError) || interrupted.has(error.code)) throw error; }
+    }
+
     let proposal;
     try { proposal = validateProposal(evidence, draft.pages, draft.kind === 'contract' ? draft.partyColumns : [], draft.printedRows, draft.manualParties); }
     catch (error) {
@@ -78,7 +83,7 @@ async function validate(draft, api, loadColumns, raw = draft.raw) {
     }
     if (!proposal) {
       const invoice = ['supplier_invoice', 'customer_invoice'].includes(draft.kind);
-      const labels = invoice ? { seller: 'Поставщик', buyer: 'Плательщик' } : { seller: 'Исполнитель', buyer: 'Заказчик' };
+      const labels = invoice && draft.kind !== 'customer_invoice' ? { seller: 'Поставщик', buyer: 'Плательщик' } : { seller: 'Исполнитель', buyer: 'Заказчик' };
       draft.state = 'question';
       for (const { key, party, issue } of sides) {
         if (issue) {
@@ -97,7 +102,7 @@ async function validate(draft, api, loadColumns, raw = draft.raw) {
     const reference = draft.kind === 'order' ? referencedContract(draft.pages) : null;
     if (['contract', 'offer', 'order'].includes(proposal.kind)) {
       if (proposal.revision) throw new IntakeError('QUESTION', 'В документе указана редакция.', 'Сверьте редакцию в карточке существующего документа.');
-      draft.parties = await resolveSalesParties(api, proposal);
+      draft.parties = await resolveSalesParties(api, proposal, { allowMissingCustomer: proposal.kind === 'contract' });
       if (reference) {
         draft.orderReference = reference;
         const contract = await findOrderContract(api, reference, draft.parties, proposal);

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { IntakeError, sha256 } from './store.mjs';
 
 export const EXTRACTOR_VERSION = 1;
-export const RULES_VERSION = 3;
+export const RULES_VERSION = 4;
 export const VISION_VERSION = 1;
 const MAX_TEXT = 65_000;
 const exec = promisify(execFile);
@@ -154,6 +154,56 @@ function parseTable(table, pageCount) {
   return [];
 }
 
+// C233: спецификации без линий сетки не попадают в find_tables. Порядок
+// чисел разрешаем только по полному печатному заголовку той же таблицы.
+function textTable(pages) {
+  const found = [];
+  const number = '(?:\\d+|\\d{1,3}(?: \\d{3})+)(?:[,.]\\d+)?';
+  const rowPattern = new RegExp(`^\\s*(\\d{1,3})\\s+(.*?)\\s{2,}(${number})\\s{2,}(${number})\\s{2,}([\\p{L}.]+)\\s{2,}(${number})\\s*$`, 'u');
+  for (const [pageIndex, page] of pages.entries()) {
+    const lines = page.split(/\r?\n/u);
+    for (let start = 0; start + 3 < lines.length; start++) {
+      const header = lines.slice(start, start + 3);
+      const labels = [ /^Наименование$/iu, /^Цена$/iu, /^Кол(?:ичество|[-\s]*во|-)$/iu, /^Ед\.$/iu, /^Сумма$/iu ];
+      const columns = labels.map(pattern => header.flatMap(line => [...line.matchAll(/\S.*?(?= {2,}|$)/gu)]
+        .filter(match => pattern.test(match[0])).map(match => match.index)));
+      if (columns.some(matches => matches.length !== 1)
+        || columns.some(([position], index) => index && position <= columns[index - 1][0])) continue;
+      // Произвольный текст с названиями колонок не является заголовком.
+      if (header.some(line => line.replace(/Наименование|Цена|Кол(?:ичество|[-\s]*во|-)|Ед\.|Сумма|п\/п|за\s+ед\.|во|изм\.|№/giu, '').trim())) continue;
+      const rows = [];
+      let pending = [], complete = false, failed = false;
+      for (let rowIndex = start + 3; rowIndex < lines.length; rowIndex++) {
+        const line = lines[rowIndex];
+        if (!line.trim()) continue;
+        if (/^\s*ИТОГО\s*:/iu.test(line)) { complete = !pending.length; break; }
+        const match = rowPattern.exec(line);
+        if (match) {
+          const [, index, title, priceText, qtyText, unit, totalText] = match;
+          const qty = printedNumber(qtyText), unitPrice = printedNumber(priceText), total = printedNumber(totalText);
+          if (Number(index) !== rows.length + 1 || !amount(unitPrice) || !amount(total)
+            || qty === null || qty < 0.001 || qty > 1e8 || cents(qty * unitPrice) !== cents(total)) { failed = true; break; }
+          rows.push({ title: normalize([...pending, title].join(' ')), qty, unit, unitPrice, amount: total,
+            page: pageIndex + 1, quote: [...pending, line].join('\n') });
+          pending = [];
+        } else if (/^\s{4,}\S/u.test(line)
+          && (/\p{L}/u.test(line) || /^\s*\d+(?:[×xх]\d+){1,2}\s*$/iu.test(line)) && !/\d[,.]\d/u.test(line)) {
+          // Перенос перед номером следующей строки или после чисел текущей.
+          const next = lines[rowIndex + 1] || '';
+          if (rowPattern.test(next) && !rowPattern.exec(next)[2].trim()) pending.push(line);
+          else if (rows.length && !pending.length) {
+            rows.at(-1).title = normalize(rows.at(-1).title + ' ' + line);
+            rows.at(-1).quote += '\n' + line;
+          } else { failed = true; break; }
+        } else { failed = true; break; }
+      }
+      if (!failed && complete && rows.length && rows.every(row => length(row.title, 300))) found.push(rows);
+    }
+  }
+  // Несколько подходящих текстовых таблиц требуют проверки, а не выбора одной.
+  return found.length === 1 ? found[0] : [];
+}
+
 export function recoverPrintedRows(raw, pages, tables) {
   if (!Array.isArray(raw?.lines) || !raw.lines.length || !Array.isArray(tables)) return [];
   const choices = new Map();
@@ -169,7 +219,9 @@ export function recoverPrintedRows(raw, pages, tables) {
     if (group.priority === priority) group.candidates.set(JSON.stringify(rows.map(({ quote, ...facts }) => facts)), rows);
   }
   if ([...choices.values()].some(group => group.candidates.size !== 1)) return [];
-  const rows = [...choices].sort(([first], [second]) => first - second).flatMap(([, group]) => group.candidates.values().next().value);
+  const rows = choices.size
+    ? [...choices].sort(([first], [second]) => first - second).flatMap(([, group]) => group.candidates.values().next().value)
+    : textTable(pages);
   if (rows.length < raw.lines.length || (rows.length > raw.lines.length && rows.some(row => !row.amount))) return [];
   const proven = raw.lines.map(row => factOrNull(() => validateLines([row], pages)[0])).filter(Boolean);
   if (!proven.every(row => rows.some(({ page, quote, ...facts }) => sameFact(row, facts)))) return [];
@@ -571,6 +623,7 @@ export function confirmReadFact(raw, pages, field, input) {
 
 function validateLines(rows, pages, printedRows = []) {
   requireEvidence(Array.isArray(rows) && rows.length > 0 && rows.length <= 200, 'состав документа');
+  const textRows = printedRows.length ? [] : textTable(pages);
   const used = new Set();
   return rows.map((row, index) => {
     const label = `строка ${index + 1}`;
@@ -580,6 +633,13 @@ function validateLines(rows, pages, printedRows = []) {
       return facts;
     }
     const q = quoteOf(row, pages, label, ['title', 'qty', 'unit', 'unitPrice', 'amount']);
+    if (textRows.length) {
+      const physical = textRows[index];
+      requireEvidence(textRows.length === rows.length && physical && row.page === physical.page
+        && ['title', 'qty', 'unit', 'unitPrice', 'amount'].every(key => row[key] === physical[key]), label);
+      const { page, quote, ...facts } = physical;
+      return facts;
+    }
     const evidence = `${row.page}:${q}`;
     requireEvidence(!used.has(evidence), label);
     used.add(evidence);

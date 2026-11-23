@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { IntakeError, MAX_BYTES, sha256 } from './store.mjs';
-import { cents, question, supplierTotals } from './proposal.mjs';
+import { cents, question, supplierTotals, validInn } from './proposal.mjs';
 
 const objectId = (value) => typeof value === 'string' && /^[\da-f]{24}$/i.test(value);
 const idOf = (doc) => doc?.id ?? doc?._id;
@@ -127,17 +127,54 @@ export async function authorize(api) {
   return actor;
 }
 
-export async function lookupParty(api, party, label) {
+async function findParty(api, party, label) {
   const entries = await all(api, '/organizations', { search: party.inn });
-  const matches = entries.filter(row => row.inn === party.inn && !row.deletedAt);
-  if (!matches.length) {
-    throw question(label + ' отсутствует в справочнике по подтверждённому ИНН.', 'ИНН сверен с оригиналом. Проверьте карточку в «Контрагентах».');
+  if (entries.some(row => row.inn === party.inn && row.deletedAt)) {
+    throw question(label + ' найден в корзине.', 'Проверьте карточку в «Контрагентах». Автоматическое восстановление не выполняется.');
   }
+  const matches = entries.filter(row => row.inn === party.inn && !row.deletedAt);
+  if (!matches.length) return null;
   if (matches.length > 1) {
     throw question(label + ' найден в нескольких карточках с одним ИНН.', 'Сверьте дубли в «Контрагентах».');
   }
   if (!objectId(idOf(matches[0]))) throw question('Карточка стороны недоступна для привязки.', 'Проверьте карточку в «Контрагентах».');
   return matches[0];
+}
+
+export async function lookupParty(api, party, label) {
+  const match = await findParty(api, party, label);
+  if (!match) throw question(label + ' отсутствует в справочнике по подтверждённому ИНН.', 'ИНН сверен с оригиналом. Проверьте карточку в «Контрагентах».');
+  return match;
+}
+
+function customerFacts(party) {
+  if (!validInn(party?.inn) || typeof party?.name !== 'string' || !party.name.trim() || party.name.length > 256) {
+    throw question('Реквизиты нового заказчика не подтверждены.', 'Сверьте название и ИНН с оригиналом.');
+  }
+  return { name: party.name, inn: party.inn };
+}
+
+function customerId(match) {
+  if (match.isOurCompany) throw question('Заказчик отмечен как наша компания.', 'Сверьте стороны договора в «Контрагентах».');
+  return idOf(match);
+}
+
+export async function ensureSalesCustomer(api, party) {
+  const facts = customerFacts(party);
+  let match = await findParty(api, facts, 'Заказчик');
+  if (match) return customerId(match);
+  let failure;
+  try {
+    await api.post('/organizations', { ...facts, type: ['customer'], isOurCompany: false });
+  } catch (error) {
+    if (['AUTH', 'ABORTED'].includes(error?.code)) throw error;
+    failure = error;
+  }
+  // POST мог завершиться на сервере, даже если ответ потерян. Повторной записи вслепую нет.
+  match = await findParty(api, facts, 'Заказчик');
+  if (match) return customerId(match);
+  if (failure?.code === 'API_UNAVAILABLE') throw failure;
+  throw question('Создание заказчика не подтверждено. Возможна карточка с этим ИНН в корзине.', 'Проверьте «Контрагенты» и корзину, затем повторите отправку.');
 }
 
 function supplierRole(party) {
@@ -156,14 +193,25 @@ async function resolveParty(api, party, own, supplier = false) {
   return idOf(match);
 }
 
-export async function resolveSalesParties(api, proposal) {
+export async function resolveSalesParties(api, proposal, { allowMissingCustomer = false } = {}) {
   const companyId = await resolveParty(api, proposal.seller, true);
+  if (allowMissingCustomer && proposal.kind === 'contract') {
+    const facts = customerFacts(proposal.buyer);
+    const customer = await findParty(api, facts, 'Заказчик');
+    return customer ? { companyId, counterpartyId: customerId(customer) }
+      : { companyId, counterpartyId: null, pendingCustomer: facts };
+  }
   const counterpartyId = await resolveParty(api, proposal.buyer, false);
   return { companyId, counterpartyId };
 }
 
 export async function decideInvoice(api, proposal) {
   const seller = await lookupParty(api, proposal.seller, 'Поставщик');
+  // Направление счёта определяется нашей стороной, даже если покупатель ещё не заведён.
+  if (seller.isOurCompany) {
+    const buyer = await findParty(api, proposal.buyer, 'Плательщик');
+    if (!buyer?.isOurCompany) return { kind: 'customer_invoice' };
+  }
   const buyer = await lookupParty(api, proposal.buyer, 'Плательщик');
   if (seller.isOurCompany && !buyer.isOurCompany) return { kind: 'customer_invoice' };
   if (Boolean(seller.isOurCompany) === Boolean(buyer.isOurCompany)) {
