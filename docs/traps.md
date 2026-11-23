@@ -229,3 +229,5 @@ C157, импорт и DTO (19.11.2026). `PatchInvoiceDto` не принимае�
 В последней строке TEST-LOG для release-gate нужны буквальные lowercase e2e и ✅: текущий preflight проверяет регистр. Запись E2E при зелёном полном прогоне не проходит ворота. Меняется только формат записи, результаты и история FAIL сохраняются.
 
 api.sh меняет cwd на deploy/synology. JSON-тело передавать абсолютным realpath с нормализованными /, проверять читаемость в Git Bash и SHA до PATCH. curl26 означает локальный сбой чтения файла; перед новой попыткой подтвердить GET, сохранить STOP-журнал, затем отдельный разрешённый writer. Тела двух пилотов не подменялись (C236/APPLY-REPORT.md).
+
+Inventor2027/iLogic: compile-check сSDK8/WindowsForms8 не проверяет host10. ДляUsingForm/AcceptButton/CancelButton .NET10 требует явной AddReference System.Private.Windows.Core.dll; иначе6BC30652(IPersist.Interface/IHandle). Проверять канон и ссылки на реальные runtime10-библиотеки; NET10-FIX C241 содержит FAIL→PASS. Compile-only не равен запуску правила.

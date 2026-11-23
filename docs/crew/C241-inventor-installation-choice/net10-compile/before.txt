@@ -1,0 +1,27 @@
+Компилятор Microsoft (R) Visual Basic версии 4.11.0-3.25569.22 (3fb752d4)
+© Корпорация Майкрософт (Microsoft Corporation). Все права защищены.
+
+C:\Users\User\AppData\Local\Temp\datacore-c241-net10-compile\Rule.vb(602) : error BC30652: Для модуля "System.Private.Windows.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" требуется сборка, содержащая тип "IPersist.Interface". Добавьте одну из них в проект.
+
+    Using dialog As New Global.System.Windows.Forms.Form()
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\User\AppData\Local\Temp\datacore-c241-net10-compile\Rule.vb(602) : error BC30652: Для модуля "System.Private.Windows.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" требуется сборка, содержащая тип "IHandle(Of )". Добавьте одну из них в проект.
+
+    Using dialog As New Global.System.Windows.Forms.Form()
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+C:\Users\User\AppData\Local\Temp\datacore-c241-net10-compile\Rule.vb(642) : error BC30652: Для модуля "System.Private.Windows.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" требуется сборка, содержащая тип "IPersist.Interface". Добавьте одну из них в проект.
+
+        dialog.AcceptButton = accept
+                              ~~~~~~
+C:\Users\User\AppData\Local\Temp\datacore-c241-net10-compile\Rule.vb(642) : error BC30652: Для модуля "System.Private.Windows.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" требуется сборка, содержащая тип "IHandle(Of )". Добавьте одну из них в проект.
+
+        dialog.AcceptButton = accept
+                              ~~~~~~
+C:\Users\User\AppData\Local\Temp\datacore-c241-net10-compile\Rule.vb(643) : error BC30652: Для модуля "System.Private.Windows.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" требуется сборка, содержащая тип "IPersist.Interface". Добавьте одну из них в проект.
+
+        dialog.CancelButton = cancel
+                              ~~~~~~
+C:\Users\User\AppData\Local\Temp\datacore-c241-net10-compile\Rule.vb(643) : error BC30652: Для модуля "System.Private.Windows.Core, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" требуется сборка, содержащая тип "IHandle(Of )". Добавьте одну из них в проект.
+
+        dialog.CancelButton = cancel
+                              ~~~~~~

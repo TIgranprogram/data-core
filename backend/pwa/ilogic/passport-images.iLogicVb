@@ -16,6 +16,7 @@ AddReference "System.Net.Primitives.dll"
 AddReference "System.Private.Uri.dll"
 AddReference "System.Memory.dll"
 AddReference "System.Text.Json.dll"
+AddReference "System.Private.Windows.Core.dll"
 
 Class ThisRule
 

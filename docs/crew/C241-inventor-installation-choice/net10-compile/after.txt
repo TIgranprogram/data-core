@@ -1,0 +1,3 @@
+Компилятор Microsoft (R) Visual Basic версии 4.11.0-3.25569.22 (3fb752d4)
+© Корпорация Майкрософт (Microsoft Corporation). Все права защищены.
+
