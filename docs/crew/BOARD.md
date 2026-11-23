@@ -4,6 +4,7 @@
 
 | ID | Суть | Статус |
 |--|--|--|
+| C236 | Подробные упражнения в паспортах тренажёров | Требования · [ТЗ](C236-trainer-exercise-instructions/TZ.md) |
 | C235 | Тексты эксплуатации изделий: что готово и где получить | done · [Возможности](C235-product-usage-texts/REPORT.md), [рабочий пример](C235-product-usage-texts/PROD-SAMPLE.md) |
 | C234 | Исходящие счета к договорам и препятствие загрузки КП | done · [Три счёта и КП в комплектах](C234-sales-invoices-and-offer/LIVE-REPORT.md) |
 | C233 | Создание заказчика и загрузка договоров из рабочего разбора | done · [Три договора на сайте](C233-live-intake-control/LIVE-REPORT.md) |
