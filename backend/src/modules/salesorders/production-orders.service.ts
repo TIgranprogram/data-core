@@ -357,16 +357,18 @@ export class ProductionOrdersService {
     }));
     const total = all.length;
     const PRIORITY: Record<string, string> = { urgent: 'срочно', high: 'высокий', low: 'низкий' };
-    const number = String(card.productionNo || live[0].orderNo || '—');
+    const productionNo = String(card.productionNo ?? '').trim();
+    const documentKind = productionNo ? 'order' : 'contract';
+    const number = productionNo || String(live[0].orderNo || '—');
     const buf = await renderOrderPdf({
-      number, stageLabel: card.stageLabel as string | undefined, customer: customers.join(', '), priority: PRIORITY[String(card.priority)] ?? undefined,
+      documentKind, number, stageLabel: card.stageLabel as string | undefined, customer: customers.join(', '), priority: PRIORITY[String(card.priority)] ?? undefined,
       productionDeadline: minDate('productionDeadline') ?? null, shipDate: minDate('shipDate') ?? null,
       notes: live.map((o) => String(o.notes ?? '').trim()).filter(Boolean).join(' · ') || undefined,
       summary: `Позиций ${total} · изделий ${ruNum(pieces)} шт · в проектировании ${inDesign} · в работе ${inWork} · изготовлено ${ready}`,
       org: org ? { name: String(org.fullName || org.name || org.shortName || ''), inn: org.inn as string | undefined, address: org.legalAddress as string | undefined, phone: org.phone as string | undefined } : { name: '' },
       logo, contracts,
     });
-    return { buf, filename: `Заказ_${number.replace(/[^\p{L}\p{N}._-]+/gu, '_')}.pdf` };
+    return { buf, filename: `${documentKind === 'contract' ? 'Договор' : 'Заказ'}_${number.replace(/[^\p{L}\p{N}._-]+/gu, '_')}.pdf` };
   }
 
   private liveIds(docs: Doc[]) { return docs.filter((d) => d.stage !== 'cancelled').map((d) => d._id as Types.ObjectId); }

@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "label": "ещё 103 — списком →",
+  "view": "table",
+  "statusFilter": "paid",
+  "pageReset": true,
+  "fixture": {
+    "type": "readonly-paid-total",
+    "originalTotal": 18,
+    "fixtureTotal": 121
+  },
+  "pageErrors": []
+}

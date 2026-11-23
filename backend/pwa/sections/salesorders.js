@@ -1,3 +1,4 @@
+import { hasProductionNumber } from './order-attachments-zip.js';
 import { STAGE, crumbTrail } from './order-stage.js';
 import { nextStep, orderCounts } from './salesorders-next.js';
 import { sideForm, openSide, sideNote } from '../ui/kit/side-form.js';
@@ -46,7 +47,8 @@ const STAGE_ORDER = Object.keys(STAGE);
 const prio = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
 /** № заказа = № на производство (productionNo); № договора (orderNo) — справка. Несколько договоров с одним № — один заказ производства. */
 export const prodNo = (r) => r?.productionNo || 'нет №';
-const heading = (r) => (r.productionNo ? `Заказ № ${r.productionNo}` : `Заказ без № · договор ${(r.orderNos || [r.orderNo])[0] || '—'}`);
+const documentKind = (r) => hasProductionNumber(r) ? 'Заказ' : 'Договор';
+const heading = (r) => hasProductionNumber(r) ? `Заказ № ${r.productionNo}` : `Договор № ${r?.orderNos?.[0] || r?.orderNo || '—'}`;
 const deadline = (r) => r.deadline || r.shipDate || r.productionDeadline || r.deliveryDeadline;
 function due(r) {
   const d = deadline(r);
@@ -441,7 +443,7 @@ const orderCard = screenCard({
       let foot = null;
       const pick = { isOn: (row) => sel.has(row.key), set: (row, on) => { if (on) sel.set(row.key, row.line); else sel.delete(row.key); foot?.update(); } };
       parts.pos = positionsPane(d, ctx, pick);
-      parts.run = lazySec('Выполнение заказа', 'run', () => runPane(d, ctx), false);
+      parts.run = lazySec(hasProductionNumber(r) ? 'Выполнение заказа' : 'Выполнение договора', 'run', () => runPane(d, ctx), false);
       foot = orderFooter(r, d, sel, {
         reload: () => salesorders.get(r.key || r.id).then((s) => s && ctx.setRow?.(s)),
         onClear: () => { sel.clear(); parts.pos.querySelectorAll('.k-pick input:checked').forEach((cb) => { cb.checked = false; cb.closest('tr')?.classList.remove('is-picked'); }); foot.update(); },
@@ -452,10 +454,9 @@ const orderCard = screenCard({
     return box;
   },
 });
-
 export const salesorders = {
   id: 'salesorders',
-  kind: 'Заказ',
+  kind: documentKind,
   title: 'Заказы',
   entityType: 'SalesOrder',
   canEdit: () => session.canEditOrders, // директор и бухгалтер только смотрят: сервер им откажет
@@ -511,7 +512,7 @@ export const salesorders = {
       { key: 'stage', label: 'Этап', cls: 'nowrap', render: stageCell },
     ],
     card: {
-      title: (r) => `№ ${prodNo(r)} · ${names(r.customers)}`,
+      title: (r) => `${heading(r)} · ${names(r.customers)}`,
       sub: (r) => [(r.orderNos || []).length && 'договоры ' + names(r.orderNos), `${r.lineCount} поз.`, r.deadline ? 'срок ' + date(r.deadline) : ''].filter(Boolean).join(' · '),
       side: (r) => [badge(STAGE, r.stage), prio(r)],
     },
@@ -528,7 +529,7 @@ export const salesorders = {
   card: orderCard,
 };
 
-const orderCrumb = (r) => (r.productionNo ? `Заказ № ${r.productionNo}` : 'Заказ без №');
+const orderCrumb = heading;
 
 /** Подставить свободный № заказа, если поле пусто (новый или заказ без №). */
 const fillFreeNo = (fa) => {
@@ -704,14 +705,14 @@ export const salesorder = {
     restore: (r) => api(`/salesorders/${r.id}/restore`, { method: 'POST' }),
   },
 
-  searchRow: (r) => ({ title: `Заказ № ${prodNo(r)} · ${r.customer || ''}`, sub: [r.orderNo && 'договор ' + r.orderNo, r.title, `${r.lineCount} поз.`].filter(Boolean).join(' · '), side: badge(STAGE, r.stage) }),
+  searchRow: (r) => ({ title: `${heading(r)} · ${r.customer || ''}`, sub: [hasProductionNumber(r) && r.orderNo && 'договор ' + r.orderNo, r.title, `${r.lineCount} поз.`].filter(Boolean).join(' · '), side: badge(STAGE, r.stage) }),
   open: (id) => go('salesorders', { open: id }),
 };
 
 /** Выбор заказа и позиции (для заявок и списаний, З.6): заказы в работе. Кэш на 1 минуту (core/orders-lookup.js). */
 // SK-8d: короткий список (/salesorders/lookup) — открыт и для «Склада», «Заявок»; кэш — в core/orders-lookup.js
 export const activeOrders = () => ordersLookup({ filter: 'active' });
-export const orderLabel = (o) => [`№ ${prodNo(o)}`, o.orderNo && `договор ${o.orderNo}`, o.customer].filter(Boolean).join(' · ');
+export const orderLabel = (o) => [hasProductionNumber(o) ? `№ ${prodNo(o)}` : heading(o), hasProductionNumber(o) && o.orderNo && `договор ${o.orderNo}`, o.customer].filter(Boolean).join(' · ');
 
 /** Варианты «Заказ / позиция» для выпадающего списка (З.6): «id» — весь заказ, «id:lineId» — позиция. */
 export async function orderOptions(keep) {

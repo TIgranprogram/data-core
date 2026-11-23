@@ -1,0 +1,749 @@
+{
+  "date": "2026-11-23",
+  "baseCommit": "88fe3eff",
+  "unit": {
+    "passedSuites": 392,
+    "passedTests": 4030,
+    "failedTests": 0,
+    "success": true
+  },
+  "monolithicE2E": {
+    "status": "FAIL",
+    "exitCode": 1,
+    "cause": "JavaScript heap out of memory",
+    "maxOldSpaceMiB": 6144,
+    "finalJestJsonProduced": false
+  },
+  "recoveredE2E": {
+    "status": "PASS",
+    "suites": 109,
+    "passedSuites": 109,
+    "passedTests": 884,
+    "failedTests": 0,
+    "pendingTests": 0,
+    "expectedSuites": 109,
+    "missing": [],
+    "unexpected": [],
+    "sourceReports": [
+      {
+        "file": "e2e-batch-1.json",
+        "passedSuites": 26,
+        "pendingSuites": 0,
+        "passedTests": 234,
+        "pendingTests": 0
+      },
+      {
+        "file": "e2e-batch-2.json",
+        "passedSuites": 26,
+        "pendingSuites": 0,
+        "passedTests": 225,
+        "pendingTests": 0
+      },
+      {
+        "file": "e2e-batch-3.json",
+        "passedSuites": 26,
+        "pendingSuites": 0,
+        "passedTests": 179,
+        "pendingTests": 0
+      },
+      {
+        "file": "e2e-batch-4.json",
+        "passedSuites": 25,
+        "pendingSuites": 1,
+        "passedTests": 159,
+        "pendingTests": 12
+      },
+      {
+        "file": "e2e-c170-c172.json",
+        "passedSuites": 2,
+        "pendingSuites": 0,
+        "passedTests": 51,
+        "pendingTests": 0
+      },
+      {
+        "file": "e2e-c188.json",
+        "passedSuites": 1,
+        "pendingSuites": 0,
+        "passedTests": 7,
+        "pendingTests": 0
+      },
+      {
+        "file": "e2e-c198.json",
+        "passedSuites": 1,
+        "pendingSuites": 0,
+        "passedTests": 3,
+        "pendingTests": 0
+      },
+      {
+        "file": "e2e-stock-scope.json",
+        "passedSuites": 1,
+        "pendingSuites": 0,
+        "passedTests": 14,
+        "pendingTests": 0
+      },
+      {
+        "file": "e2e-t26.json",
+        "passedSuites": 1,
+        "pendingSuites": 0,
+        "passedTests": 12,
+        "pendingTests": 0
+      }
+    ]
+  },
+  "coverage": [
+    {
+      "suite": "admin-users-id.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 4
+    },
+    {
+      "suite": "app-data.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 24
+    },
+    {
+      "suite": "app-sections.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 22
+    },
+    {
+      "suite": "audit-context.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 1
+    },
+    {
+      "suite": "audit-logs.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "auth.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 9
+    },
+    {
+      "suite": "c164-contract-source.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 12
+    },
+    {
+      "suite": "c164-legal-access.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "c169-photo-intake.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 9
+    },
+    {
+      "suite": "c169-supplier-invoice.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 10
+    },
+    {
+      "suite": "c170-passport-source.e2e-spec.ts",
+      "report": "e2e-c170-c172.json",
+      "status": "passed",
+      "passedTests": 28
+    },
+    {
+      "suite": "c171-reviewed-invoice.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "c176-product-identification.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 10
+    },
+    {
+      "suite": "c178-issued-passport-editing.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "c178-passport-name-source.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "c179-mounting-applicability.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "c188-archive-writers.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 16
+    },
+    {
+      "suite": "c188-external-writers.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "c188-order-archive.e2e-spec.ts",
+      "report": "e2e-c188.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "c189-app-keys.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 15
+    },
+    {
+      "suite": "c191-stock-balance.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 1
+    },
+    {
+      "suite": "c192-request-catalog.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 4
+    },
+    {
+      "suite": "c195-module-release.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 2
+    },
+    {
+      "suite": "c197-passport-registry.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 4
+    },
+    {
+      "suite": "c198-order-acts.e2e-spec.ts",
+      "report": "e2e-c198.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "catalog-composition.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "chain-materials-to-passport.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 2
+    },
+    {
+      "suite": "chain-order-to-ship.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 10
+    },
+    {
+      "suite": "chain-payment-form.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "chain-stock-race.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "chain-supply-to-stock.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 15
+    },
+    {
+      "suite": "chat.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "client-errors.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "collections-admin-docs.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "collections-admin-drop.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 10
+    },
+    {
+      "suite": "composition-meaning.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "control-questions.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 8
+    },
+    {
+      "suite": "control-switch.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 10
+    },
+    {
+      "suite": "control.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "custom-roles.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "design.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 10
+    },
+    {
+      "suite": "device-enrollment.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 8
+    },
+    {
+      "suite": "dicts.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "fill-audit.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "finance.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 9
+    },
+    {
+      "suite": "financial-articles.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 9
+    },
+    {
+      "suite": "financial-operations.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 20
+    },
+    {
+      "suite": "financial-operations.qa.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 2
+    },
+    {
+      "suite": "income-attachments.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "income-version.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 2
+    },
+    {
+      "suite": "key-scopes.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 10
+    },
+    {
+      "suite": "manager-zones-auth.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "matching-assign.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "material-summary.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "materials.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "me-versions.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 2
+    },
+    {
+      "suite": "meta.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "my-tasks.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 9
+    },
+    {
+      "suite": "new-endpoints-1101.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 19
+    },
+    {
+      "suite": "offers-kp2.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 9
+    },
+    {
+      "suite": "offers-last.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 1
+    },
+    {
+      "suite": "offers-legal.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "offers-pack.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 8
+    },
+    {
+      "suite": "offers.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 9
+    },
+    {
+      "suite": "order-line-plan.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "order-lines.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "orders-cancel.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 8
+    },
+    {
+      "suite": "organization-assets.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "owner-invariant.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 8
+    },
+    {
+      "suite": "partners.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 4
+    },
+    {
+      "suite": "passport-import.e2e-spec.ts",
+      "report": "e2e-c170-c172.json",
+      "status": "passed",
+      "passedTests": 23
+    },
+    {
+      "suite": "passport-presentation.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 9
+    },
+    {
+      "suite": "passport-text-edit.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 10
+    },
+    {
+      "suite": "passport-traits.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "passports-ready.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "passports.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 17
+    },
+    {
+      "suite": "pdm-import.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 19
+    },
+    {
+      "suite": "permissions-admin.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 2
+    },
+    {
+      "suite": "personal-desk.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 4
+    },
+    {
+      "suite": "product-module-photos.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 4
+    },
+    {
+      "suite": "product-modules.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 2
+    },
+    {
+      "suite": "production-orders.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "products-attach-modules.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 8
+    },
+    {
+      "suite": "products-order.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "products.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "reset-password.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 22
+    },
+    {
+      "suite": "roles-money.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "salesorders.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 8
+    },
+    {
+      "suite": "search-empty.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 6
+    },
+    {
+      "suite": "shipments.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "showcase.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "stock-catalog-atomicity.e2e-spec.ts",
+      "report": "e2e-t26.json",
+      "status": "passed",
+      "passedTests": 12
+    },
+    {
+      "suite": "stock-items-bulk.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "stock-scope.e2e-spec.ts",
+      "report": "e2e-stock-scope.json",
+      "status": "passed",
+      "passedTests": 14
+    },
+    {
+      "suite": "stock-supply.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 22
+    },
+    {
+      "suite": "stock-zones.e2e-spec.ts",
+      "report": "e2e-batch-2.json",
+      "status": "passed",
+      "passedTests": 8
+    },
+    {
+      "suite": "supplier-catalog-ux.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 4
+    },
+    {
+      "suite": "supplier-contracts.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 9
+    },
+    {
+      "suite": "supply-catalog-bulk.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "supply-invoice-payments.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 34
+    },
+    {
+      "suite": "supply-invoice-payments.qa.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 3
+    },
+    {
+      "suite": "supply-invoices.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 10
+    },
+    {
+      "suite": "supply-undated-payments.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 12
+    },
+    {
+      "suite": "task-conversation.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 2
+    },
+    {
+      "suite": "trash-docs-orders.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 5
+    },
+    {
+      "suite": "trash-lists.e2e-spec.ts",
+      "report": "e2e-batch-1.json",
+      "status": "passed",
+      "passedTests": 15
+    },
+    {
+      "suite": "user-organizationId.e2e-spec.ts",
+      "report": "e2e-batch-4.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "work-facts.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 7
+    },
+    {
+      "suite": "work.e2e-spec.ts",
+      "report": "e2e-batch-3.json",
+      "status": "passed",
+      "passedTests": 4
+    }
+  ]
+}

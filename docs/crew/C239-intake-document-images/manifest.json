@@ -1,0 +1,610 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-11-23",
+  "source": {
+    "path": "C:\\Users\\User\\AppData\\Local\\DataCore\\Разбор документов\\Сомнительные\\a3dc414f-69e0-4042-b113-a89f07cc019a\\КП-0001 — ФАП Новобжегокай — со скамьями и урнами.pdf",
+    "sha256": "5e903b1cb097e679dfefe586b37ce817d15f860aba366296cc7ce52df752361c",
+    "pageCount": 1,
+    "pageSizePoints": [
+      0.0,
+      0.0,
+      595.3200073242188,
+      841.9199829101562
+    ],
+    "offerNumber": "КП-0001",
+    "offerDate": "2026-11-11"
+  },
+  "target": {
+    "contractId": "6b03d14cb607f46540f3a9f2",
+    "contractNo": "18/11/44",
+    "catalogWrite": false,
+    "targetIdsSource": "local completed intake receipts; access must reread active incomes and sourceLine before write"
+  },
+  "counts": {
+    "rasterOccurrences": 9,
+    "uniqueRasters": 8,
+    "mappedRows": 9,
+    "unmappedRasterOccurrences": 0,
+    "excludedRasterOccurrences": 0
+  },
+  "warnings": [
+    "Source is a commercial offer: pictures are illustrative; no assertion of exact manufactured product",
+    "ОГ-002 and ОГ-004 reuse identical source bytes; preserve each row association, not Nth-image order",
+    "All raster originals are low pixel dimensions; no upscale performed",
+    "No catalog products, live data, active drafts, or original PDF were changed"
+  ],
+  "assets": [
+    {
+      "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-34.png",
+      "sha256": "f77c8339699fede7bb67566391c1d80682eed1b868bbe950cdc569c522ae01cf",
+      "sizeBytes": 833,
+      "width": 180,
+      "height": 109,
+      "format": "png"
+    },
+    {
+      "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-35.jpeg",
+      "sha256": "5aefc3749c0d4c39d46cbb990ff89a2a5a01fecdeee960223e0d4aa219780514",
+      "sizeBytes": 6932,
+      "width": 165,
+      "height": 110,
+      "format": "jpeg"
+    },
+    {
+      "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-36.png",
+      "sha256": "ef1e7dc829c7410111ee7fed7f1b8c50874bdec51eb002fa030c7bfffeea42b9",
+      "sizeBytes": 1279,
+      "width": 177,
+      "height": 110,
+      "format": "png"
+    },
+    {
+      "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-37.png",
+      "sha256": "de64d8656c8b9e187f25ca9d4dca882a3c404deb5b9ba330fba89833cc94fef7",
+      "sizeBytes": 1826,
+      "width": 177,
+      "height": 110,
+      "format": "png"
+    },
+    {
+      "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-38.png",
+      "sha256": "921e9069872974d8795613dff6484adbdecf21c7c8b1b24f9e1e16d1b462f42e",
+      "sizeBytes": 973,
+      "width": 177,
+      "height": 110,
+      "format": "png"
+    },
+    {
+      "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-39.png",
+      "sha256": "5637054a5338e056a09e1b5b73e433a915aef7354f3d9b3a1867b4f7c31ab798",
+      "sizeBytes": 869,
+      "width": 180,
+      "height": 110,
+      "format": "png"
+    },
+    {
+      "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-40.png",
+      "sha256": "e90fc26ba68d8f02abec7e4d641531861f481c777d518025d5571342c06d03b4",
+      "sizeBytes": 8966,
+      "width": 118,
+      "height": 102,
+      "format": "png"
+    },
+    {
+      "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-41.png",
+      "sha256": "0174ec97c9ea48f31959eb4ddccc18f74d30f6e6d59c4180fe772f2d714c7f2e",
+      "sizeBytes": 3228,
+      "width": 102,
+      "height": 102,
+      "format": "png"
+    }
+  ],
+  "items": [
+    {
+      "page": 1,
+      "bbox": [
+        478.660004,
+        179.190994,
+        543.804016,
+        218.619995
+      ],
+      "xref": 34,
+      "imageOccurrenceNumber": 45,
+      "sku": "СВ-001",
+      "title": "СВ-001 Г-образная стойка освещения",
+      "rowKey": "1",
+      "sourceDocumentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "incomeIdFromLocalReceipt": "6b03d14db607f46540f3aa02",
+      "sourceLine": {
+        "documentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+        "rowKey": "1",
+        "title": "СВ-001 Г-образная стойка освещения",
+        "qty": 8,
+        "unit": "шт",
+        "unitPrice": 15300,
+        "lineAmount": 122400
+      },
+      "evidence": {
+        "textBBox": [
+          32.639999,
+          192.647003,
+          106.407639,
+          208.285965
+        ],
+        "printedLabel": "1 СВ-001  Г-образная  стойка освещения",
+        "method": "SKU code in left table label plus unique vertical intersection with right image-column bbox; then exact SKU match to contract sourceLine",
+        "verticalIntersectionPoints": 15.638962
+      },
+      "image": {
+        "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-34.png",
+        "sha256": "f77c8339699fede7bb67566391c1d80682eed1b868bbe950cdc569c522ae01cf",
+        "sizeBytes": 833,
+        "width": 180,
+        "height": 109,
+        "format": "png"
+      },
+      "quality": {
+        "classification": "small_source_thumbnail",
+        "nativeResolution": "180x109",
+        "effectiveDpiX": 198.9,
+        "effectiveDpiY": 199.0,
+        "suitableFor": "source illustration/thumbnail with provenance",
+        "notSuitableFor": "claiming high-resolution original, engineering dimensions, or exact produced appearance"
+      },
+      "status": "source-row-mapping-confirmed; target API reread required before write",
+      "sameImageUsedForSkus": [
+        "СВ-001"
+      ]
+    },
+    {
+      "page": 1,
+      "bbox": [
+        481.679993,
+        235.759995,
+        541.119019,
+        275.369995
+      ],
+      "xref": 35,
+      "imageOccurrenceNumber": 46,
+      "sku": "ОГ-001",
+      "title": "ОГ-001 Секция ограждения 2 м",
+      "rowKey": "2",
+      "sourceDocumentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "incomeIdFromLocalReceipt": "6b03d14eb607f46540f3aa0b",
+      "sourceLine": {
+        "documentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+        "rowKey": "2",
+        "title": "ОГ-001 Секция ограждения 2 м",
+        "qty": 51,
+        "unit": "шт",
+        "unitPrice": 16500,
+        "lineAmount": 841500
+      },
+      "evidence": {
+        "textBBox": [
+          32.639999,
+          249.556976,
+          93.814804,
+          265.195984
+        ],
+        "printedLabel": "2 ОГ-001  Секция  ограждения 2 м",
+        "method": "SKU code in left table label plus unique vertical intersection with right image-column bbox; then exact SKU match to contract sourceLine",
+        "verticalIntersectionPoints": 15.639008
+      },
+      "image": {
+        "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-35.jpeg",
+        "sha256": "5aefc3749c0d4c39d46cbb990ff89a2a5a01fecdeee960223e0d4aa219780514",
+        "sizeBytes": 6932,
+        "width": 165,
+        "height": 110,
+        "format": "jpeg"
+      },
+      "quality": {
+        "classification": "small_source_thumbnail",
+        "nativeResolution": "165x110",
+        "effectiveDpiX": 199.9,
+        "effectiveDpiY": 199.9,
+        "suitableFor": "source illustration/thumbnail with provenance",
+        "notSuitableFor": "claiming high-resolution original, engineering dimensions, or exact produced appearance"
+      },
+      "status": "source-row-mapping-confirmed; target API reread required before write",
+      "sameImageUsedForSkus": [
+        "ОГ-001"
+      ]
+    },
+    {
+      "page": 1,
+      "bbox": [
+        479.179993,
+        278.47998,
+        543.179993,
+        318.089966
+      ],
+      "xref": 36,
+      "imageOccurrenceNumber": 47,
+      "sku": "ОГ-002",
+      "title": "ОГ-002 Доборная секция 1 м",
+      "rowKey": "3",
+      "sourceDocumentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "incomeIdFromLocalReceipt": "6b03d14eb607f46540f3aa14",
+      "sourceLine": {
+        "documentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+        "rowKey": "3",
+        "title": "ОГ-002 Доборная секция 1 м",
+        "qty": 1,
+        "unit": "шт",
+        "unitPrice": 10500,
+        "lineAmount": 10500
+      },
+      "evidence": {
+        "textBBox": [
+          32.639999,
+          292.277008,
+          101.616035,
+          307.915955
+        ],
+        "printedLabel": "3 ОГ-002  Доборная  секция 1 м",
+        "method": "SKU code in left table label plus unique vertical intersection with right image-column bbox; then exact SKU match to contract sourceLine",
+        "verticalIntersectionPoints": 15.638947
+      },
+      "image": {
+        "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-36.png",
+        "sha256": "ef1e7dc829c7410111ee7fed7f1b8c50874bdec51eb002fa030c7bfffeea42b9",
+        "sizeBytes": 1279,
+        "width": 177,
+        "height": 110,
+        "format": "png"
+      },
+      "quality": {
+        "classification": "small_source_thumbnail",
+        "nativeResolution": "177x110",
+        "effectiveDpiX": 199.1,
+        "effectiveDpiY": 199.9,
+        "suitableFor": "source illustration/thumbnail with provenance",
+        "notSuitableFor": "claiming high-resolution original, engineering dimensions, or exact produced appearance"
+      },
+      "status": "source-row-mapping-confirmed; target API reread required before write",
+      "sameImageUsedForSkus": [
+        "ОГ-002",
+        "ОГ-004"
+      ]
+    },
+    {
+      "page": 1,
+      "bbox": [
+        479.179993,
+        321.200012,
+        543.179993,
+        360.809998
+      ],
+      "xref": 37,
+      "imageOccurrenceNumber": 48,
+      "sku": "ОГ-003",
+      "title": "ОГ-003 Ворота распашные",
+      "rowKey": "4",
+      "sourceDocumentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "incomeIdFromLocalReceipt": "6b03d14fb607f46540f3aa1d",
+      "sourceLine": {
+        "documentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+        "rowKey": "4",
+        "title": "ОГ-003 Ворота распашные",
+        "qty": 1,
+        "unit": "шт",
+        "unitPrice": 33000,
+        "lineAmount": 33000
+      },
+      "evidence": {
+        "textBBox": [
+          32.639999,
+          334.996979,
+          93.590424,
+          350.635956
+        ],
+        "printedLabel": "4 ОГ-003  Ворота  распашные",
+        "method": "SKU code in left table label plus unique vertical intersection with right image-column bbox; then exact SKU match to contract sourceLine",
+        "verticalIntersectionPoints": 15.638977
+      },
+      "image": {
+        "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-37.png",
+        "sha256": "de64d8656c8b9e187f25ca9d4dca882a3c404deb5b9ba330fba89833cc94fef7",
+        "sizeBytes": 1826,
+        "width": 177,
+        "height": 110,
+        "format": "png"
+      },
+      "quality": {
+        "classification": "small_source_thumbnail",
+        "nativeResolution": "177x110",
+        "effectiveDpiX": 199.1,
+        "effectiveDpiY": 199.9,
+        "suitableFor": "source illustration/thumbnail with provenance",
+        "notSuitableFor": "claiming high-resolution original, engineering dimensions, or exact produced appearance"
+      },
+      "status": "source-row-mapping-confirmed; target API reread required before write",
+      "sameImageUsedForSkus": [
+        "ОГ-003"
+      ]
+    },
+    {
+      "page": 1,
+      "bbox": [
+        479.179993,
+        363.919983,
+        543.179993,
+        403.529968
+      ],
+      "xref": 36,
+      "imageOccurrenceNumber": 49,
+      "sku": "ОГ-004",
+      "title": "ОГ-004 Калитка",
+      "rowKey": "5",
+      "sourceDocumentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "incomeIdFromLocalReceipt": "6b03d14fb607f46540f3aa26",
+      "sourceLine": {
+        "documentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+        "rowKey": "5",
+        "title": "ОГ-004 Калитка",
+        "qty": 2,
+        "unit": "шт",
+        "unitPrice": 19500,
+        "lineAmount": 39000
+      },
+      "evidence": {
+        "textBBox": [
+          32.639999,
+          377.71698,
+          455.760315,
+          393.355957
+        ],
+        "printedLabel": "5 ОГ-004  Калитка 1×1,2 м. Одна створка,  фурнитура. шт. 2 26 000,00 52 000,00 19 500,00 39 000,00",
+        "method": "SKU code in left table label plus unique vertical intersection with right image-column bbox; then exact SKU match to contract sourceLine",
+        "verticalIntersectionPoints": 15.638977
+      },
+      "image": {
+        "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-36.png",
+        "sha256": "ef1e7dc829c7410111ee7fed7f1b8c50874bdec51eb002fa030c7bfffeea42b9",
+        "sizeBytes": 1279,
+        "width": 177,
+        "height": 110,
+        "format": "png"
+      },
+      "quality": {
+        "classification": "small_source_thumbnail",
+        "nativeResolution": "177x110",
+        "effectiveDpiX": 199.1,
+        "effectiveDpiY": 199.9,
+        "suitableFor": "source illustration/thumbnail with provenance",
+        "notSuitableFor": "claiming high-resolution original, engineering dimensions, or exact produced appearance"
+      },
+      "status": "source-row-mapping-confirmed; target API reread required before write",
+      "sameImageUsedForSkus": [
+        "ОГ-002",
+        "ОГ-004"
+      ]
+    },
+    {
+      "page": 1,
+      "bbox": [
+        479.179993,
+        406.639954,
+        543.179993,
+        446.249939
+      ],
+      "xref": 38,
+      "imageOccurrenceNumber": 50,
+      "sku": "ОГ-005",
+      "title": "ОГ-005 Столб рядовой",
+      "rowKey": "6",
+      "sourceDocumentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "incomeIdFromLocalReceipt": "6b03d14fb607f46540f3aa2f",
+      "sourceLine": {
+        "documentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+        "rowKey": "6",
+        "title": "ОГ-005 Столб рядовой",
+        "qty": 50,
+        "unit": "шт",
+        "unitPrice": 2700,
+        "lineAmount": 135000
+      },
+      "evidence": {
+        "textBBox": [
+          32.639999,
+          420.457001,
+          179.889786,
+          431.895966
+        ],
+        "printedLabel": "6 ОГ-005  Столб рядовой   Труба 60×60×3 мм, ",
+        "method": "SKU code in left table label plus unique vertical intersection with right image-column bbox; then exact SKU match to contract sourceLine",
+        "verticalIntersectionPoints": 11.438965
+      },
+      "image": {
+        "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-38.png",
+        "sha256": "921e9069872974d8795613dff6484adbdecf21c7c8b1b24f9e1e16d1b462f42e",
+        "sizeBytes": 973,
+        "width": 177,
+        "height": 110,
+        "format": "png"
+      },
+      "quality": {
+        "classification": "small_source_thumbnail",
+        "nativeResolution": "177x110",
+        "effectiveDpiX": 199.1,
+        "effectiveDpiY": 199.9,
+        "suitableFor": "source illustration/thumbnail with provenance",
+        "notSuitableFor": "claiming high-resolution original, engineering dimensions, or exact produced appearance"
+      },
+      "status": "source-row-mapping-confirmed; target API reread required before write",
+      "sameImageUsedForSkus": [
+        "ОГ-005"
+      ]
+    },
+    {
+      "page": 1,
+      "bbox": [
+        478.720001,
+        449.316986,
+        543.737976,
+        489.019989
+      ],
+      "xref": 39,
+      "imageOccurrenceNumber": 51,
+      "sku": "ОГ-006",
+      "title": "ОГ-006 Столб для ворот или калитки",
+      "rowKey": "7",
+      "sourceDocumentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "incomeIdFromLocalReceipt": "6b03d150b607f46540f3aa38",
+      "sourceLine": {
+        "documentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+        "rowKey": "7",
+        "title": "ОГ-006 Столб для ворот или калитки",
+        "qty": 6,
+        "unit": "шт",
+        "unitPrice": 6750,
+        "lineAmount": 40500
+      },
+      "evidence": {
+        "textBBox": [
+          32.639999,
+          463.177002,
+          103.54982,
+          478.815979
+        ],
+        "printedLabel": "7 ОГ-006  Столб для  ворот или калитки",
+        "method": "SKU code in left table label plus unique vertical intersection with right image-column bbox; then exact SKU match to contract sourceLine",
+        "verticalIntersectionPoints": 15.638977
+      },
+      "image": {
+        "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-39.png",
+        "sha256": "5637054a5338e056a09e1b5b73e433a915aef7354f3d9b3a1867b4f7c31ab798",
+        "sizeBytes": 869,
+        "width": 180,
+        "height": 110,
+        "format": "png"
+      },
+      "quality": {
+        "classification": "small_source_thumbnail",
+        "nativeResolution": "180x110",
+        "effectiveDpiX": 199.3,
+        "effectiveDpiY": 199.5,
+        "suitableFor": "source illustration/thumbnail with provenance",
+        "notSuitableFor": "claiming high-resolution original, engineering dimensions, or exact produced appearance"
+      },
+      "status": "source-row-mapping-confirmed; target API reread required before write",
+      "sameImageUsedForSkus": [
+        "ОГ-006"
+      ]
+    },
+    {
+      "page": 1,
+      "bbox": [
+        480.279999,
+        493.130005,
+        522.885986,
+        530.130005
+      ],
+      "xref": 40,
+      "imageOccurrenceNumber": 52,
+      "sku": "СК-001",
+      "title": "СК-001 Парковая скамья со спинкой",
+      "rowKey": "8",
+      "sourceDocumentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "incomeIdFromLocalReceipt": "6b03d150b607f46540f3aa41",
+      "sourceLine": {
+        "documentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+        "rowKey": "8",
+        "title": "СК-001 Парковая скамья со спинкой",
+        "qty": 2,
+        "unit": "шт",
+        "unitPrice": 36750,
+        "lineAmount": 73500
+      },
+      "evidence": {
+        "textBBox": [
+          32.639999,
+          505.897003,
+          100.77784,
+          521.536011
+        ],
+        "printedLabel": "8 СК-001  Парковая  скамья со спинкой",
+        "method": "SKU code in left table label plus unique vertical intersection with right image-column bbox; then exact SKU match to contract sourceLine",
+        "verticalIntersectionPoints": 15.639008
+      },
+      "image": {
+        "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-40.png",
+        "sha256": "e90fc26ba68d8f02abec7e4d641531861f481c777d518025d5571342c06d03b4",
+        "sizeBytes": 8966,
+        "width": 118,
+        "height": 102,
+        "format": "png"
+      },
+      "quality": {
+        "classification": "small_source_thumbnail",
+        "nativeResolution": "118x102",
+        "effectiveDpiX": 199.4,
+        "effectiveDpiY": 198.5,
+        "suitableFor": "source illustration/thumbnail with provenance",
+        "notSuitableFor": "claiming high-resolution original, engineering dimensions, or exact produced appearance"
+      },
+      "status": "source-row-mapping-confirmed; target API reread required before write",
+      "sameImageUsedForSkus": [
+        "СК-001"
+      ]
+    },
+    {
+      "page": 1,
+      "bbox": [
+        480.279999,
+        535.849976,
+        517.052979,
+        572.849976
+      ],
+      "xref": 41,
+      "imageOccurrenceNumber": 53,
+      "sku": "УР-001",
+      "title": "УР-001 Парковая урна с деревянной облицовкой",
+      "rowKey": "9",
+      "sourceDocumentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "incomeIdFromLocalReceipt": "6b03d150b607f46540f3aa4a",
+      "sourceLine": {
+        "documentUid": "c169-f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+        "rowKey": "9",
+        "title": "УР-001 Парковая урна с деревянной облицовкой",
+        "qty": 2,
+        "unit": "шт",
+        "unitPrice": 28500,
+        "lineAmount": 57000
+      },
+      "evidence": {
+        "textBBox": [
+          32.639999,
+          544.416992,
+          116.848846,
+          568.335938
+        ],
+        "printedLabel": "9 УР-001  Парковая урна  с деревянной  облицовкой",
+        "method": "SKU code in left table label plus unique vertical intersection with right image-column bbox; then exact SKU match to contract sourceLine",
+        "verticalIntersectionPoints": 23.918945
+      },
+      "image": {
+        "path": "docs/crew/C239-intake-document-images/evidence/extracted/xref-41.png",
+        "sha256": "0174ec97c9ea48f31959eb4ddccc18f74d30f6e6d59c4180fe772f2d714c7f2e",
+        "sizeBytes": 3228,
+        "width": 102,
+        "height": 102,
+        "format": "png"
+      },
+      "quality": {
+        "classification": "small_source_thumbnail",
+        "nativeResolution": "102x102",
+        "effectiveDpiX": 199.7,
+        "effectiveDpiY": 198.5,
+        "suitableFor": "source illustration/thumbnail with provenance",
+        "notSuitableFor": "claiming high-resolution original, engineering dimensions, or exact produced appearance"
+      },
+      "status": "source-row-mapping-confirmed; target API reread required before write",
+      "sameImageUsedForSkus": [
+        "УР-001"
+      ]
+    }
+  ]
+}

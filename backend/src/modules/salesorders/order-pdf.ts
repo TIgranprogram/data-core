@@ -17,6 +17,8 @@ export interface OrderPdfLine {
 }
 export interface OrderPdfContract { orderNo: string; contractDate?: Date | string | null; customer?: string; title?: string; stageLabel?: string; lines: OrderPdfLine[] }
 export interface OrderPdfInput {
+  /** Без производственного номера печатаем позиции договора, не выдуманный заказ. */
+  documentKind?: 'order' | 'contract';
   number: string; stageLabel?: string; customer?: string; priority?: string; notes?: string;
   productionDeadline?: Date | string | null; shipDate?: Date | string | null;
   org: { name: string; inn?: string; address?: string; phone?: string };
@@ -47,7 +49,10 @@ export const routeText = (route: OrderPdfStep[] = []) => route.map((s) => s.name
 
 export function renderOrderPdf(i: OrderPdfInput): Promise<Buffer> {
   const dir = fontDir();
-  const d = guardDoc(new PDFDocument({ size: [W, H], margin: 0, bufferPages: true, info: { Title: `Заказ № ${i.number}`, Author: i.org.name || 'Рабочее место' } }), 'Заказ');
+  const name = i.documentKind === 'contract' ? 'Договор' : 'Заказ';
+  const subtitle = i.documentKind === 'contract' ? 'Позиции договора' : 'Производственный лист';
+  const title = `${name} № ${i.number}`;
+  const d = guardDoc(new PDFDocument({ size: [W, H], margin: 0, bufferPages: true, info: { Title: title, Author: i.org.name || 'Рабочее место' } }), name);
   const ff = orderFonts(dir);
   d.registerFont('reg', ff.regular);
   d.registerFont('bold', ff.bold);
@@ -71,8 +76,8 @@ export function renderOrderPdf(i: OrderPdfInput): Promise<Buffer> {
   y += 52; rule(y, INK, 1); y += 14;
 
   // ---------- заголовок и сводка ----------
-  bold(19).text(`Заказ № ${i.number}`, ML, y, { width: CW * 0.6, lineBreak: false });
-  reg(9, MUTED).text('Производственный лист', ML + CW * 0.6, y + 1, { width: CW * 0.4, align: 'right', lineBreak: false });
+  bold(19).text(title, ML, y, { width: CW * 0.6, lineBreak: false });
+  reg(9, MUTED).text(subtitle, ML + CW * 0.6, y + 1, { width: CW * 0.4, align: 'right', lineBreak: false });
   if (i.stageLabel) bold(10.5).text(i.stageLabel, ML + CW * 0.6, y + 14, { width: CW * 0.4, align: 'right', lineBreak: false });
   y += 32;
   const facts = [i.customer ? `Заказчик: ${i.customer}` : '', i.priority ? `Приоритет: ${i.priority}` : '',
@@ -143,7 +148,7 @@ export function renderOrderPdf(i: OrderPdfInput): Promise<Buffer> {
   for (let p = range.start; p < range.start + range.count; p++) {
     d.switchToPage(p);
     d.lineWidth(0.5).strokeColor(RULE).moveTo(ML, H - 30).lineTo(W - MR, H - 30).stroke();
-    reg(7.5, MUTED).text(`Заказ № ${i.number} · производственный лист · сформировано ${stamp}`, ML, H - 24, { width: CW * 0.7, lineBreak: false });
+    reg(7.5, MUTED).text(`${title} · ${subtitle.toLowerCase()} · сформировано ${stamp}`, ML, H - 24, { width: CW * 0.7, lineBreak: false });
     reg(7.5, MUTED).text(`стр. ${p - range.start + 1} из ${range.count}`, ML + CW * 0.7, H - 24, { width: CW * 0.3, align: 'right', lineBreak: false });
   }
   d.end();

@@ -90,7 +90,9 @@ export async function orderAttachmentsZip(order) {
 
 /** Пункт «Скачать вложения заказа» в шапке карточки заказа (salesorders.actions). */
 export const orderZipAction = { label: 'Скачать вложения заказа', more: true, title: 'Файлы изделий заказа (чертежи, паспорта…) одним архивом', run: (row) => orderAttachmentsZip(row) };
+/** Номер производства считается назначенным только после удаления пробелов. */
+export const hasProductionNumber = (row) => Boolean(String(row?.productionNo ?? '').trim());
 /** «PDF заказа» (пользователь 2026-11-06): производственный лист — фото, маршрут, проектирование, без цен; А4 одной кнопкой. Сервер: GET /production-orders/:key/pdf. */
-export const orderPdfAction = { label: 'PDF заказа', title: 'Производственный лист А4: фото, маршрут изготовления, проектирование — без цен', run: async (row) => {
-  try { const name = await apiFile(`/production-orders/${encodeURIComponent(row.key || row.productionNo || row.id)}/pdf`, { fallback: `Заказ_${row.productionNo || row.orderNo || ''}.pdf` }); toast(`Скачан: ${name}`); } catch (e) { toastError(e, 'скачать PDF заказа'); }
+export const orderPdfAction = { label: 'PDF позиций', title: 'Позиции договора или заказа на А4: фото и сведения об изготовлении — без цен', run: async (row) => {
+  try { const name = await apiFile(`/production-orders/${encodeURIComponent(row.key || (hasProductionNumber(row) && row.productionNo) || row.id)}/pdf`, { fallback: `${hasProductionNumber(row) ? 'Заказ' : 'Договор'}_${hasProductionNumber(row) ? row.productionNo : row.orderNos?.[0] || row.orderNo || ''}.pdf` }); toast(`Скачан: ${name}`); } catch (e) { toastError(e, 'скачать PDF позиций'); }
 } };

@@ -5,7 +5,7 @@ import { toast, toastError } from '../ui/kit/toast.js';
 import { canShip } from './order-shipments.js';
 import { footerBar } from '../ui/kit/screens/blocks.js';
 import { orderPassportsButton, printOrderButton } from './order-passport-plan.js';
-import { orderPdfAction, orderZipAction } from './order-attachments-zip.js';
+import { hasProductionNumber, orderPdfAction, orderZipAction } from './order-attachments-zip.js';
 
 /*
  * C124 «Подвал заказа» (владелец 15.11): всё, что делается со всем заказом или с отмеченными позициями.
@@ -61,6 +61,7 @@ export function orderFooter(r, d, sel, { reload, onClear } = {}) {
   const live = (d.orders || []).flatMap((o) => o.lines || []).filter((l) => !l.cancelledAt);
   const ctx = () => ({ r, d, reload, picked: sel.size > 0, lines: sel.size ? [...sel.values()] : live });
   const fb = footerBar({
+    title: hasProductionNumber(r) ? 'Весь заказ' : 'Весь договор',
     total: live.length,
     groups: ACTIONS.map((a) => ({ label: a.group, items: () => a.items(ctx()) })),
     onClear,

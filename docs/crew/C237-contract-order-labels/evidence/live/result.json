@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "results": [
+    {
+      "name": "contract",
+      "type": "Договор",
+      "number": "QA-C237-CONTRACT",
+      "pdfBytes": 22297,
+      "screenshot": "contract-1600-light.png"
+    },
+    {
+      "name": "production",
+      "type": "Заказ",
+      "number": "37-26",
+      "pdfBytes": 29583,
+      "screenshot": "production-1600-light.png"
+    }
+  ],
+  "pageErrors": []
+}

@@ -1,5 +1,6 @@
 import { writeFileSync } from 'fs';
 import sharp from 'sharp';
+import PDFDocument from 'pdfkit';
 import { renderOrderPdf, routeText, type OrderPdfLine } from './order-pdf';
 
 const photo = () => sharp({ create: { width: 120, height: 120, channels: 3, background: '#3fae6a' } }).png().toBuffer();
@@ -28,6 +29,35 @@ async function sample() {
 }
 
 describe('Производственный лист заказа (А4)', () => {
+  it.each([
+    { documentKind: 'contract' as const, title: 'Договор № 18/11/45', subtitle: 'Позиции договора' },
+    { documentKind: 'order' as const, title: 'Заказ № 18/11/45', subtitle: 'Производственный лист' },
+    { documentKind: undefined, title: 'Заказ № 18/11/45', subtitle: 'Производственный лист' },
+  ])('подписи и метаданные соответствуют виду $documentKind', async ({ documentKind, title, subtitle }) => {
+    const text = jest.spyOn(PDFDocument.prototype, 'text');
+    try {
+      const buf = await renderOrderPdf({
+        documentKind, number: '18/11/45', org: { name: 'ООО Пример' },
+        contracts: [{ orderNo: '18/11/45', contractDate: '2026-11-18', stageLabel: 'Новый', lines: [
+          { seqNo: 1, title: 'Скамья парковая', qty: 7, unit: 'шт' },
+          { seqNo: 2, title: 'Урна со стальным вкладышем', qty: 7, unit: 'шт' },
+          { seqNo: 3, title: 'Доставка и монтаж', qty: 1, unit: 'усл.' },
+        ] }], printedAt: new Date('2026-11-23T08:00:00Z'),
+      });
+      const printed = text.mock.calls.map(([value]) => String(value));
+      expect(buf.subarray(0, 4).toString()).toBe('%PDF');
+      expect(printed).toContain(title);
+      expect(printed).toContain(subtitle);
+      expect(printed.some(value => value.startsWith(`${title} · ${subtitle.toLowerCase()} · сформировано`))).toBe(true);
+      expect((text.mock.contexts[0] as { info: { Title: string } }).info.Title).toBe(title);
+      if (documentKind === 'contract') {
+        expect(printed.some(value => value.startsWith('Заказ №'))).toBe(false);
+        expect(printed).not.toContain('Производственный лист');
+      }
+      if (documentKind === 'contract' && process.env.CONTRACT_PDF_OUT) writeFileSync(process.env.CONTRACT_PDF_OUT, buf);
+    } finally { text.mockRestore(); }
+  });
+
   it('рендерит PDF с фото и маршрутами на нескольких страницах, без цен', async () => {
     const buf = await renderOrderPdf(await sample());
     expect(buf.subarray(0, 4).toString()).toBe('%PDF');
