@@ -1,0 +1,67 @@
+{
+  "ui": {
+    "offlineFileErased": true,
+    "offlineLogoutVisible": true,
+    "passed": 8,
+    "states": [
+      "remembered",
+      "offline",
+      "logged-out",
+      "memory"
+    ],
+    "invocation": "Get-Content qa/final-remember-ui-fixture.mjs.txt -Raw | node --input-type=module",
+    "errors": 0,
+    "proof": "evidence/auth-ui/summary.json",
+    "executedSource": "qa/final-remember-ui-fixture.mjs.txt",
+    "themes": [
+      "light",
+      "dark"
+    ]
+  },
+  "sourceSha256": {
+    "tools/document-intake/preflight.mjs": "03a4a225f0567647e8c9dff7d855f1d1100e1bc668a9a918a49ee55e89596ea5",
+    "pult/test/ui-document-intake.fixture.mjs": "be4b662a8462bfafab0199f17cd7ef8c2d282fd30032bfcf1d744c83a43800cf",
+    "pult/test/document-intake.test.mjs": "899119c7518c8c3e1f5ac81cf0d2eaebe44658506bbdad4d69c35913e15d241c",
+    "tools/document-intake/preflight.test.mjs": "2816cdf87660e72e773bbd694e507ea5d6d9f2e1516ae6a26f0df3791c465f0b",
+    "pult/test/document-intake-remember.test.mjs": "d7eed181355151c122f4153234fa638ec8e06389afa6a4b674d93e5ae3d5d131",
+    "pult/test/ui-document-intake-remember.fixture.mjs": "52481b4a71c2a447c5a20cc548ba0ec5c38e1ea7685c705205fb25b3f13436cb",
+    "pult/ui/document-intake.js": "aa29f91bfcf08c2836d2bd7517974a6dc859e717a794dca8af70cea1c0acba05",
+    "pult/document-intake.mjs": "1e35ffa80c94450a29bfeac4189d54e7dd0c20cb89e06770c0c858a687186d86"
+  },
+  "realSettingsStateAccess": false,
+  "history": [
+    "qa/QA-INTERIM.md",
+    "evidence/auth-ui/summary-selector-initial-fail.json",
+    "evidence/auth-ui/summary-offline-logout-fail.json"
+  ],
+  "node": {
+    "skipped": 0,
+    "preflightTests": 8,
+    "passed": 137,
+    "failed": 0,
+    "xml": "qa/final-node-v2.xml",
+    "stdout": "tools/logs/c245-final-node-v2.log",
+    "pultTests": 129
+  },
+  "realProductionHttp": false,
+  "realLmRequests": false,
+  "status": "PASS",
+  "backendFullRun": false,
+  "syntax": {
+    "ui": 0,
+    "preflight": 0,
+    "auth": 0
+  },
+  "realQueueAccess": false,
+  "previousBackend": "C244 unit406/4175 e2e112/918 unchanged",
+  "finalLegacyUi": {
+    "fix": "Await visible undo-return button; assertions unchanged",
+    "stdout": "tools/logs/c245-ui-fixture-canonical-final.log",
+    "runtimeModifiedByQa": false,
+    "status": "PASS",
+    "diagnostic": "evidence/ui-synchronized/mark-return-before-wait.json",
+    "cause": "Fixture raced automatic restoreReview open: Open aria-label already became Hide",
+    "supersededFail": "tools/logs/c245-ui-fixture-final-guard.log",
+    "canonical": "pult/test/ui-document-intake.fixture.mjs"
+  }
+}

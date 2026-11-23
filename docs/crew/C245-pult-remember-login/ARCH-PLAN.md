@@ -11,3 +11,9 @@
 7. Проверки адресные PultNode/UI+syntax/import поизменённымфайлам; никакихliveHTTP/logins, engineupload, prod/site deploy. Independentreview frozenexactdiff послеrootfix, результатыauthor/QA исвойпрогонраздельно. ПодписьUI «запомнил» допустима только rememberedOnDisk=true послеуспешногоprotect+atomicwrite.
 
 Источники: TZ/CODE-TRACE и точные функции136/154/168/205/307/343; server149/478/592 только lifecyclecontext. Карта обновлена; опорнуюревизиюC245фиксируеткоординатор приfreeze, runtime проверяющий не менял.
+
+## Адресное дополнение QA: забыть сохранённый вход offline
+
+Одобрено только изменение visibility-предиката кнопки выхода в `pult/ui/document-intake.js`: `logout.hidden = !(view.signedIn || view.remembered)`. API уже умеет erase без доступности сайта; при remembered=true/signedIn=false скрывать единственныйвыход нельзя. Активныйmemory-only вход тоже сохраняет кнопку, обаfalse→hidden. Существующие logout API/busy/revision/операционныеguards/прочиеcontrols не менять.
+Runtime пока **не применять**: пользователь выполняет настоящийразборКП, sourcewatch/respawn не должен прерыватьjob. Root применит послеокнаоперации; тесты толькоsynthetictemp/fake, без чтенияactual.state/password/prod.
+До закрытия этой новой UI-находки: четыреcombination signedIn/remembered; actualtemp protectedblob+offline status→clicklogout→fileabsent/rememberedfalse, без auth network; светлая/тёмнаятемы и отсутствиеизмененийbusy/runningcontrols. Послеfreeze нужен адресныйrepeat этойдельты. ПредыдущийruntimePASS относится к прежнейreviewSHA и не является закрытием новойнаходки.

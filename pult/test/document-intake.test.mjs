@@ -111,7 +111,7 @@ test('автоотправка запускает серверную прове�
   assert.equal(calls.length, 4);
 });
 
-test('вход в локальную копию сохраняется в Windows и восстанавливается после перезапуска', {
+test('Windows CurrentUser DPAPI: local и точный рабочий сайт сохраняются и восстанавливаются', {
   skip: process.platform !== 'win32',
 }, async (t) => {
   const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pult-local-session-test-'));
@@ -131,7 +131,9 @@ test('вход в локальную копию сохраняется в Window
     if (!login && revoked) return new Response('', { status: 401 });
     const exp = Math.floor(current / 1000);
     const access = jwt({ sub: actor, version: 5, exp: exp + 900, role: 'admin', orgId: null });
-    refreshFixture = jwt({ sub: actor, version: 5, exp: exp + 90 * 86400, rem: url.startsWith(target) });
+    const remember = login ? JSON.parse(request.body).remember === true
+      : JSON.parse(Buffer.from(refreshFixture.split('.')[1], 'base64url')).rem === true;
+    refreshFixture = jwt({ sub: actor, version: 5, exp: exp + 90 * 86400, rem: remember });
     return Response.json({ access, user: { id: actor, role: 'admin' } }, {
       headers: { 'Set-Cookie': 'refreshToken=' + refreshFixture + '; Path=/api/auth; HttpOnly; Secure' },
     });
@@ -176,9 +178,18 @@ test('вход в локальную копию сохраняется в Window
   await assert.rejects(fs.access(file), { code: 'ENOENT' });
 
   await post('settings', { ...services, apiBase: 'https://kppdf-crm.ru/db/api' });
+  revoked = false;
   assert.equal((await login()).status, 200);
-  assert.equal(requests.at(-1).body.remember, false);
-  await assert.rejects(fs.access(file), { code: 'ENOENT' });
+  assert.equal(requests.at(-1).body.remember, true);
+  assert.equal((await status()).remembered, true);
+  const protectedProd = await fs.readFile(file, 'utf8');
+  assert.deepEqual(Object.keys(JSON.parse(protectedProd)), ['sealed']);
+  assert.ok(!protectedProd.includes(refreshFixture) && !protectedProd.includes(password));
+  current += 1000;
+  await restart();
+  assert.equal((await status()).signedIn, true);
+  assert.equal((await status()).remembered, true);
+  assert.equal(requests.at(-1).url, 'https://kppdf-crm.ru/db/api/auth/refresh');
 });
 
 test('разбор документов: границы запросов, сессия, один процесс, остановка, отчёт и восстановление', async (t) => {

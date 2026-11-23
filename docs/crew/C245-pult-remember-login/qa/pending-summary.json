@@ -1,0 +1,19 @@
+{
+  "lastExecutedUI": {
+    "legacyFixture": "PASS",
+    "rememberOfflineFixture": "FAIL_OFFLINE_LOGOUT_HIDDEN"
+  },
+  "productionHttp": false,
+  "runtimeUnchanged": true,
+  "pending": [
+    "new Node offline/logout regression not yet run",
+    "UI prefers-color-scheme correction and offline/logout after root guard fix"
+  ],
+  "lastExecutedPultNode": {
+    "skipped": 0,
+    "failed": 0,
+    "passed": 128
+  },
+  "realStateAccess": false,
+  "status": "PARTIAL_UI_FAIL_PENDING_USER_ACTION"
+}

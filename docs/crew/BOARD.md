@@ -4,7 +4,7 @@
 
 | ID | Суть | Статус |
 |--|--|--|
-| C245 | Пульт сохраняет вход рабочего сайта | План согласован · [ТЗ](C245-pult-remember-login/TZ.md) |
+| C245 | Пульт сохраняет вход рабочего сайта | Готово локально · [QA](C245-pult-remember-login/QA-REPORT.md) |
 | C244 | Фото изделия из паспорта в строке заказа | Выпущено v2.51 · [проверка](C244-order-product-photo/POSTRELEASE-REPORT.md) |
 | C243 | Поставщик в каталоге против истории закупок | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |
 | C242 | Чистые параметры и сортировки всех таблиц склада | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |

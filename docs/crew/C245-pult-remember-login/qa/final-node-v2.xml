@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="всё сделано — дел нет" time="0.001557" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="каждая рекомендация ведёт на настоящую кнопку и уровень" time="0.000220" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="сайт лежит — первым делом" time="0.000663" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="находка осмотра не уходит, пока осмотр её показывает" time="0.000189" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="незакоммиченный код закрывает выкладку и не советует её" time="0.000107" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="готовый код — совет выложить" time="0.000107" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="упавшая выкладка — срочно, если код ещё не на сайте" time="0.000150" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="поручение выложить уходит само, когда код уже на сайте" time="0.000319" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="после выкладки: пока час не прошёл — проверку не показываем; потом today и осмотр" time="0.000205" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="ритм: каждый день — по календарю, раз в неделю и месяц — по сроку" time="0.000214" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="одна команда — один пункт, самый важный" time="0.000130" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="сделанное сегодня попадает в итог" time="0.000086" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="поручение с кнопкой уходит после успешного запуска, следующий шаг появляется" time="0.000220" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="ручное поручение закрывается кнопкой «Сделано»" time="0.000108" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="pult/todo.json корректен: кнопка есть, шаги связаны" time="0.000651" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="release checklist: готовность → ворота → отдельно подтверждаемая выкладка" time="0.000276" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="последняя проверка с замечанием просит повторить её" time="0.000155" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="упавшая проверка становится первым делом" time="0.000098" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="зелёная проверка не добавляет дело и остаётся в итоге" time="0.000098" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="стенды человеку не советуем: ими управляют тестировщик, Старожил и Claude" time="0.000061" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="у команд с ритмом есть причина" time="0.000051" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="копия на ПК: отстала — строка «Обновить копию», свежая — тишина" time="0.009174" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\advisor.test.mjs"/>
+	<testcase name="каталог совпадает со скриптами проекта" time="0.003763" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="справка собрана из текущего каталога" time="0.001119" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="стенды: у каждой карточки есть команды запуска и остановки" time="0.000137" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="записи каталога заполнены" time="0.000153" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="запись на сайт всегда с подтверждением, опасное — со словом" time="0.000086" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="выкладка и команды на сервере не помечены как чтение, кроме явного списка" time="0.000140" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="на кнопках нет --wipe, удаления таблиц и архива без пароля" time="0.000131" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="в списке скриптов только с режимом плана и без drop-" time="0.005402" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="параметр — только значение из списка" time="0.000375" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="выкладка идёт по пути этого ПК" time="0.000250" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="скрипт со своим входом на сервер получает способ этого ПК" time="0.000182" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="скрипты с адресом сервера внутри помечены vmEnv" time="0.001065" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="вход на сервер по способу этого ПК" time="0.000202" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="нет нужного на ПК — кнопка объясняет почему" time="0.000134" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="Git Bash раньше System32 в PATH" time="0.000119" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="секреты закрываются маской" time="0.000499" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="подсказка к реальному отказу ворот" time="0.000136" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\catalog.test.mjs"/>
+	<testcase name="пакетная цепочка разрешает только доступные read-only команды" time="0.000574" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\chain.test.mjs"/>
+	<testcase name="рисунки Пульта требуют входа, revision, выбора PDF и подтверждения; active блокирует второй action" time="0.013198" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-images.test.mjs"/>
+	<testcase name="HTTP actions рисунков не обходят gate опасной команды; UI-модуль доступен как static" time="0.062835" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-images.test.mjs"/>
+	<testcase name="preview показывает рисунок/строку и отправляет только после явного подтверждения" time="0.001238" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-images.test.mjs"/>
+	<testcase name="явный поиск договора по номеру передаёт выбранный ID только в prepare" time="0.000334" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-images.test.mjs"/>
+	<testcase name="C245 allowlist/restart/rotation: https://kppdf-crm.ru/db/api" time="0.036117" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 allowlist/restart/rotation: https://kppdf-crm.ru/db/api/" time="0.010575" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 allowlist/restart/rotation: http://127.0.0.1:3102/api" time="0.011451" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 allowlist/restart/rotation: http://localhost:3001/api/" time="0.010569" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 allowlist/restart/rotation: http://[::1]:3001/api" time="0.010775" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: https://kppdf-crm.ru/db/api?x=1" time="0.001407" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: https://kppdf-crm.ru/db/api#x" time="0.000830" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: https://user:pass@kppdf-crm.ru/db/api" time="0.000693" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: https://kppdf-crm.ru:443/db/api" time="0.000717" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: https://kppdf-crm.ru:8443/db/api" time="0.000744" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: https://kppdf-crm.ru/db/api/evil" time="0.000968" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: https://evil.kppdf-crm.ru/db/api" time="0.001045" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: https://kppdf-crm.ru.evil/db/api" time="0.001146" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: http://kppdf-crm.ru/db/api" time="0.000939" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: https://example.invalid/db/api" time="0.000936" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: http://192.168.1.2:3001/api" time="0.000784" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 rejected settings cannot remember: http://127.0.0.1:3001/api?x=1" time="0.000653" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 temporary offline: disk survives, retry waits exactly15s" time="0.011210" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 temporary 500: disk survives, retry waits exactly15s" time="0.009438" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 temporary 503: disk survives, retry waits exactly15s" time="0.008992" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 refresh 401: erase binding, no retry or ghost session" time="0.006175" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 refresh 403: erase binding, no retry or ghost session" time="0.005527" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 refresh account: erase binding, no retry or ghost session" time="0.005052" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 refresh version: erase binding, no retry or ghost session" time="0.006105" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 refresh role: erase binding, no retry or ghost session" time="0.004885" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 refresh org: erase binding, no retry or ghost session" time="0.004807" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 refresh expired-access: erase binding, no retry or ghost session" time="0.004823" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 saved refresh expiry/CurrentUser failure erase without contacting API" time="0.009867" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 saved apiBase binding mismatch erased before refresh" time="0.005138" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 saved sub binding mismatch erased before refresh" time="0.005323" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 saved version binding mismatch erased before refresh" time="0.005832" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 logout/site/account switch erase; model/folder changes preserve selected-site login" time="0.012799" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 protect/atomic save throw: memory valid, stale blob erased, no plaintext" time="0.005779" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 protect/atomic save empty: memory valid, stale blob erased, no plaintext" time="0.005357" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 protect/atomic save oversize: memory valid, stale blob erased, no plaintext" time="0.005388" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 protect/atomic save write: memory valid, stale blob erased, no plaintext" time="0.006258" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 protect/atomic save rename: memory valid, stale blob erased, no plaintext" time="0.008789" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 unavailable secureSession is truthful memory-only, never plaintext fallback" time="0.002699" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C245 logout erases remembered offline session and restart never refreshes it" time="0.005134" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake-remember.test.mjs"/>
+	<testcase name="C171: подготовка блокирует анализ, просмотр связан с владельцем и контуром, запись не вызывается" time="0.049326" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="автоотправка запускает серверную проверку только по явному действию на локальной копии" time="0.030096" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="Windows CurrentUser DPAPI: local и точный рабочий сайт сохраняются и восстанавливаются" time="7.552666" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="разбор документов: границы запросов, сессия, один процесс, остановка, отчёт и восстановление" time="0.165206" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="длинный пакет обновляет access дважды заранее, один refresh для параллельных запросов" time="0.024364" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="разбор приостанавливается при сбое обновления сессии (revoked)" time="0.013440" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="разбор приостанавливается при сбое обновления сессии (unknown)" time="0.015928" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="разбор приостанавливается при сбое обновления сессии (wrong-account)" time="0.015462" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="разбор приостанавливается при сбое обновления сессии (no-cookie)" time="0.015735" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="остановка отменяет запрос refresh и сохраняет сессию для нового запуска" time="0.031943" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\document-intake.test.mjs"/>
+	<testcase name="Windows: taskkill.exe /PID /T /F, успешный callback" time="0.001004" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\process.test.mjs"/>
+	<testcase name="Windows: Access denied/ENOENT не объявляются остановкой" time="0.000277" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\process.test.mjs"/>
+	<testcase name="Windows: процесс уже нет — считаем остановленным" time="0.000726" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\process.test.mjs"/>
+	<testcase name="PID неизвестен — отказ до системного вызова; POSIX сигнал адресован только child PID" time="0.000220" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\process.test.mjs"/>
+	<testcase name="ежедневно: срок сегодня после времени, вчера — до" time="0.001042" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\schedule.test.mjs"/>
+	<testcase name="раз в неделю: понедельник (31.10.2026 — суббота)" time="0.000099" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\schedule.test.mjs"/>
+	<testcase name="раз в месяц: 1-го" time="0.000072" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\schedule.test.mjs"/>
+	<testcase name="пропущенный срок догоняется один раз; выключенное не идёт" time="0.000093" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\schedule.test.mjs"/>
+	<testcase name="правка проверяется; битая правка — умолчание" time="0.000691" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\schedule.test.mjs"/>
+	<testcase name="каталог: в автозапуске только чтение и этот ПК, без подтверждений" time="0.000215" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\schedule.test.mjs"/>
+	<testcase name="таймер: запускает просроченную команду, запись на сайт пропускает, второй раз не повторяет" time="0.572284" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\schedule.test.mjs"/>
+	<testcase name="без ключа сессии — отказ, на странице ключ есть" time="0.013931" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="чужой Host и чужой Origin — отказ" time="0.006747" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="запуск только из каталога" time="0.013057" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="вывод, маска пароля, журнал на диске" time="0.616634" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="ключ ИИ передаётся через stdin и скрывается в журнале" time="0.485624" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="код ошибки и подсказка" time="0.486142" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="код 1 у команды с находками — не сбой, запуск запомнен" time="0.485995" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="запись без подтверждения не стартует — проверяет сервер" time="0.281789" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="две записи на сайт разом и повтор команды — отказ, Остановить работает" time="1.973376" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="вкладка закрывается, идущая команда остаётся" time="3.068655" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="поручения: чужой id отклоняется" time="0.001142" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="браузерный batch policy модуль доступен с правильным содержимым" time="0.000865" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="в каталоге для страницы нет способа запуска" time="0.007542" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="поручение: «сделано» хранится в pult/.state/done.json и переживает журнал запусков" time="0.030323" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="T23: фоновый статус только локальный; legacy dcnight не выдаётся за свой стенд" time="0.000926" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="T23: /api/status использует statusFn-заглушку, без production" time="0.006841" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="T23: ошибка cancellation transport возвращается пользователю; job остаётся running" time="0.018300" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="поручение разбора открывает текущий локальный порт" time="0.000304" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\server.test.mjs"/>
+	<testcase name="статусы: нет отчёта, подготовка, запуск, работа, остановка, обрыв и завершение" time="0.002833" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\tester.test.mjs"/>
+	<testcase name="HTTP: подмена процесса; двойной запуск, ошибка подготовки, повтор, heartbeat и stop" time="2.340425" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\tester.test.mjs"/>
+	<testcase name="пункт дел с params: в совете есть params, закрывается только своим ключом" time="0.000771" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\todo-params.test.mjs"/>
+	<testcase name="todo.json: команда пункта есть в каталоге; select-параметры заполнены" time="0.000264" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\todo-params.test.mjs"/>
+	<testcase name="совет передаёт params пункта в интерфейс" time="0.001041" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\todo-params.test.mjs"/>
+	<testcase name="параметр часов — только из списка" time="0.009901" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\todo-params.test.mjs"/>
+	<testcase name="todo.json: время постановки не в будущем — иначе пункт никогда не закроется запуском" time="0.000752" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\pult\test\todo-params.test.mjs"/>
+	<testcase name="проверка Gemma 4 отключает рассуждения, сохраняя строгую схему" time="0.003080" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\tools\document-intake\preflight.test.mjs"/>
+	<testcase name="все проверки реальны и публикуют этапы без записи в API" time="0.000499" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\tools\document-intake\preflight.test.mjs"/>
+	<testcase name="внешние и неоднозначные адреса модели блокируются до сети" time="0.001047" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\tools\document-intake\preflight.test.mjs"/>
+	<testcase name="IPv6 loopback принимается" time="0.000286" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\tools\document-intake\preflight.test.mjs"/>
+	<testcase name="неподдерживаемая ОС, нехватка места и PDF без извлечения блокируют запуск" time="0.000458" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\tools\document-intake\preflight.test.mjs"/>
+	<testcase name="несоответствие схеме или незавершённый ответ не подтверждают модель" time="0.000692" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\tools\document-intake\preflight.test.mjs"/>
+	<testcase name="ошибки API и недостаточные права скрываются и не дают запуск" time="0.000967" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\tools\document-intake\preflight.test.mjs"/>
+	<testcase name="отмена прекращает проверку, закрытый обработчик событий ей не мешает" time="0.000651" classname="test" file="D:\invSportiN\Сайт\01_Проекты_CRM\data-core\tools\document-intake\preflight.test.mjs"/>
+	<!-- tests 137 -->
+	<!-- suites 0 -->
+	<!-- pass 137 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 8636.9443 -->
+</testsuites>

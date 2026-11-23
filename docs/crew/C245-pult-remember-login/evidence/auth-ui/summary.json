@@ -1,0 +1,64 @@
+{
+  "provenance": "real Pult UI, fake auth/secureSession; no production HTTP or real credentials",
+  "cases": [
+    {
+      "state": "remembered",
+      "theme": "light",
+      "text": "Вход выполнен. Пульт запомнил вход на этом ПК.",
+      "screenshot": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\docs\\crew\\C245-pult-remember-login\\evidence\\auth-ui\\remembered-light.png",
+      "status": "PASS"
+    },
+    {
+      "state": "remembered",
+      "theme": "dark",
+      "text": "Вход выполнен. Пульт запомнил вход на этом ПК.",
+      "screenshot": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\docs\\crew\\C245-pult-remember-login\\evidence\\auth-ui\\remembered-dark.png",
+      "status": "PASS"
+    },
+    {
+      "state": "offline",
+      "theme": "light",
+      "text": "Восстановим вход, когда выбранный сайт ответит.",
+      "screenshot": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\docs\\crew\\C245-pult-remember-login\\evidence\\auth-ui\\offline-light.png",
+      "status": "PASS"
+    },
+    {
+      "state": "offline",
+      "theme": "dark",
+      "text": "Восстановим вход, когда выбранный сайт ответит.",
+      "screenshot": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\docs\\crew\\C245-pult-remember-login\\evidence\\auth-ui\\offline-dark.png",
+      "status": "PASS"
+    },
+    {
+      "state": "logged-out",
+      "theme": "light",
+      "fileErased": true,
+      "screenshot": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\docs\\crew\\C245-pult-remember-login\\evidence\\auth-ui\\logged-out-light.png",
+      "status": "PASS"
+    },
+    {
+      "state": "logged-out",
+      "theme": "dark",
+      "fileErased": true,
+      "screenshot": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\docs\\crew\\C245-pult-remember-login\\evidence\\auth-ui\\logged-out-dark.png",
+      "status": "PASS"
+    },
+    {
+      "state": "memory",
+      "theme": "light",
+      "text": "Вход выполнен. Сессия действует только до закрытия Пульта.",
+      "screenshot": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\docs\\crew\\C245-pult-remember-login\\evidence\\auth-ui\\memory-light.png",
+      "status": "PASS"
+    },
+    {
+      "state": "memory",
+      "theme": "dark",
+      "text": "Вход выполнен. Сессия действует только до закрытия Пульта.",
+      "screenshot": "D:\\invSportiN\\Сайт\\01_Проекты_CRM\\data-core\\docs\\crew\\C245-pult-remember-login\\evidence\\auth-ui\\memory-dark.png",
+      "status": "PASS"
+    }
+  ],
+  "errors": [],
+  "offlineLogoutVisible": true,
+  "status": "PASS"
+}

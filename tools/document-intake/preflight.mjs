@@ -28,6 +28,8 @@ export async function probeLocalModel({ modelBase, model, signal, fetchFn = fetc
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000),
     // Рассуждающая модель расходует бюджет до JSON; усечённый ответ всё равно запрещён.
     body: JSON.stringify({ model, temperature: 0, max_tokens: 1024,
+      // Как при разборе PDF: Gemma не должна тратить проверочный бюджет на рассуждения.
+      ...(/^google\/gemma-4-/i.test(model) ? { reasoning_effort: 'none', chat_template_kwargs: { enable_thinking: false } } : {}),
       response_format: { type: 'json_schema', json_schema: { name: 'document_intake_probe', strict: true, schema: PROBE_SCHEMA } },
       messages: [{ role: 'user', content: 'Проверка готовности. Верни JSON строго по схеме: {"ready":true}.' }],
     }),

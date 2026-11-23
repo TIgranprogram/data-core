@@ -134,7 +134,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
   }
 
   function canRemember(apiBase) {
-    return Boolean(secureSession && localBase(apiBase, '/api'));
+    return Boolean(secureSession && (apiBase === production || localBase(apiBase, '/api')));
   }
 
   async function eraseSavedSession() {
@@ -170,12 +170,18 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
     const { apiBase, claims, refresh } = session;
     const binding = { sub: claims.sub, version: claims.version, role: claims.role, orgId: claims.orgId };
     savedSession = { apiBase, claims: binding, refresh, remember: true };
+    rememberedOnDisk = false;
     try {
       const sealed = await secureSession('protect', JSON.stringify({ apiBase, claims: binding, value: refresh.value }));
+      if (typeof sealed !== 'string' || !sealed || sealed.length > 64_000) throw new Error('Хранилище входа Windows недоступно.');
       await fs.mkdir(stateDir, { recursive: true });
       await jsonAtomic(sessionFile, { sealed });
       rememberedOnDisk = true;
-    } catch { /* вход в текущем окне остаётся доступен */ }
+    } catch {
+      // После rotation прежний blob не подтверждает сохранение нового refresh.
+      await fs.rm(sessionFile, { force: true }).catch(() => {});
+      // Текущий вход и новый refresh остаются в памяти; plaintext fallback нет.
+    }
   }
 
   function authError() {

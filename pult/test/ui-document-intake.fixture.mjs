@@ -208,6 +208,8 @@ try {
   await aside.getByLabel('Логин', { exact: true }).fill('учебный-менеджер');
   await aside.getByLabel('Пароль', { exact: true }).fill('fixture-c171-password');
   await sideButton('Войти').click(); await aside.getByText('Вход выполнен.', { exact: false }).waitFor();
+  await aside.getByText('Вход выполнен. Сессия действует только до закрытия Пульта.', { exact: true }).waitFor();
+  assert.equal(await aside.getByText('Пульт запомнил вход на этом ПК.', { exact: false }).count(), 0);
   assert.equal(await aside.getByLabel('Пароль', { exact: true }).inputValue(), '');
   assert.doesNotMatch(await page.content(), /fixture-c171-password/);
   assert.doesNotMatch(await fs.readFile(path.join(temporary, 'document-intake.json'), 'utf8'), /fixture-c171-password/);
@@ -338,7 +340,7 @@ try {
   assert.ok(marked.ok(), await marked.text());
   assert.equal((await marked.json()).returnToManager, true);
   await aside.getByText('Вернуть менеджеру · 1', { exact: true }).waitFor();
-  if (!await sideButton('Вернуть на сверку').isVisible()) await sideButton('Открыть: ' + formatItem.name).click();
+  await sideButton('Вернуть на сверку').waitFor({ state: 'visible' });
   await sideButton('Вернуть на сверку').click();
   await aside.getByText('Проверить оформление · 1', { exact: true }).waitFor();
   const formatHide = sideButton('Скрыть: ' + formatItem.name);

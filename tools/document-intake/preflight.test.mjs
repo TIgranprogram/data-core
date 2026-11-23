@@ -13,6 +13,25 @@ const dependencies = (patch = {}) => ({
   ...patch,
 });
 
+test('проверка Gemma 4 отключает рассуждения, сохраняя строгую схему', async () => {
+  for (const model of ['google/gemma-4-12b-qat', 'local-model']) {
+    let body;
+    const result = await preflight({ ...options, model }, dependencies({ fetchFn: async (_url, init) => {
+      body = JSON.parse(init.body); return response();
+    } }));
+    assert.equal(result.ready, true);
+    assert.equal(body.max_tokens, 1024);
+    assert.equal(body.response_format.json_schema.strict, true);
+    if (model.startsWith('google/gemma-4-')) {
+      assert.equal(body.reasoning_effort, 'none');
+      assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
+    } else {
+      assert.equal(Object.hasOwn(body, 'reasoning_effort'), false);
+      assert.equal(Object.hasOwn(body, 'chat_template_kwargs'), false);
+    }
+  }
+});
+
 test('все проверки реальны и публикуют этапы без записи в API', async () => {
   const events = []; const calls = [];
   const result = await preflight({ ...options, onStep: event => events.push(event) }, dependencies({

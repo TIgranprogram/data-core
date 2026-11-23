@@ -307,13 +307,13 @@ export function createIntakeView({ api, el }) {
         model.input.value = settings.model || defaultModel;
       }
       if (view.signedIn) loginInfo.textContent = view.remembered
-        ? 'Вход выполнен. Пульт запомнил вход в тестовую копию на этом ПК.'
-        : 'Вход выполнен.';
+        ? 'Вход выполнен. Пульт запомнил вход на этом ПК.'
+        : 'Вход выполнен. Сессия действует только до закрытия Пульта.';
       else loginInfo.textContent = view.remembered
-        ? 'Восстановим вход, когда тестовая копия ответит.'
+        ? 'Восстановим вход, когда выбранный сайт ответит.'
         : 'Войдите с паролем администратора выбранного сайта.';
       loginForm.hidden = view.signedIn;
-      logout.hidden = !view.signedIn;
+      logout.hidden = !(view.signedIn || view.remembered);
     }
   }
 
