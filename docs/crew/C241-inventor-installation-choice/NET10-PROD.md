@@ -1,0 +1,7 @@
+# C241 — NET10 правило на рабочем сайте
+
+23.11.2026,14:47МСК. **PASS содержания с явной нормализацией LF.** Только api.shprodGET;healthreadyok/mongoup,appversion2c5f508a,n1049→v2.50,b=e0415bc1,date14:42:23МСК. Tagrelease-v2.50-2c5f508a подтверждён сообщениемroot об успешном штатномFASTрелизе,не выводится изGET.
+GET /app/ilogic/passport-images.iLogicVb вернул61147байт,строка AddReference "System.Private.Windows.Core.dll" присутствует. ActualrawSHA256=33a636693fd3a40d985a67fc80251793c7baea1a023db276ab579f2c553105e2,884CRLF. После единственного преобразованияCRLF→LF SHA256=f8cb8f6421ad9b3fdb6bdbc97172fe0c8e659749670977008d6f350987bf89f8,точно утверждённыйGitblob. Rawравенство сLFblobне заявляется; различие только концовстрок зафиксировано.
+Доказательства tools/logs/c241-net10-prod/:health-ready.json,version.json,сыройpassport-images.iLogicVb,summary.json. Исходныйнеуспешныйrawassert и observedresponse не подменены доказательством буквальногоравенствабайтов.
+[Скачать обновлённое правило](https://kppdf-crm.ru/db/app/ilogic/passport-images.iLogicVb). Фактический запуск в Inventor не выполнялся; предрелизнаяNET10компиляция и устранение6BC30652 — отдельные доказательстваroot/исполнителя,не мой прогон.
+Продовыхзаписей/созданияпаспортов/измененийдоговоров/повторныхCAS не было;правило только прочитано. Backendпоrootreleaseнеперезапускался.
