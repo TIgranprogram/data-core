@@ -4,6 +4,8 @@
 
 | ID | Суть | Статус |
 |--|--|--|
+| C235 | Тексты эксплуатации изделий: что готово и где получить | done · [Возможности](C235-product-usage-texts/REPORT.md), [рабочий пример](C235-product-usage-texts/PROD-SAMPLE.md) |
+| C234 | Исходящие счета к договорам и препятствие загрузки КП | done · [Три счёта и КП в комплектах](C234-sales-invoices-and-offer/LIVE-REPORT.md) |
 | C233 | Создание заказчика и загрузка договоров из рабочего разбора | done · [Три договора на сайте](C233-live-intake-control/LIVE-REPORT.md) |
 | C232 | Стопки доски, ссылки и файлы личных задач | done · [Приёмка](C232-desk-organization/UI-REVIEW.md) |
 | C231 | Приёмка на заказ, в офис, в цех и на СМР | done · [Приёмка](C231-direct-to-order/UI-REVIEW.md) |
