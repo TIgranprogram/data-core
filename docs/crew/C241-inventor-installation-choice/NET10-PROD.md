@@ -5,3 +5,6 @@ GET /app/ilogic/passport-images.iLogicVb вернул61147байт,строка 
 Доказательства tools/logs/c241-net10-prod/:health-ready.json,version.json,сыройpassport-images.iLogicVb,summary.json. Исходныйнеуспешныйrawassert и observedresponse не подменены доказательством буквальногоравенствабайтов.
 [Скачать обновлённое правило](https://kppdf-crm.ru/db/app/ilogic/passport-images.iLogicVb). Фактический запуск в Inventor не выполнялся; предрелизнаяNET10компиляция и устранение6BC30652 — отдельные доказательстваroot/исполнителя,не мой прогон.
 Продовыхзаписей/созданияпаспортов/измененийдоговоров/повторныхCAS не было;правило только прочитано. Backendпоrootreleaseнеперезапускался.
+## Повторная сверка после подтверждения владельца
+
+23.11.2026,15:21:42МСК. Только3GETчерезapi.shprod:healthreadyok/mongoup,appversion2c5f508a/n1049=v2.50,b=e0415bc1. ТекущийstaticruleсодержитAddReferenceSystem.Private.Windows.Core.dll;SHAпослеCRLF→LFпо-прежнемуf8cb8f6421ad9b3fdb6bdbc97172fe0c8e659749670977008d6f350987bf89f8. Доказательствоtools/logs/c241-net10-prod/recheck.json. Нового деплоя/записей/реального запускаInventor этим контролем не выполнялось.
