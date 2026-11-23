@@ -1,0 +1,145 @@
+{
+  "expectedSuites": 112,
+  "actualSuites": 112,
+  "passedSuites": 112,
+  "failedSuites": 0,
+  "passedTests": 918.0,
+  "totalTests": 918.0,
+  "failedTests": 0.0,
+  "pendingTests": 0.0,
+  "missingGroups": [],
+  "missing": [],
+  "extra": [],
+  "duplicates": [],
+  "changedSources": [],
+  "groups": [
+    {
+      "name": "batch-1",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 26,
+      "tests": 202,
+      "suites": 26,
+      "passedTests": 202
+    },
+    {
+      "name": "batch-2",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 26,
+      "tests": 185,
+      "suites": 26,
+      "passedTests": 185
+    },
+    {
+      "name": "batch-3",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 26,
+      "tests": 185,
+      "suites": 26,
+      "passedTests": 185
+    },
+    {
+      "name": "batch-4",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 24,
+      "tests": 218,
+      "suites": 24,
+      "passedTests": 218
+    },
+    {
+      "name": "c172",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 3,
+      "tests": 74,
+      "suites": 3,
+      "passedTests": 74
+    },
+    {
+      "name": "c240c242",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 2,
+      "tests": 14,
+      "suites": 2,
+      "passedTests": 14
+    },
+    {
+      "name": "c188",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 1,
+      "tests": 7,
+      "suites": 1,
+      "passedTests": 7
+    },
+    {
+      "name": "c198",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 1,
+      "tests": 3,
+      "suites": 1,
+      "passedTests": 3
+    },
+    {
+      "name": "stockscope",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 1,
+      "tests": 14,
+      "suites": 1,
+      "passedTests": 14
+    },
+    {
+      "name": "t26",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 1,
+      "tests": 12,
+      "suites": 1,
+      "passedTests": 12
+    },
+    {
+      "name": "c244",
+      "pendingTests": 0,
+      "success": true,
+      "failedTests": 0,
+      "passedSuites": 1,
+      "tests": 4,
+      "suites": 1,
+      "passedTests": 4
+    }
+  ],
+  "freezeBeforeStartChanges": [],
+  "newSources": [],
+  "success": true,
+  "authorFreeze": {
+    "matchedFiles": 6,
+    "baseCommit": "f6b35fc5",
+    "mismatches": []
+  },
+  "independentUnit": {
+    "success": true,
+    "suites": 406,
+    "tests": 4175
+  },
+  "staticChecks": {
+    "typecheckExit": 0,
+    "eslintExit": 0,
+    "explicitFiles": 59
+  }
+}

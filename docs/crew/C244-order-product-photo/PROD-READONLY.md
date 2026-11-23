@@ -1,0 +1,8 @@
+# C244 — точный read-only осмотр заказа22-26
+
+23.11.2026,15:29:43МСК. Только api.shprodGET,0записей/назначенийфото/публикаций.
+Заказпроизводства22-26,договор№39 ООО«КРАСНОГВАРДЕЙСКИЙДРСУ» id6ae57114ffba80cdb9140e44;единственныйincome6b0430c8de6d4da5c8610bd5,«Скамья CHOICE SHADOW CKM090»,6шт,productId6b04002383805300a56541fe=артикул3413«Скамья2м». Связь сохранена правильно;созданиеincome15:25:44,updated15:26:51.
+Вrawproduct mainPhotoIdnull,photoIds[]. Вincomephotos[];GETsalesorders.line.photo=null,product.photoId=null;GETproduction-orders.list.coverPhotonull иdetail.line.photo=null. Это точные поля,которые уже пусты вAPIответе заказа.
+При этом showcaseproduct/list.photo есть:originalid6b042aebde6d4da5c86105a9,photoSourcepassport,photos[]. У шаблонаeffectiveImages3(fromProducttrue):overview6b042aebde6d4da5c86105a9,dimensions6b042aedde6d4da5c86105b3,mounting6b042aefde6d4da5c86105bd;passportDefaultsне содержитфото,product.sourceshowcase.
+Original418597байт иthumb10128байт скачаны черезsafeuploadsURL:оба доступны,фактическиеSHA вsummary.json. Photoobjectvariantoriginal,mimeimage/png,deletedAtnull,sourceProtectedtrue. Файлнепотерян иURLживой;расхождение—showcaseуже применяетpassportfallback,APIзаказа возвращаетnull. Кодовыйпуть/исправлениепроверяетназначенныйисполнитель,не этотдоступ.
+Полныеответы/IDs/URLs/SHAбезсекретов:tools/logs/c251-order-photo/{orders-search,order,contract,income,raw-product,product,product-template,photo,summary}.json. Папканепереименована;отчётпривязанкC244послеуточненияroot.

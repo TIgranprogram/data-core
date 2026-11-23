@@ -1,5 +1,8 @@
 # MAP — карта кода (модуль → маршруты → коллекции)
 
+**C244 — фото позиции из связанного изделия.** Общий batchresolver common/product-photos.ts используется common/photos.ts loadLinePhotos и прежним совместимым adapter showcase/showcase-photos.ts: own income→явные catalog photoIds→live passportoverview→legacyoverview→null. Сохраняет safe/live-проверки, без N+1/записи photoIds/новых DTO. Динамические detail/lookup получают тот же источник, что каталог; productionlist намеренно остаётся coverPhoto:null(C017), linesLookup и frozenarchive не менялись. [План/границы](crew/C244-order-product-photo/ARCH-PLAN.md).
+
+
 **C242 — пересчёт нескольких ячеек.** `GET /stock/items[/:id]` возвращает read-only `countMode: single|multiple`: сумма quantity/reservedQty сохраняется, 0/1 live storageitem — single, >1 — multiple. `stock-movements.service.ts` в прежней транзакции проверяет count/batch(count) до загрузки/изменения остатка; multiple→409. Live-фильтр как loadStorage (`warehouseId/materialId/deletedAt:null`), удалённая ячейка не блокирует пересчёт. Адресация отдельной ячейки и новые ACL не вводятся. [Контракт](crew/C242-stock-section-order/BACKEND-CONTRACT.md).
 
 **C236 — модельная инструкция упражнения.** `PATCH /showcase/:id/passport-template` адресно принимает whole-block `expected/changes.exerciseInstructions` (объект трёх plain-text частей либо null; CAS409). `common/passport/exercise-instructions.ts` задаёт валидацию/4000/подписи; `passport-from-product.ts` захватывает блок только explicit new/create/template, existing-read не наследует. `passport-v2-text.ts` сохраняет текст/source, PDF добавляет блок рядом с use без замены safety/rules. Public instance DTO поле не принимает. [Контракт](crew/C236-trainer-exercise-instructions/BACKEND-CONTRACT.md).

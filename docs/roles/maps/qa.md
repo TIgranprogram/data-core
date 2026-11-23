@@ -1,6 +1,6 @@
 # Карта роли qa
 
-коммит: 18ef2ec5 · опорная ревизия для поиска, 23.11.2026; финальный staged backend определяется SHA run05. Приёмка конкретного изменения фиксируется отдельно.
+коммит: f6b35fc5 · опорная ревизия для поиска, 23.11.2026; финальный staged backend определяется SHA C244/qa. Приёмка конкретного изменения фиксируется отдельно.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
 Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
@@ -25,3 +25,5 @@
 - C236 release run04: Swagger real-schema — `backend/src/modules/role/stock-views.swagger.spec.ts:1`; порядок/блокировки orchestration — `docs/crew/C236-trainer-exercise-instructions/qa/run04/run-release.ps1:1`; Гант timeout сохранять как FAIL до причины — `backend/test/e2e/order-line-plan.e2e-spec.ts:100`. Карта обновлена, коммит:18ef2ec5 (опорный HEAD; staged runtime определяется SHA).
 
 - C236/240/241/242 FINAL run05 ✅405unit suites/4167tests +111e2e suites/914tests: `docs/crew/C236-trainer-exercise-instructions/qa/QA-REPORT.md:1`, точныйunion/SHA/T26setuphistory — `qa/run05/full-summary.json:1`; finalsourceSHA — `qa/run05/final-source-sha256.json:1`; uniqueT26driver — `qa/run05/run-full.ps1:1`. Runtime regression anchors: `backend/src/modules/order-line-plan/work-schedule-session.spec.ts:1`; count HTTP no-write — `backend/test/e2e/c242-stock-catalog-http.e2e-spec.ts:62`; SM6 — `backend/test/e2e/stock-scope.e2e-spec.ts:190`. Карта обновлена, коммит:18ef2ec5, финальная source-истина — SHA, не staging.
+- C244 фото строки: реальный HTTP priority/switch/archive — `backend/test/e2e/c244-order-product-photo.e2e-spec.ts:32`; постоянные1/100→5batch-запросов — `backend/src/common/product-photos.spec.ts:70` (unit, неHTTPcommandcounter). Полный112/918+406/4175: `docs/crew/C244-order-product-photo/QA-REPORT.md:1`, dynamic union/sourceSHA — `qa/full-summary.json:1`; ownedUIfixture+2темы — `tools/logs/c244-order-photo-browser.mjs:1`, дизайнер `docs/crew/C244-order-product-photo/UI-REVIEW.md:1`. Карта обновлена, коммит:f6b35fc5; final staged bytes определяет SHA.
+

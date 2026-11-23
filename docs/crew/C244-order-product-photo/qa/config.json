@@ -1,0 +1,10 @@
+{
+  "extraStrictDatabase": "datacore-test-c244-photo",
+  "t26Database": "datacore-test-t26-c244-run01",
+  "lintBaseline": "f6b35fc574828894369ebaf5d9d5619d7776a0e9",
+  "extraStrictSuites": [
+    "c244-order-product-photo.e2e-spec.ts"
+  ],
+  "ordinaryDatabase": "datacore-test-c244-run01",
+  "freezeRequired": false
+}

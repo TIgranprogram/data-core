@@ -1,0 +1,7 @@
+# C244 — изолированная заполненная fixture
+
+23.11.2026. **SETUP PASS**,толькоownedstandda26a1b01e09343e7b6d82c7/localhost3102. standOwned+standDevelopmentOwned прошли,healthreadyok. Прод толькоGETисходногоизображения,беззаписей.
+Однимwriterвыполнены5штатныхPOST:новоеQAизделие,upload,productphotopassportoverview,новыйQAдоговор/заказ,новыйincome6шт. MarkerQA_C244,артикулQA-C244-3413-20261123,productionNoQA-C244-20261123. Только новые ID;существующиеизделия/договоры/паспорта не правились.
+IDsвfixture.json:product6b0433b29e01fbb177020ffa,photo6b0433b39e01fbb177020fff,productPhoto6b0433b49e01fbb177021009,order6b0433b69e01fbb177021012,income6b0433b79e01fbb17702101f. Изображение реального3413original418597байт,SHA985a787c694e9766921dd4bf181745a5346573c6379427ab242bc91647209757.
+GETподтвердилrawproductphotoIds[]/mainPhotoIdnull,incomephotos[]/правильныйproductId/qty6,showcase.photoSourcepassportиphotoIdсозданногоoverview;issued0. Доrefreshorderline.photo=null—исходныйдефект воспроизведённаbackendownedкопии. BROWSERещёне запускался;этонеprodUIприёмка и не доказательство исправления.
+Durablejournalcomplete,все5entryreturned,writerlockснят;полныетела/ответыдоrefreshвtools/logs/c244-stand-setup/. Новыхномеровпаспортов/issuedне создавалось. Rootможет обновитькодкопииисделатьread-onlybrowserсfixture IDs.

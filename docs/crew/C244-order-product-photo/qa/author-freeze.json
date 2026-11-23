@@ -1,0 +1,58 @@
+{
+  "at": "2026-11-23T12:43:03.025Z",
+  "baseCommit": "f6b35fc5",
+  "files": [
+    {
+      "path": "backend/src/common/photos.ts",
+      "sha256": "3521df8e529d05b3136fc448b7afd9baf0c91b7a9b61aac430f927a6aa1cab06"
+    },
+    {
+      "path": "backend/src/common/product-photos.ts",
+      "sha256": "4768569d0995e6be303a5fa3306b8bf0c9c4c81f711811d733422d68e09f92c3"
+    },
+    {
+      "path": "backend/src/modules/showcase/showcase-photos.ts",
+      "sha256": "79afba80b01888a59195343996e44f7807415e623cd561ce8857ef0765d4f3cf"
+    },
+    {
+      "path": "backend/src/common/photos.spec.ts",
+      "sha256": "c414a70e207799b91dc844054dff9c0225b9eebd5d0e0f04f981fab4793c6d0b"
+    },
+    {
+      "path": "backend/src/common/product-photos.spec.ts",
+      "sha256": "95cddf2bf02f66f9010920b0555c7441cc1f69f7f0fe5be3a72c0ac15319cb5a"
+    },
+    {
+      "path": "backend/test/e2e/c244-order-product-photo.e2e-spec.ts",
+      "sha256": "9f2325de2715723a37d344930151e7a17e5a2dfc099b649e8b304102ba464c14"
+    }
+  ],
+  "checks": {
+    "unit": {
+      "suites": 33,
+      "passed": 191,
+      "failed": 0,
+      "durationMs": 10405
+    },
+    "http": {
+      "suites": 1,
+      "passed": 4,
+      "failed": 0,
+      "durationMs": 12268,
+      "db": "datacore-test-c244-photo"
+    },
+    "tsc": 0,
+    "eslint": 0,
+    "diffCheck": 0,
+    "mongoCurrentOpNamespaceAndAllTransactions": []
+  },
+  "queryBound": {
+    "measuredIn": "real resolver unit fixture, not HTTP command counter",
+    "lines": [
+      1,
+      100
+    ],
+    "sameProductOverview": 5,
+    "noWrites": true
+  }
+}

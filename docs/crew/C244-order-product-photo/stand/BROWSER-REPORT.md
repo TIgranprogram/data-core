@@ -1,0 +1,7 @@
+# C244 — BROWSER после refresh owned-копии
+
+23.11.2026. **PASS6/6 browser cases**,realAPI2(две темы)+UI-only4. Запущен только утверждённый root сценарий tools/logs/c244-order-photo-browser.mjs SHA256E7287089E1578A47330935D9B78FCE19B7F36E519FCE5DB56637E342141F36E7 черезapi.shstandBROWSER;sessionтолькоstdin. Перед запускомstandOwned+standDevelopmentOwned подтвердилиda26a1b01e09343e7b6d82c7/3102,healthreadyok.
+Реальный GET QAзаказаQA-C244-20261123 послеrefreshвернул line.photo.url/thumb дляincome6b0433b79e01fbb17702101f→product6b0433b29e01fbb177020ffa,qty6. Доrefreshтотжеline.photoбылnull. Внастоящемэкранеorders#salesorders?open=QA-C244-20261123 картинкаdecoded,naturalWidth>0,srcточноthumbAPI,артикул/6штвидны вlight/dark. Никакого перехвата ответа заказа вrealcase нет.
+Дополнительноown-ui-fixture(«ОригиналКП») иnone-ui-fixture вдвухтемах прошли только подменойread-onlyответаUI. Они проверяютвид/отсутствиеbrokenimg и пустоесостояние,но не являютсядоказательством серверногоприоритетафото. Серверныйприоритет/остальныенегативныеветки — адресныеbackend/QAтесты.
+Все запросы браузера ограниченыlocalhost3102 иGET/HEAD;blockedWrites[]/pageErrors[].6PNGиsummary.json вevidence/browser/. Runtime/сценарий/селекторы не менялись,ретраев/FAILартефактов не было. Этоfilledownedfixture,неprodUI;независимаявизуальнаяприёмкадизайнераотдельно.
+Продовыхзаписей/публикаций/номеровпаспортов/issuedне было. НовыеQAfixtureданысозданыранеепоотдельномуразрешению;текущийBROWSERтолькочтение.

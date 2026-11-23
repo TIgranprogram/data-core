@@ -1,4 +1,5 @@
 import { Types, type Connection } from 'mongoose';
+import { loadLivePhotos, photoObjectIds, resolveProductPhotos } from './product-photos';
 
 type Db = NonNullable<Connection['db']>;
 
@@ -12,17 +13,25 @@ export function linePhotoId(line: Pick<LineLike, 'photoIds' | 'productId'>, prod
   return id ? String(id) : null;
 }
 
-/** Фото строк позиций пачкой (изделия и фото — по одному запросу на весь набор): id строки → {url, thumb} | null. */
+/** Фото строк: пригодное собственное → каталог изделия → паспортный overview. Только пакетное чтение. */
 export async function loadLinePhotos(db: Db, lines: LineLike[]): Promise<Map<string, LinePhoto>> {
-  const needProd = [...new Set(lines.filter((l) => !((l.photoIds as unknown[] | undefined) ?? [])[0] && l.productId).map((l) => String(l.productId)))];
-  const prodFirst = new Map<string, unknown>();
-  if (needProd.length) {
-    const prods = await db.collection('products').find({ _id: { $in: needProd.map((s) => new Types.ObjectId(s)) } }, { projection: { photoIds: 1 } }).toArray();
-    for (const p of prods) { const f = ((p.photoIds as unknown[] | undefined) ?? [])[0]; if (f) prodFirst.set(String(p._id), f); }
+  const result = new Map<string, LinePhoto>();
+  if (!lines.length) return result;
+  const own = await loadLivePhotos(db, lines.flatMap((l) => Array.isArray(l.photoIds) ? l.photoIds : []));
+  for (const line of lines) {
+    const p = photoObjectIds(line.photoIds).map((id) => own.get(String(id))).find(Boolean);
+    result.set(String(line._id), p ? { url: p.url, thumb: p.thumb } : null);
   }
-  const ids = lines.map((l) => linePhotoId(l, prodFirst));
-  const photos = await loadPhotos(db, [...new Set(ids.filter(Boolean) as string[])].map((s) => new Types.ObjectId(s)));
-  return new Map(lines.map((l, i) => { const p = ids[i] ? photos.get(ids[i]!) : undefined; return [String(l._id), p ? { url: p.url, thumb: p.thumb } : null]; }));
+  const missing = lines.filter((l) => !result.get(String(l._id)));
+  const productIds = photoObjectIds([...new Set(missing.map((l) => String(l.productId ?? '')))]);
+  if (!productIds.length) return result;
+  const products = await db.collection('products').find({ _id: { $in: productIds }, deletedAt: null }, { projection: { photoIds: 1 } }).toArray();
+  const { pictures, covers } = await resolveProductPhotos(db, products);
+  for (const line of missing) {
+    const key = String(line.productId), p = pictures.get(key)?.[0] ?? covers.get(key);
+    if (p) result.set(String(line._id), { url: p.url, thumb: p.thumb });
+  }
+  return result;
 }
 
 /** Фото по id: оригинал, миниатюра и (если есть) medium — двумя запросами на любой набор id (общий помощник: доска, позиции, изделия). */

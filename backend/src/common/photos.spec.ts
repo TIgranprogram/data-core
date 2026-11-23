@@ -15,7 +15,7 @@ describe('фото строки позиции', () => {
 
   it('loadLinePhotos: пачкой, свои и изделия, без фото — null', async () => {
     const ownId = oid(), prodPhId = oid(), prodId = oid();
-    const photos = [{ _id: ownId, storageUrl: '/own.jpg' }, { _id: prodPhId, storageUrl: '/prod.jpg' }];
+    const photos = [{ _id: ownId, storageUrl: '/uploads/own.jpg' }, { _id: prodPhId, storageUrl: '/uploads/prod.jpg' }];
     const find = (rows: unknown[]) => ({ toArray: async () => rows });
     const db = {
       collection: (name: string) => ({
@@ -28,8 +28,8 @@ describe('фото строки позиции', () => {
     };
     const l1 = { _id: oid(), photoIds: [ownId] }, l2 = { _id: oid(), productId: prodId }, l3 = { _id: oid() };
     const r = await loadLinePhotos(db as never, [l1, l2, l3]);
-    expect(r.get(String(l1._id))).toEqual({ url: '/own.jpg', thumb: '/own.jpg' });
-    expect(r.get(String(l2._id))).toEqual({ url: '/prod.jpg', thumb: '/prod.jpg' });
+    expect(r.get(String(l1._id))).toEqual({ url: '/uploads/own.jpg', thumb: '/uploads/own.jpg' });
+    expect(r.get(String(l2._id))).toEqual({ url: '/uploads/prod.jpg', thumb: '/uploads/prod.jpg' });
     expect(r.get(String(l3._id))).toBeNull();
   });
 });

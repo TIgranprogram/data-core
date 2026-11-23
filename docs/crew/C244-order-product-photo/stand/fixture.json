@@ -1,0 +1,17 @@
+{
+  "target": "http://localhost:3102",
+  "ownedId": "da26a1b01e09343e7b6d82c7",
+  "marker": "QA_C244",
+  "productId": "6b0433b29e01fbb177020ffa",
+  "photoId": "6b0433b39e01fbb177020fff",
+  "productPhotoId": "6b0433b49e01fbb177021009",
+  "orderId": "6b0433b69e01fbb177021012",
+  "incomeId": "6b0433b79e01fbb17702101f",
+  "productionNo": "QA-C244-20261123",
+  "sku": "QA-C244-3413-20261123",
+  "qty": 6,
+  "sourcePhotoSha256": "985a787c694e9766921dd4bf181745a5346573c6379427ab242bc91647209757",
+  "legacyPhotoIdsEmpty": true,
+  "issued": 0,
+  "beforeRefreshLinePhoto": null
+}

@@ -1,6 +1,6 @@
 # Карта роли architect
 
-коммит: 36bdd4dc · опорная ревизия C242, 23.11.2026. Приёмка конкретного изменения фиксируется отдельно.
+коммит: f6b35fc5 · опорная ревизия C244, 23.11.2026. Приёмка конкретного изменения фиксируется отдельно.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
 Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
@@ -20,3 +20,5 @@
 - C241: [повтор legacy-create/both-absent](../../crew/C241-inventor-installation-choice/ARCH-REVIEW-BACKEND.md): private create bypass не публичен; отсутствие raw ID проверяется также против вычисленного installation leaf.
 - C242: [outer transaction/session repeat](../../crew/C242-stock-section-order/ARCH-TX-REVIEW.md): preflight в той жеsession, outer write возвращаетvoid безprecommitresponse; публичная проекция послеcommit сохранена.
 - C242 QA TX2: [локальная граница PATCH шага/barsOf](../../crew/C242-stock-section-order/QA-TX2-ARCH.md); shared transaction wrapper не меняется, txworktypes обходят globalcache.
+- C244: [photo projection план](../../crew/C244-order-product-photo/ARCH-PLAN.md): income originals выше каталога/overview; shared resolver вниз вcommon, batch/no persist, прежнийphotoresponse.
+- C244: [frozen backend review PASS](../../crew/C244-order-product-photo/ARCH-REVIEW.md):6SHA/16unit, productionlistcovernull и frozenarchive не менялись.

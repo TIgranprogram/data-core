@@ -1,0 +1,70 @@
+{
+  "status": "PASS",
+  "base": "http://localhost:3102",
+  "target": {
+    "order": "QA-C244-20261123",
+    "income": "6b0433b79e01fbb17702101f",
+    "product": "6b0433b29e01fbb177020ffa",
+    "sku": "QA-C244-3413-20261123",
+    "qty": 6
+  },
+  "ownedId": "da26a1b01e09343e7b6d82c7",
+  "fixturePath": "docs\\crew\\C244-order-product-photo\\stand\\fixture.json",
+  "provenance": "owned-stand-fixture; not prod UI",
+  "cases": [
+    {
+      "theme": "light",
+      "fixture": "real",
+      "status": "PASS",
+      "apiProof": true,
+      "screenshot": "docs\\crew\\C244-order-product-photo\\evidence\\browser\\light-real.png"
+    },
+    {
+      "theme": "light",
+      "fixture": "own-ui-fixture",
+      "status": "PASS",
+      "apiProof": false,
+      "screenshot": "docs\\crew\\C244-order-product-photo\\evidence\\browser\\light-own-ui-fixture.png"
+    },
+    {
+      "theme": "light",
+      "fixture": "none-ui-fixture",
+      "status": "PASS",
+      "apiProof": false,
+      "screenshot": "docs\\crew\\C244-order-product-photo\\evidence\\browser\\light-none-ui-fixture.png"
+    },
+    {
+      "theme": "dark",
+      "fixture": "real",
+      "status": "PASS",
+      "apiProof": true,
+      "screenshot": "docs\\crew\\C244-order-product-photo\\evidence\\browser\\dark-real.png"
+    },
+    {
+      "theme": "dark",
+      "fixture": "own-ui-fixture",
+      "status": "PASS",
+      "apiProof": false,
+      "screenshot": "docs\\crew\\C244-order-product-photo\\evidence\\browser\\dark-own-ui-fixture.png"
+    },
+    {
+      "theme": "dark",
+      "fixture": "none-ui-fixture",
+      "status": "PASS",
+      "apiProof": false,
+      "screenshot": "docs\\crew\\C244-order-product-photo\\evidence\\browser\\dark-none-ui-fixture.png"
+    }
+  ],
+  "blockedWrites": [],
+  "pageErrors": [],
+  "distinction": "real case uses real owned-stand API with QA data; own/none cases are UI-only response fixtures, not API priority proof",
+  "realApi": {
+    "incomeId": "6b0433b79e01fbb17702101f",
+    "qty": 6,
+    "productId": "6b0433b29e01fbb177020ffa",
+    "photo": {
+      "url": "/uploads/passport/2026-11/272a4837-3069-4c78-953e-fda68b71bc30.png",
+      "thumb": "/uploads/passport/2026-11/0c944643-4e71-486e-8065-01beb8b19c90.webp"
+    }
+  }
+}
