@@ -1,0 +1,8 @@
+# C244 — рабочий сайт после выпуска
+
+23.11.2026,16:21МСК. **PASS,толькоGET/0записей.** Фактическая appversion3488bca5,n1050→v2.51,b3488bca5,healthreadyok/mongoup;rootподтвердилrelease-v2.51-3488bca5/exit0/smoke7/7,CRMпроверяетrootпоreleaseлогу.
+Сравнение именно со вторымручнымbaselinev2.50 tools/logs/c244-user3-manual-prerelease/:14полныхJSON(order,contract,3incomes,3rawproducts,3showcase,3issued)равны без единого отличия.3строкизаказа22-26:3413=6шт,3502=6шт,4102=4шт,тежеincome/productсвязи/архивныеполя. Ни данные,ни назначенныефото не перезаписывались.
+Выбранное владельцем mainPhotoId3413=6b043b54de6d4da5c8612581/photoIdsсохранено;incomephotos[]прежнее. Оно уже показывалосьвv2.50ДОрелиза:это ручнойвыбор,неавтодоказательствоpassportfallbackнапроде. Автоматическийfallbackдоказанранееотдельнойownedfixtureбезmanualphoto.3502/4102сохранилисвоифото.
+После релиза все3orderline.photo.url/thumb буквальносовпали текущимshowcaseисточникам.6safeuploadsGETподтвердилиживыеPNGoriginal/WebPthumb:3413=400516/9782байт,3502=6108/462,4102=276069/15754;фактическиеSHAвpreservation-summary.json. Ссылкинепустые/небитые,ноprodBROWSERэтимшагомнезапускался.
+Паспорта№631id6b043494de6d4da5c861190b/rev3,630id6b043493de6d4da5c86118be/rev2,629id6b04348bde6d4da5c8611845/rev3прочитанысreadOnly1:полныеJSONиSHAравныручномуbaseline,включаяissuedстатус/истории/printSnapshot/номер/связи. Новыхпаспортов/редакций/выпусков не создавалось.
+Полныеответы/сводка/SHAбезсекретов:tools/logs/c244-postrelease/{summary,preservation-summary}.json и14файловснимков. ПредыдущиеC233/C236данныеповторнонеперекачивались,какпоручилroot;ихсохранностьнеподменяетсяэтимлокальнымC244осмотром.

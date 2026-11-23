@@ -1,0 +1,11 @@
+# C245 — Пульт запоминает вход рабочего сайта
+
+Класс M; root-координатор владеет tooling/pult, архитектор даёт узкий security-plan/review, QA проверяет; диагностический explorer читает только публичный код. Поручение23.11: «пульт меня не запоминает». Без новых публикаций сайта/изменений данных ради диагностики.
+
+Причина по trace: canRemember в pult/document-intake.mjs разрешает secureSession только localBase; productionauth.remember=false. Закрытие окна/idle15s/автоперезапуск теряют память. Временный refresh failure при remember=false также стирает сессию. Старый C228 делал это намеренно; текущее пожелание владельца меняет ограничение для выбранного рабочего сайта.
+
+Scope чтения/исправления: pult/document-intake.mjs и pult/test/document-intake.test.mjs, зависимость secureSession только по импорту этого модуля (публичный код/его тесты), pult/ui/document-intake.js только подпись/сообщение о сохранении если нужно. pult/server.mjs только точные строки создания secureSession/respawn/idle для понимания, не менять lifecycle. C228/C233 отчёты как контекст. Реальные .state/session/settings/credentials/env/пароли/JWT НЕ читать, не выводить, не использовать. Нет prod-login/пробных загрузок; тесты fake-transport и отдельные temp с искусственными строками.
+
+Цель: восстановление безопасно сохранённой сессии выбранного рабочего https://kppdf-crm.ru/db/api после открытия Пульта. Сохранить Windows CurrentUser DPAPI, только refresh/sessionбезpassword/plaintext, account/version/baseURL binding, refreshrotation и logout/сменаsiteerase. Локальные поддержанные адреса прежние; произвольныйHTTP/LAN не разрешать. Нормализация не должна принимать query/hash/userinfo/обманныйhostname/path. Отдельный один вход после обновления допустим и объясняется старой in-memory сессией.
+
+Приёмка: prodточный+допустимыеlocal remember/restart/rotation, fakeoffline не стираетprotectedrefresh, AUTH401/403очищает; switch/logout/version/accountbinding прежние; чужойHTTPS/HTTP/userinfo/query/hash rejected forremember. Fail DPAPI→явныйmemory-only безобещаниясохранения, неplaintextfallback. Реальный DPAPI roundtrip толькоfakeданные вtemp,остальныеNode/UItestsадресно; данные/сервер/пароли/настоящийвходпроверяющимне нужны. Архитекторутверждаетплан передкодом,короткийrepeatпослеfreeze. ОтчётыC245. Пультлокальнообновляетсясам,публикацияbackendне требуется.

@@ -4,7 +4,8 @@
 
 | ID | Суть | Статус |
 |--|--|--|
-| C244 | Фото изделия из паспорта в строке заказа | Реализация · [ТЗ](C244-order-product-photo/TZ.md), [причина](C244-order-product-photo/PROD-READONLY.md) |
+| C245 | Пульт сохраняет вход рабочего сайта | План согласован · [ТЗ](C245-pult-remember-login/TZ.md) |
+| C244 | Фото изделия из паспорта в строке заказа | Выпущено v2.51 · [проверка](C244-order-product-photo/POSTRELEASE-REPORT.md) |
 | C243 | Поставщик в каталоге против истории закупок | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |
 | C242 | Чистые параметры и сортировки всех таблиц склада | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |
 | C241 | Выбор способа установки в Inventor перед импортом | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |

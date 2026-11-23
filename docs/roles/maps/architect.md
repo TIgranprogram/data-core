@@ -22,3 +22,4 @@
 - C242 QA TX2: [локальная граница PATCH шага/barsOf](../../crew/C242-stock-section-order/QA-TX2-ARCH.md); shared transaction wrapper не меняется, txworktypes обходят globalcache.
 - C244: [photo projection план](../../crew/C244-order-product-photo/ARCH-PLAN.md): income originals выше каталога/overview; shared resolver вниз вcommon, batch/no persist, прежнийphotoresponse.
 - C244: [frozen backend review PASS](../../crew/C244-order-product-photo/ARCH-REVIEW.md):6SHA/16unit, productionlistcovernull и frozenarchive не менялись.
+- C245: [security-plan Pultremember](../../crew/C245-pult-remember-login/ARCH-PLAN.md):exacttrustedprod+прежнийloopback, CurrentUserDPAPI onlyrefresh, singleaccount/siteerase, rotation/transient/AUTH раздельны.
