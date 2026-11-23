@@ -1,0 +1,157 @@
+{
+  "version": {
+    "v": "b0b60aec",
+    "n": 1045,
+    "b": "0a3723ad",
+    "date": "2026-11-23T10:23:31+03:00"
+  },
+  "ready": {
+    "status": "ok",
+    "info": {
+      "mongo": {
+        "status": "up"
+      }
+    },
+    "error": {},
+    "details": {
+      "mongo": {
+        "status": "up"
+      }
+    }
+  },
+  "orders": [
+    {
+      "id": "6b03d14cb607f46540f3a9f2",
+      "number": "18/11/44",
+      "lines": 9,
+      "legalVersion": 2,
+      "documentCount": 3,
+      "productionNo": null,
+      "paidAmount": 0
+    },
+    {
+      "id": "6b03d159b607f46540f3aa94",
+      "number": "18/11/45",
+      "lines": 8,
+      "legalVersion": 1,
+      "documentCount": 2,
+      "productionNo": null,
+      "paidAmount": 0
+    },
+    {
+      "id": "6b03d165b607f46540f3ab2f",
+      "number": "18/11/46",
+      "lines": 2,
+      "legalVersion": 1,
+      "documentCount": 2,
+      "productionNo": null,
+      "paidAmount": 0
+    }
+  ],
+  "images": [
+    {
+      "id": "6b03e2c1b607f46540f3c6ce",
+      "sha256": "f77c8339699fede7bb67566391c1d80682eed1b868bbe950cdc569c522ae01cf",
+      "attached": [
+        "6b03d14db607f46540f3aa02"
+      ]
+    },
+    {
+      "id": "6b03e2c7b607f46540f3c6ec",
+      "sha256": "5aefc3749c0d4c39d46cbb990ff89a2a5a01fecdeee960223e0d4aa219780514",
+      "attached": [
+        "6b03d14eb607f46540f3aa0b"
+      ]
+    },
+    {
+      "id": "6b03e2cdb607f46540f3c709",
+      "sha256": "ef1e7dc829c7410111ee7fed7f1b8c50874bdec51eb002fa030c7bfffeea42b9",
+      "attached": [
+        "6b03d14eb607f46540f3aa14",
+        "6b03d14fb607f46540f3aa26"
+      ]
+    },
+    {
+      "id": "6b03e2d7b607f46540f3c75a",
+      "sha256": "de64d8656c8b9e187f25ca9d4dca882a3c404deb5b9ba330fba89833cc94fef7",
+      "attached": [
+        "6b03d14fb607f46540f3aa1d"
+      ]
+    },
+    {
+      "id": "6b03e2ddb607f46540f3c780",
+      "sha256": "921e9069872974d8795613dff6484adbdecf21c7c8b1b24f9e1e16d1b462f42e",
+      "attached": [
+        "6b03d14fb607f46540f3aa2f"
+      ]
+    },
+    {
+      "id": "6b03e2e3b607f46540f3c7aa",
+      "sha256": "5637054a5338e056a09e1b5b73e433a915aef7354f3d9b3a1867b4f7c31ab798",
+      "attached": [
+        "6b03d150b607f46540f3aa38"
+      ]
+    },
+    {
+      "id": "6b03e2e9b607f46540f3c7cc",
+      "sha256": "e90fc26ba68d8f02abec7e4d641531861f481c777d518025d5571342c06d03b4",
+      "attached": [
+        "6b03d150b607f46540f3aa41"
+      ]
+    },
+    {
+      "id": "6b03e2efb607f46540f3c7e8",
+      "sha256": "0174ec97c9ea48f31959eb4ddccc18f74d30f6e6d59c4180fe772f2d714c7f2e",
+      "attached": [
+        "6b03d150b607f46540f3aa4a"
+      ]
+    }
+  ],
+  "pdfOriginals": [
+    {
+      "id": "304b6a3e10d6581e95ebbe06",
+      "sha256": "f3a271076f78ec8ebe37e2ece41427b99e0075c1b52c97545d34368783a1e800",
+      "kind": "contract",
+      "number": "18/11/44"
+    },
+    {
+      "id": "45450f33f42e6c046ebbf727",
+      "sha256": "a8fb944f5ca85d76d892569e767094eab9d1dda2cba13592c7f3115f35fb7a48",
+      "kind": "customer_invoice",
+      "number": "44"
+    },
+    {
+      "id": "06ecf934fdaec9012b0030e2",
+      "sha256": "5e903b1cb097e679dfefe586b37ce817d15f860aba366296cc7ce52df752361c",
+      "kind": "offer",
+      "number": "КП-0001"
+    },
+    {
+      "id": "4c057de9bcbb673ff5dec4cf",
+      "sha256": "0ff4dfb14499bc3f47b43f3e3f3becd99f6d160faff8cecdeb872e72d0f822a9",
+      "kind": "contract",
+      "number": "18/11/45"
+    },
+    {
+      "id": "11cc697d124c11a4ad0b9262",
+      "sha256": "0fa7653bca4063b756fb4e9673949fb91af484cc76340eab8ca3febba0bc988b",
+      "kind": "customer_invoice",
+      "number": "45"
+    },
+    {
+      "id": "12bda18a85e9b47b44b556c0",
+      "sha256": "3ca24cf7c763d3bd42fb43d41b4e83cec8e082f24ce131c51691f4ca33d0959a",
+      "kind": "contract",
+      "number": "18/11/46"
+    },
+    {
+      "id": "f061685a7670323f556e5e4c",
+      "sha256": "ad6cc9a344de59de46b4b421159b7d1fd4388f5f11e9b58f3cf1ed05370805e0",
+      "kind": "customer_invoice",
+      "number": "46"
+    }
+  ],
+  "status": "PASS",
+  "lines": 19,
+  "attachments": 9
+}

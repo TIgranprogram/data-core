@@ -48,7 +48,7 @@ function respawn(port) {
   const child = spawn(process.execPath, [SELF, '--no-open', '--respawned'], { cwd: ROOT, detached: true, windowsHide: true, stdio: 'ignore', env: { ...process.env, PULT_PORT: String(port) } });
   child.unref();
 }
-const STATIC = { '/app.js': 'text/javascript; charset=utf-8', '/chain.mjs': 'text/javascript; charset=utf-8', '/document-intake.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/icon.svg': 'image/svg+xml' };
+const STATIC = { '/app.js': 'text/javascript; charset=utf-8', '/chain.mjs': 'text/javascript; charset=utf-8', '/document-intake.js': 'text/javascript; charset=utf-8', '/document-intake-images.js': 'text/javascript; charset=utf-8', '/style.css': 'text/css; charset=utf-8', '/icon.svg': 'image/svg+xml' };
 const MAX_JOB_LINES = 20000;
 const KEEP_LOGS = 200;
 const NEEDS_CONFIRM = new Set(['prod-write', 'danger']);
@@ -444,7 +444,7 @@ export function createPult({ catalog = defaultCatalog, machine = detectMachine()
       if (req.headers['x-pult-token'] !== token) return json(res, 401, { error: 'Нет ключа сессии' });
       if ((origin || req.method === 'POST') && origin !== `http://${req.headers.host}`) return json(res, 403, { error: 'Чужая страница' });
       const [, action] = intakeRoute;
-      if (req.method === 'POST' && ['run', 'resume', 'retry', 'analyze', 'prepare', 'send'].includes(action) && (restartAt || running().some((j) => NEEDS_CONFIRM.has(j.risk)))) {
+      if (req.method === 'POST' && ['run', 'resume', 'retry', 'analyze', 'prepare', 'send', 'imagesprepare', 'imagessend', 'imagescontracts'].includes(action) && (restartAt || running().some((j) => NEEDS_CONFIRM.has(j.risk)))) {
         return json(res, 409, { error: 'Дождитесь завершения текущей команды или обновления пульта.' });
       }
       try {

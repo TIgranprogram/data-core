@@ -487,7 +487,7 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         if (!await forgetAuth()) return fail(409, 'Вход закрыт в этом окне. Пульт не смог удалить сохранённый вход с диска. Повторите выход.');
         return ok({ signedIn: false });
       }
-      if (!['settings', 'login', 'run', 'resume', 'retry', 'analyze', 'draft', 'original', 'reviewdecision', 'prepare', 'send', 'modelprobe'].includes(action)) return fail(404, 'Нет такого действия.');
+      if (!['settings', 'login', 'run', 'resume', 'retry', 'analyze', 'draft', 'original', 'reviewdecision', 'prepare', 'send', 'imagesprepare', 'imagessend', 'imagescontracts', 'modelprobe'].includes(action)) return fail(404, 'Нет такого действия.');
       const body = await readBody();
       if (body?.revision !== revision) return fail(409, 'Настройки изменились в другом окне. Проверьте показанный адрес и повторите действие.');
       if (action === 'modelprobe') {
@@ -502,6 +502,24 @@ export function createDocumentIntake({ stateDir, changed, engine = () => import(
         return ok({ saved: true });
       }
       if (action === 'login') return await login(body);
+      if (['imagesprepare', 'imagessend', 'imagescontracts'].includes(action)) {
+        if (!settings.root || !loggedIn() || !auth.claims) return fail(401, 'Выберите папку и войдите под учётной записью менеджера.');
+        if (typeof body.arrivalId !== 'string' || !/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(body.arrivalId)) return fail(400, 'Выберите PDF в отчёте.');
+        if (body.contractId !== undefined && !/^[a-f\d]{24}$/i.test(body.contractId)) return fail(400, 'Выберите договор из списка.');
+        if (action === 'imagescontracts' && (typeof body.search !== 'string' || body.search.trim().length < 2 || body.search.length > 80)) return fail(400, 'Введите номер договора: от 2 до 80 символов.');
+        if (action === 'imagessend' && !/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/.test(body.confirmationId || '')) return fail(400, 'Сначала проверьте рисунки и позиции.');
+        const controller = new AbortController();
+        const token = tokenProvider(auth, settings, controller);
+        active = controller;
+        try {
+          const intake = await engine();
+          task = intake[action === 'imagesprepare' ? 'prepareDocumentImages' : action === 'imagescontracts' ? 'searchImageContracts' : 'sendDocumentImages']({ ...settings,
+            arrivalId: body.arrivalId, contractId: body.contractId, search: body.search, confirmationId: body.confirmationId, token, signal: controller.signal });
+          return ok(await task);
+        } catch (error) {
+          return fail(error.code === 'AUTH' ? 401 : 409, safeStopped(error));
+        } finally { active = null; task = null; }
+      }
       if (action === 'prepare' || action === 'send') {
         if (!settings.root || !loggedIn() || !auth.claims) return fail(401, 'Выберите папку и войдите под учётной записью менеджера.');
         if (action === 'send' && !/^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/.test(body.confirmationId || '')) return fail(400, 'Подтвердите показанный список документов.');

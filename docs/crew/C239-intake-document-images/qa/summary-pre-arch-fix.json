@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-23",
+  "baseCommit": "88fe3eff",
+  "node": {
+    "command": "node --test --test-reporter=tap tools/document-intake/*.test.mjs pult/test/*.test.mjs",
+    "exitCode": 0,
+    "total": 196,
+    "passed": 196,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 10638.5522,
+    "log": "qa/node-tests.log"
+  },
+  "ui": {
+    "command": "DC_INTAKE_IMAGES_UI_PROOF=docs/crew/C239-intake-document-images/evidence/ui node pult/test/ui-document-intake-images.fixture.mjs",
+    "exitCode": 0,
+    "environment": "isolated synthetic HTTP/browser; production not used",
+    "screenshots": [
+      "evidence/ui/images-preview-1440-light.png",
+      "evidence/ui/images-preview-1024-dark.png",
+      "evidence/ui/images-existing-1024-dark.png"
+    ]
+  },
+  "independentRegression": {
+    "file": "tools/document-intake/c239-images-qa.test.mjs",
+    "tests": 2,
+    "criteria": [
+      "8 assets / 9 links / one asset shared by two lines",
+      "photo added after preview and old photo preserved",
+      "sourceLine and PDF unchanged",
+      "lost fifth attach response resumes with 8 uploads / 9 attaches, no duplicates"
+    ]
+  },
+  "backendFullRerun": false,
+  "productionWrites": false
+}

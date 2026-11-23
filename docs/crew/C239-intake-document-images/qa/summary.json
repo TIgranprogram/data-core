@@ -1,14 +1,15 @@
 {
   "date": "2026-11-23",
-  "baseCommit": "88fe3eff",
+  "baseCommit": "b0b60aec",
+  "phase": "after architecture P1/P2 fixes",
   "node": {
     "command": "node --test --test-reporter=tap tools/document-intake/*.test.mjs pult/test/*.test.mjs",
     "exitCode": 0,
-    "total": 196,
-    "passed": 196,
+    "total": 201,
+    "passed": 201,
     "failed": 0,
     "skipped": 0,
-    "durationMs": 10638.5522,
+    "durationMs": 9418.7205,
     "log": "qa/node-tests.log"
   },
   "ui": {
@@ -16,20 +17,62 @@
     "exitCode": 0,
     "environment": "isolated synthetic HTTP/browser; production not used",
     "screenshots": [
+      "evidence/ui/images-contract-selection-1440-light.png",
       "evidence/ui/images-preview-1440-light.png",
       "evidence/ui/images-preview-1024-dark.png",
-      "evidence/ui/images-existing-1024-dark.png"
-    ]
+      "evidence/ui/images-preview-1024-dark-bottom.png",
+      "evidence/ui/images-existing-1440-light.png",
+      "evidence/ui/images-existing-1024-dark.png",
+      "evidence/ui/images-existing-1024-dark-bottom.png"
+    ],
+    "fixtureProof": "evidence/ui/fixture-proof.json",
+    "contract": {
+      "number": "18/11/44",
+      "customer": "ООО «Бак-Строй»",
+      "rows": 9,
+      "uniqueImages": 8
+    },
+    "sourceSha256": "e7bc3dcb2effc0efba5e16cb50a476ee54aa4958a828b4941dda0cbd9acf11c4",
+    "additionalAssertions": [
+      "selection and all preview states use same target ID",
+      "native source-map images and shared asset ОГ-002/ОГ-004",
+      "long titles СК-001/УР-001",
+      "new and already-attached states: light1440 top, dark1024 top/bottom",
+      "ninth row and confirmation fit bottom screenshots",
+      "XSS stress checked separately after normal screenshots"
+    ],
+    "engineTestsRerunAfterFixtureOnlyChange": false
   },
   "independentRegression": {
     "file": "tools/document-intake/c239-images-qa.test.mjs",
-    "tests": 2,
+    "tests": 3,
     "criteria": [
       "8 assets / 9 links / one asset shared by two lines",
       "photo added after preview and old photo preserved",
       "sourceLine and PDF unchanged",
-      "lost fifth attach response resumes with 8 uploads / 9 attaches, no duplicates"
+      "lost fifth attach response resumes with 8 uploads / 9 attaches",
+      "selectionRequired without POST/details; 100 header overflow rejected before N+1; explicit target uses one detail GET"
     ]
+  },
+  "architectureRegressions": {
+    "boundedSearch": "owner test limits result to 20 headers from total 100, one explicit detail GET",
+    "inlineBeforeDecode": "owner bounded inline 3000x1 fixture forbids hashes/xrefs and extract_image before size rejection"
+  },
+  "historicalBeforeFix": {
+    "passed": 196,
+    "summary": "qa/summary-pre-arch-fix.json",
+    "log": "qa/node-tests-pre-arch-fix.log",
+    "proofOfCurrentFix": false
+  },
+  "sourceSha256": {
+    "tools/document-intake/images.mjs": "aa7b55e08c6c12b2ab6a7508873a88c5135a353b0746dae5a73d9c89829d2d97",
+    "tools/document-intake/extract-images.py": "009708e9ca2f611d5158a5d3e25ea250f2d983dc240c121faa3435cbaa5bb47f",
+    "tools/document-intake/images.test.mjs": "380b9e109cedb38f28227a4121ccb9edb159129e4f70d9f0ee16e1612d0eda09",
+    "tools/document-intake/c239-images-qa.test.mjs": "496859b3840b3e12075a3cb47c8173a1292cfb4c87e926d0c39fe7184addf2b2",
+    "pult/document-intake.mjs": "68d13098fe050a2160d06616e6a1851cd2b58119c0ee75fdb9f967c88a07d8ce",
+    "pult/server.mjs": "be01fd062ea3e04d908df1031ed6a36ed42932bf617360d554f69f8887a07d6a",
+    "pult/ui/document-intake-images.js": "e2278d62911518f22aff49558db67ad3de9bff3ddcbf53289b36d59fe7cdaeab",
+    "pult/ui/document-intake.js": "6d11a2e7852c079872d9f20d9433d7e90c0dfd92ba1d5b514c061f1f2953bbf5"
   },
   "backendFullRerun": false,
   "productionWrites": false

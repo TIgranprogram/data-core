@@ -8,6 +8,7 @@ import { checkPages, EXTRACTOR_VERSION, extractDocument, propose, question, RULE
 
 export { analyze, getDraft, getReviewOriginal, reviewDecision, reviseDraft, reviewStatus } from './analysis.mjs';
 export { prepareBatch, sendBatch } from './delivery.mjs';
+export { prepareDocumentImages, sendDocumentImages, searchImageContracts } from './images.mjs';
 
 export async function configure({ root, localized = false }) {
   const store = await openRoot(root, { localized });

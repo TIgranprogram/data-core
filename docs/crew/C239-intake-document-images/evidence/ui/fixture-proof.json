@@ -1,0 +1,28 @@
+{
+  "synthetic": true,
+  "contract": {
+    "id": "6b03d14cb607f46540f3a9f2",
+    "number": "18/11/44",
+    "label": "Договор № 18/11/44 · ООО «Бак-Строй»"
+  },
+  "selectedTargetIds": [
+    "6b03d14cb607f46540f3a9f2",
+    "6b03d14cb607f46540f3a9f2",
+    "6b03d14cb607f46540f3a9f2"
+  ],
+  "rows": 9,
+  "uniqueImages": 8,
+  "sharedAssetSkus": [
+    "ОГ-002",
+    "ОГ-004"
+  ],
+  "sourceMap": "C239/manifest.json",
+  "stressLongTitles": [
+    "СК-001",
+    "УР-001"
+  ],
+  "sent": 1,
+  "xssBlocked": true,
+  "screenshots": 7,
+  "bottomShowsNinthRowAndConfirmation": true
+}

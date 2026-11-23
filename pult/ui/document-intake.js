@@ -1,3 +1,5 @@
+import { createDocumentImages } from './document-intake-images.js';
+
 const endpoint = '/api/document-intake/';
 const production = 'https://kppdf-crm.ru/db/api';
 const defaultModel = 'google/gemma-4-12b-qat';
@@ -161,7 +163,10 @@ export function createIntakeView({ api, el }) {
   let confirmationId = '';
   const resetConfirmation = () => { confirmationId = ''; confirmation.hidden = true; confirmation.replaceChildren(); };
   resetConfirmation();
-  sideReport.append(el('h2', '', 'Результаты проверки'), confirmation, retryReview, reportTime, reportStatus, reportAction, reportItems);
+  const imageReview = createDocumentImages({ el, button, actionRow, call, getView: () => view,
+    canRun: () => !pending && !view?.busy && !view?.running && !!view?.signedIn,
+    setBusy: action => { pending = action; update(); }, refresh });
+  sideReport.append(el('h2', '', 'Результаты проверки'), confirmation, imageReview.element, retryReview, reportTime, reportStatus, reportAction, reportItems);
   sideSettings.hidden = true;
   sideReport.hidden = true;
   side.append(actionRow(settingsButton, sideReportButton), sideSettings, sideReport);
@@ -287,6 +292,7 @@ export function createIntakeView({ api, el }) {
       if (draftRoot !== binding) {
         draftRoot = binding;
         resetConfirmation();
+        imageReview.reset();
         closeReview(); reportRequest++;
         reportItems.replaceChildren(); reportStatus.textContent = ''; reportTime.textContent = ''; reportAction.textContent = '';
         lastReportKey = ''; draftButtons = [];
@@ -447,6 +453,12 @@ export function createIntakeView({ api, el }) {
               actions.append(actionRow(toggle));
             }
             draftButtons.push(toggle);
+            if (/\.pdf$/i.test(item.name || '')) {
+              const images = button('Рисунки…', () => imageReview.open(item));
+              images.setAttribute('aria-label', 'Рисунки: ' + item.name);
+              actions.append(actionRow(images));
+              draftButtons.push(images);
+            }
           }
           row.append(document, evidence, actions);
           group.insertBefore(row, moreRow);
