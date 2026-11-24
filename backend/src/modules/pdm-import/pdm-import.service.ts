@@ -14,6 +14,7 @@ import { PdmImport, type PdmFound, type PdmImportDocument } from './pdm-import.s
 import { checkLines, checkTree, diffComposite, diffPart, dimensionsOf, linesOf, ownerKindOf, writeOrder, type PlannedLine } from './pdm-plan';
 import { buildPlan, exactHit, pdmKey, siteKey, siteOf, type Lookup, type Plan, type PlanRow, type SiteDoc } from './pdm-plan-rows';
 import { fillEmptyProductCategory, fillEmptyProductWeight, insertPdmProducts, updatePdmProduct } from '../product/product-writes';
+import { insertPdmMaterials, patchPdmMaterial, patchPdmMaterialAliases, restorePdmMaterial } from '../stock/stock-writes';
 import { fastenerPatch, newMaterial, newModule, newProduct, newSortament, parseDecisions, takeFields, updateOf } from './pdm-write';
 
 const STALE = 'Данные на сайте изменились — проверьте ещё раз';
@@ -180,9 +181,9 @@ export class PdmImportService {
     const createdMat: Record<string, unknown>[] = [];
     for (const { r, id } of rawFin) {
       if (r.action === 'create') createdMat.push(newSortament(r, id, org));
-      else if (r.deleted) await this.materials.updateOne({ _id: id }, { $set: { deletedAt: null } }, { session });
+      else if (r.deleted) await restorePdmMaterial(this.materials, id, session);
     }
-    if (createdMat.length) await this.materials.create(createdMat, { session, ordered: true });
+    if (createdMat.length) await insertPdmMaterials(this.materials, createdMat, session);
 
     const order = writeOrder(tree).map((d) => fins.get(d)!);
     const group = (...kinds: string[]) => order.filter((f) => kinds.includes(f.item.kind));
@@ -252,10 +253,10 @@ export class PdmImportService {
       const diff = diffPart(siteOf(f.existing), { dimensions: dimensionsOf(f.item.size), weightKg: f.item.massKg ?? 0, colors: f.item.ral ?? [], lines: ls });
       const set = updateOf({ item: f.item, existing: f.existing, take: takeFields(diff.fill, diff.conflicts, f.decision), lines: ls, renameToPdm: f.decision?.fields?.article === 'pdm' });
       if (!set) { out.skipped += 1; continue; }
-      await this.materials.updateOne({ _id: f.id }, { $set: set }, { session });
+      await patchPdmMaterial(this.materials, f.id, set, session);
       out.updated += 1;
     }
-    if (fresh.length) await this.materials.create(fresh, { session, ordered: true });
+    if (fresh.length) await insertPdmMaterials(this.materials, fresh, session);
   }
 
   /** Метизы и покупные: у существующих только pdmCode и другие написания; article не трогаем. Несколько позиций на одну запись складываем. */
@@ -275,8 +276,8 @@ export class PdmImportService {
       patches.set(key, acc);
       if (!sameTarget) out.updated += 1;
     }
-    for (const [id, p] of patches) await this.materials.updateOne({ _id: new Types.ObjectId(id) }, { ...(Object.keys(p.set).length ? { $set: p.set } : {}), ...(p.add.size ? { $addToSet: { pdmAliases: { $each: [...p.add] } } } : {}) }, { session });
-    if (fresh.length) await this.materials.create(fresh, { session, ordered: true });
+    for (const [id, p] of patches) await patchPdmMaterialAliases(this.materials, new Types.ObjectId(id), p.set, [...p.add], session);
+    if (fresh.length) await insertPdmMaterials(this.materials, fresh, session);
   }
 
   private async writeComposite(list: Fin[], lines: Map<string, PlannedLine[]>, out: { created: number; linked: number; updated: number; skipped: number }, org: string | null | undefined, session: ClientSession, model: AnyModel, make: typeof newModule, product = false): Promise<void> {

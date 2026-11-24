@@ -4,6 +4,12 @@ import { Types } from 'mongoose';
 import { renameIncomeText } from '../incomes/income-writes';
 import { renameOrderPaymentForm } from '../../common/salesorder-owner-port';
 import {
+  reassignSupplyCategory, reassignSupplyUnit, renameSupplyColor, renameSupplyLabel, renameSupplyRequestedBy,
+} from '../../common/supply-owner-port';
+import {
+  reassignMaterialCategory, reassignMaterialPassport, reassignMaterialUnit, renameMaterialColor, renameMaterialSame, renameStockLabel,
+} from '../stock/stock-writes';
+import {
   reassignProductMaterialSize, reassignProductMaterialSpec, reassignProductPart, reassignProductPassportPart, reassignProductSeries,
 } from '../product/product-writes';
 import { sameRe } from '../../common/text/same-text';
@@ -206,8 +212,12 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
     },
     reassign: async (db, from, to) => {
       if (!usage) return 0;
+      if (usage.coll === 'supplyrequests') return (await renameSupplyLabel(db, usage.field, from.name, to.name)).modifiedCount;
+      if (usage.coll === 'materials' || usage.coll === 'storageitems' || usage.coll === 'stockmovements' || usage.coll === 'reservations' || usage.coll === 'warehouses') {
+        return (await renameStockLabel(db, usage.coll, usage.field, from.name, to.name)).modifiedCount;
+      }
       const re = new RegExp(`^\\s*${s(from.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
-      return (await db.collection(usage.coll).updateMany({ [usage.field]: re }, { $set: { [usage.field]: s(to.name), ...(usage.coll === 'supplyrequests' ? { editedInApp: true } : {}) } })).modifiedCount;
+      return (await db.collection(usage.coll).updateMany({ [usage.field]: re }, { $set: { [usage.field]: s(to.name) } })).modifiedCount;
     },
     candidates: async (db) => {
       const found = new Map<string, { name: string; uses: number; source: string }>();
@@ -299,7 +309,7 @@ function metalList(key: string, title: string, hint: string, field: 'assortment'
       ]);
       return { title: 'Позиции склада', total, items: rows.map((r) => ({ label: s(r.name), href: '#stock?open=' + String(r._id) })) };
     },
-    reassign: async (db, from, to) => (await db.collection('materials').updateMany({ [field]: rx(from.name) }, { $set: { [field]: s(to.name), updatedAt: new Date() } })).modifiedCount,
+    reassign: async (db, from, to) => (await renameMaterialSame(db, field, from.name, s(to.name))).modifiedCount,
     candidates: async (db) => {
       const found = new Map<string, { name: string; uses: number; source: string }>();
       for (const [k, n] of await tally(db, 'materials', field)) add(found, k, n, 'склад');
@@ -484,8 +494,8 @@ const BASE: DictBase[] = [
     },
     reassign: async (db, from, to) => {
       const [a, b] = await Promise.all([
-        db.collection('materials').updateMany({ categoryId: from._id }, { $set: { categoryId: to._id } }),
-        db.collection('supplyrequests').updateMany({ categoryId: from._id }, { $set: { categoryId: to._id, editedInApp: true } }),
+        reassignMaterialCategory(db, from._id, to._id),
+        reassignSupplyCategory(db, from._id, to._id),
       ]);
       return a.modifiedCount + b.modifiedCount;
     },
@@ -570,8 +580,8 @@ const BASE: DictBase[] = [
       const vals = [s(from.symbol), s(from.key)].filter(Boolean);
       const sym = s(to.symbol || to.key);
       const [a, b] = await Promise.all([
-        db.collection('materials').updateMany({ unit: { $in: vals } }, { $set: { unit: sym } }),
-        db.collection('supplyrequests').updateMany({ unit: { $in: vals } }, { $set: { unit: sym, editedInApp: true } }),
+        reassignMaterialUnit(db, vals, sym),
+        reassignSupplyUnit(db, vals, sym),
       ]);
       return a.modifiedCount + b.modifiedCount;
     },
@@ -632,9 +642,9 @@ const BASE: DictBase[] = [
     },
     reassign: async (db, from, to) => {
       const [a, b, c] = await Promise.all([
-        db.collection('materials').updateMany({ colors: s(from.name) }, { $set: { 'colors.$': s(to.name) } }),
+        renameMaterialColor(db, s(from.name), s(to.name)),
         renameIncomeText(db, 'color', s(from.name), s(to.name)),
-        db.collection('supplyrequests').updateMany({ color: sameRe(from.name) }, { $set: { color: s(to.name), editedInApp: true } }),
+        renameSupplyColor(db, from.name, s(to.name)),
       ]);
       return a.modifiedCount + b.modifiedCount + c.modifiedCount;
     },
@@ -735,7 +745,7 @@ const BASE: DictBase[] = [
     reassign: async (db, from, to) => {
       const names = [`${s(from.firstName)} ${s(from.lastName)}`, `${s(from.lastName)} ${s(from.firstName)}`].map((x) => x.trim()).filter(Boolean);
       const target = `${s(to.firstName)} ${s(to.lastName)}`.trim();
-      return (await db.collection('supplyrequests').updateMany({ requestedBy: { $in: names } }, { $set: { requestedBy: target, editedInApp: true } })).modifiedCount;
+      return (await renameSupplyRequestedBy(db, names, target)).modifiedCount;
     },
     candidates: async (db) => {
       const found = new Map<string, { name: string; uses: number; source: string }>();
@@ -878,7 +888,7 @@ const BASE: DictBase[] = [
       async (db, from, to) => {
         let n = await reassignProductMaterialSpec(db, from._id, to._id);
         // МЦ-2: позиции склада, связанные с материалом паспорта
-        n += (await db.collection('materials').updateMany({ 'passportSpec.materialId': from._id }, { $set: { 'passportSpec.materialId': to._id } })).modifiedCount;
+        n += (await reassignMaterialPassport(db, from._id, to._id)).modifiedCount;
         return n;
       }),
     editRoles: ['director'],

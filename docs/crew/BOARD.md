@@ -10,7 +10,7 @@
 | C256 | Автоматика рельсов (циклы≥3) | done · [Отчёт](C256-arch-rails-automation/REPORT.md) |
 | C251 | Хозяин записи incomes | done · [Отчёт](C251-incomes-owner-writes/REPORT.md) |
 | C255 | ESLint-границы доменов | очередь · [ТЗ](C255-domain-boundaries-eslint/TZ.md) |
-| C254 | Слой общих CRM-коллекций | C254-0/a/b/c done · дальше w/doc · [Отчёт](C254-shared-collections-layer/REPORT.md) |
+| C254 | Слой общих CRM-коллекций | C254-0…w done · остался doc · [Отчёт](C254-shared-collections-layer/REPORT.md) |
 | C253 | Запись products через хозяина | done · [Отчёт](C253-products-owner-writes/REPORT.md) |
 | C252 | Запись salesorders через хозяина | done · [Отчёт](C252-salesorders-owner-writes/REPORT.md) |
 | C250 | raw-query + инвентаризация писателей | done · [Отчёт](C250-raw-query-inventory/REPORT.md) · [INVENTORY](C250-raw-query-inventory/INVENTORY.md) |

@@ -32,6 +32,7 @@ export type { MoveInput, MoveType, StockItemInput } from './stock.types';
  * | reserveList, listReservations, releaseReservation, releaseGroup, issueReservations, reservationDetail, updateReservation, reservationsByOrder, issueOrder | stock-reservations.service.ts |
  * | specPreview, specApply (спецификация Excel → брони, SK-6)                               | stock-spec.service.ts         |
  * | compositionSuggest, compositionAccept (состав изделия из выдач, SK-7)                   | stock-composition.service.ts  |
+ * | чужая запись materials / остатков / движений / броней / складов                        | stock-writes.ts               |
  *
  * Зависимости слоями (без циклов): core ← search ← catalog ← movements ← reservations ← spec.
  * Типы (MoveInput, StockItemInput…) и countGuard — в stock.types.ts, реэкспортируются отсюда.

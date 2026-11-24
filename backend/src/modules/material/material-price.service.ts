@@ -4,6 +4,7 @@ import type { ClientSession, Model, Types } from 'mongoose';
 import { oid, parseList } from '../../common/list-query';
 import { Material, MaterialDocument } from './material.schema';
 import { MaterialPrice, MaterialPriceDocument, PriceSource } from './material-price.schema';
+import { touchMaterialLastPrice } from '../../common/stock-owner-port';
 import { DEFAULT_VAT_RATE, unitPrices } from './material-price.calc';
 
 export interface PriceRowInput {
@@ -29,9 +30,12 @@ export class MaterialPriceService {
       currency: 'RUB', date: i.date, source: i.source, invoiceId: i.invoiceId, requestId: i.requestId, salesOrderId: i.salesOrderId, createdBy: i.createdBy };
     if (i.requestId) await this.prices.updateOne({ requestId: i.requestId, source: i.source }, { $set: doc }, { upsert: true, session }).exec();
     else await this.prices.create([doc], { session });
-    await this.materials.updateOne(
+    await touchMaterialLastPrice(
+      this.materials,
       { _id: i.materialId, $or: [{ lastPriceDate: { $exists: false } }, { lastPriceDate: null }, { lastPriceDate: { $lte: i.date } }] },
-      { $set: { lastPrice: p.price, lastPriceDate: i.date, lastSupplierId: i.supplierId, lastSupplierName: i.supplierName } }, { session }).exec();
+      { $set: { lastPrice: p.price, lastPriceDate: i.date, lastSupplierId: i.supplierId, lastSupplierName: i.supplierName } },
+      session,
+    );
     return true;
   }
 

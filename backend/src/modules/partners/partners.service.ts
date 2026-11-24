@@ -5,6 +5,7 @@ import { createHash } from 'crypto';
 import { Types } from 'mongoose';
 import { renameCustomerLines } from '../../common/income-owner-port';
 import { renameOrderCustomers } from '../../common/salesorder-owner-port';
+import { reassignSupplySupplier, renameSupplyOrderLabel } from '../../common/supply-owner-port';
 import { writableCascadeRows } from '../../common/order-archive/cascade';
 import { withOrderWrite } from '../../common/order-archive/write';
 import { escapeRe } from '../../common/list-query';
@@ -374,7 +375,7 @@ export class PartnersService {
     try {
       await session.withTransaction(async () => {
         const requests = await writableCascadeRows(this.db, session, 'supplyrequests', { supplierId: from });
-        const r = await this.db.collection('supplyrequests').updateMany({ _id: { $in: requests.ids }, supplierId: from }, { $set: { supplierId: to, editedInApp: true } }, { session });
+        const r = await reassignSupplySupplier(this.db, requests.ids, from, to, session);
         moved = r.modifiedCount;
         await this.db.collection('supplyinvoices').updateMany({ supplierId: from }, { $set: { supplierId: to, supplierName: name } }, { session });
         await this.db.collection('suppliercontracts').updateMany({ supplierId: from }, { $set: { supplierId: to, supplierName: name } }, { session });
@@ -403,7 +404,7 @@ export class PartnersService {
       const now = new Date();
       const a = await renameOrderCustomers(this.db, orders.ids, to, now, session);
       const b = await renameCustomerLines(this.db, lines.ids, to, session);
-      const c = await this.db.collection('supplyrequests').updateMany({ _id: { $in: requests.ids } }, { $set: { orderLabel: to, editedInApp: true } }, { session });
+      const c = await renameSupplyOrderLabel(this.db, requests.ids, to, session);
       if (fromOrg && toOrg && String(fromOrg._id) !== String(toOrg._id)) await this.db.collection('organizations').updateOne({ _id: fromOrg._id }, { $set: { deletedAt: now, mergedInto: toOrg._id } }, { session });
       else if (fromOrg && !toOrg) await this.db.collection('organizations').updateOne({ _id: fromOrg._id }, { $set: { name: to, updatedAt: now, editedInApp: true } }, { session });
       return a.modifiedCount + b.modifiedCount + c.modifiedCount;

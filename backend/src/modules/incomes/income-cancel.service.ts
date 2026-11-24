@@ -7,6 +7,8 @@ import { Types } from 'mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid } from '../../common/list-query';
 import { sharedFind } from '../../common/shared-collections';
+import { moveSupplyRequestsToOrder } from '../../common/supply-owner-port';
+import { moveReservationsToOrder } from '../stock/stock-writes';
 import { StockService } from '../stock/stock.service';
 import { IncomesService } from './incomes.service';
 
@@ -179,8 +181,8 @@ export class IncomeCancelService {
         await this.incomes.moveLineToOrder(oidOf(cur._id), expectedVersion, set, unset, session);
         await this.coll('designtasks').updateMany({ incomeId: cur._id }, { $set: { orderId: target } }, { session });
         await this.coll('worktasks').updateMany({ incomeId: cur._id }, { $set: { orderId: target } }, { session });
-        await this.coll('reservations').updateMany({ salesOrderLineId: cur._id }, { $set: { salesOrderId: target } }, { session });
-        await this.coll('supplyrequests').updateMany({ salesOrderLineId: cur._id }, { $set: { salesOrderId: target } }, { session });
+        await moveReservationsToOrder(this.db(), cur._id, target, session);
+        await moveSupplyRequestsToOrder(this.db(), cur._id, target, session);
         await this.coll('productpassports').updateMany({ incomeId: cur._id }, { $set: { salesOrderId: target, ...(head.orderNo ? { orderNo: head.orderNo } : {}), ...(head.customer ? { customerName: head.customer } : {}) } }, { session });
       });
     } finally { await session.endSession(); }

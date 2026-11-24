@@ -18,7 +18,7 @@ import { applyIncomeClassification } from '../incomes/income-writes';
 import { incomePayments } from '../incomes/income.schema';
 import { incomeIdentityHash } from '../incomes/income-payment-identities';
 import { ClassificationDto } from './operations.dto';
-import { sharedCount, sharedFind } from '../../common/shared-collections';
+import { isSharedCollection, sharedCount, sharedFind } from '../../common/shared-collections';
 type Address = { collection: string; document: Row; metadata: Row; path: string | null; operationId: string; sourceId: string; date: string; companyId: string; source: 'invoice' | 'request' | 'income' | 'expense' | 'payroll'; invoiceId?: unknown; requestId?: unknown; editable: boolean; reason?: string; amount: number };
 const day = (value: unknown) => new Date(String(value)).toISOString().slice(0, 10);
 @Injectable()
@@ -124,6 +124,7 @@ export class FinancialClassificationService {
       const set = target.path ? { [target.path]: updated } : { classificationOriginal: original, classificationOverride: override, classificationVersion: version, classificationHistory: history };
       if (target.collection === 'incomes') await applyIncomeClassification(this.db, target.document._id, Number(target.document.version || 0), set, session);
       else {
+        if (isSharedCollection(target.collection)) throw new ConflictException('Общую коллекцию классификация не пишет');
         const changed = await this.db.collection(target.collection).updateOne({ _id: target.document._id, deletedAt: null, ...versionFilter(Number(target.document.version || 0)), ...(target.collection === 'supplyinvoicepayments' ? { state: 'active' } : {}) }, { $set: set, $inc: { version: 1 } }, { session });
         if (!changed.matchedCount) throw new ConflictException('Источник уже изменён — перечитайте операцию');
       }

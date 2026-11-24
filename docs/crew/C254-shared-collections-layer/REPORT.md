@@ -1,6 +1,6 @@
 # C254 — отчёт backend
 
-**Статус:** C254-0, C254-a, C254-b и C254-c готовы, не закоммичены. Прод не трогался. Схемы shared и kppdf не менялись. L-251/252/253 не тронуты. Запись shared не трогалась.
+**Статус:** C254-0, C254-a, C254-b, C254-c и C254-w готовы, не закоммичены. Прод не трогался. Схемы shared и kppdf не менялись. L-251/252/253 не тронуты. C254-doc не делался.
 
 ## Подчек-лист
 
@@ -8,7 +8,7 @@
 - [x] **C254-a** — один потребитель (`partners`)
 - [x] **C254-b** — `finance` и `fill-audit`
 - [x] **C254-c** — `dicts` и прочие сырые find/count вне stock/supply
-- [ ] **C254-w** — запись shared только через `StockService` / `SupplyService`
+- [x] **C254-w** — запись shared только через `StockService` / `SupplyService`
 - [ ] **C254-doc** — ARCHITECTURE / UNIFY
 
 ## C254-0
@@ -71,3 +71,33 @@
 **Проверки:** `npx tsc --noEmit` — 0. jest dicts 16 файлов — 88/88 PASS; income-cancel, questions, today, control, catalog-guards, composition-expand, zones, stock-zones, category, salesorders, order-history, showcase-composition, work, financial-article-writer, read.spec, supply-scope — PASS. Новых предупреждений eslint нет (старые `any` в salesorders и financial-article-writer).
 
 **Риски:** агрегат и distinct shared сырые. Запись shared сырая (C254-w). Чтения внутри stock/supply сырые. Карта обновлена. Коммит: нет.
+
+## C254-w
+
+Сырая запись шести shared в рантайме вне `stock/` и `supply/` ушла в хозяина. Внутри `stock/` и `supply/` запись осталась (модель и `db.collection`, включая `supplier-excel` `insertOne`). Чтения не переводились. L-251/252/253 не менялись: incomes/salesorders/products по-прежнему через свои writes.
+
+- Заявки: `supply-writes.ts`. Справочники, партнёры и перенос позиции зовут `common/supply-owner-port.ts` (прямой импорт supply замыкает цикл).
+- Склад и материалы: `stock-writes.ts`. Карточка материала и цена — через `common/stock-owner-port.ts` (stock уже импортирует схему материала). PDM и перенос брони импортируют `stock-writes` напрямую. Справочник движений и позиций — тоже.
+- Классификация: старая заявка без счёта по-прежнему `editable: false`. Перед чужим `updateOne` стоит отказ, если коллекция из шести shared.
+
+**Grep:** `collection('materials'|storageitems|stockmovements|reservations|warehouses|supplyrequests).(insert|update|delete|findOneAnd|replace|bulkWrite)` в `backend/src` вне `stock/` и `supply/` — 0. `model.create|updateOne|findOneAndUpdate` материалов вне этих папок и портов — 0.
+
+## Белый список scripts
+
+Разовые, не Nest. Не переводились.
+
+| Кто | Коллекции |
+|--|--|
+| `backfill-materialprices.js`, `clean-auto-articles.js`, `material-passport-spec-fill.js`, `fill-material-dims.js` | materials |
+| `stock-dedupe-bolts.js` | materials, storageitems, stockmovements, supplyrequests |
+| `invoices-from-requests.js`, `link-requests-materials.js`, `map-articles.js`, `merge-duplicate-invoices.js` | supplyrequests |
+| `scripts/archive/c057-kind.js`, `c057-parse-names.js`, `c057-profiles.js`, `fix-bolt-photos.js` | materials |
+| `ensure-indexes.js` | индексы, не документы |
+| админка «Таблицы» | как C250: документы этих шести не пишет |
+| kppdf | вне data-core |
+
+**Файлы:** `stock-writes.ts`, `supply-writes.ts`, порты, dicts, partners, income-cancel, material, material-price, pdm-import, pdm-preview, financial-classification, карта, урок.
+
+**Проверки:** `npx tsc --noEmit` — 0. eslint по этим файлам — 0. jest stock-writes, dicts rename/metal/materials-spec, partners.merge, income-cancel, material (3), pdm-import (2), finance.shared-read — PASS. `node scripts/audit-cycles.js` — новых циклов 0, пар 0.
+
+**Риски:** запись внутри stock/supply по-прежнему и моделью, и сырым `db.collection`. Классификация не пишет shared, отдельного адаптера заявки нет. Карта обновлена. Коммит: нет.

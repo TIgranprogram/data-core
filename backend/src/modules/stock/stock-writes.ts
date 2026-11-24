@@ -1,0 +1,119 @@
+import type { ClientSession, Model, mongo, Types } from 'mongoose';
+import { sameRe } from '../../common/text/same-text';
+import type { MaterialDocument } from '../material/material.schema';
+
+type Db = mongo.Db;
+type MaterialModel = Model<MaterialDocument>;
+
+/** Коллекции склада, где справочник меняет строку названия. Заявки — у supply-writes. */
+const STOCK_LABEL = new Set(['materials', 'storageitems', 'stockmovements', 'reservations', 'warehouses']);
+
+const clean = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
+const labelRe = (name: unknown) => new RegExp(`^\\s*${clean(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
+
+/**
+ * Объединение простого справочника: одно написание в строке склада.
+ * Повтор после переноса находит 0. `editedInApp` не ставим: так было у движений и позиций.
+ */
+export function renameStockLabel(db: Db, coll: string, field: string, fromName: unknown, toName: unknown) {
+  if (!STOCK_LABEL.has(coll)) throw new Error(`stock-writes: «${coll}» не коллекция склада`);
+  return db.collection(coll).updateMany({ [field]: labelRe(fromName) }, { $set: { [field]: clean(toName) } });
+}
+
+/** Сортамент или марка стали. Повтор с тем же текстом ничего не меняет по смыслу. Дата — чтобы список увидел правку. */
+export function renameMaterialSame(db: Db, field: string, fromName: unknown, toName: string) {
+  return db.collection('materials').updateMany({ [field]: sameRe(fromName) }, { $set: { [field]: toName, updatedAt: new Date() } });
+}
+
+/** Цвет в массиве позиции. Совпадение точное, как раньше: не регулярка. */
+export function renameMaterialColor(db: Db, fromName: string, toName: string) {
+  return db.collection('materials').updateMany({ colors: fromName }, { $set: { 'colors.$': toName } });
+}
+
+/** Категория склада. Метку приложения не ставим: коллекция общая с CRM, как было. */
+export function reassignMaterialCategory(db: Db, fromId: unknown, toId: unknown) {
+  return db.collection('materials').updateMany({ categoryId: fromId }, { $set: { categoryId: toId } });
+}
+
+/** Единица измерения позиции. Повтор после переноса находит 0. */
+export function reassignMaterialUnit(db: Db, values: readonly string[], symbol: string) {
+  return db.collection('materials').updateMany({ unit: { $in: values } }, { $set: { unit: symbol } });
+}
+
+/** Связь позиции с материалом паспорта. Повтор пишет тот же id. */
+export function reassignMaterialPassport(db: Db, fromId: unknown, toId: unknown) {
+  return db.collection('materials').updateMany({ 'passportSpec.materialId': fromId }, { $set: { 'passportSpec.materialId': toId } });
+}
+
+/**
+ * Перенос позиции заказа: бронь указывает на новый договор.
+ * Сессия обязательна: вместе со строкой дохода, иначе ссылки разъедутся.
+ * Повтор с тем же договором пишет то же поле.
+ */
+export function moveReservationsToOrder(db: Db, lineId: unknown, orderId: unknown, session: ClientSession) {
+  return db.collection('reservations').updateMany({ salesOrderLineId: lineId }, { $set: { salesOrderId: orderId } }, { session });
+}
+
+/**
+ * Карточка материала. Правила (артикул, виды работ, версия) остаются в MaterialService.
+ * Здесь только запись коллекции: импорт модуля material в stock замыкает пару.
+ */
+export function insertMaterial(model: MaterialModel, doc: object) {
+  return model.create(doc);
+}
+
+/** Правка карточки. Чужой документ (deletedAt или склад организации) даёт null — 404 у вызывающего. */
+export function patchMaterial(model: MaterialModel, filter: object, update: object) {
+  return model.findOneAndUpdate(filter, update, { new: true, runValidators: true }).exec();
+}
+
+/** Состав детали. Версия `__v` растёт здесь: чужая версия не совпадёт с фильтром вызывающего. */
+export function saveMaterialComposition(model: MaterialModel, filter: object, composition: unknown) {
+  return model.findOneAndUpdate(filter, { $set: { composition }, $inc: { __v: 1 } }, { new: true, runValidators: true }).exec();
+}
+
+/** Связь с паспортом мимо схемы mongoose: так поле не теряется на общей коллекции. */
+export function setMaterialPassportSpec(model: MaterialModel, id: unknown, update: object) {
+  return model.collection.updateOne({ _id: id as Types.ObjectId }, update as never);
+}
+
+/** Корзина позиции. Повтор по уже снятой находит 0. */
+export function archiveMaterial(model: MaterialModel, filter: object, deletedAt: Date) {
+  return model.updateOne(filter, { $set: { deletedAt } }).exec();
+}
+
+/**
+ * Последняя цена, если дата не старше уже записанной. Фильтр собирает цена.
+ * Сессию передаёт счёт: цена и история одной транзакцией.
+ */
+export function touchMaterialLastPrice(model: MaterialModel, filter: object, update: object, session?: ClientSession) {
+  return model.updateOne(filter, update, { session }).exec();
+}
+
+/** Сортамент или деталь из PDM, которую сняли. Повтор снимает deletedAt ещё раз — то же состояние. */
+export function restorePdmMaterial(model: MaterialModel, id: unknown, session: ClientSession) {
+  return model.updateOne({ _id: id }, { $set: { deletedAt: null } }, { session });
+}
+
+/** Новые позиции PDM пачкой. Порядок вставки сохраняется (`ordered`). */
+export function insertPdmMaterials(model: MaterialModel, docs: object[], session: ClientSession) {
+  return model.create(docs, { session, ordered: true });
+}
+
+/** Поля существующей позиции из PDM. Что писать, решает план импорта. */
+export function patchPdmMaterial(model: MaterialModel, id: unknown, set: object, session: ClientSession) {
+  return model.updateOne({ _id: id }, { $set: set }, { session });
+}
+
+/** Метиз: набор полей и другие написания. Пустой набор не шлёт пустой `$set`. */
+export function patchPdmMaterialAliases(model: MaterialModel, id: unknown, set: object, aliases: readonly string[], session: ClientSession) {
+  const update: Record<string, unknown> = {};
+  if (Object.keys(set).length) update.$set = set;
+  if (aliases.length) update.$addToSet = { pdmAliases: { $each: [...aliases] } };
+  return model.updateOne({ _id: id }, update, { session });
+}
+
+/** Фото детали из PDM. Главным становится, только если вызывающий уже решил, что старое главное тоже из PDM. */
+export function attachMaterialPhoto(model: MaterialModel, id: unknown, photoId: unknown, main: boolean) {
+  return model.updateOne({ _id: id }, { $addToSet: { photoIds: photoId }, ...(main ? { $set: { mainPhotoId: photoId } } : {}) }).exec();
+}

@@ -14,7 +14,7 @@
 - [x] **C254-a** — один потребитель (например `partners`) → слой; коммит; проверки модуля
 - [x] **C254-b** — следующий потребитель (`finance` / `fill-audit` — по INVENTORY)
 - [x] **C254-c** — `dicts` и прочие по одному
-- [ ] **C254-w** — запись shared в data-core только через `StockService`/`SupplyService`
+- [x] **C254-w** — запись shared в data-core только через `StockService`/`SupplyService`
 - [ ] **C254-doc** — ARCHITECTURE / UNIFY: совместимость с прямой записью CRM
 
 Места с намеренным `includeDeleted` — явно. Не один коммит на весь L.

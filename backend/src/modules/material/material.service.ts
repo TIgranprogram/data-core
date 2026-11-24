@@ -15,6 +15,7 @@ import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-r
 import { mergePassportSpec, presentPassportSpec, type StoredPassportSpec } from '../../common/catalog/passport-link';
 import { STOCK_VISIBLE } from '../../common/catalog/stock-visible';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
+import { archiveMaterial, insertMaterial, patchMaterial, saveMaterialComposition, setMaterialPassportSpec } from '../../common/stock-owner-port';
 
 @Injectable()
 export class MaterialService {
@@ -46,7 +47,7 @@ export class MaterialService {
     else (dto as { workTypes?: unknown }).workTypes = workTypes;
     try {
       // остаток — только storageitems (ДМ.5): stockQty из запроса игнорируем, при создании 0
-      return await this.model.create({
+      return await insertMaterial(this.model, {
         ...dto,
         stockQty: 0,
         article,
@@ -129,13 +130,7 @@ export class MaterialService {
     );
     const next = this.compositionLines.upsertDeduplicated(raw, incoming);
     this.compositionLines.ensureLineLimit(next);
-    const saved = await this.model
-      .findOneAndUpdate(
-        { ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) },
-        { $set: { composition: next }, $inc: { __v: 1 } },
-        { new: true, runValidators: true },
-      )
-      .exec();
+    const saved = await saveMaterialComposition(this.model, { ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) }, next);
     if (!saved) throw new ConflictException(`Material ${id} changed while composition was being updated`);
     return saved.composition as unknown as CompositionLineDocumentShape[];
   }
@@ -158,13 +153,7 @@ export class MaterialService {
     const next = raw.slice();
     next[index] = updated;
     this.compositionLines.ensureNoDuplicateKeys(next);
-    const saved = await this.model
-      .findOneAndUpdate(
-        { ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) },
-        { $set: { composition: next }, $inc: { __v: 1 } },
-        { new: true, runValidators: true },
-      )
-      .exec();
+    const saved = await saveMaterialComposition(this.model, { ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) }, next);
     if (!saved) throw new ConflictException(`Material ${id} changed while composition was being updated`);
     return saved.composition as unknown as CompositionLineDocumentShape[];
   }
@@ -177,13 +166,7 @@ export class MaterialService {
     );
     const next = raw.filter((line) => line._id.toString() !== lineId);
     if (next.length === raw.length) throw new NotFoundException(`Composition line ${lineId} not found`);
-    const saved = await this.model
-      .findOneAndUpdate(
-        { ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) },
-        { $set: { composition: next }, $inc: { __v: 1 } },
-        { new: true, runValidators: true },
-      )
-      .exec();
+    const saved = await saveMaterialComposition(this.model, { ...this.versionedCompositionFilter(doc), ...this.organizationFilter(organizationId) }, next);
     if (!saved) throw new ConflictException(`Material ${id} changed while composition was being updated`);
   }
 
@@ -254,13 +237,7 @@ export class MaterialService {
       }
     }
     try {
-      const updated = await this.model
-        .findOneAndUpdate(
-          { _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) },
-          { $set, ...(Object.keys($unset).length ? { $unset } : {}), $inc: { __v: 1 } },
-          { new: true, runValidators: true },
-        )
-        .exec();
+      const updated = await patchMaterial(this.model, { _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }, { $set, ...(Object.keys($unset).length ? { $unset } : {}), $inc: { __v: 1 } });
       if (!updated) throw new NotFoundException(`Material ${id} not found`);
       return updated;
     } catch (err) {
@@ -280,7 +257,7 @@ export class MaterialService {
       const ok = await this.model.db.collection('dict_values').findOne({ dict: 'passportMaterials', _id: next.materialId, deletedAt: null }, { projection: { _id: 1 } });
       if (!ok) throw new BadRequestException('Материал не найден в справочнике «Материалы и покрытия»');
     }
-    await this.model.collection.updateOne({ _id: doc._id }, next ? { $set: { passportSpec: next, updatedAt: new Date() } } : { $unset: { passportSpec: '' }, $set: { updatedAt: new Date() } });
+    await setMaterialPassportSpec(this.model, doc._id, next ? { $set: { passportSpec: next, updatedAt: new Date() } } : { $unset: { passportSpec: '' }, $set: { updatedAt: new Date() } });
     return { id: String(doc._id), passportSpec: presentPassportSpec(next) };
   }
 
@@ -336,7 +313,7 @@ export class MaterialService {
     if (!doc || doc.deletedAt) throw new NotFoundException(`Material ${id} not found`);
     const used = (await isUsedInComposition(this.model.db, 'material', doc._id, { productmodules: [{ 'materials.materialId': doc._id }] })) || (await isUsedByCrm(this.model.db, 'material', doc._id));
     if (used) throw new ConflictException('Material is referenced by catalog history and cannot be archived');
-    await this.model.updateOne({ _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }, { $set: { deletedAt: new Date() } }).exec();
+    await archiveMaterial(this.model, { _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }, new Date());
   }
 
   async duplicate(sourceId: string, organizationId?: string | null): Promise<MaterialDocument> {
@@ -360,7 +337,7 @@ export class MaterialService {
       try { const category = await this.loadAssignableMaterialCategory(categoryId, organizationId); if (category.skuPrefix) nextSku = await this.counter.next('Material', category.skuPrefix); } catch { nextSku = undefined; }
     }
     const payload: Record<string, unknown> = { ...copiableFields, name: copiedName, article: copiedArticle, ...(nextSku ? { sku: nextSku } : {}), photoIds: [], mainPhotoId: undefined, ...this.organizationWrite(organizationId) };
-    try { return await this.model.create(payload); } catch (err) { this.rethrowDuplicate(err); }
+    try { return await insertMaterial(this.model, payload); } catch (err) { this.rethrowDuplicate(err); }
   }
 
   private versionedCompositionFilter(doc: MaterialDocument): Record<string, unknown> {

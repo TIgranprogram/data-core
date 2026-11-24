@@ -11,6 +11,7 @@ import { oid } from '../../common/list-query';
 import { Material, type MaterialDocument } from '../material/material.schema';
 import { IMAGE_UPLOAD_MAX_BYTES, uploadFileName } from '../photos/image-upload.options';
 import { attachPdmProductPhoto } from '../product/product-writes';
+import { attachMaterialPhoto } from '../stock/stock-writes';
 import { Photo, type PhotoDocument } from '../photos/photo.schema';
 import { PhotosService } from '../photos/photos.service';
 import type { PdmPreviewFormDto, PdmTreeDto } from './dto/pdm-tree.dto';
@@ -74,7 +75,8 @@ export class PdmPreviewService {
     // Фото менеджера не перебиваем: главным становится, только если главного нет или оно тоже из PDM
     const main = await isMain(owner.mainPhotoId);
     if (ref.kind === 'product') await attachPdmProductPhoto(this.products, ref.id, original._id, main);
-    else await model.updateOne({ _id: ref.id }, { $addToSet: { photoIds: original._id }, ...(main ? { $set: { mainPhotoId: original._id } } : {}) }).exec();
+    else if (ref.kind === 'module') await model.updateOne({ _id: ref.id }, { $addToSet: { photoIds: original._id }, ...(main ? { $set: { mainPhotoId: original._id } } : {}) }).exec();
+    else await attachMaterialPhoto(this.materials, ref.id, original._id, main);
     return { photoId: String(original._id), stored: true, main };
   }
 }

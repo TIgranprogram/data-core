@@ -22,13 +22,13 @@
 - [x] **C251** — хозяин-операций `incomes`. [Отчёт](../C251-incomes-owner-writes/REPORT.md) · L-251
 - [x] **C252** — хозяин-операций `salesorders`. [Отчёт](../C252-salesorders-owner-writes/REPORT.md) · L-252
 - [x] **C253** — хозяин/фасад `products`. [Отчёт](../C253-products-owner-writes/REPORT.md) · L-253
-- [~] **C254** — shared CRM **мелкими поставками** (подчек-лист в ТЗ). C254-0/a/b/c ✅ · дальше w/doc · [Отчёт](../C254-shared-collections-layer/REPORT.md) · [ТЗ](../C254-shared-collections-layer/TZ.md)
+- [~] **C254** — shared CRM **мелкими поставками** (подчек-лист в ТЗ). C254-0/a/b/c/w ✅ · остался doc · [Отчёт](../C254-shared-collections-layer/REPORT.md) · [ТЗ](../C254-shared-collections-layer/TZ.md)
 - [ ] **C255** — границы постепенно после очистки доменов; **финал после C254**. [ТЗ](../C255-domain-boundaries-eslint/TZ.md)
 
 После C255 → [BEYOND-CHECKLIST.md](BEYOND-CHECKLIST.md) (C256 можно раньше — аддитивно).
 
 ## Сейчас (обновлять при каждом этапе)
 
-**Активный этап:** C254-w (запись shared через хозяев)  
-**Статус:** C246–C253 ✅ · C254-0/a/b/c ✅ · C256 ✅ · C257[~] · C258 ✅  
+**Активный этап:** C254-doc (ARCHITECTURE / UNIFY)  
+**Статус:** C246–C253 ✅ · C254-0/a/b/c/w ✅ · C256 ✅ · C257[~] · C258 ✅  
 **Последнее обновление:** 24.11.2026
