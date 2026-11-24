@@ -29,7 +29,8 @@ C259… CRM → API  (XL, только после «да» владельца; �
 - [x] **C257** — контракт shared (черновик принят). Diff kppdf **снят как блокер** (kppdf на выход, 24.11). [CONTRACT](../C257-shared-compat-contract/CONTRACT.md)
 - [x] **C258** — регламент DTO/OpenAPI по касанию эндпоинта (образец кода отложен). [PLAYBOOK](../C258-dto-by-touch-playbook/PLAYBOOK.md) · [REPORT](../C258-dto-by-touch-playbook/REPORT.md)
 - [x] **C259** — план срезов «CRM клиент API» принят. [PLAN-SLICES](../C259-crm-api-client-plan/PLAN-SLICES.md) · L-259 · «да» 24.11
-- [ ] **C260+** — срезы C260–C265 (по одному после L-259; каждый сам зелёный)
+- [ ] **C260** — склады через API (пауза до «старт C260»). [ТЗ](../C260-warehouses-api-slice/TZ.md) · [чеклист](../C260-warehouses-api-slice/CHECKLIST.md)
+- [ ] **C261–C265** — следующие срезы по одному (не пакетом)
 
 ## Проценты смысла (ориентир)
 
@@ -50,5 +51,4 @@ C259… CRM → API  (XL, только после «да» владельца; �
 
 ## Сейчас (после старта BEYOND)
 
-**Активная программа BEYOND:** C259 ✅ · дальше C260 (склады) по явному старту.  
-**Параллельно:** C255 → [CHECKLIST.md](CHECKLIST.md).
+**Активная программа BEYOND:** пауза · C260 ждёт «старт C260» · [чеклист](../C260-warehouses-api-slice/CHECKLIST.md)
