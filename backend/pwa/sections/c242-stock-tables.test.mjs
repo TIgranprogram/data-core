@@ -270,6 +270,10 @@ for (const theme of ['light', 'dark']) test('основная таблица: ч
     assert.ok(headers.some(label => label.startsWith(expected)));
     assert.ok(calls.some(call => call.query.zoneId === kind && call.query.sort === ({ pipe: 'sectionSize', sheet: 'sheetSize', wood: 'woodSize' }[kind]) && Number(call.query.limit) < 1000));
     if (kind === 'pipe') {
+      // C266: панель фильтров может быть закрыта, труба свёрнута — открыть и раскрыть
+      const filters = page.getByRole('button', { name: /^Фильтры/ });
+      if (await filters.count()) await filters.click();
+      await page.locator('[data-fk="g:pipe"]').click({ force: true });
       await page.waitForFunction(() => document.querySelector('.ff-inline')?.textContent.includes('80×60×3'));
       assert.equal(calls.filter(call => call.query.zoneId === 'pipe' && call.query.limit === '1000').length, 1);
     }
