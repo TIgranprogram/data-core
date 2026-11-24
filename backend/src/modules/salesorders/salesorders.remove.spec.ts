@@ -25,6 +25,11 @@ describe('HARDEN-1 п.14: удаление заказа', () => {
     const t = setup({ incomes: 0, shipments: 1 });
     await expect(t.svc.remove('x')).rejects.toBeInstanceOf(ConflictException);
   });
+  it('обрыв записи позиций не подтверждает удаление', async () => {
+    const t = setup({ incomes: 0, shipments: 0 });
+    t.updateMany.mockRejectedValueOnce(new Error('обрыв'));
+    await expect(t.svc.remove('x')).rejects.toThrow('обрыв');
+  });
   it('чистый заказ удаляется вместе с позициями', async () => {
     const t = setup({ incomes: 0, shipments: 0 });
     await expect(t.svc.remove('x')).resolves.toEqual({ id: 'x', deleted: true });

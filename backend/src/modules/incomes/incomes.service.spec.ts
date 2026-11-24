@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { INTAKE_INDEXES, intakeContentHash } from '../../common/legal/legal-utils';
 import { IncomesService } from './incomes.service';
 import { incomeDerived, incomePayments } from './income.schema';
 
@@ -199,6 +200,22 @@ describe('IncomesService', () => {
       await expect(service.create({ title: 'X', companyName: 'Чужая' } as never)).rejects.toThrow(BadRequestException);
     });
 
+    it('гонка строки источника (11000): повтор возвращает ту же позицию, другой состав — конфликт', async () => {
+      const orderId = new Types.ObjectId();
+      const dupId = new Types.ObjectId();
+      const dto = { title: 'Скамья', qty: 1, unitPrice: 10, matchingMode: 'manual', orderId: String(orderId), clientUid: 'uid-1', sourceLine: { documentUid: 'd1', rowKey: 'r1', title: 'Скамья', qty: 1, lineAmount: 10 } };
+      const hash = intakeContentHash(dto as never);
+      colls.salesorders = [{ _id: orderId, stage: 'new', legal: { documents: [{ uid: 'd1' }] } }];
+      (model as unknown as { collection: { indexes: () => Promise<unknown[]> } }).collection = { indexes: async () => ['c164_income_source_row', 'c164_income_source_uid'].map((name) => ({ name, unique: true, key: INTAKE_INDEXES[name].key, partialFilterExpression: INTAKE_INDEXES[name].partialFilterExpression })) };
+      let n = 0;
+      const dup = { _id: dupId, deletedAt: null, sourceIntakeHash: hash, title: 'Скамья' };
+      model.findOne.mockImplementation(() => { n += 1; return chain(n < 3 ? null : dup); });
+      model.create.mockImplementation(async () => { const e = new Error('dup') as Error & { code: number }; e.code = 11000; throw e; });
+      await expect(service.create(dto as never)).resolves.toMatchObject({ id: String(dupId) });
+      model.findOne.mockImplementation(() => { n += 1; return chain(n < 3 ? null : { ...dup, sourceIntakeHash: 'другой' }); });
+      n = 0;
+      await expect(service.create(dto as never)).rejects.toThrow('другими данными');
+    });
     it('наша компания находится по названию без учёта регистра', async () => {
       const cid = new Types.ObjectId();
       colls.organizations = [{ _id: cid, name: 'ООО Наша', isOurCompany: true }];

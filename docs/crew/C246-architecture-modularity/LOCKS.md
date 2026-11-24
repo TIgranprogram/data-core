@@ -21,7 +21,7 @@
 | L-249b | finance не импортирует частные файлы supply | C249 REPORT | новый `from '../supply/…'` кроме Module/Service |
 | L-250 | есть INVENTORY + raw-query; массового перевода нет | C250 REPORT | перевод без сверки выдачи |
 | L-257 | черновик CONTRACT шести shared принят координатором; CRM→API не начат; diff kppdf открыт | [C257 CONTRACT](../C257-shared-compat-contract/CONTRACT.md) | ломать S/G без синхрона CRM; или снять статус черновика без diff |
-| L-251… | (заполнить при закрытии) | — | чужая запись incomes мимо хозяина |
+| L-251 | запись `incomes` в рантайме только через `income-writes` / фасад `IncomesService`; разовые scripts — белый список REPORT | [C251 REPORT](../C251-incomes-owner-writes/REPORT.md) | новая сырая запись incomes вне income-writes / incomes.service |
 | L-258 | DTO/OpenAPI только по касанию одного эндпоинта; пакетного перевода Query-DTO нет | [C258 PLAYBOOK](../C258-dto-by-touch-playbook/PLAYBOOK.md) | массовый `@Query` → класс без инвентаря полей |
 | L-DEC | модульный монолит, не микросервисы | DECISION | «да» владельца на смену курса |
 

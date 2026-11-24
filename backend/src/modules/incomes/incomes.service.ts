@@ -29,6 +29,7 @@ import { isStale, staleError, versionFilter } from '../../common/versioned';
 import { productNameKey, shortProductName } from '../showcase/order-product-name';
 import type { IncomeDto } from './dto';
 import { LINE_CHECK_FIELDS, checkLine, type LineType } from '../../common/line-type';
+import { applyIncomeClassification, attachIncomeNewProductRequest, bindDraftProduct, bumpIncomePassportEpoch, confirmOrderLineProduct, confirmRequestLines, markIncomeCancelled, matchIncomeLine, moveIncomeToOrder, renameCustomerLines, renameIncomeText, restoreCancelledIncome, restoreLinesDeletedWithOrder, setIncomePassportSelection, softDeleteLinesWithOrder, syncOrderHeaderCache } from './income-writes';
 import { Income, IncomeDocument, IncomePayment, incomeDerived, incomePayments } from './income.schema';
 
 /** Способы оплаты (подсказка формы платежа; в базе — свободный текст до 50 знаков). */
@@ -568,5 +569,33 @@ export class IncomesService {
       .map((v) => String(v ?? '').replace(/\s+/g, ' ').trim()).filter((v) => v && !seen.has(sameKey(v)) && seen.add(sameKey(v)))
       .sort((x, y) => x.localeCompare(y, 'ru'));
     return { companies: companies.map((c) => ({ id: String(c.id), name: c.name })), customers, paymentForms, paymentMethods: PAYMENT_METHODS };
+  }
+
+  /** Операции чужих модулей. Сессия уже открыта у вызывающего: вторую транзакцию не начинаем. */
+  syncOrderHeader(orderId: Types.ObjectId, fields: Record<string, unknown>, session: ClientSession): Promise<void> { return syncOrderHeaderCache(this.connection.db!, orderId, fields, session); }
+  async softDeleteWithOrder(orderId: Types.ObjectId, now: Date, session: ClientSession): Promise<void> { await softDeleteLinesWithOrder(this.connection.db!, orderId, now, session); }
+  async restoreWithOrder(orderId: Types.ObjectId, session: ClientSession): Promise<void> { await restoreLinesDeletedWithOrder(this.connection.db!, orderId, session); }
+  confirmLineProduct(lineId: Types.ObjectId, orderId: Types.ObjectId, productId: Types.ObjectId, session: ClientSession): Promise<void> { return confirmOrderLineProduct(this.connection.db!, lineId, orderId, productId, session); }
+  matchLine(lineId: Types.ObjectId, productId: Types.ObjectId | null, by: Types.ObjectId | undefined, now: Date, session: ClientSession): Promise<void> { return matchIncomeLine(this.connection.db!, lineId, productId, by, now, session); }
+  async renameCustomer(ids: readonly unknown[], customer: string, session: ClientSession): Promise<void> { await renameCustomerLines(this.connection.db!, ids, customer, session); }
+  async bindDraft(ids: readonly unknown[], productId: unknown, session: ClientSession): Promise<void> { await bindDraftProduct(this.connection.db!, ids, productId, session); }
+  async attachNewProduct(incomeId: Types.ObjectId, requestId: Types.ObjectId, session: ClientSession): Promise<void> { await attachIncomeNewProductRequest(this.connection.db!, incomeId, requestId, session); }
+  async confirmRequest(ids: readonly unknown[], productId: Types.ObjectId, by: Types.ObjectId | undefined, now: Date, session: ClientSession): Promise<void> { await confirmRequestLines(this.connection.db!, ids, productId, by, now, session); }
+  async renameDictionaryText(field: 'paymentForm' | 'color', fromName: string, toName: string): Promise<void> { await renameIncomeText(this.connection.db!, field, fromName, toName); }
+  async bumpPassportEpoch(filter: Record<string, unknown>, session: ClientSession): Promise<void> { await bumpIncomePassportEpoch(this.connection.db!, filter, session); }
+  setPassportSelection(id: Types.ObjectId, selection: { mode?: string; revision?: number }, session: ClientSession): Promise<void> { return setIncomePassportSelection(this.connection.db!, id, selection, session); }
+  classifyPayment(id: unknown, documentVersion: number, set: Record<string, unknown>, session: ClientSession): Promise<void> { return applyIncomeClassification(this.connection.db!, id, documentVersion, set, session); }
+  markCancelled(id: unknown, expectedVersion: number, reason: string, actorId: string | undefined, session: ClientSession): Promise<void> { return markIncomeCancelled(this.connection.db!, id, expectedVersion, reason, actorId, session); }
+  restoreCancelledLine(id: unknown, expectedVersion: number, session: ClientSession): Promise<void> { return restoreCancelledIncome(this.connection.db!, id, expectedVersion, session); }
+  moveLineToOrder(id: unknown, expectedVersion: number, set: Record<string, unknown>, unset: Record<string, ''>, session: ClientSession): Promise<void> { return moveIncomeToOrder(this.connection.db!, id, expectedVersion, set, unset, session); }
+
+  /**
+   * Зафиксировать идентификаторы оплат. Повтор того же clientUid проверяется до вызова.
+   * Несовпавшая версия не пишет журнал. Обрыв журнала откатывает правку вместе с сессией.
+   */
+  async commitPaymentIdentities(cur: { _id: Types.ObjectId }, version: number, set: Record<string, unknown>, receipt: { clientUid: string; planHash: string; identityMapping: Record<string, string> }, actor: AuthenticatedUser | undefined, mapping: Record<string, string>, totals: unknown, session: ClientSession) {
+    const changed = await this.model.updateOne({ _id: cur._id, ...versionFilter(version) }, { $set: set, $inc: { version: 1 }, $push: { paymentIdentityReceipts: receipt } }, { session }).exec();
+    if (!changed.matchedCount) throw new ConflictException('Источник изменился: перечитайте план');
+    await this.connection.db!.collection('auditlogs').insertOne({ action: 'income.payment-identities.materialized', entityType: 'Income', entityId: cur._id, userId: actor?.id ? oid(actor.id, 'автора') : undefined, userName: actor?.username, createdAt: new Date(), details: { before: { version, planHash: receipt.planHash }, after: { version: version + 1, identityMapping: mapping }, meta: { metadataOnly: true, totals } } }, { session });
   }
 }

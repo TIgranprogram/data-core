@@ -1,4 +1,4 @@
-import { passportContextStage } from '../../common/passport/line-source';
+import { matchIncomeLine } from '../../common/income-owner-port';
 import { claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -175,11 +175,7 @@ export class MatchingService {
       await claimWritableOrders(db, session, rows.map(row => row.orderId));
       for (const p of picks) {
         const productId = p.productId ? new Types.ObjectId(p.productId) : null;
-        const set: Doc = { productId: productId ?? '$$REMOVE', matchStatus: p.productId ? 'confirmed' : 'none', matchedAt: now, editedInApp: true, ...(by ? { matchedBy: by } : {}) };
-        await db.collection('incomes').updateOne({ _id: oid(p.lineId, 'позиции') }, [
-          passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, productId] }),
-          { $set: Object.fromEntries(Object.entries(set).map(([key, value]) => [key, value === '$$REMOVE' ? value : { $literal: value }])) },
-        ], { session });
+        await matchIncomeLine(db, oid(p.lineId, 'позиции'), productId, by, now, session);
       }
       return rows;
     });

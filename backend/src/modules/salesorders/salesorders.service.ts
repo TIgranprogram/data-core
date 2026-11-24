@@ -1,5 +1,5 @@
 import { archiveOrderConflict, claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
-import { passportContextStage } from '../../common/passport/line-source';
+import { confirmOrderLineProduct, restoreLinesDeletedWithOrder, softDeleteLinesWithOrder, syncOrderHeaderCache } from '../incomes/income-writes';
 import { loadOrderMatches } from '../matching/match-facts';
 import { LegalPatchDto } from '../../common/legal/legal.dto';
 import { assertIntakeIndexes, assertSalesBusinessIndex, assertIntakeReplay, intakeContentHash, intakeBusinessKey, legalHash, legalPresentation, legalSummary, patchLegal, prepareLegal, validateLegalFiles, validateLegalParties } from '../../common/legal/legal-utils';
@@ -24,7 +24,6 @@ import { ORDER_PRIORITIES, type OrderPriority } from '../../common/text/order-ke
 import { loadSeq } from '../../common/text/production-seq';
 import { dayOf, leadDays } from '../../common/work-schedule';
 import { suggestProducts } from '../../common/catalog/product-match';
-import { ORDER_CACHE_FIELDS } from './order-link';
 import { isUnassigned } from '../matching/matching-rules';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';
 
@@ -530,14 +529,8 @@ export class SalesOrdersService {
   }
 
   /** Правка шапки → кэш-поля в позициях; при смене даты отгрузки reportDate = оплата ?? отгрузка. */
-  private async syncLines(orderId: Types.ObjectId, f: Doc, session: ClientSession) {
-    const stage: Doc = {};
-    for (const k of ORDER_CACHE_FIELDS) if (k in f) stage[k] = f[k] === undefined ? '$$REMOVE' : { $literal: f[k] };
-    if (!Object.keys(stage).length) return;
-    const pipeline: Doc[] = [{ $set: { ...stage, updatedAt: new Date() } }];
-    // Mongo 4.4: у $ifNull ровно 2 аргумента — вкладываем
-    if ('shipDate' in f) pipeline.push({ $set: { reportDate: { $ifNull: ['$paidDate', { $ifNull: ['$shipDate', '$$REMOVE'] }] } } });
-    await this.incomes().updateMany({ orderId }, pipeline, { session });
+  private syncLines(orderId: Types.ObjectId, f: Doc, session: ClientSession) {
+    return syncOrderHeaderCache(this.connection.db!, orderId, f, session);
   }
 
   /** В корзину вместе с позициями (позиции помечаются, чтобы восстановить ровно их; лист «Заказы» их больше не трогает). */
@@ -558,7 +551,7 @@ export class SalesOrdersService {
         if (await this.incomes().countDocuments({ orderId: cur._id, deletedAt: null, $or: [{ paidAmount: { $gt: 0 } }, { paidDate: { $ne: null } }, { 'payments.0': { $exists: true } }] }, { session })) throw new ConflictException('В заказе есть оплаты');
         if (await this.connection.db!.collection('shipments').countDocuments({ orderId: cur._id, deletedAt: null }, { session })) throw new ConflictException('По заказу есть отгрузки');
         await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: now, editedInApp: true } }, { session }).exec();
-        await this.incomes().updateMany({ orderId: cur._id, deletedAt: null }, { $set: { deletedAt: now, deletedWithOrder: true, editedInApp: true, updatedAt: now }, $inc: { passportEpoch: 1 } }, { session });
+        await softDeleteLinesWithOrder(this.connection.db!, cur._id as Types.ObjectId, now, session);
       });
     } finally { await session.endSession(); }
     return { id, deleted: true };
@@ -568,7 +561,7 @@ export class SalesOrdersService {
     const cur = await this.findRaw(id, true);
     await withOrderWrite(this.connection, [cur._id], async session => {
       await this.model.updateOne({ _id: cur._id }, { $set: { deletedAt: null } }, { session }).setOptions({ includeSoftDeleted: true }).exec();
-      await this.incomes().updateMany({ orderId: cur._id, deletedWithOrder: true }, { $set: { deletedAt: null, updatedAt: new Date() }, $unset: { deletedWithOrder: '' }, $inc: { passportEpoch: 1 } }, { session });
+      await restoreLinesDeletedWithOrder(this.connection.db!, cur._id as Types.ObjectId, session);
     });
     return this.get(id);
   }
@@ -598,8 +591,7 @@ export class SalesOrdersService {
       for (const x of todo) {
         if (!own.has(String(x.lineId))) throw new BadRequestException('Позиция не из этого заказа или уже с изделием');
         if (!found.has(String(x.productId))) throw new BadRequestException('Изделие не найдено');
-        const changed = await this.incomes().updateOne({ _id: oid(x.lineId, 'позиции'), orderId: order._id, deletedAt: null, cancelledAt: null, productId: null }, [passportContextStage({ $ne: [{ $ifNull: ['$productId', null] }, oid(String(x.productId), 'изделия')] }), { $set: { productId: oid(String(x.productId), 'изделия'), matchStatus:'confirmed',matchedAt:new Date(), updatedAt: new Date(), version: { $add: [{ $ifNull: ['$version', 0] }, 1] } } }], { session });
-        if (!changed.matchedCount) throw new ConflictException('Позиция изменилась — перечитайте договор');
+        await confirmOrderLineProduct(this.connection.db!, oid(x.lineId, 'позиции'), order._id as Types.ObjectId, oid(String(x.productId), 'изделия'), session);
       }
       return { applied: true, count: todo.length };
     });

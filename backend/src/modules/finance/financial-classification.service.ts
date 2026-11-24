@@ -14,6 +14,7 @@ import { CLASSIFICATION_FIELDS, effectiveClassification, originalClassification 
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
 import { articleOfCategory, buildTree } from '../expense-articles/articles-tree';
 import { financials, legacyReconciliation, type FinancialRecord as Row } from '../../common/invoice-amounts';
+import { applyIncomeClassification } from '../incomes/income-writes';
 import { incomePayments } from '../incomes/income.schema';
 import { incomeIdentityHash } from '../incomes/income-payment-identities';
 import { ClassificationDto } from './operations.dto';
@@ -110,8 +111,11 @@ export class FinancialClassificationService {
       const version = dto.version + 1, history = [...(metadata.classificationHistory || []), { at: new Date(), by: actor.id, authorName: actor.username, reason, clientUid: dto.clientUid, requestHash, version, before, after, original, override: { ...override }, resetToOriginal: dto.resetToOriginal === true }];
       const updated = { ...metadata, classificationOriginal: original, classificationOverride: override, classificationVersion: version, classificationHistory: history };
       const set = target.path ? { [target.path]: updated } : { classificationOriginal: original, classificationOverride: override, classificationVersion: version, classificationHistory: history };
-      const changed = await this.db.collection(target.collection).updateOne({ _id: target.document._id, deletedAt: null, ...versionFilter(Number(target.document.version || 0)), ...(target.collection === 'supplyinvoicepayments' ? { state: 'active' } : {}) }, { $set: set, $inc: { version: 1 } }, { session });
-      if (!changed.matchedCount) throw new ConflictException('Источник уже изменён — перечитайте операцию');
+      if (target.collection === 'incomes') await applyIncomeClassification(this.db, target.document._id, Number(target.document.version || 0), set, session);
+      else {
+        const changed = await this.db.collection(target.collection).updateOne({ _id: target.document._id, deletedAt: null, ...versionFilter(Number(target.document.version || 0)), ...(target.collection === 'supplyinvoicepayments' ? { state: 'active' } : {}) }, { $set: set, $inc: { version: 1 } }, { session });
+        if (!changed.matchedCount) throw new ConflictException('Источник уже изменён — перечитайте операцию');
+      }
       await this.db.collection('auditlogs').insertOne({ action: 'finance.classification.updated', entityType: target.source === 'income' ? 'Income' : target.source === 'expense' ? 'Expense' : target.source === 'payroll' ? 'PayrollPayment' : target.collection === 'supplyinvoices' ? 'SupplyInvoice' : 'SupplyInvoicePayment', entityId: target.document._id, userId: oid(actor.id, 'автора'), userName: actor.username, createdAt: new Date(), details: { before, after, meta: { operationId: target.operationId, clientUid: dto.clientUid, reason, version, resetToOriginal: dto.resetToOriginal === true, factUnchanged: { amount: target.amount, date: target.date, companyId: target.companyId } } } }, { session });
     }); } finally { await session.endSession(); }
     return { operationId: actualOperationId, replayed };

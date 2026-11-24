@@ -19,7 +19,7 @@
 - [x] **C248** — `ourCompanies` в `common` (без доменных правил доходов). [Отчёт](../C248-our-companies-common/REPORT.md)
 - [x] **C249** — `fontDir` + граница finance↔supply. [fontDir](../C249-finance-supply-boundary/REPORT-fontDir.md) · [C249b](../C249-finance-supply-boundary/REPORT.md)
 - [x] **C250** — инвентаризация писателей + `raw-query` без массового перевода. [Отчёт](../C250-raw-query-inventory/REPORT.md) · [INVENTORY](../C250-raw-query-inventory/INVENTORY.md)
-- [ ] **C251** — хозяин-операций `incomes` (тесты до/после: отмена, частичный сбой). [ТЗ](../C251-incomes-owner-writes/TZ.md)
+- [x] **C251** — хозяин-операций `incomes`. [Отчёт](../C251-incomes-owner-writes/REPORT.md) · L-251
 - [ ] **C252** — хозяин-операций `salesorders`. [ТЗ](../C252-salesorders-owner-writes/TZ.md)
 - [ ] **C253** — хозяин/фасад `products`. [ТЗ](../C253-products-owner-writes/TZ.md)
 - [ ] **C254** — shared CRM **мелкими поставками** (подчек-лист в ТЗ). [ТЗ](../C254-shared-collections-layer/TZ.md)
@@ -29,6 +29,6 @@
 
 ## Сейчас (обновлять при каждом этапе)
 
-**Активный этап:** C251 (backend) · параллель C256 (автоматика) · черновик C257 (контракт)  
-**Статус:** C246–C250 ✅ · замки/рельсы/BEYOND ТЗ созданы  
+**Активный этап:** C252 следующий · C256 в дереве ждёт приёмки  
+**Статус:** C246–C251 ✅ · C257[~] · C258 ✅  
 **Последнее обновление:** 24.11.2026

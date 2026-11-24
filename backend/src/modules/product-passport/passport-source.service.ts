@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, Types } from 'mongoose';
+import { setIncomePassportSelection } from '../../common/income-owner-port';
 import { assertPassportToken, claimPassportLine, epochOf, passportLine, stalePassport, revisionOf, selectionOf } from '../../common/passport/line-source';
 import { attachmentAvailable, presentSourceAttachment } from '../productattachments/attachment-availability';
 import { ProductAttachmentsService } from '../productattachments/productattachments.service';
@@ -56,7 +57,7 @@ export class PassportSourceService {
           const r = await this.db.collection('productattachments').updateOne({ _id: file._id, productId: inc.productId, deletedAt: null, fileRemovedAt: null, purgeState: { $ne: 'purging' }, ...(generation ? { selectionGeneration: generation } : { $or: [{ selectionGeneration: 0 }, { selectionGeneration: { $exists: false } }] }) }, { $inc: { selectionGuard: 1 } }, { session });
           if (!r.modifiedCount) throw unavailable();
         }
-        await this.db.collection('incomes').updateOne({ _id: inc._id }, { $set: { passportSelection: selection } }, { session });
+        await setIncomePassportSelection(this.db, inc._id, selection, session);
         await this.db.collection('auditlogs').insertOne({ action: 'passport.selection.changed', entityType: 'Income', entityId: inc._id, userId: Types.ObjectId.isValid(actor.id) ? new Types.ObjectId(actor.id) : undefined, createdAt: now, details: { before: selectionOf(inc), after: selection, meta: { orderId, productId: inc.productId } } }, { session });
       });
     } finally { await session.endSession(); }

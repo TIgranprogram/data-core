@@ -1,7 +1,10 @@
 import { claimPassportOwners, claimWritableOrders } from '../order-archive/write';
+import { bumpIncomePassportEpoch, passportContextStage } from '../../modules/incomes/income-writes';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection } from 'mongoose';
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+
+export { passportContextStage };
 
 type Db = NonNullable<Connection['db']>;
 export type PassportSelection = { mode: 'site' | 'attachment'; revision: number; attachmentId?: Types.ObjectId | string; attachmentGeneration?: number; productIdAtSelection?: Types.ObjectId | string; confirmedAt?: Date; confirmedBy?: string; changedAt?: Date; changedBy?: string; invalidatedAt?: Date; invalidReason?: string };
@@ -37,12 +40,8 @@ export async function claimPassportLine(db: Db, session: ClientSession, context:
   const d = await passportLine(db, context._id, context.orderId, session);
   if (epochOf(d) !== expectedEpoch || JSON.stringify(lineBaseline(d)) !== JSON.stringify(lineBaseline(context))) throw stalePassport();
   if (operation === 'site' && selectionOf(d).mode === 'attachment') throw new ConflictException({ code: 'SOURCE_ATTACHMENT', message: 'Для позиции выбран вложенный паспорт — измените источник явно' });
-  const r = await db.collection('incomes').updateOne({ _id: d._id, orderId: d.orderId, productId: d.productId ?? null, lineType: d.lineType ?? null, deletedAt: null, cancelledAt: null, ...epochFilter(expectedEpoch) }, { $inc: { passportEpoch: 1 } }, { session });
+  const r = await bumpIncomePassportEpoch(db, { _id: d._id, orderId: d.orderId, productId: d.productId ?? null, lineType: d.lineType ?? null, deletedAt: null, cancelledAt: null, ...epochFilter(expectedEpoch) }, session);
   if (!r.modifiedCount) throw stalePassport();
-}
-/** Атомарный контекстный hook для raw writers: смена изделия никогда не оживляет старое подтверждение. */
-export function passportContextStage(productChanged: unknown = false) {
-  return { $set: { passportEpoch: { $add: [{ $ifNull: ['$passportEpoch', 0] }, 1] }, passportSelection: { $cond: [{ $and: [{ $eq: ['$passportSelection.mode', 'attachment'] }, productChanged] }, { $mergeObjects: ['$passportSelection', { revision: { $add: [{ $ifNull: ['$passportSelection.revision', 0] }, 1] }, invalidatedAt: '$$NOW', invalidReason: 'PRODUCT_CHANGED' }] }, { $ifNull: ['$passportSelection', '$$REMOVE'] }] } } };
 }
 /** Guard и запись паспорта атомарны; исходный epoch сохраняется при retry. */
 export async function withPassportSite<T>(connection: Connection, baseline: PassportLine | null, action: (session?: ClientSession) => Promise<T>, owners: readonly { salesOrderId?: unknown; incomeId?: unknown }[] = [], outer?: ClientSession): Promise<T> {

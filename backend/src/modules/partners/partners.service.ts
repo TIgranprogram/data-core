@@ -3,6 +3,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { createHash } from 'crypto';
 import { Types } from 'mongoose';
+import { renameCustomerLines } from '../../common/income-owner-port';
 import { writableCascadeRows } from '../../common/order-archive/cascade';
 import { withOrderWrite } from '../../common/order-archive/write';
 import { escapeRe } from '../../common/list-query';
@@ -388,7 +389,7 @@ export class PartnersService {
       if (!fromOrg && sources.every(result => !result.ids.length && !result.skipped)) throw new NotFoundException('Заказчик не найден');
       const now = new Date();
       const a = await this.db.collection('salesorders').updateMany({ _id: { $in: orders.ids } }, { $set: { customer: to, updatedAt: now } }, { session });
-      const b = await this.db.collection('incomes').updateMany({ _id: { $in: lines.ids } }, { $set: { customer: to, editedInApp: true } }, { session });
+      const b = await renameCustomerLines(this.db, lines.ids, to, session);
       const c = await this.db.collection('supplyrequests').updateMany({ _id: { $in: requests.ids } }, { $set: { orderLabel: to, editedInApp: true } }, { session });
       if (fromOrg && toOrg && String(fromOrg._id) !== String(toOrg._id)) await this.db.collection('organizations').updateOne({ _id: fromOrg._id }, { $set: { deletedAt: now, mergedInto: toOrg._id } }, { session });
       else if (fromOrg && !toOrg) await this.db.collection('organizations').updateOne({ _id: fromOrg._id }, { $set: { name: to, updatedAt: now, editedInApp: true } }, { session });

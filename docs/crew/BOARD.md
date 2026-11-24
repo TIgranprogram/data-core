@@ -8,11 +8,11 @@
 | C258 | Playbook DTO по касанию | done · [PLAYBOOK](C258-dto-by-touch-playbook/PLAYBOOK.md) · [Отчёт](C258-dto-by-touch-playbook/REPORT.md) |
 | C257 | Контракт shared с CRM | черновик принят · [CONTRACT](C257-shared-compat-contract/CONTRACT.md) · [Отчёт](C257-shared-compat-contract/REPORT.md) |
 | C256 | Автоматика рельсов (циклы≥3) | следующий параллель · [ТЗ](C256-arch-rails-automation/TZ.md) |
+| C251 | Хозяин записи incomes | done · [Отчёт](C251-incomes-owner-writes/REPORT.md) |
 | C255 | ESLint-границы доменов | очередь · [ТЗ](C255-domain-boundaries-eslint/TZ.md) |
 | C254 | Слой общих CRM-коллекций | очередь · [ТЗ](C254-shared-collections-layer/TZ.md) |
 | C253 | Запись products через хозяина | очередь · [ТЗ](C253-products-owner-writes/TZ.md) |
-| C252 | Запись salesorders через хозяина | очередь · [ТЗ](C252-salesorders-owner-writes/TZ.md) |
-| C251 | Запись incomes через хозяина | очередь · [ТЗ](C251-incomes-owner-writes/TZ.md) |
+| C252 | Запись salesorders через хозяина | следующий · [ТЗ](C252-salesorders-owner-writes/TZ.md) |
 | C250 | raw-query + инвентаризация писателей | done · [Отчёт](C250-raw-query-inventory/REPORT.md) · [INVENTORY](C250-raw-query-inventory/INVENTORY.md) |
 | C249 | fontDir + граница finance↔supply | done · [fontDir](C249-finance-supply-boundary/REPORT-fontDir.md) · [C249b](C249-finance-supply-boundary/REPORT.md) |
 | C248 | ourCompanies в common | done · [Отчёт](C248-our-companies-common/REPORT.md) |

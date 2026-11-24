@@ -2,16 +2,16 @@ import { claimWritableOrders } from '../../common/order-archive/write';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { type Connection, type Model, Types } from 'mongoose';
+import { IncomesService } from './incomes.service';
 import { Income, type IncomeDocument, incomePayments } from './income.schema';
 import { oid } from '../../common/list-query';
-import { versionFilter } from '../../common/versioned';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { originalClassification } from '../../common/financial-classification';
 import { incomeIdentityHash, temporaryIncomeOperationId } from './income-payment-identities';
 import { MaterializeIncomePaymentsDto } from './dto';
 @Injectable()
 export class IncomePaymentIdentitiesService {
-  constructor(@InjectConnection() private readonly connection: Connection, @InjectModel(Income.name) private readonly model: Model<IncomeDocument>) {}
+  constructor(@InjectConnection() private readonly connection: Connection, @InjectModel(Income.name) private readonly model: Model<IncomeDocument>, private readonly incomes: IncomesService) {}
   private async load(id: string) { const row = await this.model.findOne({ _id: oid(id, 'дохода'), deletedAt: null }).lean().exec(); if (!row) throw new NotFoundException('Доход не найден'); return row; }
   async plan(id: string) {
     const cur = await this.load(id), payments = incomePayments(cur), synthetic = !cur.payments?.length && !!cur.paidDate;
@@ -26,6 +26,7 @@ export class IncomePaymentIdentitiesService {
     if (prior) { if (prior.planHash !== dto.planHash) throw new ConflictException('Ключ подготовки уже использован с другим планом'); return { identityMapping: prior.identityMapping, repeated: true }; }
     if (dto.confirm !== true) return { ...(await this.plan(id)), dryRun: true };
     if (dto.version === undefined || !dto.clientUid || !dto.planHash) throw new BadRequestException('Для подготовки подтвердите версию, план и ключ повтора');
+    const clientUid = dto.clientUid; const planHash = dto.planHash; const version = dto.version;
     const plan = await this.plan(id);
     if (plan.version !== dto.version || plan.planHash !== dto.planHash) throw new ConflictException('Источник изменился: перечитайте план');
     if (plan.blockers.length) throw new ConflictException(plan.blockers[0]);
@@ -45,10 +46,8 @@ export class IncomePaymentIdentitiesService {
         return { ...p, paymentId, companyId: p.companyId || cur.companyId, classificationOriginal: p.classificationOriginal || originalClassification({ articleId: p.articleId || null, salesOrderId: cur.orderId || null }) };
       });
       const set = cur.payments?.length ? { payments } : payments.length ? { legacyPaymentMetadata: { paymentId: payments[0].paymentId, companyId: payments[0].companyId, classificationOriginal: payments[0].classificationOriginal } } : {};
-      const receipt = { clientUid: dto.clientUid, planHash: dto.planHash, identityMapping: { ...mapping } };
-      const changed = await this.model.updateOne({ _id: cur._id, ...versionFilter(dto.version) }, { $set: set, $inc: { version: 1 }, $push: { paymentIdentityReceipts: receipt } }, { session }).exec();
-      if (!changed.matchedCount) throw new ConflictException('Источник изменился: перечитайте план');
-      await this.connection.db!.collection('auditlogs').insertOne({ action: 'income.payment-identities.materialized', entityType: 'Income', entityId: cur._id, userId: actor?.id ? oid(actor.id, 'автора') : undefined, userName: actor?.username, createdAt: new Date(), details: { before: { version: dto.version, planHash: dto.planHash }, after: { version: dto.version! + 1, identityMapping: mapping }, meta: { metadataOnly: true, totals: plan.totals } } }, { session });
+      const receipt = { clientUid, planHash, identityMapping: { ...mapping } };
+      await this.incomes.commitPaymentIdentities(cur, version, set, receipt, actor, mapping, plan.totals, session);
     }); } finally { await session.endSession(); }
     return { identityMapping: mapping, materialized: true };
   }

@@ -15,6 +15,7 @@ import { CounterService } from '../counter/counter.service';
 import { parseCatalog } from './catalog-rows';
 import { legacyDefaultsReplacement, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { facetElementsPatch } from './facet-elements';
+import { bindDraftProduct } from '../../common/income-owner-port';
 import { writableCascadeRows } from '../../common/order-archive/cascade';
 import { withOrderWrite } from '../../common/order-archive/write';
 import { productNameKey, shortProductName } from './order-product-name';
@@ -689,11 +690,7 @@ export class ShowcaseService {
               productId = (await this.createRecord({ sku, name, description }, {}, session)).id;
             }
           }
-          await this.db.collection('incomes').updateMany(
-            { _id: { $in: targets.ids } },
-            { $set: { productId }, $inc: { passportEpoch: 1, version: 1 } },
-            { session },
-          );
+          await bindDraftProduct(this.db, targets.ids, productId, session);
           return { skipped: targets.skipped, made, productId };
         });
         archiveSkipped += result.skipped;

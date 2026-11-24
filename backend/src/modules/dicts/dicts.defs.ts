@@ -1,6 +1,7 @@
 import type { mongo } from 'mongoose';
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { renameIncomeText } from '../incomes/income-writes';
 import { sameRe } from '../../common/text/same-text';
 import { normSize } from '../../common/catalog/materials-text';
 import { moveOrderedRef } from '../../common/catalog/ordered-refs';
@@ -303,7 +304,7 @@ function paymentFormsList(): DictBase {
     // шапка заказа — истина, строки — её кэш: меняем обе, иначе деньги и заказ расходятся
     reassign: async (db, from, to) => {
       await db.collection('salesorders').updateMany({ paymentForm: sameRe(from.name) }, { $set: { paymentForm: s(to.name), editedInApp: true, updatedAt: new Date() } });
-      return (await db.collection('incomes').updateMany({ paymentForm: sameRe(from.name) }, { $set: { paymentForm: s(to.name), updatedAt: new Date() } })).modifiedCount;
+      return (await renameIncomeText(db, 'paymentForm', s(from.name), s(to.name))).modifiedCount;
     },
     candidates: async (db) => {
       const found = new Map<string, { name: string; uses: number; source: string }>();
@@ -596,7 +597,7 @@ const BASE: DictBase[] = [
     reassign: async (db, from, to) => {
       const [a, b, c] = await Promise.all([
         db.collection('materials').updateMany({ colors: s(from.name) }, { $set: { 'colors.$': s(to.name) } }),
-        db.collection('incomes').updateMany({ color: sameRe(from.name) }, { $set: { color: s(to.name), updatedAt: new Date() } }),
+        renameIncomeText(db, 'color', s(from.name), s(to.name)),
         db.collection('supplyrequests').updateMany({ color: sameRe(from.name) }, { $set: { color: s(to.name), editedInApp: true } }),
       ]);
       return a.modifiedCount + b.modifiedCount + c.modifiedCount;
