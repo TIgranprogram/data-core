@@ -9,6 +9,7 @@ import { getCurrentUser } from '../../common/context/user-context';
 import { FinancialArticle } from './financial-article.schema';
 import { FinancialArticleWriteDto } from './financial-article.dto';
 import { buildFinancialTree, flattenFinancialTree, seedDocs, PAYROLL_CODE, PAYROLL_NAME, type ArticleDoc, type FinancialArticleType } from './articles-tree';
+import { sharedFind } from '../../common/shared-collections';
 import { financialArticleUsage } from './financial-article-usage';
 
 type Row = Record<string, any>;
@@ -56,7 +57,9 @@ export class FinancialArticleWriter {
     if (JSON.stringify(old) === JSON.stringify(fresh)) return;
     const categories = [...new Set([...old, ...fresh])].map(v => new Types.ObjectId(v));
     if (!categories.length) return;
-    const db = this.connection.db!, requests = await db.collection('supplyrequests').find({ categoryId: { $in: categories }, $or: [{ articleId: null }, { articleId: '' }] }, { projection: { _id: 1, invoiceId: 1, paid: 1 }, session }).toArray();
+    const db = this.connection.db!;
+    // Раньше без deletedAt: снятая заявка всё ещё держит старую оплату.
+    const requests = await sharedFind(db.collection('supplyrequests'), 'supplyrequests', { categoryId: { $in: categories }, $or: [{ articleId: null }, { articleId: '' }] }, { projection: { _id: 1, invoiceId: 1, paid: 1 }, findOptions: { session }, includeDeleted: true }).toArray() as Row[];
     const ids = requests.map(r => r.invoiceId).filter(Boolean), invoices = ids.length ? await db.collection('supplyinvoices').find({ _id: { $in: ids } }, { projection: { status: 1, paymentAccountingVersion: 1, paymentSnapshot: 1, legacyClassifications: 1 }, session }).toArray() : [];
     const byId = new Map(invoices.map(i => [String(i._id), i]));
     const unresolved = requests.filter(r => {

@@ -27,6 +27,7 @@
 | L-254-0 | слой `common/shared-collections` + контракт полей шести shared; массового перевода consumers нет | [C254 REPORT](../C254-shared-collections-layer/REPORT.md) | ломать контракт полей без сверки с C257; массовый перевод без подпоставки |
 | L-254-a | `partners` читает шесть shared через `sharedFind`/`sharedCount` (имя материала — includeDeleted) | [C254 REPORT §a](../C254-shared-collections-layer/REPORT.md) | сырой find/count shared в partners мимо слоя |
 | L-254-b | `finance`/`fill-audit` читают shared через слой (снимок оплаты — includeDeleted; distinct/агрегат сырые) | [C254 REPORT §b](../C254-shared-collections-layer/REPORT.md) | сырой find/count shared в finance/fill-audit мимо слоя |
+| L-254-c | find/count шести shared вне stock/supply через слой; агрегат/distinct сырые | [C254 REPORT §c](../C254-shared-collections-layer/REPORT.md) | новый сырой find/count shared вне stock/supply/слоя |
 | L-256 | `audit-cycles` ловит пары и циклы ≥3; код ≠ 0 на новую находку; 10 длинных — снимок, не разрешение плодить | C256 REPORT | новый цикл или пара вне снимка |
 | L-258 | DTO/OpenAPI только по касанию одного эндпоинта; пакетного перевода Query-DTO нет | [C258 PLAYBOOK](../C258-dto-by-touch-playbook/PLAYBOOK.md) | массовый `@Query` → класс без инвентаря полей |
 | L-DEC | модульный монолит, не микросервисы | DECISION | «да» владельца на смену курса |

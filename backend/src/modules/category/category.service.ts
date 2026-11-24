@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { sharedFind } from '../../common/shared-collections';
 import type { StockScope } from '../../common/stock-scope';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -135,7 +136,8 @@ export class CategoryService {
     const child = await this.model.findOne({ parentId: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }).select('_id').exec();
     const refs = await Promise.all([
       this.model.db.collection('products').findOne({ categoryId: doc._id }),
-      this.model.db.collection('materials').findOne({ categoryId: doc._id }),
+      // Раньше без deletedAt: категория занята и снятой позицией.
+      sharedFind(this.model.db.collection('materials'), 'materials', { categoryId: doc._id }, { includeDeleted: true }).limit(1).toArray().then((rows) => rows[0]),
     ]);
     if (child || refs.some(Boolean)) throw new ConflictException('Category has active children or catalog references and cannot be archived');
     await this.model.updateOne({ _id: doc._id, deletedAt: null, ...this.organizationFilter(organizationId) }, { $set: { deletedAt: new Date(), isActive: false } }).exec();

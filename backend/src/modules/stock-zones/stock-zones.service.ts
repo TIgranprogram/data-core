@@ -3,6 +3,7 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe } from '../../common/list-query';
+import { sharedCount } from '../../common/shared-collections';
 import { setCategoryTree, setStockZones, zonesFor, type ZoneDef } from '../../common/stock-scope';
 import { StockZone, StockZoneDocument } from './stock-zone.schema';
 import type { CreateStockZoneDto, UpdateStockZoneDto } from './dto/stock-zone.dto';
@@ -75,7 +76,8 @@ export class StockZonesService implements OnModuleInit, OnModuleDestroy {
       if (n !== dto.categoryIds.length) throw new BadRequestException('Какой-то категории нет среди категорий материалов');
     }
     const mats = [...new Set([...(dto.includeMaterialIds ?? []), ...(dto.excludeMaterialIds ?? [])])];
-    if (mats.length && (await db.collection('materials').countDocuments({ _id: { $in: this.oids(mats) } })) !== mats.length) throw new BadRequestException('Какой-то позиции склада нет');
+    // Раньше без deletedAt: снятая позиция всё ещё «есть» для ссылки склада.
+    if (mats.length && (await sharedCount(db.collection('materials'), 'materials', { _id: { $in: this.oids(mats) } }, { includeDeleted: true }) as number) !== mats.length) throw new BadRequestException('Какой-то позиции склада нет');
     if ((dto.includeMaterialIds ?? []).some((x) => dto.excludeMaterialIds?.includes(x))) throw new BadRequestException('Одна позиция и в добавках, и в исключениях');
   }
 

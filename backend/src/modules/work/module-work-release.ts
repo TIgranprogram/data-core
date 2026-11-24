@@ -3,6 +3,7 @@ import { Types, type ClientSession, type Connection, type Model } from 'mongoose
 import { legalHash } from '../../common/legal/legal-utils';
 import { storedModuleMaterialLines, storedProductModuleLines } from '../../common/catalog/composition-line.service';
 import { oid } from '../../common/list-query';
+import { sharedFind } from '../../common/shared-collections';
 import { claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
 import { saveReleasedProductComposition } from '../product/product-writes';
 
@@ -149,7 +150,10 @@ export class ModuleWorkRelease {
           throw new ConflictException('Последняя строка также есть в старом составе CRM. Перенос этой строки требует сверки каталога.');
         }
         const row = from.lines.find((item) => same(item._id, dto.lineId));
-        if (!row || row.lineType !== 'material' || !await this.db.collection('materials').findOne({ _id: row.refId, materialKind: 'part', deletedAt: null }, { session, projection: { _id: 1 } })) {
+        const part = row && row.lineType === 'material'
+          ? (await sharedFind(this.db.collection('materials'), 'materials', { _id: row.refId, materialKind: 'part', deletedAt: null }, { projection: { _id: 1 }, findOptions: { session } }).limit(1).toArray())[0]
+          : null;
+        if (!row || row.lineType !== 'material' || !part) {
           throw new NotFoundException('В этом месте нет такой детали');
         }
         if (to.lines.some((item) => item.lineType === 'material' && same(item.refId, row.refId))) throw new ConflictException('Деталь уже есть в выбранном составе. Измените её количество отдельно.');
@@ -169,7 +173,9 @@ export class ModuleWorkRelease {
     for (const type of types) {
       const ids = source.filter((line) => line.lineType === type).map((line) => line.refId);
       if (!ids.length) continue;
-      const catalog = await this.db.collection(type === 'module' ? 'productmodules' : 'materials').find({ _id: { $in: ids } }, { session, projection: { name: 1 } }).toArray();
+      const catalog = type === 'module'
+        ? await this.db.collection('productmodules').find({ _id: { $in: ids } }, { session, projection: { name: 1 } }).toArray()
+        : await sharedFind(this.db.collection('materials'), 'materials', { _id: { $in: ids } }, { projection: { name: 1 }, findOptions: { session }, includeDeleted: true }).toArray();
       for (const item of catalog) names.set(type + ':' + String(item._id), String(item.name));
     }
     return source.map((line) => ({

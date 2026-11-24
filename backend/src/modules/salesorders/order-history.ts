@@ -1,4 +1,5 @@
 import { Types, type Connection } from 'mongoose';
+import { sharedFind } from '../../common/shared-collections';
 import { dateRange } from '../../common/list-query';
 import { STAGE_LABELS } from '../../common/text/order-key';
 import { withChanges } from '../audit/record-history';
@@ -61,7 +62,7 @@ export async function loadOrderHistory(db: Db, orderId: Types.ObjectId, q: Recor
     db.collection('shipments').find({ orderId }).toArray(),
     acc.design ? db.collection('designtasks').find({ orderId }).toArray() : Promise.resolve([] as Doc[]),
     acc.passports ? db.collection('productpassports').find({ salesOrderId: orderId }, { projection: { name: 1, passportNumber: 1, status: 1, readiness: 1, reworkNote: 1, createdAt: 1, issuedAt: 1, updatedAt: 1 } }).toArray() : Promise.resolve([] as Doc[]),
-    acc.stock ? db.collection('stockmovements').find({ salesOrderId: orderId, deletedAt: null }, { projection: { type: 1, date: 1, createdAt: 1, materialId: 1, qty: 1, isReturn: 1, issuedTo: 1, createdBy: 1, notes: 1, cancelledAt: 1 } }).toArray() : Promise.resolve([] as Doc[]),
+    acc.stock ? sharedFind(db.collection('stockmovements'), 'stockmovements', { salesOrderId: orderId, deletedAt: null }, { projection: { type: 1, date: 1, createdAt: 1, materialId: 1, qty: 1, isReturn: 1, issuedTo: 1, createdBy: 1, notes: 1, cancelledAt: 1 } }).toArray() : Promise.resolve([] as Doc[]),
   ]);
   const incomeIds = incomes.map((i) => i._id);
   const taskIds = tasks.map((t) => t._id);
@@ -69,7 +70,7 @@ export async function loadOrderHistory(db: Db, orderId: Types.ObjectId, q: Recor
     db.collection('auditlogs').find({ entityType: 'SalesOrder', entityId: orderId }).sort({ createdAt: -1 }).limit(300).toArray(),
     incomeIds.length ? db.collection('auditlogs').find({ entityType: 'Income', entityId: { $in: incomeIds } }).sort({ createdAt: -1 }).limit(500).toArray() : Promise.resolve([] as Doc[]),
     taskIds.length ? db.collection('auditlogs').find({ entityType: 'DesignTask', entityId: { $in: taskIds } }).sort({ createdAt: -1 }).limit(300).toArray() : Promise.resolve([] as Doc[]),
-    moves.length ? db.collection('materials').find({ _id: { $in: moves.map((m) => m.materialId).filter(Boolean) } }, { projection: { name: 1, unit: 1 } }).toArray() : Promise.resolve([] as Doc[]),
+    moves.length ? sharedFind(db.collection('materials'), 'materials', { _id: { $in: moves.map((m) => m.materialId).filter(Boolean) } }, { projection: { name: 1, unit: 1 }, includeDeleted: true }).toArray() : Promise.resolve([] as Doc[]),
     db.collection('users').find({ _id: { $in: [...tasks.map((t) => t.createdBy), ...moves.map((m) => m.createdBy)].filter(Boolean) } }, { projection: { displayName: 1, username: 1 } }).toArray(),
   ]);
   const uname = new Map(users.map((u) => [String(u._id), String(u.displayName || u.username || '')]));

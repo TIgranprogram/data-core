@@ -3,6 +3,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
+import { sharedFind } from '../../common/shared-collections';
 import { saveProductRoute } from '../product/product-writes';
 import { normalizeRows, productFields, rowsFromProduct, WHOLE_PRODUCT, type PartRow, type StepIn, type StepRow } from '../../common/work-route-rows';
 import type { RouteDto } from './dto/work.dto';
@@ -68,7 +69,10 @@ export class WorkRouteService {
     const partDocs = new Map<string, Doc>(); // C122: детали состава (materials.materialKind='part') с видами работ
     for (const [type, coll] of [['module', 'productmodules'], ['material', 'materials'], ['product', 'products']] as const) {
       const ids = comp.filter((l) => l.lineType === type).map((l) => l.refId);
-      if (ids.length) for (const r of await this.db().collection(coll).find({ _id: { $in: ids } }, { projection: { name: 1, ...(type === 'material' ? { materialKind: 1, workTypes: 1, deletedAt: 1 } : {}) } }).toArray()) {
+      if (ids.length) for (const r of await (type === 'material'
+        // workTypes вне контракта — документ целиком. Раньше без deletedAt: имя снятой детали остаётся.
+        ? sharedFind(this.db().collection('materials'), 'materials', { _id: { $in: ids } }, { includeDeleted: true }).toArray()
+        : this.db().collection(coll).find({ _id: { $in: ids } }, { projection: { name: 1 } }).toArray())) {
         names.set(String(r._id), String(r.name ?? ''));
         if (type === 'material' && r.materialKind === 'part' && !r.deletedAt && Array.isArray(r.workTypes) && r.workTypes.length) partDocs.set(String(r._id), r as Doc);
       }

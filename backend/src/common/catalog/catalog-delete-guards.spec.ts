@@ -19,6 +19,14 @@ function fakeDb(hits: string[] = []) {
         calls.push({ name, filter });
         return hits.includes(name) ? { _id: new Types.ObjectId() } : null;
       }),
+      find: jest.fn((filter: Record<string, unknown>) => {
+        calls.push({ name, filter });
+        const cursor = {
+          limit: () => cursor,
+          toArray: async () => (hits.includes(name) ? [{ _id: new Types.ObjectId() }] : []),
+        };
+        return cursor;
+      }),
     })),
   };
   return { db, calls };

@@ -1,13 +1,13 @@
 # C254 — отчёт backend
 
-**Статус:** C254-0, C254-a и C254-b готовы, не закоммичены. Прод не трогался. Схемы shared и kppdf не менялись. L-251/252/253 не тронуты. dicts и прочие потребители не переводились.
+**Статус:** C254-0, C254-a, C254-b и C254-c готовы, не закоммичены. Прод не трогался. Схемы shared и kppdf не менялись. L-251/252/253 не тронуты. Запись shared не трогалась.
 
 ## Подчек-лист
 
 - [x] **C254-0** — слой чтения + контракт полей (без перевода всех потребителей)
 - [x] **C254-a** — один потребитель (`partners`)
 - [x] **C254-b** — `finance` и `fill-audit`
-- [ ] **C254-c** — `dicts` и прочие по одному
+- [x] **C254-c** — `dicts` и прочие сырые find/count вне stock/supply
 - [ ] **C254-w** — запись shared только через `StockService` / `SupplyService`
 - [ ] **C254-doc** — ARCHITECTURE / UNIFY
 
@@ -54,3 +54,20 @@
 **Проверки:** `npx tsc --noEmit` — 0. `npx eslint` по этим шести файлам — 0. jest finance (6 spec) + fill-audit (2) + `read.spec.ts` — 66/66 PASS.
 
 **Риски:** distinct и агрегат shared всё ещё сырые. Запись заявок в классификации по-прежнему сырая (ветка не editable). Карта обновлена. Коммит: нет.
+
+## C254-c
+
+Сырые find/count шести shared вне `stock/` и `supply/` идут через `sharedFind` / `sharedCount`. partners, finance, fill-audit не трогались. Записи shared и incomes/salesorders/products не менялись.
+
+- `dicts`: find/count materials, supplyrequests, stockmovements. Фильтры уже с `deletedAt`. Имя материала на выдаче сотруднику — `includeDeleted` (`dicts.defs.ts:729`). У отделов проекция `num`/`title` вне контракта движений — документ целиком (`sharedOpts`, `:134`).
+- `supply-scope`: оба чтения materials с `includeDeleted` (`supply-scope.ts:17`, `:29`). Снятая позиция не выпадает из склада.
+- Прочие: showcase, salesorders, order-history, today, control, category, stock-zones, financial-article-writer, module-work-release, income-cancel, work-route, composition-expand, catalog-references, zone-events, предпросмотр слияния. Где `deletedAt` не было — `includeDeleted`.
+- Без проекции, поля вне контракта: бронь `expiresAt`/`zoneName` и ячейка `isActive`/`minQuantity` (`zone-events.ts:39`, `:62`); бронь `salesOrderLineId` (`income-cancel.service.ts:48`); `materials.workTypes` (`work-route.service.ts:73`); `passportSpec`/`composition` (`composition-expand.ts:232`).
+- Сырыми остаются агрегат и distinct: `tally` справочников (`dicts.defs.ts:139`), счётчики категорий, кандидаты «кто подал», агрегат себестоимости витрины, агрегат «сегодня», distinct finance и агрегат fill-audit/partners. Слой их не берёт.
+- `stock/` и `supply/` (включая каталог поставщика) не эта поставка: хозяева и соседние чтения склада.
+
+**Файлы:** перечисленные модули, `dicts.shared-read.spec.ts`, `supply-scope.shared-read.spec.ts`, карта, урок.
+
+**Проверки:** `npx tsc --noEmit` — 0. jest dicts 16 файлов — 88/88 PASS; income-cancel, questions, today, control, catalog-guards, composition-expand, zones, stock-zones, category, salesorders, order-history, showcase-composition, work, financial-article-writer, read.spec, supply-scope — PASS. Новых предупреждений eslint нет (старые `any` в salesorders и financial-article-writer).
+
+**Риски:** агрегат и distinct shared сырые. Запись shared сырая (C254-w). Чтения внутри stock/supply сырые. Карта обновлена. Коммит: нет.

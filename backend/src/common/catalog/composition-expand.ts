@@ -7,6 +7,8 @@
  * Без обращений к базе: загрузка — `expandComposition`.
  */
 import { Types } from 'mongoose';
+import type { RawReadCollection } from '../raw-query';
+import { sharedFind } from '../shared-collections';
 import type { SourceRef, SourceStep } from './material-source-refs';
 
 export const COMPOSITION_DEPTH = 8;
@@ -222,10 +224,12 @@ export async function expandComposition(db: GraphDb, prod: { composition?: unkno
     const ids = (kind: 'module' | 'product' | 'material') => missing.filter(([, k]) => k === kind).map(([id]) => new Types.ObjectId(id));
     const load = async (name: string, list: Types.ObjectId[], projection: Record<string, number>) =>
       (list.length ? db.collection(name).find({ _id: { $in: list } }, { projection }).toArray() : []);
+    const matIds = ids('material');
     const [mods, prods, mats] = await Promise.all([
       load('productmodules', ids('module'), { name: 1, sku: 1, unit: 1, composition: 1, materials: 1 }),
       load('products', ids('product'), { name: 1, sku: 1, unit: 1 }),
-      load('materials', ids('material'), { name: 1, article: 1, unit: 1, materialKind: 1, isProfile: 1, assortment: 1, materialGrade: 1, dimensions: 1, passportSpec: 1, composition: 1 }),
+      // passportSpec и composition вне контракта — документ целиком. Раньше без deletedAt.
+      matIds.length ? sharedFind(db.collection('materials') as unknown as RawReadCollection, 'materials', { _id: { $in: matIds } }, { includeDeleted: true }).toArray() : [],
     ]);
     const found = new Set<string>();
     for (const doc of [...mods, ...prods, ...mats]) { docs.set(String(doc._id), doc); found.add(String(doc._id)); }

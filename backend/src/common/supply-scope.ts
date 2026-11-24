@@ -1,6 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
+import { sharedFind } from './shared-collections';
 import { inScope, scopeMatch, type StockScope } from './stock-scope';
 
 /**
@@ -12,7 +13,8 @@ const both = (ids: Iterable<string>) => [...ids].filter((x) => Types.ObjectId.is
 /** Условие для запроса к документам с `materialId` / `categoryId`; `{}` — доступ полный. Объединять через `$and`. */
 export async function docScopeMatch(connection: Connection, scope: StockScope | null | undefined): Promise<Record<string, unknown>> {
   if (!scope) return {};
-  const mats = await connection.db!.collection('materials').find(scopeMatch(scope), { projection: { _id: 1 } }).toArray();
+  // Раньше без deletedAt: снятая позиция всё ещё держит заявку в своём складе.
+  const mats = await sharedFind(connection.db!.collection('materials'), 'materials', scopeMatch(scope), { projection: { _id: 1 }, includeDeleted: true }).toArray();
   const or: Record<string, unknown>[] = [{ materialId: { $in: mats.map((m) => m._id) } }];
   if (scope.categoryIds.length) or.push({ materialId: null, categoryId: { $in: both(scope.categoryIds) } });
   if (scope.noCategory) or.push({ materialId: null, categoryId: null });
@@ -24,7 +26,7 @@ export async function docInScope(connection: Connection, scope: StockScope | nul
   if (!scope) return true;
   const doc = rawDoc as { materialId?: unknown; categoryId?: unknown };
   if (doc.materialId) {
-    const m = await connection.db!.collection('materials').findOne({ _id: new Types.ObjectId(String(doc.materialId)) }, { projection: { categoryId: 1 } });
+    const m = (await sharedFind(connection.db!.collection('materials'), 'materials', { _id: new Types.ObjectId(String(doc.materialId)) }, { projection: { categoryId: 1 }, includeDeleted: true }).limit(1).toArray())[0];
     return !!m && inScope(scope, m);
   }
   return doc.categoryId ? scope.categoryIds.includes(String(doc.categoryId)) : scope.noCategory;

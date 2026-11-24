@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import type { Connection } from 'mongoose';
+import { sharedCount } from '../../common/shared-collections';
 import { latestBackupDate } from '../disk/backups';
 import { dirSize, exists } from '../disk/disk-fs';
 import { DAY_MS, emptyMetrics, type Metrics } from './control.rollup';
@@ -69,10 +70,11 @@ export async function collectNow(d: CollectDeps): Promise<Metrics> {
     ['data.fill_total', async () => (await d.fillTotals()).total],
     ['data.fill_top', async () => (await d.fillTotals()).top],
     ['data.integrity_issues', () => d.integrityIssues()],
-    ['business.requests_open', () => db.collection('supplyrequests').countDocuments(openReq)],
-    ['business.requests_overdue', () => db.collection('supplyrequests').countDocuments({ ...openReq, neededBy: { $lt: now } })],
+    ['business.requests_open', () => sharedCount(db.collection('supplyrequests'), 'supplyrequests', openReq) as Promise<number>],
+    ['business.requests_overdue', () => sharedCount(db.collection('supplyrequests'), 'supplyrequests', { ...openReq, neededBy: { $lt: now } }) as Promise<number>],
     ['business.orders_active', () => db.collection('salesorders').countDocuments({ ...alive, stage: { $nin: ['shipped', 'closed', 'cancelled'] } })],
-    ['business.stock_moves', () => db.collection('stockmovements').countDocuments({ createdAt: { $gte: since } })],
+    // Раньше без deletedAt: счётчик движений не отбрасывает снятые.
+    ['business.stock_moves', () => sharedCount(db.collection('stockmovements'), 'stockmovements', { createdAt: { $gte: since } }, { includeDeleted: true }) as Promise<number>],
     ['business.users_active', async () => ((await db.collection('auditlogs').distinct('userId', { createdAt: { $gte: since } })) as unknown[]).length],
     ['business.passports_issued', () => db.collection('productpassports').countDocuments({ ...alive, issuedAt: { $gte: since } })],
     // «Разбор»: вопросы, которые ждут человека (открытые и со сбоем кнопки)

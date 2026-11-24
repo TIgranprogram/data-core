@@ -1,4 +1,5 @@
 import type { Connection } from 'mongoose';
+import { sharedFind } from '../../common/shared-collections';
 import { ACTIVE_STAGES } from '../../common/text/order-key';
 
 /** СВ-11: события пустых зон. Окна защиты от повтора (дни) и порог срока. */
@@ -34,7 +35,8 @@ export function incomeNoContractText(amount: number, customer?: string): string 
 /** 1. Склад: бронь к выдаче (срок = expiresAt, иначе shipDate активного заказа). */
 export async function scanReservations(db: Db, notify: Notify, now = new Date()): Promise<number> {
   const limit = new Date(now.getTime() + RESERVATION_DUE_DAYS * DAY);
-  const rows = (await db.collection('reservations').find({ status: 'active', qty: { $gt: 0 }, deletedAt: null }).limit(2000).toArray()) as Doc[];
+  // Без проекции: срок (expiresAt) и зона вне контракта чтения, документ целиком.
+  const rows = (await sharedFind(db.collection('reservations'), 'reservations', { status: 'active', qty: { $gt: 0 }, deletedAt: null }).limit(2000).toArray()) as Doc[];
   const orderIds = [...new Set(rows.map((r) => r.salesOrderId).filter(Boolean).map(String))];
   const orders = orderIds.length ? ((await db.collection('salesorders').find({ _id: { $in: rows.map((r) => r.salesOrderId).filter(Boolean) as never[] }, deletedAt: null }).toArray()) as Doc[]) : [];
   const byId = new Map(orders.map((o) => [String(o._id), o]));
@@ -56,13 +58,15 @@ export async function scanReservations(db: Db, notify: Notify, now = new Date())
 
 /** 2. Склад: свободный остаток ≤ минимума (минимум задан; в открытой заявке снабжения — не шлём). */
 export async function scanLowStock(db: Db, notify: Notify): Promise<number> {
-  const items = (await db.collection('storageitems').find({ isActive: { $ne: false }, minQuantity: { $gt: 0 }, deletedAt: null }).limit(5000).toArray()) as Doc[];
+  // Без проекции: минимум и имя ячейки вне контракта, документ целиком.
+  const items = (await sharedFind(db.collection('storageitems'), 'storageitems', { isActive: { $ne: false }, minQuantity: { $gt: 0 }, deletedAt: null }).limit(5000).toArray()) as Doc[];
   const low = items.filter((i) => num(i.quantity) - num(i.reservedQty) <= num(i.minQuantity));
   if (!low.length) return 0;
   const mids = low.map((i) => i.materialId).filter(Boolean) as never[];
-  const open = mids.length ? ((await db.collection('supplyrequests').find({ materialId: { $in: mids }, status: { $nin: ['received', 'cancelled'] }, deletedAt: null }, { projection: { materialId: 1 } }).toArray()) as Doc[]) : [];
+  const open = mids.length ? ((await sharedFind(db.collection('supplyrequests'), 'supplyrequests', { materialId: { $in: mids }, status: { $nin: ['received', 'cancelled'] }, deletedAt: null }, { projection: { materialId: 1 } }).toArray()) as Doc[]) : [];
   const inRequest = new Set(open.map((x) => String(x.materialId)));
-  const mats = mids.length ? ((await db.collection('materials').find({ _id: { $in: mids } }, { projection: { name: 1, unit: 1 } }).toArray()) as Doc[]) : [];
+  // Раньше без deletedAt: подпись остатка берёт имя и снятой позиции.
+  const mats = mids.length ? ((await sharedFind(db.collection('materials'), 'materials', { _id: { $in: mids } }, { projection: { name: 1, unit: 1 }, includeDeleted: true }).toArray()) as Doc[]) : [];
   const mat = new Map(mats.map((m) => [String(m._id), m]));
   let n = 0;
   for (const i of low) {

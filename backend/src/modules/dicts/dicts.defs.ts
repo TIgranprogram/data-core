@@ -18,6 +18,8 @@ import { expenseArticlesDef } from './dicts.expense-articles';
 import { DICT_META } from './dicts.meta';
 import { resolveLogin } from './dicts.person-login';
 import { withTraits } from './dicts.passport-traits';
+import { SHARED_READ_FIELDS, isSharedCollection, sharedCount, sharedFind, type SharedCollection } from '../../common/shared-collections';
+import type { RawFilter } from '../../common/raw-query';
 type Db = mongo.Db;
 type Document = mongo.Document;
 type ObjectId = mongo.ObjectId;
@@ -121,7 +123,17 @@ const fieldValue = (f: Field, v: unknown) => {
 /** Текст по строкам: CR LF → LF, пробелы внутри строки схлопнуты, пустые края убраны; пусто — null. */
 export const lines = (v: unknown): string | null => String(v ?? '').replace(/\r\n?/g, '\n').split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).join('\n').replace(/^\n+|\n+$/g, '') || null;
 const oidOrNull = (v: unknown) => (v && Types.ObjectId.isValid(String(v)) ? new Types.ObjectId(String(v)) : null);
-const count = async (db: Db, coll: string, q: Document) => db.collection(coll).countDocuments({ deletedAt: null, ...q });
+const asFilter = (q: Document): RawFilter => q as unknown as RawFilter;
+/** Счёт шести shared — через слой. Чужие коллекции как раньше. Явный deletedAt слой не переписывает. */
+const countLive = (db: Db, coll: string, filter: Document, countOptions?: object): Promise<number> => {
+  if (isSharedCollection(coll)) return sharedCount(db.collection(coll), coll, asFilter(filter), countOptions ? { countOptions } : undefined) as Promise<number>;
+  return countOptions ? db.collection(coll).countDocuments(filter, countOptions) : db.collection(coll).countDocuments(filter);
+};
+const count = (db: Db, coll: string, q: Document) => countLive(db, coll, { deletedAt: null, ...q } as Document);
+/** Проекция shared только из контракта. Подпись вне контракта (num у движений) — документ целиком. */
+const sharedOpts = (name: SharedCollection, projection: Record<string, 1>) => (
+  Object.keys(projection).every((field) => field === '_id' || SHARED_READ_FIELDS[name].includes(field)) ? { projection } : {}
+);
 /** Сколько раз встречается каждое строковое значение поля (нормализовано). */
 // $unwind: у поля-массива (materials.colors) каждое значение считается отдельно; у строки — как было
 async function tally(db: Db, coll: string, field: string, extra: Document = {}) {
@@ -179,11 +191,17 @@ function simpleList(key: string, group: string, title: string, hint: string, ext
       const t = await tally(db, usage.coll, usage.field);
       return new Map(docs.map((d) => [String(d._id), t.get(norm(d.name)) ?? 0]));
     },
-    busy: usage ? async (db, d) => (await db.collection(usage.coll).countDocuments({ deletedAt: null, [usage.field]: sameRe(d.name) }, { limit: 1 })) > 0 : undefined,
+    busy: usage ? async (db, d) => (await countLive(db, usage.coll, { deletedAt: null, [usage.field]: sameRe(d.name) } as Document, { limit: 1 })) > 0 : undefined,
     related: async (db, d) => {
       if (!usage) return { title: '', items: [], total: 0 };
-      const q = { deletedAt: null, [usage.field]: new RegExp(`^\\s*${s(d.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i') };
-      const [rows, total] = await Promise.all([db.collection(usage.coll).find(q).sort({ _id: -1 }).limit(15).project({ num: 1, title: 1, requestDate: 1 }).toArray(), db.collection(usage.coll).countDocuments(q)]);
+      const q = { deletedAt: null, [usage.field]: new RegExp(`^\\s*${s(d.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i') } as Document;
+      const projection: Record<string, 1> = { num: 1, title: 1, requestDate: 1 };
+      const [rows, total] = await Promise.all([
+        isSharedCollection(usage.coll)
+          ? sharedFind(db.collection(usage.coll), usage.coll, asFilter(q), sharedOpts(usage.coll, projection)).sort({ _id: -1 }).limit(15).toArray()
+          : db.collection(usage.coll).find(q).sort({ _id: -1 }).limit(15).project(projection).toArray(),
+        isSharedCollection(usage.coll) ? countLive(db, usage.coll, q) : db.collection(usage.coll).countDocuments(q),
+      ]);
       return { title: 'Заявки', total, items: rows.map((r) => ({ label: `№${r.num ?? ''} ${s(r.title)}`, href: '#requests?open=' + String(r._id) })) };
     },
     reassign: async (db, from, to) => {
@@ -275,7 +293,10 @@ function metalList(key: string, title: string, hint: string, field: 'assortment'
     ...simpleList(key, 'Склад и позиции', title, hint, [], { coll: 'materials', field }),
     related: async (db, d) => {
       const q = { deletedAt: null, [field]: rx(d.name) };
-      const [rows, total] = await Promise.all([db.collection('materials').find(q).sort({ _id: -1 }).limit(15).project({ name: 1 }).toArray(), db.collection('materials').countDocuments(q)]);
+      const [rows, total] = await Promise.all([
+        sharedFind(db.collection('materials'), 'materials', q, { projection: { name: 1 } }).sort({ _id: -1 }).limit(15).toArray(),
+        countLive(db, 'materials', q),
+      ]);
       return { title: 'Позиции склада', total, items: rows.map((r) => ({ label: s(r.name), href: '#stock?open=' + String(r._id) })) };
     },
     reassign: async (db, from, to) => (await db.collection('materials').updateMany({ [field]: rx(from.name) }, { $set: { [field]: s(to.name), updatedAt: new Date() } })).modifiedCount,
@@ -455,7 +476,10 @@ const BASE: DictBase[] = [
     },
     related: async (db, d) => {
       const q = { deletedAt: null, categoryId: d._id };
-      const [rows, total] = await Promise.all([db.collection('materials').find(q).sort({ name: 1 }).limit(15).project({ name: 1, unit: 1 }).toArray(), count(db, 'materials', { categoryId: d._id })]);
+      const [rows, total] = await Promise.all([
+        sharedFind(db.collection('materials'), 'materials', q, { projection: { name: 1, unit: 1 } }).sort({ name: 1 }).limit(15).toArray(),
+        count(db, 'materials', { categoryId: d._id }),
+      ]);
       return { title: 'Позиции склада', total, items: rows.map((r) => ({ label: s(r.name), href: '#stock?open=' + String(r._id) })) };
     },
     reassign: async (db, from, to) => {
@@ -531,12 +555,15 @@ const BASE: DictBase[] = [
     },
     busy: async (db, d) => {
       const q = { deletedAt: null, unit: { $in: [s(d.symbol), s(d.key)].filter(Boolean).map(sameRe) } };
-      return (await db.collection('materials').countDocuments(q, { limit: 1 })) + (await db.collection('supplyrequests').countDocuments(q, { limit: 1 })) > 0;
+      return (await countLive(db, 'materials', q, { limit: 1 })) + (await countLive(db, 'supplyrequests', q, { limit: 1 })) > 0;
     },
     related: async (db, d) => {
       const vals = [s(d.symbol), s(d.key)].filter(Boolean);
       const q = { deletedAt: null, unit: { $in: vals } };
-      const [rows, total] = await Promise.all([db.collection('materials').find(q).sort({ name: 1 }).limit(15).project({ name: 1 }).toArray(), db.collection('materials').countDocuments(q)]);
+      const [rows, total] = await Promise.all([
+        sharedFind(db.collection('materials'), 'materials', q, { projection: { name: 1 } }).sort({ name: 1 }).limit(15).toArray(),
+        countLive(db, 'materials', q),
+      ]);
       return { title: 'Позиции склада в этих единицах', total, items: rows.map((r) => ({ label: s(r.name), href: '#stock?open=' + String(r._id) })) };
     },
     reassign: async (db, from, to) => {
@@ -579,16 +606,22 @@ const BASE: DictBase[] = [
     },
     busy: async (db, d) => {
       const re = sameRe(d.name);
-      return (await db.collection('materials').countDocuments({ deletedAt: null, colors: re }, { limit: 1 })) + (await db.collection('incomes').countDocuments({ deletedAt: null, color: re }, { limit: 1 }))
-        + (await db.collection('supplyrequests').countDocuments({ deletedAt: null, color: re }, { limit: 1 })) > 0;
+      return (await countLive(db, 'materials', { deletedAt: null, colors: re }, { limit: 1 })) + (await db.collection('incomes').countDocuments({ deletedAt: null, color: re }, { limit: 1 }))
+        + (await countLive(db, 'supplyrequests', { deletedAt: null, color: re }, { limit: 1 })) > 0;
     },
     related: async (db, d) => {
       const q = { deletedAt: null, colors: s(d.name) };
-      const [rows, total] = await Promise.all([db.collection('materials').find(q).limit(15).project({ name: 1 }).toArray(), db.collection('materials').countDocuments(q)]);
+      const [rows, total] = await Promise.all([
+        sharedFind(db.collection('materials'), 'materials', q, { projection: { name: 1 } }).limit(15).toArray(),
+        countLive(db, 'materials', q),
+      ]);
       const qi = { deletedAt: null, color: sameRe(d.name) };
       const [inc, incTotal] = await Promise.all([db.collection('incomes').find(qi).sort({ _id: -1 }).limit(15).project({ orderNo: 1, title: 1, orderId: 1 }).toArray(), db.collection('incomes').countDocuments(qi)]);
       const qr = { deletedAt: null, color: sameRe(d.name) };
-      const [req, reqTotal] = await Promise.all([db.collection('supplyrequests').find(qr).sort({ _id: -1 }).limit(15).project({ num: 1, title: 1 }).toArray(), db.collection('supplyrequests').countDocuments(qr)]);
+      const [req, reqTotal] = await Promise.all([
+        sharedFind(db.collection('supplyrequests'), 'supplyrequests', qr, { projection: { num: 1, title: 1 } }).sort({ _id: -1 }).limit(15).toArray(),
+        countLive(db, 'supplyrequests', qr),
+      ]);
       return {
         title: 'Позиции этого цвета', total, items: rows.map((r) => ({ label: s(r.name), href: '#stock?open=' + String(r._id) })),
         more: [
@@ -677,8 +710,8 @@ const BASE: DictBase[] = [
     // заявки (кто подал) + выдачи со склада
     busy: async (db, d) => {
       const names = [`${s(d.firstName)} ${s(d.lastName)}`, `${s(d.lastName)} ${s(d.firstName)}`].map((x) => x.trim()).filter(Boolean).map(sameRe);
-      if ((await db.collection('supplyrequests').countDocuments({ deletedAt: null, requestedBy: { $in: names } }, { limit: 1 })) > 0) return true;
-      return (await db.collection('stockmovements').countDocuments({ issuedToPersonId: d._id, deletedAt: null }, { limit: 1 })) > 0;
+      if ((await countLive(db, 'supplyrequests', { deletedAt: null, requestedBy: { $in: names } }, { limit: 1 })) > 0) return true;
+      return (await countLive(db, 'stockmovements', { issuedToPersonId: d._id, deletedAt: null }, { limit: 1 })) > 0;
     },
     // в заявках человек записан «Имя Фамилия»: каскад — только при смене имени или фамилии (не должности и телефона)
     renameKey: (d) => norm(`${s(d.firstName)} ${s(d.lastName)}`),
@@ -686,10 +719,14 @@ const BASE: DictBase[] = [
       const names = [`${s(d.firstName)} ${s(d.lastName)}`, `${s(d.lastName)} ${s(d.firstName)}`].map((x) => x.trim()).filter(Boolean);
       const q = { deletedAt: null, requestedBy: { $in: names.map((n) => new RegExp(`^\\s*${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i')) } };
       const iq = { issuedToPersonId: d._id, type: 'out', deletedAt: null, cancelledAt: null };
-      const [rows, total, mvs, mvTotal] = await Promise.all([db.collection('supplyrequests').find(q).sort({ requestDate: -1 }).limit(15).project({ num: 1, title: 1 }).toArray(), db.collection('supplyrequests').countDocuments(q),
-        db.collection('stockmovements').find(iq).sort({ date: -1 }).limit(15).project({ materialId: 1, qty: 1, date: 1 }).toArray(), db.collection('stockmovements').countDocuments(iq)]);
-      // что выдано со склада этому сотруднику (TASKS Л.3)
-      const mats = mvs.length ? await db.collection('materials').find({ _id: { $in: mvs.map((m) => m.materialId) } }, { projection: { name: 1, unit: 1 } }).toArray() : [];
+      const [rows, total, mvs, mvTotal] = await Promise.all([
+        sharedFind(db.collection('supplyrequests'), 'supplyrequests', q, { projection: { num: 1, title: 1 } }).sort({ requestDate: -1 }).limit(15).toArray(),
+        countLive(db, 'supplyrequests', q),
+        sharedFind(db.collection('stockmovements'), 'stockmovements', iq, { projection: { materialId: 1, qty: 1, date: 1 } }).sort({ date: -1 }).limit(15).toArray(),
+        countLive(db, 'stockmovements', iq),
+      ]);
+      // что выдано со склада этому сотруднику (TASKS Л.3). Раньше без deletedAt: имя нужно и у снятой позиции.
+      const mats = mvs.length ? await sharedFind(db.collection('materials'), 'materials', { _id: { $in: mvs.map((m) => m.materialId) } }, { projection: { name: 1, unit: 1 }, includeDeleted: true }).toArray() : [];
       const mat = new Map(mats.map((m) => [String(m._id), m]));
       const day = (v: unknown) => (v instanceof Date ? v.toLocaleDateString('ru-RU') : '');
       const issued: Related = { title: 'Выдано со склада', total: mvTotal, items: mvs.map((m) => ({ label: s(mat.get(String(m.materialId))?.name) || 'позиция', sub: `${m.qty} ${s(mat.get(String(m.materialId))?.unit)} · ${day(m.date)}`, href: '#movements?open=' + String(m._id) })) };

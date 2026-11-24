@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import type { mongo } from 'mongoose';
+import { sharedFind } from '../../../common/shared-collections';
 import { DICT } from '../../dicts/dicts.defs';
 import type { DictsService } from '../../dicts/dicts.service';
 import type { PartnersService } from '../../partners/partners.service';
@@ -51,7 +52,10 @@ export function buildActions(d: ActionDeps): ActionDef[] {
       const lines = [`Контрагент «${a.name}» будет объединён с «${b.name}»; «${a.name}» уйдёт в корзину.`];
       const counts: Record<string, string[]> = {};
       for (const [coll, forms] of MERGE_COLLS) {
-        const ids = (await d.db.collection(coll).find({ supplierId: oid(fromId) }, { projection: { _id: 1 } }).toArray()).map((x) => x._id as Types.ObjectId);
+        const found = coll === 'supplyrequests'
+          ? await sharedFind(d.db.collection('supplyrequests'), 'supplyrequests', { supplierId: oid(fromId) }, { projection: { _id: 1 }, includeDeleted: true }).toArray()
+          : await d.db.collection(coll).find({ supplierId: oid(fromId) }, { projection: { _id: 1 } }).toArray();
+        const ids = found.map((x) => x._id as Types.ObjectId);
         counts[coll] = ids.map(String).sort();
         if (ids.length) { touched.push({ coll, ids }); lines.push(`Перейдёт к «${b.name}»: ${q(ids.length, forms)}.`); }
       }

@@ -6,6 +6,7 @@ import type { ClientSession, Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { oid } from '../../common/list-query';
+import { sharedFind } from '../../common/shared-collections';
 import { StockService } from '../stock/stock.service';
 import { IncomesService } from './incomes.service';
 
@@ -43,13 +44,14 @@ export class IncomeCancelService {
     const ids = lines.map((l) => oidOf(l._id));
     if (!ids.length) return [];
     const [resv, design, work, supply, pass, ships, moves] = await Promise.all([
-      this.coll('reservations').find({ salesOrderLineId: { $in: ids }, status: 'active', deletedAt: null }, { session, projection: { salesOrderLineId: 1, qty: 1, groupName: 1 } }).toArray(),
+      // salesOrderLineId брони вне контракта чтения — документ целиком, группировка зависимостей та же.
+      sharedFind(this.coll('reservations'), 'reservations', { salesOrderLineId: { $in: ids }, status: 'active', deletedAt: null }, { findOptions: { session } }).toArray(),
       this.coll('designtasks').find({ incomeId: { $in: ids }, status: { $in: ['queue', 'work', 'paused'] }, deletedAt: null }, { session, projection: { incomeId: 1, status: 1, code: 1, title: 1 } }).toArray(),
       this.coll('worktasks').find({ incomeId: { $in: ids }, status: { $in: ['waiting', 'work'] }, deletedAt: null }, { session, projection: { incomeId: 1, status: 1, code: 1, stepKey: 1 } }).toArray(),
-      this.coll('supplyrequests').find({ salesOrderLineId: { $in: ids }, status: { $nin: ['received', 'cancelled'] }, deletedAt: null }, { session, projection: { salesOrderLineId: 1, status: 1, num: 1, title: 1, qty: 1 } }).toArray(),
+      sharedFind(this.coll('supplyrequests'), 'supplyrequests', { salesOrderLineId: { $in: ids }, status: { $nin: ['received', 'cancelled'] }, deletedAt: null }, { projection: { salesOrderLineId: 1, status: 1, num: 1, title: 1, qty: 1 }, findOptions: { session } }).toArray(),
       this.coll('productpassports').find({ incomeId: { $in: ids }, status: { $ne: 'annulled' }, deletedAt: null }, { session, projection: { incomeId: 1, status: 1, passportNumber: 1 } }).toArray(),
       this.coll('shipments').find({ 'lines.incomeId': { $in: ids }, deletedAt: null }, { session, projection: { lines: 1, num: 1 } }).toArray(),
-      this.coll('stockmovements').find({ salesOrderLineId: { $in: ids }, deletedAt: null, cancelledAt: null }, { session, projection: { salesOrderLineId: 1 } }).toArray(),
+      sharedFind(this.coll('stockmovements'), 'stockmovements', { salesOrderLineId: { $in: ids }, deletedAt: null, cancelledAt: null }, { projection: { salesOrderLineId: 1 }, findOptions: { session } }).toArray(),
     ]);
     const by = (rows: Doc[], f: string) => { const m = new Map<string, Doc[]>(); for (const r of rows) { const k = s(r[f]); m.set(k, [...(m.get(k) ?? []), r]); } return m; };
     const rV = by(resv, 'salesOrderLineId'), rD = by(design, 'incomeId'), rW = by(work, 'incomeId'), rS = by(supply, 'salesOrderLineId'), rP = by(pass, 'incomeId'), rM = by(moves, 'salesOrderLineId');

@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
+import { sharedFind } from '../../common/shared-collections';
 import type { DataVersionService } from '../../common/data-version/data-version.service';
 import { replaceProductComposition } from '../../common/product-owner-port';
 import { wouldCycle } from './composition-cycle';
@@ -20,7 +21,7 @@ export class ShowcaseComposition {
     if (!lines.length) return [];
     const ids = (t: string) => lines.filter((l) => l.lineType === t).map((l) => l.refId as Types.ObjectId);
     const [mats, prods, mods] = await Promise.all([
-      this.db.collection('materials').find({ _id: { $in: ids('material') } }, { projection: { name: 1, article: 1, unit: 1, deletedAt: 1, materialKind: 1, isProfile: 1 } }).toArray(),
+      sharedFind(this.db.collection('materials'), 'materials', { _id: { $in: ids('material') } }, { projection: { name: 1, article: 1, unit: 1, deletedAt: 1, materialKind: 1, isProfile: 1 }, includeDeleted: true }).toArray(),
       this.db.collection('products').find({ _id: { $in: ids('product') } }, { projection: { name: 1, sku: 1, unit: 1, photoIds: 1, composition: 1, deletedAt: 1 } }).toArray(),
       this.db.collection('productmodules').find({ _id: { $in: ids('module') } }, { projection: { name: 1, sku: 1, unit: 1 } }).toArray(),
     ]);
@@ -28,7 +29,7 @@ export class ShowcaseComposition {
     // состав вложенных изделий — названия материалов / изделий их строк (1 уровень)
     const inner = prods.flatMap((p) => ((p.composition as Record<string, unknown>[]) ?? []));
     const [im, ip] = await Promise.all([
-      this.db.collection('materials').find({ _id: { $in: inner.filter((l) => l.lineType === 'material').map((l) => l.refId as Types.ObjectId) } }, { projection: { name: 1, unit: 1 } }).toArray(),
+      sharedFind(this.db.collection('materials'), 'materials', { _id: { $in: inner.filter((l) => l.lineType === 'material').map((l) => l.refId as Types.ObjectId) } }, { projection: { name: 1, unit: 1 }, includeDeleted: true }).toArray(),
       this.db.collection('products').find({ _id: { $in: inner.filter((l) => l.lineType === 'product').map((l) => l.refId as Types.ObjectId) } }, { projection: { name: 1 } }).toArray(),
     ]);
     const innerName = new Map([...im, ...ip].map((x) => [String(x._id), x]));
@@ -75,7 +76,7 @@ export class ShowcaseComposition {
     const refs = lines.map((l) => oid(refOf(l), typeOf(l) === 'material' ? 'материала' : typeOf(l) === 'product' ? 'изделия' : 'модуля'));
     const pick = (t: string) => refs.filter((_, i) => typeOf(lines[i]) === t);
     const [mats, prods, mods] = await Promise.all([
-      this.db.collection('materials').find({ _id: { $in: pick('material') } }, { projection: { unit: 1 } }).toArray(),
+      sharedFind(this.db.collection('materials'), 'materials', { _id: { $in: pick('material') } }, { projection: { unit: 1 }, includeDeleted: true }).toArray(),
       this.db.collection('products').find({ _id: { $in: pick('product') }, deletedAt: null }, { projection: { unit: 1 } }).toArray(),
       this.db.collection('productmodules').find({ _id: { $in: pick('module') } }, { projection: { unit: 1 } }).toArray(),
     ]);
@@ -146,7 +147,7 @@ export class ShowcaseComposition {
       n.set(k, { lineType: String(l.lineType), refId: String(l.refId), n: (n.get(k)?.n ?? 0) + 1 });
     }
     const top = [...n.values()].sort((a, b) => b.n - a.n).slice(0, 8);
-    const names = new Map([...(await this.db.collection('materials').find({ _id: { $in: top.filter((x) => x.lineType === 'material').map((x) => new Types.ObjectId(x.refId)) } }, { projection: { name: 1, unit: 1 } }).toArray()),
+    const names = new Map([...(await sharedFind(this.db.collection('materials'), 'materials', { _id: { $in: top.filter((x) => x.lineType === 'material').map((x) => new Types.ObjectId(x.refId)) } }, { projection: { name: 1, unit: 1 }, includeDeleted: true }).toArray()),
       ...(await this.db.collection('products').find({ _id: { $in: top.filter((x) => x.lineType === 'product').map((x) => new Types.ObjectId(x.refId)) } }, { projection: { name: 1, unit: 1 } }).toArray())].map((x) => [String(x._id), x]));
     return { items: top.map((x) => ({ ...x, name: String(names.get(x.refId)?.name ?? ''), unit: String(names.get(x.refId)?.unit ?? 'шт') })).filter((x) => x.name) };
   }
@@ -167,7 +168,7 @@ export class ShowcaseComposition {
         { $sort: { requestDate: -1, createdAt: -1 } },
         { $group: { _id: '$materialId', priceHint: { $first: '$priceHint' }, lineTotal: { $first: '$lineTotal' }, qty: { $first: '$qty' }, receivedQty: { $first: '$receivedQty' }, date: { $first: { $ifNull: ['$requestDate', '$createdAt'] } } } },
       ]).toArray() : Promise.resolve([]),
-      matIds.length ? this.db.collection('materials').find({ _id: { $in: matIds } }, { projection: { pricePerUnit: 1 } }).toArray() : Promise.resolve([]),
+      matIds.length ? sharedFind(this.db.collection('materials'), 'materials', { _id: { $in: matIds } }, { projection: { pricePerUnit: 1 }, includeDeleted: true }).toArray() : Promise.resolve([]),
     ]);
     const unitPrice = (x: Record<string, unknown>) => (Number(x.priceHint) > 0 ? Number(x.priceHint) : Number(x.lineTotal)) / (Number(x.receivedQty) > 0 ? Number(x.receivedQty) : Number(x.qty));
     const buy = new Map(last.map((x) => [String(x._id), { price: unitPrice(x), date: (x.date as Date) ?? null }]));

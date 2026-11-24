@@ -1,4 +1,5 @@
 import type { Connection, Types } from 'mongoose';
+import { sharedFind } from '../shared-collections';
 
 /** Коллекции действующего каталога, в чьих `composition[]` может стоять ссылка на запись справочника. C127: + materials (состав детали). */
 export const COMPOSITION_OWNER_COLLECTIONS = ['products', 'productmodules', 'materials'] as const;
@@ -16,12 +17,12 @@ export async function isUsedInComposition(
   extra: Partial<Record<(typeof COMPOSITION_OWNER_COLLECTIONS)[number], Record<string, unknown>[]>> = {},
 ): Promise<boolean> {
   const hits = await Promise.all(
-    COMPOSITION_OWNER_COLLECTIONS.map((name) =>
-      db.collection(name).findOne(
-        { $or: [{ composition: { $elemMatch: { lineType, refId } } }, ...(extra[name] ?? [])] },
-        { projection: { _id: 1 } },
-      ),
-    ),
+    COMPOSITION_OWNER_COLLECTIONS.map((name) => {
+      const filter = { $or: [{ composition: { $elemMatch: { lineType, refId } } }, ...(extra[name] ?? [])] };
+      // Раньше без deletedAt: ссылка в составе снятой позиции всё ещё занята.
+      if (name === 'materials') return sharedFind(db.collection('materials'), 'materials', filter, { projection: { _id: 1 }, includeDeleted: true }).limit(1).toArray().then((rows) => rows[0] ?? null);
+      return db.collection(name).findOne(filter, { projection: { _id: 1 } });
+    }),
   );
   return hits.some(Boolean);
 }

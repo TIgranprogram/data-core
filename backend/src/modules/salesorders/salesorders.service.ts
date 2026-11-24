@@ -13,6 +13,7 @@ import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
 import { ourCompanies } from '../../common/our-companies';
+import { sharedCount, sharedFind } from '../../common/shared-collections';
 import { normText } from '../../common/text/norm-text';
 import { ZonesService } from '../zones/zones.service';
 import type { SalesOrderDto } from './dto';
@@ -171,12 +172,13 @@ export class SalesOrdersService {
     const db = this.connection.db!;
     const [lines, supplyRequests, stockMovements, reservations] = await Promise.all([
       this.incomes().find({ orderId: _id, deletedAt: null }).sort({ lineNo: 1, createdAt: 1, _id: 1 }).toArray(),
-      seeReq ? db.collection('supplyrequests').find({ salesOrderId: _id, deletedAt: null }, { projection: { num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, salesOrderLineId: 1, supplierId: 1 } }).sort({ requestDate: -1 }).toArray() : Promise.resolve([] as Doc[]),
-      seeStock ? db.collection('stockmovements').find({ salesOrderId: _id, deletedAt: null, cancelledAt: null }, { projection: { type: 1, date: 1, materialId: 1, qty: 1, notes: 1, salesOrderLineId: 1, issuedToPersonId: 1, issuedTo: 1, reservationId: 1, reason: 1, isReturn: 1, cancelOf: 1 } }).sort({ date: -1 }).toArray() : Promise.resolve([] as Doc[]),
+      seeReq ? sharedFind(db.collection('supplyrequests'), 'supplyrequests', { salesOrderId: _id, deletedAt: null }, { projection: { num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, salesOrderLineId: 1, supplierId: 1 } }).sort({ requestDate: -1 }).toArray() : Promise.resolve([] as Doc[]),
+      seeStock ? sharedFind(db.collection('stockmovements'), 'stockmovements', { salesOrderId: _id, deletedAt: null, cancelledAt: null }, { projection: { type: 1, date: 1, materialId: 1, qty: 1, notes: 1, salesOrderLineId: 1, issuedToPersonId: 1, issuedTo: 1, reservationId: 1, reason: 1, isReturn: 1, cancelOf: 1 } }).sort({ date: -1 }).toArray() : Promise.resolve([] as Doc[]),
       // брони под заказ (TASKS Б.3): активные и выданные, снятые — нет
-      db.collection('reservations').find({ salesOrderId: _id, deletedAt: null, status: { $in: ['active', 'fulfilled'] } }, { projection: { batchId: 1, groupName: 1, orderId: 1, materialId: 1, qty: 1, issuedQty: 1, status: 1, createdAt: 1 } }).sort({ createdAt: -1 }).toArray(),
+      sharedFind(db.collection('reservations'), 'reservations', { salesOrderId: _id, deletedAt: null, status: { $in: ['active', 'fulfilled'] } }, { projection: { batchId: 1, groupName: 1, orderId: 1, materialId: 1, qty: 1, issuedQty: 1, status: 1, createdAt: 1 } }).sort({ createdAt: -1 }).toArray(),
     ]);
-    const mats = await db.collection('materials').find({ _id: { $in: [...stockMovements, ...reservations].map((m) => m.materialId).filter(Boolean) } }, { projection: { name: 1, unit: 1 } }).toArray();
+    // Раньше без deletedAt: имя нужно и у снятой позиции.
+    const mats = await sharedFind(db.collection('materials'), 'materials', { _id: { $in: [...stockMovements, ...reservations].map((m) => m.materialId).filter(Boolean) } }, { projection: { name: 1, unit: 1 }, includeDeleted: true }).toArray();
     const matName = new Map(mats.map((m) => [String(m._id), m]));
     // кому выдано (TASKS Л.3)
     const pids = stockMovements.map((m) => m.issuedToPersonId).filter(Boolean) as Types.ObjectId[];
@@ -524,7 +526,7 @@ export class SalesOrdersService {
   /** Договор можно вывести из заказа, только если по нему нет выдач со склада и отгрузок. */
   async ensureDetachable(orderId: Types.ObjectId, session: ClientSession) {
     const db = this.connection.db!;
-    const issued = await db.collection('stockmovements').countDocuments({ salesOrderId: orderId, deletedAt: null, cancelledAt: null }, { limit: 1, session });
+    const issued = await sharedCount(db.collection('stockmovements'), 'stockmovements', { salesOrderId: orderId, deletedAt: null, cancelledAt: null }, { countOptions: { limit: 1, session } }) as number;
     const shipped = await db.collection('shipments').countDocuments({ orderId, deletedAt: null }, { limit: 1, session });
     if (issued || shipped) throw new ConflictException('Договор уже в работе: есть выдачи/отгрузки');
   }

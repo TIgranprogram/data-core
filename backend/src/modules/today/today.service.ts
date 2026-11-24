@@ -4,6 +4,7 @@ import type { Connection } from 'mongoose';
 import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { ACTIVE_STAGES } from '../../common/text/order-key';
 import { canSeeMoney } from '../../common/roles-hierarchy';
+import { sharedCount, sharedFind } from '../../common/shared-collections';
 import { stockScopeFor } from '../../common/stock-scope';
 import { FinanceService } from '../finance/finance.service';
 import { presentWork } from '../work/work-present';
@@ -87,7 +88,11 @@ export class TodayService {
     const see = (id: string) => sectionOpen(open, id);
     const db = this.connection.db!;
     const live = { deletedAt: null };
-    const count = (coll: string, filter: Record<string, unknown>) => db.collection(coll).countDocuments({ ...live, ...filter });
+    const count = (coll: string, filter: Record<string, unknown>) => {
+      const q = { ...live, ...filter };
+      if (coll === 'supplyrequests') return sharedCount(db.collection(coll), 'supplyrequests', q) as Promise<number>;
+      return db.collection(coll).countDocuments(q);
+    };
     const out: Record<string, number> = {};
     await Promise.all([
       see('requests') && count('supplyrequests', { status: { $in: ['requested', 'in_progress', 'ordered', null] } }).then((n) => { out.requests = n; }),
@@ -124,8 +129,10 @@ export class TodayService {
     const base = { deletedAt: null };
     const [by, rows] = await Promise.all([
       db.collection('supplyrequests').aggregate<{ _id: string; n: number }>([{ $match: base }, { $group: { _id: '$status', n: { $sum: 1 } } }]).toArray(),
-      db.collection('supplyrequests').find({ ...base, status: 'ordered', neededBy: { $lte: upto } },
-        { projection: { num: 1, title: 1, neededBy: 1, supplierId: 1, requestedBy: 1, responsibleId: 1 }, sort: { neededBy: 1 }, limit: LIMIT }).toArray(),
+      sharedFind(db.collection('supplyrequests'), 'supplyrequests', { ...base, status: 'ordered', neededBy: { $lte: upto } }, {
+        projection: { num: 1, title: 1, neededBy: 1, supplierId: 1, requestedBy: 1, responsibleId: 1 },
+        findOptions: { sort: { neededBy: 1 }, limit: LIMIT },
+      }).toArray(),
     ]);
     const counts: Record<string, number> = { requested: 0, in_progress: 0, ordered: 0, received: 0 };
     for (const b of by) if (b._id in counts) counts[b._id] = b.n;
