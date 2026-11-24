@@ -4,7 +4,7 @@
 
 | ID | Суть | Статус |
 |--|--|--|
-| C260 | Склады через API (срез 1) | пауза · [ТЗ](C260-warehouses-api-slice/TZ.md) · [чеклист](C260-warehouses-api-slice/CHECKLIST.md) |
+| C260 | Склады через API (срез 1) | done · [Отчёт](C260-warehouses-api-slice/REPORT.md) · L-260 |
 | C259 | План CRM→API (без кода) | done · [План](C259-crm-api-client-plan/PLAN-SLICES.md) · L-259 |
 | C258 | Playbook DTO по касанию | done · [PLAYBOOK](C258-dto-by-touch-playbook/PLAYBOOK.md) · [Отчёт](C258-dto-by-touch-playbook/REPORT.md) |
 | C257 | Контракт shared с CRM | черновик принят · [CONTRACT](C257-shared-compat-contract/CONTRACT.md) · [Отчёт](C257-shared-compat-contract/REPORT.md) |

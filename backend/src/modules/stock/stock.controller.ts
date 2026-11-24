@@ -9,7 +9,7 @@ import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { StockCorrectDto, StockBatchDto, StockCompositionAcceptDto, StockIssueDto, StockIssueOrderDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReservationUpdateDto, StockReserveListDto, StockSpecApplyDto, StockSpecPreviewDto } from './dto';
+import { CreateWarehouseDto, PatchWarehouseDto, StockCorrectDto, StockBatchDto, StockCompositionAcceptDto, StockIssueDto, StockIssueOrderDto, StockItemDto, StockOffcutDto, StockMoveDto, StockPhotoDto, StockReservationUpdateDto, StockReserveListDto, StockSpecApplyDto, StockSpecPreviewDto } from './dto';
 import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
 import { narrowToZone, type StockScope } from '../../common/stock-scope';
 import { StockZonesService } from '../stock-zones/stock-zones.service';
@@ -31,6 +31,30 @@ export class StockController {
   @Roles('admin', 'director', 'manager', 'user')
   warehouses() {
     return this.stock.listWarehouses();
+  }
+
+  /** C260: новый склад. Флаг `c260.warehouses.api` выключен — 409, маршрут остаётся. */
+  @Post('warehouses')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.warehouse.created', entityType: 'Warehouse' })
+  createWarehouse(@Body() dto: CreateWarehouseDto) {
+    return this.stock.createWarehouse(dto);
+  }
+
+  /** C260: правка известных полей (`$set`). Один склад по умолчанию. */
+  @Patch('warehouses/:id')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.warehouse.updated', entityType: 'Warehouse', idParam: 'id' })
+  patchWarehouse(@Param('id') id: string, @Body() dto: PatchWarehouseDto) {
+    return this.stock.patchWarehouse(id, dto);
+  }
+
+  /** C260: снятие с учёта (`deletedAt`), не путать с зонами `/stock/zones`. */
+  @Delete('warehouses/:id')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.warehouse.deleted', entityType: 'Warehouse', idParam: 'id' })
+  removeWarehouse(@Param('id') id: string) {
+    return this.stock.removeWarehouse(id);
   }
 
   /** Склады (зоны доступа), доступные пользователю: `{items:[{id,name,isDefault,order}]}` — для переключателя склада (один — скрыть). Остальные списки принимают `zoneId`. */

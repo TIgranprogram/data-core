@@ -24,7 +24,7 @@ export type { MoveInput, MoveType, StockItemInput } from './stock.types';
  *
  * | метод                                                                                   | файл                          |
  * |-----------------------------------------------------------------------------------------|-------------------------------|
- * | defaultWarehouse, listWarehouses, (loadStorage, markEdited, issuedNames)               | stock-core.service.ts         |
+ * | defaultWarehouse, listWarehouses, createWarehouse, patchWarehouse, removeWarehouse (C260) | stock-core.service.ts         |
  * | listItems, getItem, openRequests, itemOrdered, categorySummary, totals                  | stock-search.service.ts       |
  * | createItem, updateItem, addPhoto, mainPhoto, removePhoto, removeItem, restoreItem, findMaterialByName, autoArticle, skuFor, adoptArticle | stock-catalog.service.ts |
  * | bulkUpdate, bulkRestore (C043: массовая правка позиций и «Отменить»)                     | stock-bulk.ts                 |
@@ -52,6 +52,9 @@ export class StockService {
   // --- склад
   defaultWarehouse() { return this.core.defaultWarehouse(); }
   listWarehouses() { return this.core.listWarehouses(); }
+  createWarehouse(dto: Parameters<StockCoreService['createWarehouse']>[0]) { return this.core.createWarehouse(dto); }
+  patchWarehouse(id: string, dto: Parameters<StockCoreService['patchWarehouse']>[1]) { return this.core.patchWarehouse(id, dto); }
+  removeWarehouse(id: string) { return this.core.removeWarehouse(id); }
   issuedNames(docs: Parameters<StockCoreService['issuedNames']>[0]) { return this.core.issuedNames(docs); }
   totals() { return this.search.totals(); }
 

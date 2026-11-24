@@ -2769,6 +2769,67 @@
         "tags": [
           "Склад"
         ]
+      },
+      "post": {
+        "operationId": "StockController_createWarehouse",
+        "description": "C260. Флаг c260.warehouses.api выключен — 409, маршрут остаётся.",
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "409": {
+            "description": "флаг выключен или нет единственного склада по умолчанию"
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/api/stock/warehouses/{id}": {
+      "patch": {
+        "operationId": "StockController_patchWarehouse",
+        "description": "C260: только известные поля, $set.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      },
+      "delete": {
+        "operationId": "StockController_removeWarehouse",
+        "description": "C260: снятие, deletedAt.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
       }
     },
     "/api/stock/zones": {

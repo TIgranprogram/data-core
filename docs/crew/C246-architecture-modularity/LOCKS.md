@@ -34,6 +34,7 @@
 | L-258 | DTO/OpenAPI только по касанию одного эндпоинта; пакетного перевода Query-DTO нет | [C258 PLAYBOOK](../C258-dto-by-touch-playbook/PLAYBOOK.md) | массовый `@Query` → класс без инвентаря полей |
 | L-255 | частичные границы: три домена + платформа + common→три; полное «только index» выкл | [C255 REPORT](../C255-domain-boundaries-eslint/REPORT.md) | ослаблять включённое правило; включать полное без погашения долга |
 | L-259 | план CRM→API принят; код перевода (C260+) только после L-259 и по одному срезу | [C259 PLAN-SLICES](../C259-crm-api-client-plan/PLAN-SLICES.md) | начинать C260+ без принятого плана; один флаг на все срезы |
+| L-260 | запись `warehouses` в API через stock-writes; флаг `c260.warehouses.api` (выкл = 409, CRM может Mongo) | [C260 REPORT](../C260-warehouses-api-slice/REPORT.md) | сырая запись warehouses мимо stock-writes; включать флаг без перевода CRM |
 | L-DEC | модульный монолит, не микросервисы | DECISION | «да» владельца на смену курса |
 
 ## Правила для любого агента

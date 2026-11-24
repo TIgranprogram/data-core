@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { FeatureFlagModule } from '../feature-flag/feature-flag.module';
 import { QrModule } from '../qr/qr.module';
 import { CounterModule } from '../counter/counter.module';
 import { StockZonesModule } from '../stock-zones/stock-zones.module';
@@ -26,6 +27,7 @@ import { StockService } from './stock.service';
 /** /api/stock — склад на общих коллекциях CRM kppdf (docs/UNIFY-SUPPLY-WAREHOUSE.md). */
 @Module({
   imports: [
+    FeatureFlagModule,
     CounterModule,
     QrModule,
     StockZonesModule,

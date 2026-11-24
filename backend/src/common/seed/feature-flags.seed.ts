@@ -4,6 +4,7 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { FeatureFlagService } from '../../modules/feature-flag/feature-flag.service';
+import { WAREHOUSE_API_FLAG } from '../../modules/stock/warehouse-flag';
 
 const DEFAULT_FLAGS = [
   {
@@ -36,6 +37,14 @@ const DEFAULT_FLAGS = [
     description: 'Enable advanced analytics dashboards',
     enabledByDefault: false,
     category: 'analytics',
+    isActive: true,
+  },
+  {
+    key: WAREHOUSE_API_FLAG,
+    label: 'Склады пишет API',
+    description: 'Включён — хозяин записи warehouses это API data-core. Выключен — CRM снова может писать Mongo; POST/PATCH/DELETE /api/stock/warehouses остаются и отвечают 409.',
+    enabledByDefault: false,
+    category: 'stock',
     isActive: true,
   },
   // «Паспорта v2» больше не флаг: с 2026-10-23 это единственный вид паспорта (БЗ-7 шаг 1б); запись в базе ни на что не влияет

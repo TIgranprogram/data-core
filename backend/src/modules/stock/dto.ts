@@ -162,3 +162,29 @@ export class StockCompositionAcceptDto {
 export class StockPhotoDto {
   @ApiProperty({ description: 'id фото из POST /api/photos/upload' }) @IsMongoId() photoId!: string;
 }
+
+const WAREHOUSE_TYPES = ['main', 'branch', 'transit', 'production', 'other'] as const;
+
+/** C260: создание склада. Лишние ключи режет ValidationPipe. */
+export class CreateWarehouseDto {
+  @ApiProperty({ description: 'Название склада' }) @IsString() @Length(1, 200) name!: string;
+  @ApiPropertyOptional({ enum: WAREHOUSE_TYPES }) @IsOptional() @IsIn(WAREHOUSE_TYPES) type?: 'main' | 'branch' | 'transit' | 'production' | 'other';
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 500) address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+  @ApiPropertyOptional({ description: 'Ровно один склад по умолчанию' }) @IsOptional() @IsBoolean() isDefault?: boolean;
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(100) @IsString({ each: true }) @Length(1, 100, { each: true }) zoneNames?: string[];
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(50) @IsMongoId({ each: true }) roleIds?: string[];
+}
+
+/** C260: правка склада. Пустое тело — 400. Снятие — отдельный DELETE. */
+export class PatchWarehouseDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 200) name?: string;
+  @ApiPropertyOptional({ enum: WAREHOUSE_TYPES }) @IsOptional() @IsIn(WAREHOUSE_TYPES) type?: 'main' | 'branch' | 'transit' | 'production' | 'other';
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 500) address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+  @ApiPropertyOptional({ description: 'Ровно один склад по умолчанию' }) @IsOptional() @IsBoolean() isDefault?: boolean;
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(100) @IsString({ each: true }) @Length(1, 100, { each: true }) zoneNames?: string[];
+  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(50) @IsMongoId({ each: true }) roleIds?: string[];
+}
