@@ -1,0 +1,106 @@
+{
+  "checks": [
+    {
+      "ok": true,
+      "name": "cancel: устаревший повтор не отправлен",
+      "data": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 71,
+          "q": "болт"
+        }
+      ]
+    },
+    {
+      "ok": true,
+      "name": "cancel: новый экран не испорчен"
+    },
+    {
+      "ok": true,
+      "name": "cancellight: геометрия страницы сохранена",
+      "data": 0
+    }
+  ],
+  "cases": [
+    {
+      "kind": "cancel",
+      "theme": "light",
+      "requests": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 71,
+          "q": "болт"
+        }
+      ],
+      "otherRequests": 12,
+      "responses": [
+        {
+          "status": "requested",
+          "code": 429
+        },
+        {
+          "status": "ordered",
+          "code": 200
+        },
+        {
+          "status": "paid",
+          "code": 200
+        },
+        {
+          "status": "cancelled",
+          "code": 200
+        },
+        {
+          "status": "in_progress",
+          "code": 200
+        },
+        {
+          "status": "received",
+          "code": 200
+        },
+        {
+          "status": null,
+          "code": 200
+        },
+        {
+          "status": "requested",
+          "code": 200
+        },
+        {
+          "status": "paid",
+          "code": 200
+        },
+        {
+          "status": "ordered",
+          "code": 200
+        },
+        {
+          "status": "in_progress",
+          "code": 200
+        },
+        {
+          "status": null,
+          "code": 200
+        },
+        {
+          "status": "received",
+          "code": 200
+        },
+        {
+          "status": "cancelled",
+          "code": 200
+        }
+      ],
+      "failedColumns": 0,
+      "pageOverflow": 0
+    }
+  ],
+  "errors": [],
+  "screenshots": []
+}

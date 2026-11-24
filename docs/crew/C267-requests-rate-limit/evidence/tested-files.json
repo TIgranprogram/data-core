@@ -1,0 +1,15 @@
+{
+  "base": "6cb171d9",
+  "algorithm": "sha256-utf8-lf",
+  "sha256": {
+    "backend/pwa/core/api.js": "6b397cc490ec866eaab4aa9209a8eb2d511239a656d2df5279ca35f111b51e07",
+    "backend/pwa/index.html": "06ad855ec86bf6726641a4efba605315b9be68904bc49c165297f8378c381972",
+    "backend/pwa/sections/atlas-data.js": "d710fafc1ffbcb4c4b2d1f448176047cb0786bbe1f1dc48f335ca4090ee3953d",
+    "backend/pwa/sections/help-guide-data.js": "1e026b1749ba95fcd354a10b6c868396444c2dfc16d03eb8b5b9dca2cdd11149",
+    "backend/pwa/ui/kit/board.js": "bec23dc1a39892862433d17b01054ba2eea536dd3f600e1caae5039c7dbb2eb2",
+    "backend/pwa/ui/kit/list.js": "781f30f123a4cb772884f5cb24ca92343d5b6dbbb67fc412876157cdcfed17c2",
+    "backend/pwa/core/rate-limit-retry.js": "91d80877fd4eca4fc41f478a3950f7c8ca59e031a499ba15be0c99fd86c95ba5",
+    "backend/pwa/core/rate-limit-retry.test.mjs": "f1620458847dfdbef4f1262223a992867acc7de2dd013afe1c18921a58f52c2a",
+    "backend/pwa/ui/kit/board-rate-limit.test.mjs": "67f852295ee4ee6769364895c5e34d4afdb370a315b24b7768a8c760384518bb"
+  }
+}

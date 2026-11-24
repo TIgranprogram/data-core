@@ -1,0 +1,90 @@
+{
+  "requests": [
+    {
+      "at": 486,
+      "status": null,
+      "page": null
+    },
+    {
+      "at": 487,
+      "status": "requested",
+      "page": "1"
+    },
+    {
+      "at": 488,
+      "status": "ordered",
+      "page": "1"
+    },
+    {
+      "at": 488,
+      "status": "paid",
+      "page": "1"
+    },
+    {
+      "at": 489,
+      "status": "received",
+      "page": "1"
+    },
+    {
+      "at": 489,
+      "status": "in_progress",
+      "page": "1"
+    },
+    {
+      "at": 489,
+      "status": "cancelled",
+      "page": "1"
+    },
+    {
+      "at": 1610,
+      "status": "requested",
+      "page": "1"
+    }
+  ],
+  "responses": [
+    {
+      "at": 505,
+      "status": "requested",
+      "code": 429
+    },
+    {
+      "at": 570,
+      "status": "paid",
+      "code": 200
+    },
+    {
+      "at": 572,
+      "status": "received",
+      "code": 200
+    },
+    {
+      "at": 572,
+      "status": "in_progress",
+      "code": 200
+    },
+    {
+      "at": 573,
+      "status": null,
+      "code": 200
+    },
+    {
+      "at": 584,
+      "status": "ordered",
+      "code": 200
+    },
+    {
+      "at": 590,
+      "status": "cancelled",
+      "code": 200
+    },
+    {
+      "at": 1611,
+      "status": "requested",
+      "code": 429
+    }
+  ],
+  "errors": [],
+  "failed": 1,
+  "retryButtons": 0,
+  "text": "Заказать\n—\nВыбрать все\nВыберите позиции и закажите у поставщика.\nНе загрузилось\nСлишком много запросов — подождите минуту."
+}

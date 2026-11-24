@@ -4,6 +4,7 @@
 
 | ID | Суть | Статус |
 |--|--|--|
+| C267 | Доска заявок: пауза429 и повтор колонки | код+проверки+дизайнер PASS · выпуск отдельно · [REPORT](C267-requests-rate-limit/REPORT.md) |
 | C266 | Плотность списков и завершённые фильтры | done · v2.54 · [RELEASE](C266-filter-compact/RELEASE.md) · [UI-REVIEW](C266-filter-compact/UI-REVIEW.md) |
 | C265 | Приход + откат через API | done · [Отчёт](C265-receipt-api-slice/REPORT.md) · L-265 |
 | C264 | Бронь + reservedQty через API | done · [Отчёт](C264-reservation-api-slice/REPORT.md) · L-264 |

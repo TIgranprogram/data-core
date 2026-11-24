@@ -1,0 +1,415 @@
+{
+  "checks": [
+    {
+      "ok": true,
+      "name": "transientlight: ожидание объяснено",
+      "data": "Заказать\n…\nВыбрать все\nВыберите позиции и закажите у поставщика.\nСервер просит подождать. Загрузка повторится автоматически."
+    },
+    {
+      "ok": true,
+      "name": "light-waiting: сообщение/действие не приглушено с карточками",
+      "data": {
+        "opacity": 1,
+        "color": "rgb(23, 32, 28)",
+        "insideCards": false
+      }
+    },
+    {
+      "ok": true,
+      "name": "light: пауза сервера соблюдена",
+      "data": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 3014,
+          "q": ""
+        }
+      ]
+    },
+    {
+      "ok": true,
+      "name": "light: колонка восстановилась"
+    },
+    {
+      "ok": true,
+      "name": "transientlight: геометрия страницы сохранена",
+      "data": 0
+    },
+    {
+      "ok": true,
+      "name": "transientdark: ожидание объяснено",
+      "data": "Заказать\n…\nВыбрать все\nВыберите позиции и закажите у поставщика.\nСервер просит подождать. Загрузка повторится автоматически."
+    },
+    {
+      "ok": true,
+      "name": "dark-waiting: сообщение/действие не приглушено с карточками",
+      "data": {
+        "opacity": 1,
+        "color": "rgb(211, 219, 216)",
+        "insideCards": false
+      }
+    },
+    {
+      "ok": true,
+      "name": "dark: пауза сервера соблюдена",
+      "data": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 3023,
+          "q": ""
+        }
+      ]
+    },
+    {
+      "ok": true,
+      "name": "dark: колонка восстановилась"
+    },
+    {
+      "ok": true,
+      "name": "transientdark: геометрия страницы сохранена",
+      "data": 0
+    },
+    {
+      "ok": true,
+      "name": "repeated-retry: сообщение/действие не приглушено с карточками",
+      "data": {
+        "opacity": 1,
+        "color": "rgb(32, 37, 43)",
+        "insideCards": false
+      }
+    },
+    {
+      "ok": true,
+      "name": "repeated: нет лишних автоматических попыток",
+      "data": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 1019,
+          "q": ""
+        },
+        {
+          "at": 1432,
+          "q": ""
+        }
+      ]
+    },
+    {
+      "ok": true,
+      "name": "repeated: явный повтор загрузил колонку",
+      "data": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 1019,
+          "q": ""
+        },
+        {
+          "at": 1432,
+          "q": ""
+        }
+      ]
+    },
+    {
+      "ok": true,
+      "name": "repeated: соседние колонки не перезапрашиваются",
+      "data": {
+        "before": 6,
+        "after": 6
+      }
+    },
+    {
+      "ok": true,
+      "name": "repeatedsoft: геометрия страницы сохранена",
+      "data": 0
+    },
+    {
+      "ok": true,
+      "name": "neighbor-retry: сообщение/действие не приглушено с карточками",
+      "data": {
+        "opacity": 1,
+        "color": "rgb(23, 32, 28)",
+        "insideCards": false
+      }
+    },
+    {
+      "ok": true,
+      "name": "neighbor: нет лишних автоматических попыток",
+      "data": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 150,
+          "q": ""
+        }
+      ]
+    },
+    {
+      "ok": true,
+      "name": "neighbor: явный повтор загрузил колонку",
+      "data": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 150,
+          "q": ""
+        }
+      ]
+    },
+    {
+      "ok": true,
+      "name": "neighbor: соседние колонки не перезапрашиваются",
+      "data": {
+        "before": 6,
+        "after": 6
+      }
+    },
+    {
+      "ok": true,
+      "name": "neighbor: запоздавший ответ соседней колонки сохранён"
+    },
+    {
+      "ok": true,
+      "name": "neighborlight: геометрия страницы сохранена",
+      "data": 0
+    }
+  ],
+  "cases": [
+    {
+      "kind": "transient",
+      "theme": "light",
+      "requests": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 3014,
+          "q": ""
+        }
+      ],
+      "otherRequests": 6,
+      "responses": [
+        {
+          "status": "requested",
+          "code": 429
+        },
+        {
+          "status": "ordered",
+          "code": 200
+        },
+        {
+          "status": "received",
+          "code": 200
+        },
+        {
+          "status": "paid",
+          "code": 200
+        },
+        {
+          "status": null,
+          "code": 200
+        },
+        {
+          "status": "in_progress",
+          "code": 200
+        },
+        {
+          "status": "cancelled",
+          "code": 200
+        },
+        {
+          "status": "requested",
+          "code": 200
+        }
+      ],
+      "failedColumns": 0,
+      "pageOverflow": 0
+    },
+    {
+      "kind": "transient",
+      "theme": "dark",
+      "requests": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 3023,
+          "q": ""
+        }
+      ],
+      "otherRequests": 6,
+      "responses": [
+        {
+          "status": "requested",
+          "code": 429
+        },
+        {
+          "status": "ordered",
+          "code": 200
+        },
+        {
+          "status": "paid",
+          "code": 200
+        },
+        {
+          "status": "received",
+          "code": 200
+        },
+        {
+          "status": "in_progress",
+          "code": 200
+        },
+        {
+          "status": null,
+          "code": 200
+        },
+        {
+          "status": "cancelled",
+          "code": 200
+        },
+        {
+          "status": "requested",
+          "code": 200
+        }
+      ],
+      "failedColumns": 0,
+      "pageOverflow": 0
+    },
+    {
+      "kind": "repeated",
+      "theme": "soft",
+      "requests": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 1019,
+          "q": ""
+        },
+        {
+          "at": 1432,
+          "q": ""
+        }
+      ],
+      "otherRequests": 6,
+      "responses": [
+        {
+          "status": "requested",
+          "code": 429
+        },
+        {
+          "status": "ordered",
+          "code": 200
+        },
+        {
+          "status": null,
+          "code": 200
+        },
+        {
+          "status": "paid",
+          "code": 200
+        },
+        {
+          "status": "received",
+          "code": 200
+        },
+        {
+          "status": "in_progress",
+          "code": 200
+        },
+        {
+          "status": "cancelled",
+          "code": 200
+        },
+        {
+          "status": "requested",
+          "code": 429
+        },
+        {
+          "status": "requested",
+          "code": 200
+        }
+      ],
+      "failedColumns": 0,
+      "pageOverflow": 0
+    },
+    {
+      "kind": "neighbor",
+      "theme": "light",
+      "requests": [
+        {
+          "at": 0,
+          "q": ""
+        },
+        {
+          "at": 150,
+          "q": ""
+        }
+      ],
+      "otherRequests": 6,
+      "responses": [
+        {
+          "status": "requested",
+          "code": 429
+        },
+        {
+          "status": "in_progress",
+          "code": 200
+        },
+        {
+          "status": "paid",
+          "code": 200
+        },
+        {
+          "status": null,
+          "code": 200
+        },
+        {
+          "status": "received",
+          "code": 200
+        },
+        {
+          "status": "cancelled",
+          "code": 200
+        },
+        {
+          "status": "requested",
+          "code": 200
+        },
+        {
+          "status": "ordered",
+          "code": 200
+        }
+      ],
+      "failedColumns": 0,
+      "pageOverflow": 0
+    }
+  ],
+  "errors": [],
+  "screenshots": [
+    "light-waiting.png",
+    "light-recovered.png",
+    "dark-waiting.png",
+    "dark-recovered.png",
+    "repeated-retry.png",
+    "repeated-recovered.png",
+    "neighbor-retry.png",
+    "neighbor-recovered.png"
+  ]
+}
