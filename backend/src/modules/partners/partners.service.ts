@@ -8,6 +8,7 @@ import { renameOrderCustomers } from '../../common/salesorder-owner-port';
 import { writableCascadeRows } from '../../common/order-archive/cascade';
 import { withOrderWrite } from '../../common/order-archive/write';
 import { escapeRe } from '../../common/list-query';
+import { isSharedCollection, sharedCount, sharedFind } from '../../common/shared-collections';
 import { matchesAll, searchTokens } from '../../common/text/search-norm';
 
 type Doc = Record<string, unknown>;
@@ -68,6 +69,7 @@ export class PartnersService {
     const orgs = await this.db.collection('organizations').find({ deletedAt: null, ...(our ? { isOurCompany: true } : { isOurCompany: { $ne: true }, ...NOT_CUSTOMER_ONLY }) }).toArray();
     const ids = orgs.map((o) => o._id);
     const field = our ? 'companyId' : 'supplierId';
+    // C254-a: агрегат. Слой оборачивает find/count, не pipeline (C254-0). $match уже с deletedAt: null.
     const agg = await this.db.collection('supplyrequests').aggregate([
       { $match: { [field]: { $in: ids }, deletedAt: null } },
       { $group: { _id: `$${field}`, n: { $sum: 1 }, sum: { $sum: { $ifNull: ['$priceHint', 0] } }, last: { $max: '$requestDate' } } },
@@ -143,8 +145,9 @@ export class PartnersService {
     const our = o.isOurCompany === true;
     const row = (await this.suppliers(our)).find((x) => x.id === id)!;
     if (see.requests === false) return { ...row, related: [] };
-    const reqs = await this.db.collection('supplyrequests').find({ [our ? 'companyId' : 'supplierId']: _id, deletedAt: null }).sort({ requestDate: -1 }).limit(3000) // все заявки — в карточке сгруппированы по месяцам
-      .project({ num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, priceHint: 1 }).toArray();
+    const reqs = await sharedFind(this.db.collection('supplyrequests'), 'supplyrequests', { [our ? 'companyId' : 'supplierId']: _id, deletedAt: null },
+      { projection: { num: 1, title: 1, qty: 1, unit: 1, status: 1, paid: 1, requestDate: 1, priceHint: 1 } })
+      .sort({ requestDate: -1 }).limit(3000).toArray(); // все заявки — в карточке сгруппированы по месяцам
     return { ...row, related: reqs.map((r) => ({ ...r, id: String(r._id), _id: String(r._id) })) };
   }
 
@@ -157,8 +160,10 @@ export class PartnersService {
     if (!ids.length) return { reservations: [], issues: [] };
     const orderNo = new Map(orders.map((o) => [String(o._id), String(o.orderNo ?? '')]));
     const [res, mvs] = await Promise.all([
-      this.db.collection('reservations').find({ salesOrderId: { $in: ids }, deletedAt: null, status: { $in: ['active', 'fulfilled'] } }, { projection: { batchId: 1, groupName: 1, orderId: 1, qty: 1, issuedQty: 1, status: 1, createdAt: 1, salesOrderId: 1 } }).toArray(),
-      this.db.collection('stockmovements').find({ salesOrderId: { $in: ids }, type: 'out', deletedAt: null, cancelledAt: null }, { projection: { date: 1, materialId: 1, qty: 1, issuedToPersonId: 1, issuedTo: 1, salesOrderId: 1 } }).sort({ date: -1 }).limit(50).toArray(),
+      sharedFind(this.db.collection('reservations'), 'reservations', { salesOrderId: { $in: ids }, deletedAt: null, status: { $in: ['active', 'fulfilled'] } },
+        { projection: { batchId: 1, groupName: 1, orderId: 1, qty: 1, issuedQty: 1, status: 1, createdAt: 1, salesOrderId: 1 } }).toArray(),
+      sharedFind(this.db.collection('stockmovements'), 'stockmovements', { salesOrderId: { $in: ids }, type: 'out', deletedAt: null, cancelledAt: null },
+        { projection: { date: 1, materialId: 1, qty: 1, issuedToPersonId: 1, issuedTo: 1, salesOrderId: 1 } }).sort({ date: -1 }).limit(50).toArray(),
     ]);
     const groups = new Map<string, { key: string; name: string; orderId: string; orderNo: string; createdAt: unknown; lines: number; left: number; issued: number }>();
     for (const r of res) {
@@ -170,8 +175,10 @@ export class PartnersService {
       groups.set(key, g);
     }
     const [mats, persons] = await Promise.all([
-      this.db.collection('materials').find({ _id: { $in: mvs.map((m) => m.materialId) } }, { projection: { name: 1, unit: 1 } }).toArray(),
-      this.db.collection('persons').find({ _id: { $in: mvs.map((m) => m.issuedToPersonId).filter(Boolean) } }, { projection: { lastName: 1, firstName: 1 } }).toArray(),
+      // Раньше без deletedAt: имя нужно и у снятой позиции. includeDeleted не сужает выдачу.
+      sharedFind(this.db.collection('materials'), 'materials', { _id: { $in: mvs.map((m) => m.materialId) } },
+        { projection: { name: 1, unit: 1 }, includeDeleted: true }).toArray(),
+      this.db.collection('persons').find({ _id: { $in: mvs.map((m) => m.issuedToPersonId).filter((id) => id != null) as Types.ObjectId[] } }, { projection: { lastName: 1, firstName: 1 } }).toArray(),
     ]);
     const mat = new Map(mats.map((m) => [String(m._id), m]));
     const pn = new Map(persons.map((p) => [String(p._id), [p.lastName, p.firstName].filter(Boolean).join(' ')]));
@@ -281,8 +288,8 @@ export class PartnersService {
       _id = this.oid(id);
       if (!(await this.db.collection('organizations').findOne({ _id, deletedAt: null }))) throw new NotFoundException('Контрагент не найден');
       const [asSupplier, asCompany, orders] = await Promise.all([
-        this.db.collection('supplyrequests').countDocuments({ supplierId: _id, deletedAt: null }),
-        this.db.collection('supplyrequests').countDocuments({ companyId: _id, deletedAt: null }),
+        sharedCount(this.db.collection('supplyrequests'), 'supplyrequests', { supplierId: _id, deletedAt: null }) as Promise<number>,
+        sharedCount(this.db.collection('supplyrequests'), 'supplyrequests', { companyId: _id, deletedAt: null }) as Promise<number>,
         this.db.collection('salesorders').countDocuments({ companyId: _id, deletedAt: null }),
       ]);
       const used = [asSupplier && `${asSupplier} заявк. как поставщик`, asCompany && `${asCompany} заявк. на компанию`, orders && `${orders} заказ.`].filter(Boolean);
@@ -292,7 +299,12 @@ export class PartnersService {
       for (const c of await this.db.listCollections({}, { nameOnly: true }).toArray()) {
         if (['organizations', 'auditlogs'].includes(c.name) || c.name.startsWith('system.')) continue;
         // удалённые записи (deletedAt) удалению не мешают; в ответе — понятное имя и номера (пользователь 2026-10-29)
-        const refs = await this.db.collection(c.name).find({ $or: or, deletedAt: null }, { projection: { num: 1, no: 1, orderNo: 1, name: 1 } }).limit(6).toArray();
+        const refFilter = { $or: or, deletedAt: null };
+        const label = { num: 1, no: 1, orderNo: 1, name: 1 };
+        // Подписи 409 шире контракта (например storageitems.name). Без проекции документ целиком, фильтр уже живой.
+        const refs = isSharedCollection(c.name)
+          ? await sharedFind(this.db.collection(c.name), c.name, refFilter).limit(6).toArray()
+          : await this.db.collection(c.name).find(refFilter, { projection: label }).limit(6).toArray();
         if (refs.length) {
           const nums = refs.slice(0, 5).map((r) => r.num ?? r.no ?? r.orderNo ?? r.name).filter((v) => v != null && v !== '').map((v) => `№ ${v}`);
           throw new ConflictException(`Контрагент указан в: ${REF_LABELS[c.name] ?? c.name}${nums.length ? ' (' + nums.join(', ') + (refs.length > 5 ? ' и др.' : '') + ')' : ''} — уберите его там или «Объединить с…»`);
