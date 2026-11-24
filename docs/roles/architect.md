@@ -12,3 +12,5 @@
 2026-11-19 · «договор поставки» не определяет нашу сторону: сначала ИНН продавца/покупателя; SalesOrder — клиентский договор, productionNo только группировка. Счёт/условия аванса не создают поступление; PDF в фото позиции не заменяет юридический комплект договора · docs/crew/C164-new-documents-chain-audit/AUDIT-CODE.md
 
 2026-11-19 · callback транзакции, выбранный по invoiceId первого GET, не защищает первоначально standalone заявку от позднего attach→confirm. Freshsource/CAS нужен на всех receipt ветках до движения; исправление обычного PATCH не покрывает приёмку · docs/crew/C165-undated-payments-and-filename-repair/ARCH-REVIEW.md
+
+2026-11-24 · shared с CRM — контракт полей, не перевод на API: замок S/G менять только синхронно с kppdf; добавка A без required и без default на save; orderId движений и брони — строка, у заявки — ObjectId · docs/crew/C257-shared-compat-contract/CONTRACT.md

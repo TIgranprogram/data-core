@@ -1,6 +1,6 @@
 # Карта роли architect
 
-коммит: 588387bf · аудит C246, 24.11.2026. Приёмка конкретного изменения фиксируется отдельно.
+коммит: 588387bf · аудит C246, 24.11.2026. C257 — черновик docs без коммита. Приёмка конкретного изменения фиксируется отдельно.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
 Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
@@ -26,3 +26,4 @@
 - C245: [runtime review](../../crew/C245-pult-remember-login/ARCH-REVIEW.md):rotationfailure не подтверждаетстарыйdiskblob, текущийrefresh остаётсявmemory; тестовыйfreezeотдельно.
 - C245 final: offline-logout guard и boundedGemma4probe review PASS,3runtimeSHA вARCH-REVIEW; QA137Node/8authUI, широкаяDOMwaitгонка исправляется толькоtest.
 - C246: [заменяемость доменов 2/5](../../crew/C246-architecture-modularity/REPORT.md). audit-cycles: 1 пара order-line-plan↔work (task-bars.ts:45). products: 28 записей вне product. АБЗ-3 открыт.
+- C257: черновик [CONTRACT](../../crew/C257-shared-compat-contract/CONTRACT.md) шести shared. Замок S/G только с синхроном CRM; добавка A без копии в kppdf. `orderId` движений и брони — строка, у заявки — ObjectId. CRM→API не начат. Дерево kppdf не сверялось.

@@ -26,7 +26,7 @@ C259… CRM → API  (XL, только после «да» владельца; �
 ## Очередь программ
 
 - [ ] **C256** — автоматика рельсов: длинные циклы, якорь в `dc check` / verify. [ТЗ](../C256-arch-rails-automation/TZ.md)
-- [ ] **C257** — контракт shared-коллекций (поля, запреты, тесты совместимости). [ТЗ](../C257-shared-compat-contract/TZ.md)
+- [~] **C257** — контракт shared принят как черновик (diff kppdf открыт). [CONTRACT](../C257-shared-compat-contract/CONTRACT.md) · [REPORT](../C257-shared-compat-contract/REPORT.md)
 - [x] **C258** — регламент DTO/OpenAPI по касанию эндпоинта (образец кода отложен). [PLAYBOOK](../C258-dto-by-touch-playbook/PLAYBOOK.md) · [REPORT](../C258-dto-by-touch-playbook/REPORT.md)
 - [ ] **C259** — план срезов «CRM клиент API» (без кода kppdf, пока нет «да»). [ТЗ](../C259-crm-api-client-plan/TZ.md)
 - [ ] **C260+** — срезы перевода CRM (создаются после «да»; каждый срез сам зелёный)
