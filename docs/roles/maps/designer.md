@@ -1,6 +1,6 @@
 # Карта роли designer
 
-коммит: 88fe3eff · опорная ревизия для поиска, 23.11.2026. Приёмка конкретного изменения фиксируется отдельно.
+коммит: e32e99b3 · опорная ревизия для поиска, 24.11.2026. Приёмка конкретного изменения фиксируется отдельно.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
 Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
@@ -15,6 +15,8 @@
 
 История карты до сокращения: `git show 3929ea33:docs/roles/maps/designer.md | rg -n 'слово|Cxxx'`. Подробные результаты остаются в отчётах задач.
 
+- C266: `AUDIT-RECHECK.md` — PASS P0 заявки/долги, регрессия остатков, P1 заказы/контрагенты/продукция. Светлая 1440, стенд :3102. Якоря: `ui/panels.css` блок `.list-screen`, `ui/kit/list.js` число/подсказка/сброс, `ui/kit/filter-panel.js` ручка. Первая `.ls-reset` на заказах спрятана в свёрнутом блоке.
+- C266 FINAL: `UI-REVIEW.md` — PASS фильтров desktop по `evidence-final/metrics.json` (101/101), light/soft/dark, панель240px, 1024/1920 и низкое окно1440×640; общий searchBox, дроби целиком, сброс слева, скролл тела. Якоря: `ui/kit/filter.js` tileLabel/inlineFilter, `ui/kit/kit.css` .ff-nums, `ui/panels.css` top:auto. Мобильный/#kit не заявляются проверенными.
 - C237/C238: `UI-REVIEW.md` в папках crew — PASS назначенной дельты; заполненные desktop в двух темах и PDF просмотрены. Якоря: `sections/order-footer.js:64`, `ui/kit/board.js:276`. Не принимать skeleton таблицы за заполненное состояние; theme проверять по actual dataset, не только имени PNG/localStorage. Унаследованные белёсые кнопки dark вынесены координатору отдельно.
 - C239: `DESIGN-REVIEW.md` — PASS независимой приёмки: один договор 18/11/44, 9 строк/8 рисунков, 7 PNG light1440/dark1024 (верх/низ), явное подтверждение и disabled повтор. Реальный API-backfill отдельно от синтетического UI. Якорь: `pult/ui/document-intake-images.js:57`.
 - C240: UI-REVIEW — PASS показанных readonly/config элементов по четырём заполненным fixture; полная админка/ACL/C242 отдельно. C243: UI-REVIEW — PASS минимальной дельты: settled light/dark показывают Нет предложения рядом с историей DNS/85 299; prod/server filter отдельно.

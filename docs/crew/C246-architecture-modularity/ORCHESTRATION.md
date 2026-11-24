@@ -10,3 +10,14 @@
 | C249b | — | finance↔supply | **после** C248 (`finance.service.ts`) |
 
 Приёмка и коммиты — координатор, по одному этапу после зелёных отчётов. Прод не трогаем.
+
+## Волна 24.11 (расширение)
+
+| Поток | Агент | Scope |
+|--|--|--|
+| C251 | backend | хозяин incomes (продолжается) |
+| C256 | backend | audit-cycles ≥3 + ворота |
+| C257 | architect | черновик CONTRACT shared |
+| C258 | backend | PLAYBOOK DTO (docs) |
+
+Вход: [PROGRAM.md](PROGRAM.md) · [LOCKS.md](LOCKS.md).
