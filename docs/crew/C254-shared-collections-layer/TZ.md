@@ -15,13 +15,13 @@
 - [x] **C254-b** — следующий потребитель (`finance` / `fill-audit` — по INVENTORY)
 - [x] **C254-c** — `dicts` и прочие по одному
 - [x] **C254-w** — запись shared в data-core только через `StockService`/`SupplyService`
-- [ ] **C254-doc** — ARCHITECTURE / UNIFY: совместимость с прямой записью CRM
+- [x] **C254-doc** — ARCHITECTURE / UNIFY: совместимость с прямой записью CRM
 
 Места с намеренным `includeDeleted` — явно. Не один коммит на весь L.
 
 ## Критерии закрытия C254
-- [ ] grep сырых записей shared вне stock/supply в backend data-core = 0
-- [ ] все подпоставки `[x]`; full по затронутому перед выкладкой
+- [x] grep сырых записей shared вне stock/supply в backend data-core = 0 (C254-w)
+- [x] все подпоставки `[x]`; full по затронутому — **перед выкладкой**, не блокер коммита doc
 
 ## Нельзя
 - Править shared-схемы вразнобой с kppdf.

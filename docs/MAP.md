@@ -161,7 +161,7 @@
 - Необязательный `clientUid`: `POST /stock/items/:id/offcut`, `POST /salesorders/:id/shipments`, `POST /payroll/payments`. Склад: повтор `clientUid` и отмена движения (`cancelledAt: null`) проверяются внутри транзакции; отмена одиночной выдачи по брони — 409. Заявки: `num` из `counters` (SupplyRequest/N); оплата счёта не меняет статус «Получено»; правка статуса принятой заявки — 400. `GET /health/disk`: тяжёлые части раз в час.
 ## Таблицы CRM kppdf
 
-В базе `datacore` живут и коллекции CRM kppdf (заказы, КП, склад, производство, документы…): модулей в data-core для них нет, пишет kppdf (`D:\kppdf-8.0`). В реестре — `kind:'crm'`; шесть общих (склад и снабжение, пишут оба кода) — `kind:'shared'` (М5). Проверки удаления справочников учитывают ссылки из них (`common/catalog/catalog-references.ts` → `isUsedByCrm`).
+В базе `datacore` живут и коллекции CRM kppdf (заказы, КП, склад, производство, документы…): модулей в data-core для них нет, пишет kppdf (`D:\kppdf-8.0`). В реестре — `kind:'crm'`; шесть общих (склад и снабжение, пишут оба кода) — `kind:'shared'` (М5). В data-core запись этих шести — через хозяев `stock`/`supply` (`stock-writes`/`supply-writes`); find/count вне них — `common/shared-collections`. CRM пишет те же шесть напрямую. Совместимость — [C254 REPORT](crew/C254-shared-collections-layer/REPORT.md), поля — [C257 CONTRACT](crew/C257-shared-compat-contract/CONTRACT.md). Проверки удаления справочников учитывают ссылки из них (`common/catalog/catalog-references.ts` → `isUsedByCrm`).
 
 ## Каталог склада — атомарность T26 (2026-11-03)
 

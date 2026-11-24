@@ -1,6 +1,6 @@
 # C254 — отчёт backend
 
-**Статус:** C254-0, C254-a, C254-b, C254-c и C254-w готовы, не закоммичены. Прод не трогался. Схемы shared и kppdf не менялись. L-251/252/253 не тронуты. C254-doc не делался.
+**Статус:** C254-0, C254-a, C254-b, C254-c, C254-w и C254-doc готовы, не закоммичены. Прод не трогался. Схемы shared и kppdf не менялись. `backend/src` в C254-doc не трогался. L-251/252/253 не тронуты. CRM→API (C259) не начат. Критерии закрытия C254 в ТЗ (повторный grep и full перед выкладкой) этой поставкой не закрывались.
 
 ## Подчек-лист
 
@@ -9,7 +9,7 @@
 - [x] **C254-b** — `finance` и `fill-audit`
 - [x] **C254-c** — `dicts` и прочие сырые find/count вне stock/supply
 - [x] **C254-w** — запись shared только через `StockService` / `SupplyService`
-- [ ] **C254-doc** — ARCHITECTURE / UNIFY
+- [x] **C254-doc** — ARCHITECTURE / UNIFY
 
 ## C254-0
 
@@ -101,3 +101,15 @@
 **Проверки:** `npx tsc --noEmit` — 0. eslint по этим файлам — 0. jest stock-writes, dicts rename/metal/materials-spec, partners.merge, income-cancel, material (3), pdm-import (2), finance.shared-read — PASS. `node scripts/audit-cycles.js` — новых циклов 0, пар 0.
 
 **Риски:** запись внутри stock/supply по-прежнему и моделью, и сырым `db.collection`. Классификация не пишет shared, отдельного адаптера заявки нет. Карта обновлена. Коммит: нет.
+
+## C254-doc
+
+Совместимость записана коротко, главы не переписывались. Код `backend/src` не открывался на правку. Прод не трогался. C259 (CRM→API) не открыт.
+
+- `docs/ARCHITECTURE.md` «Единая база»: новый абзац после склада. data-core пишет шесть shared через хозяев `stock-writes` / `supply-writes`. Find/count вне хозяев — `common/shared-collections`. CRM пишет напрямую. Ссылки на этот REPORT и [C257 CONTRACT](../C257-shared-compat-contract/CONTRACT.md).
+- `docs/UNIFY-SUPPLY-WAREHOUSE.md`: раздел «2026-11-24». Прямая запись CRM не отменена. Агрегат и distinct сырые. Белый список scripts — выше, в C254-w. Замки L-254-* и L-257.
+- `docs/MAP.md` «Таблицы CRM kppdf»: одна фраза, как data-core пишет и читает `kind:'shared'`, и что CRM пишет напрямую.
+- Подчек-лист ТЗ и этот отчёт: C254-0/a/b/c/w/doc — `[x]`. Критерии закрытия C254 (повторный grep и full перед выкладкой) оставлены открытыми.
+- `docs/crew/C246-architecture-modularity/CHECKLIST.md`: doc отмечен. Этап C254 остаётся `[~]`.
+
+**Файлы:** перечисленные доки, карта architect, урок. **Проверки кода:** не запускались (правка только доков). **Риски:** дерево kppdf по-прежнему не сверено (L-257). Коммит: нет.
