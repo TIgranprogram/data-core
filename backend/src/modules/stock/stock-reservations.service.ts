@@ -6,12 +6,14 @@ import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { loadLinePhotos } from '../../common/photos';
 import { inScope, type StockScope } from '../../common/stock-scope';
+import { FeatureFlagService } from '../feature-flag/feature-flag.service';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 import { StockMovement, StockMovementDocument } from './schemas/stock-movement.schema';
 import { StorageItemDocument } from './schemas/storage-item.schema';
 import { StockCoreService } from './stock-core.service';
 import { StockMovementsService } from './stock-movements.service';
+import { STOCK_RESERVE_API_FLAG, STOCK_RESERVE_API_OFF } from './stock-reserve-flag';
 import { hangingReason } from './stock-hanging';
 import { resolveTarget } from './stock-target';
 
@@ -25,7 +27,14 @@ export class StockReservationsService {
     @InjectModel(Material.name) private readonly materials: Model<MaterialDocument>,
     private readonly core: StockCoreService,
     private readonly moves: StockMovementsService,
+    private readonly flags?: FeatureFlagService,
   ) {}
+
+  /** C264: выкл — CRM снова может писать Mongo. Чужая транзакция (отмена позиции заказа) флаг не смотрит. */
+  private async assertReserveApi() {
+    const on = this.flags ? await this.flags.isEnabled(STOCK_RESERVE_API_FLAG) : false;
+    if (!on) throw new ConflictException(STOCK_RESERVE_API_OFF);
+  }
 
   /**
    * Бронь по списку (TASKS МВ.4): спецификация конструктора → бронь на складе под названием (и заказом).
@@ -33,6 +42,7 @@ export class StockReservationsService {
    * Все брони списка — с общим `batchId` и `groupName`: снимаются строкой или целиком (releaseReservation / releaseGroup).
    */
   async reserveList(dto: { groupName?: string; lines: { materialId: string; qty: number; salesOrderLineId?: string }[]; salesOrderId?: string; salesOrderLineId?: string; clientUid?: string }, userId?: string) {
+    await this.assertReserveApi();
     if (dto.clientUid) {
       const prev = await this.reservations.findOne({ clientUid: dto.clientUid }).lean().exec();
       if (prev) return this.reservationGroup(String((prev as { batchId?: Types.ObjectId }).batchId));
@@ -143,6 +153,7 @@ export class StockReservationsService {
 
   /** Снять одну бронь (строку): «свободно» на складе снова увеличится. */
   async releaseReservation(id: string, externalSession?: ClientSession) {
+    if (!externalSession) await this.assertReserveApi();
     const _id = oid(id, 'брони');
     if (externalSession) {
       const r = await this.reservations.findOne({ _id, status: 'active', deletedAt: null }).session(externalSession).exec();
@@ -178,6 +189,7 @@ export class StockReservationsService {
 
   /** Снять всю бронь списка. */
   async releaseGroup(batchId: string, scope?: StockScope | null) {
+    await this.assertReserveApi();
     const list = await this.reservations.find({ batchId: oid(batchId, 'брони'), status: 'active', deletedAt: null }, { _id: 1, materialId: 1 }).lean().exec();
     if (!list.length) throw new NotFoundException('Бронь не найдена или уже снята');
     await this.core.assertMaterials(list.map((r) => r.materialId), scope, 'Эта бронь не из вашего склада');
@@ -194,6 +206,7 @@ export class StockReservationsService {
    * Движения пакета с общим `batchId`: «Отменить» возвращает и остаток, и бронь (cancelBatch).
    */
   async issueReservations(dto: { lines: { reservationId: string; qty?: number }[]; personId?: string; issuedTo?: string; note?: string; clientUid?: string }, userId?: string) {
+    await this.assertReserveApi();
     if (dto.clientUid) {
       const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
       if (prev) return { ...(await this.moves.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), 'issue')), issued: 0 };
@@ -269,6 +282,7 @@ export class StockReservationsService {
    * Заказ сменился, а позиция не названа — позиция снимается (она была от прежнего заказа).
    */
   async updateReservation(id: string, dto: { qty?: number; salesOrderId?: string | null; salesOrderLineId?: string | null; note?: string }) {
+    await this.assertReserveApi();
     const r = await this.reservations.findOne({ _id: oid(id, 'брони'), status: 'active', deletedAt: null }).exec();
     if (!r) throw new NotFoundException('Бронь не найдена или уже снята');
     const x = r as ReservationDocument & { salesOrderId?: Types.ObjectId; salesOrderLineId?: Types.ObjectId };
@@ -358,6 +372,7 @@ export class StockReservationsService {
    * `lines` (SK-6c) — выбранные брони с количеством (меньше брони — частичная выдача, остаток брони активен).
    */
   async issueOrder(dto: { salesOrderId: string; reservationIds?: string[]; lines?: { reservationId: string; qty?: number }[]; personId?: string; issuedTo?: string; note?: string; clientUid?: string }, userId?: string) {
+    await this.assertReserveApi();
     const rest = { personId: dto.personId, issuedTo: dto.issuedTo, note: dto.note, clientUid: dto.clientUid };
     if (dto.clientUid && (await this.movements.exists({ clientUid: dto.clientUid, batchId: { $ne: null } }))) return this.issueReservations({ lines: [], ...rest }, userId);
     const qty = new Map((dto.lines ?? []).map((l) => [l.reservationId, l.qty]));

@@ -2,6 +2,8 @@ import { Types } from 'mongoose';
 import { StockMovementsService } from './stock-movements.service';
 import { StockSearchService } from './stock-search.service';
 
+const flagsOn = { isEnabled: async () => true };
+
 const q = (value: unknown) => { const chain = { lean: () => chain, session: () => chain, exec: async () => value }; return chain; };
 
 function setup(quantities: number[], deleted = false) {
@@ -28,7 +30,7 @@ function setup(quantities: number[], deleted = false) {
   const movements = { create: jest.fn(async () => []), exists: async () => false }, reservations = { exists: async () => false };
   const materials = { exists: async () => true, find: () => q([material]) };
   const search = { getItem: async () => ({ id: String(materialId) }), listItems: async () => ({ items: [{ id: String(materialId) }] }) };
-  const svc = new StockMovementsService(connection as never, movements as never, reservations as never, materials as never, core as never, search as never, {} as never);
+  const svc = new StockMovementsService(connection as never, movements as never, reservations as never, materials as never, core as never, search as never, {} as never, flagsOn as never);
   const reader = Object.create(StockSearchService.prototype) as StockSearchService;
   const storage = { find: () => { const chain = { setOptions: () => chain, lean: () => chain, exec: async () => rows.filter((r) => !('deletedAt' in r)) }; return chain; } };
   Object.assign(reader, { connection, core, storage, photoMap: async () => new Map() });

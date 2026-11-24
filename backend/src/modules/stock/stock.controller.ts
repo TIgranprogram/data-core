@@ -117,7 +117,7 @@ export class StockController {
     return this.stock.listMovements(q, narrowToZone(own, q.zoneId));
   }
 
-  /** Исправить списание (СМ.5): отмена + новое списание с тем же «кому» и «под что». */
+  /** Исправить списание (СМ.5): отмена + новое списание. C263: флаг `c263.stock.move.api` выключен — 409. */
   @Post('movements/:id/correct')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.movement.corrected', entityType: 'StockMovement', idParam: 'id' })
@@ -126,7 +126,7 @@ export class StockController {
     return this.stock.correctMovement(id, dto.qty, user?.id);
   }
 
-  /** Отменить движение: проводится обратное, исходное помечается отменённым. */
+  /** Отменить движение: обратное, исходное помечается отменённым. C263: флаг выключен — 409, маршрут остаётся. */
   @Post('movements/:id/cancel')
   @HttpCode(200)
   @Roles('admin', 'manager')
@@ -228,7 +228,7 @@ export class StockController {
     return this.stock.removePhoto(id, photoId);
   }
 
-  /** Бронь по списку (спецификация): бронирует сколько свободно, нехватку возвращает в short. */
+  /** Бронь по списку: сколько свободно, нехватку возвращает в short. C264: флаг `c264.stock.reserve.api` выключен — 409. */
   @Post('reserve-list')
   @Roles('admin', 'manager')
   @Throttle({ short: { ttl: 60_000, limit: 30 } }) // М8: массовая операция — не чаще 30 в минуту
@@ -329,7 +329,7 @@ export class StockController {
     return this.stock.specApply(dto, user?.id, scope);
   }
 
-  /** Пакет: списать / принять / пересчитать несколько позиций одной операцией (всё или ничего). Кладовщик на телефоне — роль user. */
+  /** Пакет: списать / принять / пересчитать (всё или ничего). C263: флаг движения выключен — 409. Кладовщик на телефоне — роль user. */
   @Post('batch')
   @Roles('admin', 'manager', 'user')
   @Throttle({ short: { ttl: 60_000, limit: 30 } }) // М8: массовая операция — не чаще 30 в минуту
@@ -375,7 +375,7 @@ export class StockController {
     return this.stock.itemOrdered(id, canSeeMoney(user), scope);
   }
 
-  /** Обрезок трубы / листа: своя позиция «… — обрезок 1,2 м» + приход; труба — метры уходят из позиции (СМ.2). */
+  /** Обрезок трубы / листа (СМ.2). C263: флаг движения выключен — 409. */
   @Post('items/:id/offcut')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.offcut', entityType: 'Material', idParam: 'id', details: (data, p) => ({ materialId: p.id, offcut: (data as { offcut?: { name?: string } })?.offcut?.name }) })
@@ -384,6 +384,7 @@ export class StockController {
     return this.stock.offcut(id, dto, user?.id);
   }
 
+  /** C263: приход, списание, пересчёт, корректировка. Бронь на этом маршруте — флаг C264. */
   @Post('items/:id/move')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'stock.item.moved', entityType: 'Material', idParam: 'id', details: (data, p) => ({ materialId: p.id, quantity: (data as { quantity?: number })?.quantity }) })

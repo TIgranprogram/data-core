@@ -3140,6 +3140,7 @@
     "/api/stock/movements/{id}/correct": {
       "post": {
         "operationId": "StockController_correctMovement",
+        "description": "C263. Флаг c263.stock.move.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -3173,6 +3174,7 @@
     "/api/stock/movements/{id}/cancel": {
       "post": {
         "operationId": "StockController_cancelMovement",
+        "description": "C263. Флаг c263.stock.move.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -3426,6 +3428,7 @@
     "/api/stock/reserve-list": {
       "post": {
         "operationId": "StockController_reserveList",
+        "description": "C264. Флаг c264.stock.reserve.api выключен — 409, маршрут остаётся.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3487,6 +3490,7 @@
     "/api/stock/reservations/issue": {
       "post": {
         "operationId": "StockController_issueReservations",
+        "description": "C264. Выдача по брони. Флаг c264.stock.reserve.api выключен — 409.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3534,6 +3538,7 @@
     "/api/stock/reservations/issue-order": {
       "post": {
         "operationId": "StockController_issueOrder",
+        "description": "C264. Выдача по заказу. Флаг c264.stock.reserve.api выключен — 409. salesOrderId не подменяется.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3558,6 +3563,7 @@
     "/api/stock/reservations/{id}": {
       "patch": {
         "operationId": "StockController_updateReservation",
+        "description": "C264. Флаг c264.stock.reserve.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -3591,6 +3597,7 @@
     "/api/stock/reservations/{id}/release": {
       "post": {
         "operationId": "StockController_releaseReservation",
+        "description": "C264. Снятие брони. Флаг c264.stock.reserve.api выключен — 409.",
         "parameters": [
           {
             "name": "id",
@@ -3614,6 +3621,7 @@
     "/api/stock/reservations/group/{batchId}/release": {
       "post": {
         "operationId": "StockController_releaseGroup",
+        "description": "C264. Снятие группы. Флаг c264.stock.reserve.api выключен — 409.",
         "parameters": [
           {
             "name": "batchId",
@@ -3661,6 +3669,7 @@
     "/api/stock/spec/apply": {
       "post": {
         "operationId": "StockController_specApply",
+        "description": "C264. Запись спецификации в брони. Флаг c264.stock.reserve.api выключен — 409. Просмотр флаг не смотрит.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3685,6 +3694,7 @@
     "/api/stock/batch": {
       "post": {
         "operationId": "StockController_batch",
+        "description": "C263. Флаг c263.stock.move.api выключен — 409, маршрут остаётся.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3709,6 +3719,7 @@
     "/api/stock/batch/{batchId}/cancel": {
       "post": {
         "operationId": "StockController_cancelBatch",
+        "description": "C263. Отмена пакета. Флаг c263.stock.move.api выключен — 409.",
         "parameters": [
           {
             "name": "batchId",
@@ -3803,6 +3814,7 @@
     "/api/stock/items/{id}/offcut": {
       "post": {
         "operationId": "StockController_offcut",
+        "description": "C263. Флаг c263.stock.move.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -3836,6 +3848,7 @@
     "/api/stock/items/{id}/move": {
       "post": {
         "operationId": "StockController_move",
+        "description": "C263. Остаток in/out/adjust/count — флаг c263.stock.move.api. Бронь reserve/unreserve — флаг c264. Приход заявки флаг движения не смотрит.",
         "parameters": [
           {
             "name": "id",
@@ -5804,6 +5817,7 @@
     "/api/supply/requests/{id}/receive": {
       "post": {
         "operationId": "SupplyController_receive",
+        "description": "C265. Флаг c265.supply.receive.api выключен — 409. Карточка заявки — флаг c262.",
         "parameters": [
           {
             "name": "id",
@@ -5837,6 +5851,7 @@
     "/api/supply/requests/{id}/rollback-receipt": {
       "post": {
         "operationId": "SupplyController_rollbackReceipt",
+        "description": "C265. Откат прихода. Флаг c265.supply.receive.api выключен — 409, в том числе план.",
         "parameters": [
           {
             "name": "id",

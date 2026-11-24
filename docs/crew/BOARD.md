@@ -4,6 +4,9 @@
 
 | ID | Суть | Статус |
 |--|--|--|
+| C265 | Приход + откат через API | done · [Отчёт](C265-receipt-api-slice/REPORT.md) · L-265 |
+| C264 | Бронь + reservedQty через API | done · [Отчёт](C264-reservation-api-slice/REPORT.md) · L-264 |
+| C263 | Движение + остаток через API | done · [Отчёт](C263-stock-move-api-slice/REPORT.md) · L-263 |
 | C262 | Заявка снабжения через API | done · [Отчёт](C262-supply-request-api-slice/REPORT.md) · L-262 |
 | C261 | Карточка материала через API | done · [Отчёт](C261-materials-card-api-slice/REPORT.md) · L-261 |
 | C260 | Склады через API (срез 1) | done · [Отчёт](C260-warehouses-api-slice/REPORT.md) · L-260 |

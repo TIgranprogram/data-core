@@ -93,7 +93,8 @@ export class StockService {
   adoptArticle(materialId: Types.ObjectId | string, incoming: unknown, source: string): Promise<ArticleDecision> { return this.catalog.adoptArticle(materialId, incoming, source); }
 
   // --- движения
-  move(materialId: string, dto: MoveInput, userId?: string, first?: (session: ClientSession) => Promise<void>) { return this.moves.move(materialId, dto, userId, first); }
+  /** `via: 'receipt'` — приход C265 уже проверил свой флаг; флаг движения не спрашиваем. */
+  move(materialId: string, dto: MoveInput, userId?: string, first?: (session: ClientSession) => Promise<void>, via?: 'receipt') { return this.moves.move(materialId, dto, userId, first, undefined, via); }
   batch(dto: Parameters<StockMovementsService['batch']>[0], userId?: string) { return this.moves.batch(dto, userId); }
   cancelBatch(batchId: string, userId: string | undefined, scope: StockScope | null) { return this.moves.cancelBatch(batchId, userId, scope); }
   offcut(materialId: string, dto: Parameters<StockMovementsService['offcut']>[1], userId?: string) { return this.moves.offcut(materialId, dto, userId); }

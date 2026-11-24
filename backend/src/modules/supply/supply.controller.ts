@@ -483,7 +483,7 @@ export class SupplyController {
     return this.supply.removePhoto(id, photoId);
   }
 
-  /** Оприходовать на склад: приход + статус «Получено». Телефонный склад — тоже; создать заявку он не может. */
+  /** Оприходовать на склад: приход + статус «Получено». C265: флаг `c265.supply.receive.api` выключен — 409. Карточка заявки — флаг C262. */
   @AppSection('requests', 'stock', 'stock-mobile')
   @Post('requests/:id/receive')
   @HttpCode(200)
@@ -494,7 +494,7 @@ export class SupplyController {
     return this.supply.receive(id, dto, user?.id);
   }
 
-  /** ЗЯ-1: откатить приёмку (сторно прихода на склад). `?dryRun=1` или без confirm — план с warnings[]; confirm + reason — выполнить. */
+  /** ЗЯ-1: откатить приёмку. C265: флаг прихода выключен — 409, в том числе план без записи. `?dryRun=1` или без confirm — план; confirm + reason — выполнить. */
   @Post('requests/:id/rollback-receipt')
   @HttpCode(200)
   @Roles('admin')

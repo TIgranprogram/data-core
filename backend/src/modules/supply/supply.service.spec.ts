@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { SupplyService } from './supply.service';
+import { SUPPLY_RECEIVE_API_FLAG } from './supply-receive-flag';
 import { SUPPLY_REQUEST_API_FLAG } from './supply-request-flag';
 import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel } from './supply-labels';
 
@@ -65,12 +66,21 @@ describe('C262 — флаг заявки', () => {
     expect(flags.isEnabled).not.toHaveBeenCalled();
   });
 
-  it('приход и откат не спрашивают флаг', async () => {
-    const flags = { isEnabled: jest.fn(async () => { throw new Error('флаг'); }) };
+  it('приход не спрашивает флаг карточки', async () => {
+    const flags = { isEnabled: jest.fn(async (key: string) => key !== 'c265.supply.receive.api' && key !== 'c262.supply.requests.api') };
+    const { service } = make(flags);
+    await expect(service.receive('x', {})).rejects.toMatchObject({ status: 409 });
+    await expect(service.rollbackReceipt('x', {}, { role: 'admin', username: 'boss' })).rejects.toMatchObject({ status: 409 });
+    expect(flags.isEnabled).toHaveBeenCalledWith(SUPPLY_RECEIVE_API_FLAG);
+    expect(flags.isEnabled).not.toHaveBeenCalledWith(SUPPLY_REQUEST_API_FLAG);
+  });
+
+  it('флаг прихода включён — кривой id по-прежнему 400', async () => {
+    const flags = { isEnabled: jest.fn(async (key: string) => key === SUPPLY_RECEIVE_API_FLAG) };
     const { service } = make(flags);
     await expect(service.receive('x', {})).rejects.toThrow(BadRequestException);
     await expect(service.rollbackReceipt('x', {}, { role: 'admin', username: 'boss' })).rejects.toThrow(BadRequestException);
-    expect(flags.isEnabled).not.toHaveBeenCalled();
+    expect(flags.isEnabled).not.toHaveBeenCalledWith(SUPPLY_REQUEST_API_FLAG);
   });
 });
 
@@ -360,7 +370,7 @@ describe('SupplyService', () => {
         moves = [{ _id: new Types.ObjectId(), materialId: new Types.ObjectId(), type: 'in', delta: 10 }];
         st = { getItem: jest.fn(async () => ({ quantity: 10 })), cancelMovement: jest.fn(async () => ({})) };
         const conn = { startSession: async () => ({ withTransaction: async (fn: () => Promise<unknown>) => fn(), endSession: async () => undefined }), db: { collection: jest.fn((n: string) => ({ find: jest.fn(() => ({ toArray: async () => (n === 'stockmovements' ? moves : []) })), updateOne: invUpdate })) } };
-        svc = new SupplyService(conn as never, model as never, st as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, audit as never);
+        svc = new SupplyService(conn as never, model as never, st as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, audit as never, undefined, flagsOn as never);
         jest.spyOn(svc, 'get').mockResolvedValue({ id: 'x' } as never);
         current = reqDoc({ status: 'received', receivedQty: 10, receivedTo: 'stock', unit: 'шт', invoiceId: new Types.ObjectId() });
       });
@@ -666,7 +676,7 @@ describe('SupplyService', () => {
       current = reqDoc({ materialId: mid, num: 9 });
       await service.receive(String(current._id), { clientUid: 'r2' }, 'user1');
       expect(stock.createItem).not.toHaveBeenCalled();
-      expect(stock.move).toHaveBeenCalledWith(String(mid), expect.objectContaining({ type: 'in', qty: 10, documentRef: `SupplyRequest:${current._id}`, clientUid: 'r2' }), 'user1', expect.any(Function));
+      expect(stock.move).toHaveBeenCalledWith(String(mid), expect.objectContaining({ type: 'in', qty: 10, documentRef: `SupplyRequest:${current._id}`, clientUid: 'r2' }), 'user1', expect.any(Function), 'receipt');
       expect(setOf()).toMatchObject({ status: 'received', receivedQty: 10, receivedTo: 'stock', costCenter: 'workshop', receiveUid: 'r2', editedInApp: true });
     });
 
@@ -676,7 +686,7 @@ describe('SupplyService', () => {
       current = reqDoc({ unit: 'шт', article: 'A-7' });
       await service.receive(String(current._id), { qty: 4 });
       expect(stock.createItem).toHaveBeenCalledWith(expect.objectContaining({ name: 'Болт М10', unit: 'шт', article: 'A-7', invoiceName: 'Болт М10' }));
-      expect(stock.move).toHaveBeenCalledWith(newId, expect.objectContaining({ qty: 4 }), undefined, expect.any(Function));
+      expect(stock.move).toHaveBeenCalledWith(newId, expect.objectContaining({ qty: 4 }), undefined, expect.any(Function), 'receipt');
       expect(setOf().materialId).toEqual(new Types.ObjectId(newId));
       expect(stock.adoptArticle).toHaveBeenCalled();
     });
@@ -685,11 +695,11 @@ describe('SupplyService', () => {
       const mid = new Types.ObjectId(), other = String(new Types.ObjectId());
       current = reqDoc({ materialId: mid });
       await service.receive(String(current._id), { materialId: other });
-      expect(stock.move).toHaveBeenLastCalledWith(other, expect.objectContaining({ type: 'in' }), undefined, expect.any(Function));
+      expect(stock.move).toHaveBeenLastCalledWith(other, expect.objectContaining({ type: 'in' }), undefined, expect.any(Function), 'receipt');
       expect(setOf().materialId).toEqual(new Types.ObjectId(other));
       current = reqDoc({ materialId: mid });
       await service.receive(String(current._id), { materialId: 'мусор' });
-      expect(stock.move).toHaveBeenLastCalledWith(String(mid), expect.anything(), undefined, expect.any(Function));
+      expect(stock.move).toHaveBeenLastCalledWith(String(mid), expect.anything(), undefined, expect.any(Function), 'receipt');
     });
 
     it('нет материала и нет наименования → BadRequest', async () => {
@@ -719,7 +729,7 @@ describe('SupplyService', () => {
       const mid = new Types.ObjectId();
       current = reqDoc({ materialId: mid, qty: 10, receivedQty: 2 });
       await service.receive(String(current._id), { qty: 3, partial: true });
-      expect(stock.move).toHaveBeenCalledWith(String(mid), expect.objectContaining({ qty: 3, note: expect.stringContaining('(часть)') }), undefined, expect.any(Function));
+      expect(stock.move).toHaveBeenCalledWith(String(mid), expect.objectContaining({ qty: 3, note: expect.stringContaining('(часть)') }), undefined, expect.any(Function), 'receipt');
       const set = setOf();
       expect(set).toMatchObject({ qty: 7, receivedQty: 5 });
       expect(set).not.toHaveProperty('status');

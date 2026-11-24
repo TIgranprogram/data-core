@@ -2,6 +2,8 @@ import { ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { StockMovementsService } from './stock-movements.service';
 
+const flagsOn = { isEnabled: async () => true };
+
 const q = (r: unknown) => { const c: Record<string, jest.Mock> = {}; for (const m of ['session', 'lean', 'sort', 'setOptions']) c[m] = jest.fn(() => c); c.exec = jest.fn(async () => r); return c; };
 
 function setup(over: { existing?: Record<string, unknown> | null; mv?: Record<string, unknown>; claim?: number } = {}) {
@@ -18,7 +20,7 @@ function setup(over: { existing?: Record<string, unknown> | null; mv?: Record<st
   const core = { defaultWarehouse: async () => ({ _id: new Types.ObjectId() }), loadStorage: jest.fn(async () => item), markEdited: jest.fn(async () => undefined) };
   const search = { getItem: jest.fn(async () => ({ id: String(matId), quantity: item.quantity })) };
   const connection = { db: { collection: () => ({}) }, startSession: async () => ({ withTransaction: async (cb: () => Promise<void>) => cb(), endSession: async () => undefined }) };
-  const svc = new StockMovementsService(connection as never, movements as never, reservations as never, materials as never, core as never, search as never, {} as never);
+  const svc = new StockMovementsService(connection as never, movements as never, reservations as never, materials as never, core as never, search as never, {} as never, flagsOn as never);
   return { svc, movements, item, matId, mv, core };
 }
 
@@ -83,7 +85,7 @@ describe('СКЛ-1: batch out — «свободно», а не остаток',
       find: () => ({ toArray: async () => [] }),
     });
     const connection = { db: { collection: coll }, startSession: async () => ({ withTransaction: async (cb: () => Promise<void>) => cb(), endSession: async () => undefined }) };
-    const svc = new StockMovementsService(connection as never, movements as never, reservations as never, materials as never, core as never, {} as never, {} as never);
+    const svc = new StockMovementsService(connection as never, movements as never, reservations as never, materials as never, core as never, {} as never, {} as never, flagsOn as never);
     (svc as unknown as { batchResult: unknown }).batchResult = jest.fn(async () => ({ items: [] }));
     return { svc, item, matId, orderId, movements };
   }

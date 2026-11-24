@@ -5,6 +5,7 @@ import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { scopeMatch, type StockScope } from '../../common/stock-scope';
+import { FeatureFlagService } from '../feature-flag/feature-flag.service';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { offcutName } from './metal';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
@@ -12,6 +13,8 @@ import { StockMovement, StockMovementDocument } from './schemas/stock-movement.s
 import { StorageItemDocument } from './schemas/storage-item.schema';
 import { StockCatalogService } from './stock-catalog.service';
 import { StockCoreService } from './stock-core.service';
+import { STOCK_MOVE_API_FLAG, STOCK_MOVE_API_OFF } from './stock-move-flag';
+import { STOCK_RESERVE_API_FLAG, STOCK_RESERVE_API_OFF } from './stock-reserve-flag';
 import { StockSearchService } from './stock-search.service';
 import { prepareTarget, resolveTarget } from './stock-target';
 import { type MoveInput, MOVE_LABEL, countGuard } from './stock.types';
@@ -31,7 +34,20 @@ export class StockMovementsService {
     private readonly core: StockCoreService,
     private readonly search: StockSearchService,
     private readonly catalog: StockCatalogService,
+    private readonly flags?: FeatureFlagService,
   ) {}
+
+  /** C263: выкл — CRM снова может писать Mongo. Внутренний вызов (чужая транзакция или приход C265) флаг не смотрит. */
+  private async assertMoveApi() {
+    const on = this.flags ? await this.flags.isEnabled(STOCK_MOVE_API_FLAG) : false;
+    if (!on) throw new ConflictException(STOCK_MOVE_API_OFF);
+  }
+
+  /** C264: reserve/unreserve на том же маршруте move. Остаток (in/out/adjust/count) этот флаг не смотрит. */
+  private async assertReserveApi() {
+    const on = this.flags ? await this.flags.isEnabled(STOCK_RESERVE_API_FLAG) : false;
+    if (!on) throw new ConflictException(STOCK_RESERVE_API_OFF);
+  }
 
   /** Пересчёт агрегата не адресует отдельную ячейку. Проверяем живые строки как loadStorage, до любых записей остатка. */
   private async assertSingleCountStorage(warehouseId: Types.ObjectId, materialIds: Types.ObjectId[], session: ClientSession) {
@@ -50,9 +66,13 @@ export class StockMovementsService {
    * Движение по позиции. in/out/adjust — как в CRM (остаток в storageitems + запись в stockmovements);
    * reserve/unreserve — reservedQty + reservations. Повтор с тем же clientUid ничего не меняет.
    */
-  move(materialId: string, dto: MoveInput, userId?: string, first?: MoveFirst, outer?: undefined): Promise<StockItemView>;
-  move(materialId: string, dto: MoveInput, userId: string | undefined, first: MoveFirst | undefined, outer: ClientSession): Promise<void>;
-  async move(materialId: string, dto: MoveInput, userId?: string, first?: MoveFirst, outer?: ClientSession): Promise<StockItemView | void> {
+  move(materialId: string, dto: MoveInput, userId?: string, first?: MoveFirst, outer?: undefined, via?: 'receipt'): Promise<StockItemView>;
+  move(materialId: string, dto: MoveInput, userId: string | undefined, first: MoveFirst | undefined, outer: ClientSession, via?: 'receipt'): Promise<void>;
+  async move(materialId: string, dto: MoveInput, userId?: string, first?: MoveFirst, outer?: ClientSession, via?: 'receipt'): Promise<StockItemView | void> {
+    if (!outer && via !== 'receipt') {
+      if (dto.type === 'reserve' || dto.type === 'unreserve') await this.assertReserveApi();
+      else await this.assertMoveApi();
+    }
     if (!Types.ObjectId.isValid(materialId)) throw new BadRequestException('Некорректный id позиции');
     if (outer && dto.byWeight) throw new BadRequestException('Внутренняя операция в общей транзакции не поддерживает пересчёт по весу');
     if (dto.byWeight) dto = await this.applyWeight(materialId, dto);
@@ -180,6 +200,7 @@ export class StockMovementsService {
    * Все движения пакета помечены `batchId` — отменяются одной кнопкой.
    */
   async batch(dto: { type: 'in' | 'out' | 'count'; lines: { materialId: string; qty: number; note?: string; expected?: number }[]; note?: string; documentRef?: string; clientUid?: string; salesOrderId?: string; salesOrderLineId?: string; personId?: string; issuedTo?: string; reason?: string; writeOff?: boolean; isReturn?: boolean; force?: boolean }, userId?: string) {
+    await this.assertMoveApi();
     if (dto.clientUid) {
       const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec();
       if (prev) return this.batchResult(String((prev as { batchId?: Types.ObjectId }).batchId), dto.type);
@@ -283,6 +304,7 @@ export class StockMovementsService {
 
   /** Отменить пакет: обратные движения ко всем его неотменённым движениям, одной транзакцией. */
   async cancelBatch(batchId: string, userId?: string, scope?: StockScope | null) {
+    await this.assertMoveApi();
     const bid = oid(batchId, 'операции');
     const list = await this.movements.find({ batchId: bid, cancelledAt: null, deletedAt: null }).lean().exec();
     if (!list.length) throw new NotFoundException('Операция не найдена или уже отменена');
@@ -339,6 +361,7 @@ export class StockMovementsService {
    * лист — родитель не меняется (лист уже списан целиком, обрезок — то, что осталось). Пакет — «Отменить» целиком.
    */
   async offcut(materialId: string, dto: { lengthMm: number; widthMm?: number; count?: number; note?: string; clientUid?: string }, userId?: string) {
+    await this.assertMoveApi();
     if (dto.clientUid) { // повтор (двойной тап, офлайн-очередь) — вернуть прежний результат
       const prev = await this.movements.findOne({ clientUid: dto.clientUid, batchId: { $ne: null } }).lean().exec() as { batchId?: Types.ObjectId; materialId?: Types.ObjectId } | null;
       if (prev) return this.offcutResult(materialId, String(prev.batchId), String(prev.materialId));
@@ -509,6 +532,7 @@ export class StockMovementsService {
 
   /** Исправить списание (СМ.5): старое отменяется обратным движением, новое проводится с теми же «кому» и «под что». */
   async correctMovement(id: string, qty: number, userId?: string) {
+    await this.assertMoveApi();
     const mv = await this.movements.findOne({ _id: oid(id, 'движения'), deletedAt: null }).lean().exec();
     if (!mv) throw new NotFoundException('Движение не найдено');
     const d = mv as typeof mv & { cancelledAt?: Date; delta?: number; reason?: string; issuedTo?: string; issuedToPersonId?: Types.ObjectId; salesOrderId?: Types.ObjectId; salesOrderLineId?: Types.ObjectId; reservationId?: Types.ObjectId };
@@ -531,6 +555,7 @@ export class StockMovementsService {
   cancelMovement(id: string, userId?: string, outer?: undefined): Promise<StockItemView>;
   cancelMovement(id: string, userId: string | undefined, outer: ClientSession): Promise<void>;
   async cancelMovement(id: string, userId?: string, outer?: ClientSession): Promise<StockItemView | void> {
+    if (!outer) await this.assertMoveApi();
     const movementQuery = this.movements.findOne({ _id: oid(id, 'движения'), deletedAt: null });
     if (outer) movementQuery.session(outer);
     const mv = await movementQuery.lean().exec();

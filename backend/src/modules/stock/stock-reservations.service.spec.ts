@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { StockReservationsService } from './stock-reservations.service';
 
+const flagsOn = { isEnabled: async () => true };
+
 const id = () => new Types.ObjectId();
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -23,7 +25,7 @@ function setup() {
   const movements = { exists: jest.fn(async () => false) };
   const connection = { db: { collection: coll }, startSession: async () => ({ withTransaction: async (cb: () => Promise<void>) => cb(), endSession: async () => undefined }) };
   const core = { loadStorage: async () => item };
-  const svc = new StockReservationsService(connection as never, movements as never, reservations as never, {} as never, core as never, {} as never);
+  const svc = new StockReservationsService(connection as never, movements as never, reservations as never, {} as never, core as never, {} as never, flagsOn as never);
   return { svc, order, other, lineOk, lineOther, item, res, movements };
 }
 

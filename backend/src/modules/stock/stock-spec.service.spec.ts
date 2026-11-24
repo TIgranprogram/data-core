@@ -2,6 +2,8 @@ import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { StockSpecService } from './stock-spec.service';
 
+const flagsOn = { isEnabled: async () => true };
+
 const id = () => new Types.ObjectId();
 type Row = Record<string, any> & { _id: Types.ObjectId }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -38,7 +40,7 @@ function setup(opts: { stock: Record<string, [number, number]> }) {
   const core = { defaultWarehouse: async () => wh, loadStorage: async (_w: unknown, m: Types.ObjectId) => items.get(String(m)) };
   const released: Row[] = [];
   const resvSvc = { releaseWithin: jest.fn(async (r: Row) => { r.status = 'released'; released.push(r); }) };
-  const svc = new StockSpecService(connection as never, reservations as never, materials as never, core as never, resvSvc as never);
+  const svc = new StockSpecService(connection as never, reservations as never, materials as never, core as never, resvSvc as never, flagsOn as never);
   return { svc, order, lineOk, lineOther, byName, items, resv, released };
 }
 

@@ -37,6 +37,7 @@ import { SupplierAliases } from './supplier-aliases';
 import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel } from './supply-labels';
 import { SupplyRequest, SupplyRequestDocument } from './supply-request.schema';
 import { FeatureFlagService } from '../feature-flag/feature-flag.service';
+import { SUPPLY_RECEIVE_API_FLAG, SUPPLY_RECEIVE_API_OFF } from './supply-receive-flag';
 import { SUPPLY_REQUEST_API_FLAG } from './supply-request-flag';
 
 /** Заявки пачкой: тело `POST /supply/requests/bulk`. */
@@ -122,6 +123,12 @@ export class SupplyService {
     if (!on) {
       throw new ConflictException('Флаг c262.supply.requests.api выключен: заявку снова пишет CRM в Mongo. Маршруты API не сняты.');
     }
+  }
+
+  /** C265: выкл — CRM снова проводит приход. Карточка заявки и голое движение свои флаги не трогают. */
+  private async assertReceiveApi() {
+    const on = this.flags ? await this.flags.isEnabled(SUPPLY_RECEIVE_API_FLAG) : false;
+    if (!on) throw new ConflictException(SUPPLY_RECEIVE_API_OFF);
   }
 
   /** Итоги оплат счетов для календаря: сумма и число платежей, без истории. */
@@ -739,6 +746,7 @@ export class SupplyService {
    * Флаг C262 не смотрит: приход — срез C265.
    */
   async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId?: string) {
+    await this.assertReceiveApi();
     const out = await this.receiveRaw(id, dto, userId);
     try {
       const so = await this.model.findById(id, { salesOrderId: 1 }).lean().exec() as { salesOrderId?: unknown } | null;
@@ -820,6 +828,7 @@ export class SupplyService {
    * Флаг C262 не смотрит: откат прихода — срез C265.
    */
   async rollbackReceipt(id: string, dto: { confirm?: boolean; reason?: string }, actor: OverrideActor, dryRun = false) {
+    await this.assertReceiveApi();
     assertAdminActor(actor, 'Откат приёмки');
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     const doc = await this.model.findOne({ _id: id, deletedAt: null }).lean().exec() as (Record<string, unknown> & { status?: string; title?: string; unit?: string; qty?: number; paid?: boolean; invoiceId?: unknown; receivedQty?: number; receivedTo?: string; salesOrderId?: unknown }) | null;
@@ -932,7 +941,7 @@ export class SupplyService {
     const cancelled = dto.clientUid || partial ? 0 : await this.connection.db!.collection('stockmovements').countDocuments({ documentRef: `SupplyRequest:${id}`, cancelledAt: { $ne: null } });
     const movement = { type: 'in' as const, qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}${partial ? ' (часть)' : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid ?? (partial ? undefined : `receive:${id}:${doc.receivedQty ?? 0}:${cancelled}`) };
     // Callback обязателен даже для первоначально отдельной заявки: счёт мог появиться во время createItem/move.
-    await this.stock.move(materialId, movement, userId, writeReceipt);
+    await this.stock.move(materialId, movement, userId, writeReceipt, 'receipt');
     if (!partial && doc.article) await this.stock.adoptArticle(materialId, doc.article, `заявка${doc.num ? ' №' + doc.num : ''}`).catch(() => undefined);
     return this.get(id);
   }

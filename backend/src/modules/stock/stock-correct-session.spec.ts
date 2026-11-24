@@ -3,6 +3,8 @@ import { StockMovementsService } from './stock-movements.service';
 import { StockCoreService } from './stock-core.service';
 import { prepareTarget } from './stock-target';
 
+const flagsOn = { isEnabled: async () => true };
+
 /** Внешнее чтение внутри незавершённой транзакции может ждать её же записи за queued DDL. */
 function setup() {
   const materialId = new Types.ObjectId(), warehouseId = new Types.ObjectId(), movementId = new Types.ObjectId();
@@ -23,7 +25,7 @@ function setup() {
   const materials = { exists: jest.fn(() => query('materials.exists', true)) };
   const core = { defaultWarehouse: jest.fn(async (s?: unknown) => { check('defaultWarehouse', s); return { _id: warehouseId }; }), loadStorage: jest.fn(async (_w: unknown, _m: unknown, s: unknown) => { check('loadStorage', s); return item; }), markEdited: jest.fn(async () => undefined) };
   const search = { getItem: jest.fn(async () => { check('response.getItem'); return { id: String(materialId), quantity: item.quantity }; }) };
-  const svc = new StockMovementsService(connection as never, movements as never, reservations as never, materials as never, core as never, search as never, {} as never);
+  const svc = new StockMovementsService(connection as never, movements as never, reservations as never, materials as never, core as never, search as never, {} as never, flagsOn as never);
   return { svc, item, movementId, materialId, movements, materials, reservations, search, session, core };
 }
 

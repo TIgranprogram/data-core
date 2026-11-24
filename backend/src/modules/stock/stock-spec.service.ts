@@ -1,12 +1,14 @@
 import { claimStockLinks } from '../../common/order-archive/write';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { scopeMatch, type StockScope } from '../../common/stock-scope';
+import { FeatureFlagService } from '../feature-flag/feature-flag.service';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 import { StockCoreService } from './stock-core.service';
+import { STOCK_RESERVE_API_FLAG, STOCK_RESERVE_API_OFF } from './stock-reserve-flag';
 import { StockReservationsService } from './stock-reservations.service';
 import { buildIndex, matchRow, specGroupName, SPEC_PREFIX, type SpecMaterial } from './stock-match';
 import { lookupOrderLines, resolveTarget } from './stock-target';
@@ -29,7 +31,14 @@ export class StockSpecService {
     @InjectModel(Material.name) private readonly materials: Model<MaterialDocument>,
     private readonly core: StockCoreService,
     private readonly resv: StockReservationsService,
+    private readonly flags?: FeatureFlagService,
   ) {}
+
+  /** C264: запись спецификации — та же бронь. Просмотр флаг не смотрит. */
+  private async assertReserveApi() {
+    const on = this.flags ? await this.flags.isEnabled(STOCK_RESERVE_API_FLAG) : false;
+    if (!on) throw new ConflictException(STOCK_RESERVE_API_OFF);
+  }
 
   /** Просмотр до записи: matched (готово), short (не хватает свободного), notMatched (не найдено / неоднозначно / другая единица / чужая позиция). */
   async preview(dto: { salesOrderId: string; lines: PreviewLine[] }, scope?: StockScope | null) {
@@ -88,6 +97,7 @@ export class StockSpecService {
    * активные брони прежней загрузки этого заказа. Повтор с тем же clientUid дублей не создаёт.
    */
   async apply(dto: { salesOrderId: string; lines: ApplyLine[]; replace?: boolean; takeFree?: boolean; clientUid?: string }, userId?: string, scope?: StockScope | null) {
+    await this.assertReserveApi();
     if (scope) await this.core.assertMaterials(dto.lines.map((l) => l.materialId), scope);
     const db = this.connection.db!;
     if (dto.clientUid) {

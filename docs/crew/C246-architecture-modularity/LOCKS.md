@@ -37,6 +37,9 @@
 | L-260 | запись `warehouses` в API через stock-writes; флаг `c260.warehouses.api` (выкл = 409, CRM может Mongo) | [C260 REPORT](../C260-warehouses-api-slice/REPORT.md) | сырая запись warehouses мимо stock-writes; включать флаг без перевода CRM |
 | L-261 | карточка `materials` (create/patch/archive/копия) под флагом `c261.materials.card.api`; остаток не в срезе | [C261 REPORT](../C261-materials-card-api-slice/REPORT.md) | писать карточку мимо stock-writes; включать флаг без перевода CRM |
 | L-262 | заявка `supplyrequests` (create/patch/delete) под флагом `c262.supply.requests.api`; приход не в срезе | [C262 REPORT](../C262-supply-request-api-slice/REPORT.md) | писать заявку мимо хозяина; вешать флаг на receive; включать без перевода CRM |
+| L-263 | движение и `storageitems.quantity` под флагом `c263.stock.move.api`; бронь и приход не в срезе | [C263 REPORT](../C263-stock-move-api-slice/REPORT.md) | один флаг на бронь/приход; включать без перевода CRM |
+| L-264 | бронь и `reservedQty` под флагом `c264.stock.reserve.api`; маршруты `salesOrderId` не подменять | [C264 REPORT](../C264-reservation-api-slice/REPORT.md) | смешать с C263/C265; подменить `salesOrderId` |
+| L-265 | приход и откат под флагом `c265.supply.receive.api`; карточка заявки остаётся C262 | [C265 REPORT](../C265-receipt-api-slice/REPORT.md) | вешать приход на флаг карточки; снимать Mongo `readWrite` у kppdf |
 | L-DEC | модульный монолит, не микросервисы | DECISION | «да» владельца на смену курса |
 
 ## Правила для любого агента
