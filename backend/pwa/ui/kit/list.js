@@ -394,6 +394,6 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     // после записи (dc:changed): строки, числа плиток и шаги «Уточнить» обновляются на месте, без мигания
     reload: (row) => { if (tilesBox) loadTiles(true); extra?.update(P, st()); if (st().gantt && gantt) return gantt.reload(); return st().board && board ? (row && board.reloadFor ? board.reloadFor(row) : board.reload()) : load({ keep: true }); },
     focusSearch: () => sb.focus(),
-    destroy: () => { destroyed = true; seq++; gantt?.destroy?.(); document.removeEventListener('keydown', onKey); watch.destroy(); watchIn.destroy(); },
+    destroy: () => { destroyed = true; seq++; gantt?.destroy?.(); board?.destroy?.(); document.removeEventListener('keydown', onKey); watch.destroy(); watchIn.destroy(); },
   };
 }

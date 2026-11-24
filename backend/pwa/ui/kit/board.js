@@ -10,6 +10,7 @@ import { draggable } from './drag.js';
 import { openPopMenu } from './pop-menu.js';
 import { link, iconButton, button, actions } from './index.js';
 import { getPref, setPref } from '../../core/prefs.js';
+import { retryRateLimitedRead } from '../../core/rate-limit-retry.js';
 
 /**
  * Доска — колонки слева направо (по статусу). Один компонент на все разделы с доской.
@@ -40,6 +41,7 @@ import { getPref, setPref } from '../../core/prefs.js';
  */
 export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTotal }) {
   let query = initialQuery;
+  let destroyed = false, navTimer = 0;
   const el = mark(h('div', { class: 'board' + (board.density === 'pics' ? ' board-pics' : '') + (board.cls ? ' ' + board.cls : '') }), 'board');
   const per = board.perColumn || 30;
   const canMove = !!board.move && (board.canMove ? board.canMove() : session.canEdit);
@@ -73,7 +75,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
   const sel = new Map();
   let bar = null;
   const dropBar = () => { bar?.remove(); bar = null; document.body.classList.remove('has-board-bar'); };
-  const unsub = onChange(() => setTimeout(() => { if (!el.isConnected) { dropBar(); unsub(); } }, 60));
+  const unsub = onChange(() => { clearTimeout(navTimer); navTimer = setTimeout(() => { if (!el.isConnected) destroy(); }, 60); });
   function paintBar() {
     const mc = cols.find((x) => x.c.multi)?.c.multi;
     if (!mc || !sel.size) { dropBar(); return; }
@@ -136,11 +138,18 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     col.tog.setAttribute('aria-label', col.tog.title);
   }
   let seq = 0;
-  const fetchCol = async (c, page, my) => {
+  const fetchCol = async (c, page, my, signal = cols.find(col => col.c === c)?.pending?.signal) => {
     const q = { query: { ...query, ...c.query, page, limit: c.per || per } };
-    // 6 колонок = 6 запросов: быстрое «ввёл-стёр» упирается в лимит 10/с → один повтор через секунду
+    const col = cols.find(x => x.c === c);
     const run = () => api(path, q).then((r) => (board.map && r?.items ? { ...r, items: r.items.map(board.map) } : r));
-    return run().catch(async (e) => { if (e.status !== 429 || my !== seq) throw e; await new Promise((ok) => setTimeout(ok, 1100)); return run(); });
+    let waiting;
+    try {
+      return await retryRateLimitedRead(run, { signal, current: () => !destroyed && my === seq, onWait: () => {
+        waiting = col.waiting = h('div', { class: 'col-more', role: 'status' }, 'Сервер просит подождать. Загрузка повторится автоматически.');
+        if (!col.rows.length) col.body.replaceChildren();
+        col.col.insertBefore(waiting, col.body);
+      } });
+    } finally { waiting?.remove(); if (col.waiting === waiting) col.waiting = null; }
   };
   function cardEl(row, c) {
     const v = board.card(row, c, { changed: onChanged });
@@ -271,7 +280,7 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
       col.more = c.portion
         ? link({ cls: 'col-more', label: `ещё ${qty(Math.min(rest, c.per || per))} из ${qty(rest)} →`, onClick: async (e) => {
           const btn = e.currentTarget; btn.disabled = true;
-          try { const next = await fetchCol(c, ++col.page, my); paint(col, next, true, my); } catch (ex) { col.page--; btn.disabled = false; toastError(ex); }
+          try { const next = await fetchCol(c, ++col.page, my); paint(col, next, true, my); } catch (ex) { if (destroyed || my !== seq || ex.name === 'AbortError') return; col.page--; btn.disabled = false; toastError(ex); }
         } })
         : link({ cls: 'col-more', onClick: () => patch({ view: 'table', page: undefined, ...(c.query.status ? { status: c.query.status } : {}) }), label: `ещё ${qty(rest)} — списком →` });
       body.append(col.more);
@@ -291,28 +300,48 @@ export function mountBoard(board, path, initialQuery, { onOpen, onChanged, onTot
     return load(list);
   }
   async function load(only) {
-    const my = ++seq;
+    if (destroyed) return;
+    if (!only) seq++;
+    const my = seq;
     loadedAt = Date.now();
     if (!only) { sel.clear(); dropBar(); }
     el.classList.add('loading');
-    const totals = [];
     await Promise.all((only || cols).map(async (col) => {
       const { c, n, body } = col;
+      col.pending?.abort();
+      const pending = new AbortController(); col.pending = pending; col.loading = true;
+      col.failure?.remove(); col.failure = null;
+      col.waiting?.remove(); col.waiting = null;
+      const current = () => !destroyed && my === seq && !pending.signal.aborted;
       try {
         col.page = 1;
-        const r = await fetchCol(c, 1, my);
-        if (my !== seq) return;
-        n.textContent = qty(r.total); totals.push(r.total);
+        const r = await fetchCol(c, 1, my, pending.signal);
+        if (!current()) return;
+        n.textContent = qty(r.total); col.total = r.total;
         if (c.money && session.canMoney && r.sum != null) { col.sum.textContent = money(r.sum); col.sum.hidden = false; } else col.sum.hidden = true;
         paint(col, r, false, my);
       } catch (e) {
-        if (my !== seq) return;
+        if (!current()) return;
         n.textContent = '—';
-        body.replaceChildren(failBlock(e, null, { cls: 'col-more' }));
+        col.total = null;
+        col.failure = failBlock(e, () => load([col]), { cls: 'col-more' });
+        if (!col.rows.length) body.replaceChildren();
+        col.col.insertBefore(col.failure, body);
+      } finally {
+        if (col.pending === pending) col.loading = false;
       }
     }));
-    if (my === seq) { el.classList.remove('loading'); if (!only && board.headCount && totals.length === cols.length) onTotal?.(totals.reduce((a, b) => a + b, 0)); }
+    if (!destroyed && my === seq) {
+      el.classList.toggle('loading', cols.some(col => col.loading));
+      if (board.headCount && cols.every(col => col.total != null)) onTotal?.(cols.reduce((sum, col) => sum + col.total, 0));
+    }
+  }
+  function destroy() {
+    if (destroyed) return;
+    destroyed = true; seq++;
+    cols.forEach(col => { col.pending?.abort(); col.waiting?.remove(); col.failure?.remove(); });
+    clearTimeout(navTimer); unsub(); dropBar();
   }
   load();
-  return { el, reload: () => load(), reloadFor, setQuery: (q) => { query = q; load(); } };
+  return { el, reload: () => load(), reloadFor, setQuery: (q) => { query = q; load(); }, destroy };
 }

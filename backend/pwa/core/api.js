@@ -2,6 +2,7 @@ import { canOpen, mobileOnly } from './route-access.js';
 import { isBackgroundPath, newKey, withWriteRetry } from './write-retry.js';
 import { applyView, canViewAsUser, clearViewAsStore, viewAsActive, VIEW_AS_BLOCK } from './view-as.js';
 import { errorContext, reportableHttpError } from './error-context.js';
+import { rateLimitDeadline } from './rate-limit-retry.js';
 
 /** Связь с сервером: JWT + обновление сессии, понятные русские ошибки (CANON §2 «Тексты»). */
 export const PREFIX = location.pathname.replace(/\/app(\/.*)?$/, ''); // '' локально или '/db' за nginx
@@ -148,6 +149,10 @@ async function errorOf(res) {
   const closed = res.status === 403 && russian && /раздел/i.test(msg) && /закрыт/i.test(msg);
   const fromServer = russian && [400, 403, 409, 422].includes(res.status);
   const err = fromServer ? new ApiError(msg, res.status) : new ApiError(crash || HUMAN[res.status] || HUMAN[500], res.status);
+  if (res.status === 429) {
+    const now = Date.now(), deadline = rateLimitDeadline(res.headers, now);
+    if (deadline !== undefined) { err.retryAt = deadline; err.retryAfter = Math.max(0, deadline - now) / 1000; }
+  }
   if (closed) err.sectionClosed = true;
   if (res.status === 400 && Array.isArray(data?.unmatched)) err.data = { unmatched: data.unmatched }; // КМ: договоры с несопоставленными позициями
   if (res.status === 400 && Array.isArray(data?.details)) err.data = { ...(err.data || {}), details: data.details }; // склад: таблица нехватки (need/have/free/lack)
