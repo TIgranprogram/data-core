@@ -1,6 +1,6 @@
 # Карта роли architect
 
-коммит: нет · C254-doc (доки, 24.11.2026). Прошлый якорь 588387bf. Приёмка конкретного изменения фиксируется отдельно.
+коммит: нет · C259 план (доки, 24.11.2026). Прошлый якорь 588387bf. Приёмка конкретного изменения фиксируется отдельно.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
 Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
@@ -28,3 +28,4 @@
 - C246: [заменяемость доменов 2/5](../../crew/C246-architecture-modularity/REPORT.md). audit-cycles: 1 пара order-line-plan↔work (task-bars.ts:45). products: 28 записей вне product. АБЗ-3 открыт.
 - C257: черновик [CONTRACT](../../crew/C257-shared-compat-contract/CONTRACT.md) шести shared. Замок S/G только с синхроном CRM; добавка A без копии в kppdf. `orderId` движений и брони — строка, у заявки — ObjectId. CRM→API не начат. Дерево kppdf не сверялось.
 - C254-doc: data-core пишет шесть shared через хозяев stock/supply; find/count вне них — `common/shared-collections`. CRM kppdf пишет напрямую. CRM→API не начат. [C254 REPORT](../../crew/C254-shared-collections-layer/REPORT.md).
+- C259: [план срезов](../../crew/C259-crm-api-client-plan/PLAN-SLICES.md). Цель — снять прямую запись kppdf, не паритет схем. Diff не нужен. C260+ только после приёмки плана и L-259. Пока процесс на VM — беречь общую Mongo. Код не начат.

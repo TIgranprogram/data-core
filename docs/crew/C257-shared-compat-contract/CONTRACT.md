@@ -1,10 +1,10 @@
 # CONTRACT — shared-коллекции data-core и CRM kppdf
 
-**Статус:** черновик 2026-11-24. Координатор принял как рабочий черновик (L-257); побайтный diff схем kppdf ещё открыт.  
-**Не сделано:** перевод CRM на API, правки репозитория kppdf, смена схем.  
-**Зачем:** data-core и CRM пишут одну Mongo `datacore`. Сломать имя, тип или обязательность поля здесь — сломать чтение CRM, и наоборот.
+**Статус:** черновик 2026-11-24. Принят как рабочий (L-257).  
+**Решение владельца 24.11.2026:** `kppdf-8.0` — старый проект, **избавляемся**; побайтный diff схем с ним **не делаем и не блокируем** программу. Пока kppdf ещё пишет в ту же Mongo — не ломать живые поля shared без нужды.  
+**Не сделано:** перевод записи на API (C259→C260+), отключение kppdf, смена схем ради паритета со старым кодом.
 
-Опора: [ARCHITECTURE «Единая база»](../../ARCHITECTURE.md), [UNIFY-SUPPLY-WAREHOUSE](../../UNIFY-SUPPLY-WAREHOUSE.md), [C250 INVENTORY](../C250-raw-query-inventory/INVENTORY.md), [LOCKS](../C246-architecture-modularity/LOCKS.md). Схемы сняты с data-core в этот день. Дерева `D:\kppdf-8.0` на машине не было — побайтовый diff с CRM не делался.
+Опора: [ARCHITECTURE «Единая база»](../../ARCHITECTURE.md), [UNIFY-SUPPLY-WAREHOUSE](../../UNIFY-SUPPLY-WAREHOUSE.md), [C250 INVENTORY](../C250-raw-query-inventory/INVENTORY.md), [LOCKS](../C246-architecture-modularity/LOCKS.md), [DECISION](../C246-architecture-modularity/DECISION.md). Схемы сняты с data-core.
 
 ## Кого касается
 

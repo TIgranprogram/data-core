@@ -15,3 +15,4 @@
 
 2026-11-24 · shared с CRM — контракт полей, не перевод на API: замок S/G менять только синхронно с kppdf; добавка A без required и без default на save; orderId движений и брони — строка, у заявки — ObjectId · docs/crew/C257-shared-compat-contract/CONTRACT.md
 2026-11-24 · владение шестью shared только внутри data-core: запись через stock/supply, find/count вне них через common/shared-collections; CRM kppdf пишет напрямую, CRM→API не открывать · docs/crew/C254-shared-collections-layer/REPORT.md
+2026-11-24 · владелец: kppdf не развиваем и diff схем не делаем; срезы C259 снимают прямую запись; пока процесс жив на VM — беречь общую Mongo (`$set`, не replace) · docs/crew/C259-crm-api-client-plan/PLAN-SLICES.md
