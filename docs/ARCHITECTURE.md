@@ -97,7 +97,9 @@ CRM kppdf (:3000, https://kppdf-crm.ru) ──────── напряму�
 
 ## Общие хелперы (АБЗ-1, 2026-10-23)
 
-Модули `modules/*` не импортируют друг друга по кругу (взаимных пар — 0; проверка: `node backend/scripts/audit-cycles.js`, `-v` — откуда связь). Общее, из-за чего были циклы, лежит в `common/`: `common/catalog/` — состав изделия (composition-line), граф «где используется» (catalog-graph), ссылки CRM (catalog-references), category-resolver, схемы `Product` и `ProductModule` (их моделями пользуются оба модуля); `common/text/` — `normText`, `search-norm`, `order-key`. Новое общее — сюда, а не импортом из соседнего модуля; после правки — снова `audit-cycles.js`.
+Модули `modules/*` не должны импортировать друг друга по кругу (проверка: `node backend/scripts/audit-cycles.js`, `-v` — откуда связь; скрипт ловит **взаимные пары**, длинные циклы — отдельно). Общее, из-за чего были циклы, лежит в `common/`: `common/catalog/` — состав изделия (composition-line), граф «где используется» (catalog-graph), ссылки CRM (catalog-references), category-resolver, схемы `Product` и `ProductModule` (их моделями пользуются оба модуля); `common/text/` — `normText`, `search-norm`, `order-key`. В `common/` — типы и чистые функции, не доменные правила. Новое общее — сюда, а не импортом из соседнего модуля; после правки — снова `audit-cycles.js`.
+
+> **Актуальность (C246, 24.11.2026):** фраза «взаимных пар — 0» ниже по истории АБЗ-1 устарела как гарантия «навсегда». Снимок после аудита — [crew/C246-architecture-modularity/REPORT.md](crew/C246-architecture-modularity/REPORT.md); текущее число — только свежий прогон `audit-cycles.js`. Программа хозяев доменов — [C246/CHECKLIST](crew/C246-architecture-modularity/CHECKLIST.md).
 
 
 ### HTTP-логи: заголовки авторизации

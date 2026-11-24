@@ -4,6 +4,16 @@
 
 | ID | Суть | Статус |
 |--|--|--|
+| C255 | ESLint-границы доменов | очередь · [ТЗ](C255-domain-boundaries-eslint/TZ.md) |
+| C254 | Слой общих CRM-коллекций | очередь · [ТЗ](C254-shared-collections-layer/TZ.md) |
+| C253 | Запись products через хозяина | очередь · [ТЗ](C253-products-owner-writes/TZ.md) |
+| C252 | Запись salesorders через хозяина | очередь · [ТЗ](C252-salesorders-owner-writes/TZ.md) |
+| C251 | Запись incomes через хозяина | очередь · [ТЗ](C251-incomes-owner-writes/TZ.md) |
+| C250 | raw-query + инвентаризация писателей | очередь · [ТЗ](C250-raw-query-inventory/TZ.md) |
+| C249 | Граница finance ↔ supply | очередь · [ТЗ](C249-finance-supply-boundary/TZ.md) |
+| C248 | ourCompanies в common | очередь · [ТЗ](C248-our-companies-common/TZ.md) |
+| C247 | Снять цикл work ↔ order-line-plan | done · [Отчёт](C247-break-work-plan-cycle/REPORT.md) |
+| C246 | Модульность: аудит, выбор архитектуры, план | план уточнён · [CHECKLIST](C246-architecture-modularity/CHECKLIST.md) |
 | C245 | Пульт сохраняет вход рабочего сайта | Готово локально · [QA](C245-pult-remember-login/QA-REPORT.md) |
 | C244 | Фото изделия из паспорта в строке заказа | Выпущено v2.51 · [проверка](C244-order-product-photo/POSTRELEASE-REPORT.md) |
 | C243 | Поставщик в каталоге против истории закупок | Выпущено v2.49 · [проверка](C236-trainer-exercise-instructions/POSTRELEASE-REPORT.md) |

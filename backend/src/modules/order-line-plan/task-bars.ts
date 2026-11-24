@@ -42,7 +42,7 @@ export async function taskBars(db: Db, o: { incomeIds?: Types.ObjectId[] | null;
     const i = inc.get(String(t.incomeId)); const route = t.route as WorkStep[];
     const orderId = String(t.orderId ?? i?.orderId ?? '') || null;
     const dl = orderId ? o.deadline(order.get(orderId)) : null;
-    const moduleWork = t.moduleWork as import('../work/work-task.schema').ModuleWork | undefined;
+    const moduleWork = t.moduleWork as import('../../common/module-work').ModuleWork | undefined;
     const plan = computePlan(route, moduleWork?.quantity ?? (i?.qty as number | undefined) ?? null, days, (t.startedAt as Date | undefined) ?? (t.createdAt as Date | undefined) ?? o.today);
     plan.forEach((p, k) => {
       const at = t.stepIndex as number | null;

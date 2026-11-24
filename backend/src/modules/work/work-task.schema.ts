@@ -1,23 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import type { ModuleWork } from '../../common/module-work';
 import type { WorkStep } from '../../common/work-step';
+
+export type { ModuleWork } from '../../common/module-work';
 
 export type WorkTaskDocument = HydratedDocument<WorkTask>;
 
 /** Статусы: ждёт запуска (шаг не начат) → в работе (идёт шаг маршрута) → готово; отменено — снято (причина в cancelReason). */
 export const WORK_STATUSES = ['waiting', 'work', 'done', 'cancelled'] as const;
 export type WorkStatus = (typeof WORK_STATUSES)[number];
-
-export interface ModuleWork {
-  lineId: Types.ObjectId;
-  moduleId: Types.ObjectId;
-  designTaskId: Types.ObjectId;
-  designCode: string;
-  name: string;
-  article?: string;
-  quantity: number;
-  items?: Array<{ refId: Types.ObjectId; type: string; name: string; quantity: number; unit: string }>;
-}
 
 export interface WorkHold {
   kind: 'pause' | 'materials';
