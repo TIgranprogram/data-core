@@ -1,7 +1,7 @@
 import { guardDoc } from './safe-doc';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
-import { fontDir } from '../../modules/product-passport/passport-pdf';
+import { fontDir } from './font-dir';
 
 export interface TechSheetInput { title: string; rows: { name: string; text: string }[]; photo: Buffer | null }
 

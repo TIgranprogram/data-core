@@ -1,7 +1,8 @@
 import { guardDoc } from '../../common/print/safe-doc';
 import PDFDocument from 'pdfkit';
 import { join } from 'path';
-import { fontDir, imposition } from './passport-pdf';
+import { fontDir } from '../../common/print/font-dir';
+import { imposition } from './passport-pdf';
 import { firmAccent } from './passport-look-metrics';
 import { PdfV2Input } from './passport-pdf-v2-types';
 import { A5, A4L, M, CW, V2Page } from './passport-pdf-v2-common';

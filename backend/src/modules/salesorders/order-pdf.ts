@@ -2,7 +2,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import { guardDoc } from '../../common/print/safe-doc';
-import { fontDir } from '../product-passport/passport-pdf';
+import { fontDir } from '../../common/print/font-dir';
 
 /**
  * Печать заказа для производства (пользователь 2026-11-06: «с картинками, без цен, больше информации — именно процессы

@@ -1,7 +1,7 @@
 import { guardDoc } from '../../common/print/safe-doc';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
-import { fontDir } from '../product-passport/passport-pdf';
+import { fontDir } from '../../common/print/font-dir';
 
 /** Данные печатной формы «Накладная на отгрузку» (внутренний документ, не УПД/ТОРГ-12). */
 export interface ShipmentPdfInput {

@@ -5,7 +5,7 @@ import { guardDoc } from '../../common/print/safe-doc';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
-import { fontDir } from '../product-passport/passport-pdf';
+import { fontDir } from '../../common/print/font-dir';
 
 /** Кандидаты шрифтов: сначала системный sans-serif с кириллицей (Ubuntu), затем ГОСТ. */
 function offerBoldPath(dir: string): string {

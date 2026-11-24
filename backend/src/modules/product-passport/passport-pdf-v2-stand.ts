@@ -1,7 +1,8 @@
 import { guardDoc } from '../../common/print/safe-doc';
 import PDFDocument from 'pdfkit';
 import { join } from 'path';
-import { fontDir, PdfOrg } from './passport-pdf';
+import { fontDir } from '../../common/print/font-dir';
+import type { PdfOrg } from './passport-pdf';
 import { PdfPassportV2, PdfV2Text, PdfV2Style, MONO_COLOR } from './passport-pdf-v2-types';
 import { has, num, shortTiles, ruleIcon } from './passport-pdf-v2-common';
 

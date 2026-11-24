@@ -1,7 +1,7 @@
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import { guardDoc } from '../../common/print/safe-doc';
-import { fontDir } from './passport-pdf';
+import { fontDir } from '../../common/print/font-dir';
 import type { RegistryLine } from './passport-registry.service';
 
 interface RegistryPrintInput {

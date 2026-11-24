@@ -1,7 +1,8 @@
-import { existsSync } from 'fs';
-import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import type { PassportTemplateContent } from './passport-template.default';
+
+/** Реэкспорт для тестов модуля. Внешние PDF берут путь из `common/print`. */
+export { fontDir } from '../../common/print/font-dir';
 
 /**
  * Общие части PDF паспорта (шрифт ГОСТ, спуск полос буклета, гарантийный талон, реквизиты) — их использует PDF паспорта
@@ -35,11 +36,6 @@ const A5 = { w: 419.53, h: 595.28 };
 const M = { l: 34, r: 28, t: 30, b: 40 };
 const CW = A5.w - M.l - M.r; // ширина набора
 const BOTTOM = A5.h - M.b;
-
-export function fontDir(): string {
-  const c = [join(process.cwd(), 'pwa', 'fonts'), join(__dirname, '..', '..', '..', 'pwa', 'fonts'), join(__dirname, '..', '..', '..', '..', 'pwa', 'fonts')];
-  return c.find((p) => existsSync(join(p, 'gost-a.ttf'))) ?? c[0];
-}
 
 /** Название организации в документе: полное наименование, иначе обычное. */
 export const docName = (o: PdfOrg | null | undefined) => String(o?.fullName || o?.name || '').trim();

@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import { guardDoc } from '../../common/print/safe-doc';
-import { fontDir } from '../product-passport/passport-pdf';
+import { fontDir } from '../../common/print/font-dir';
 import { qrUrl } from './qr-code';
 import { join } from 'path';
 

@@ -10,7 +10,7 @@
 | C252 | Запись salesorders через хозяина | очередь · [ТЗ](C252-salesorders-owner-writes/TZ.md) |
 | C251 | Запись incomes через хозяина | очередь · [ТЗ](C251-incomes-owner-writes/TZ.md) |
 | C250 | raw-query + инвентаризация писателей | очередь · [ТЗ](C250-raw-query-inventory/TZ.md) |
-| C249 | Граница finance ↔ supply | очередь · [ТЗ](C249-finance-supply-boundary/TZ.md) |
+| C249 | fontDir ✅; finance↔supply остаток | частично · [fontDir](C249-finance-supply-boundary/REPORT-fontDir.md) · [ТЗ](C249-finance-supply-boundary/TZ.md) |
 | C248 | ourCompanies в common | done · [Отчёт](C248-our-companies-common/REPORT.md) |
 | C247 | Снять цикл work ↔ order-line-plan | done · [Отчёт](C247-break-work-plan-cycle/REPORT.md) |
 | C246 | Модульность: аудит, выбор архитектуры, план | план уточнён · [CHECKLIST](C246-architecture-modularity/CHECKLIST.md) |
