@@ -249,11 +249,18 @@ async function cmdCheck() {
   const dsg = step('дизайн', process.execPath, ['backend/scripts/design-lint.mjs']);
   say(dsg.code === 0 ? 'дизайн (design-lint): ок' : 'дизайн (design-lint): ОШИБКИ — ' + cut(dsg.out.trim().split('\n').slice(-3)[0] || '', 110) + ' (tools/logs)');
   if (dsg.code) bad++;
-  // C049: взаимные импорты модулей сервера (A ↔ B) — новый цикл не должен пройти незаметно
+  // C049/C256: пары и циклы длины ≥3. Код скрипта ≠ 0, если появилась новая находка.
   const cyc = step('циклы модулей', process.execPath, ['backend/scripts/audit-cycles.js']);
   const pairs = Number((cyc.out.match(/Взаимных пар модулей:\s*(\d+)/) || [])[1] ?? NaN);
-  say(pairs === 0 ? 'циклы модулей: нет' : 'циклы модулей: ' + (Number.isNaN(pairs) ? 'сбой проверки' : pairs + ' — ' + cut(cyc.out.trim().split('\n').slice(1, 3).join('; '), 100)));
-  if (pairs !== 0) bad++;
+  const fresh = Number((cyc.out.match(/Новых длинных циклов:\s*(\d+)/) || [])[1] ?? NaN);
+  const stale = Number((cyc.out.match(/лишних строк:\s*(\d+)/) || [])[1] ?? NaN);
+  const known = Number((cyc.out.match(/Длинных циклов:\s*(\d+)/) || [])[1] ?? NaN);
+  const ok = cyc.code === 0 && pairs === 0 && fresh === 0;
+  const detail = [pairs, fresh].some((n) => Number.isNaN(n))
+    ? 'сбой проверки'
+    : `пар ${pairs}, новых длинных ${fresh}` + (stale > 0 ? `, список шире на ${stale}` : '');
+  say(ok ? (known === 0 ? 'циклы модулей: нет' : `циклы модулей: новых нет, длинных в дереве ${known}`) : 'циклы модулей: ' + detail);
+  if (!ok) bad++;
   const atl = await atlasCheck();
   log('\n=== карта сайта ===\n' + ([...atl.errors, ...atl.warns].join('\n') || 'ок'));
   say(atl.errors.length ? `карта сайта: ОШИБКИ ${atl.errors.length} — ${cut(atl.errors[0], 90)} (dc atlas --check)` : `карта сайта: ок${atl.warns.length ? `, сверить ${atl.warns.length} (dc atlas --check)` : ''}`);

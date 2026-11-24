@@ -121,7 +121,7 @@ export async function main(args = process.argv.slice(2)) {
         const result = await runCommand(step.command, step.args, step);
         let status = commandStatus(result);
         if (step.optional && status === 'FAIL') status = 'SKIP';
-        if (step.id === 'cycles' && !/Взаимных пар модулей:\s*0\b/.test(result.output)) status = 'FAIL';
+        if (step.id === 'cycles' && (!/Взаимных пар модулей:\s*0\b/.test(result.output) || !/Новых длинных циклов:\s*0\b/.test(result.output))) status = 'FAIL';
         row = { ...row, status, code: result.code, log: `${step.id}.log`, detail: result.timedOut ? 'Превышено время; процесс остановлен' : result.error ? 'Не удалось запустить' : status === 'SKIP' ? 'Недоступно или есть пропущенные тесты' : `Код ${result.code}` };
         fs.writeFileSync(path.join(runDir, row.log), result.output);
       }

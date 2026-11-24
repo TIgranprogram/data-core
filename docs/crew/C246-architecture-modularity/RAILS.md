@@ -14,7 +14,7 @@
 
 ## Мини-проверка перед коммитом (S/M по архитектуре)
 
-- [ ] `node backend/scripts/audit-cycles.js` — 0 взаимных пар (после C256 — и длинные циклы по его REPORT).
+- [ ] `node backend/scripts/audit-cycles.js` — код 0: 0 пар и 0 новых циклов ≥3 (снимок `KNOWN_LONG` не расширять молча).
 - [ ] Нет нового `db.collection('<чужая>')` / чужой модели для **записи** мимо хозяина.
 - [ ] Новый импорт из соседнего `modules/*` — через фасад/`index.ts` или DI хозяина, не «файл вглубь».
 - [ ] Если трогали shared с CRM — поля по [C257 CONTRACT](../C257-shared-compat-contract/CONTRACT.md) (S/G без синхрона CRM не ломать).
