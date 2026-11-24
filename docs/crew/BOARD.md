@@ -4,7 +4,7 @@
 
 | ID | Суть | Статус |
 |--|--|--|
-| C266 | Плотность списков и завершённые фильтры | код+smoke+дизайнер PASS · выпуск отдельно · [REPORT](C266-filter-compact/REPORT-FINAL.md) · [UI](C266-filter-compact/UI-REVIEW.md) |
+| C266 | Плотность списков и завершённые фильтры | done · v2.54 · [RELEASE](C266-filter-compact/RELEASE.md) · [UI-REVIEW](C266-filter-compact/UI-REVIEW.md) |
 | C265 | Приход + откат через API | done · [Отчёт](C265-receipt-api-slice/REPORT.md) · L-265 |
 | C264 | Бронь + reservedQty через API | done · [Отчёт](C264-reservation-api-slice/REPORT.md) · L-264 |
 | C263 | Движение + остаток через API | done · [Отчёт](C263-stock-move-api-slice/REPORT.md) · L-263 |
