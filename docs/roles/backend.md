@@ -2,6 +2,8 @@
 
 > Закрытые темы — одна строка: дата · что было · как решено · источник. Перед работой — Grep по теме здесь.
 
+- 2026-11-24 · бочка `index.ts` с Nest-модулем на порте цикла возвращает цикл · порт остаётся на `*-writes`; полное «только index» не включать, пока прямых импортов десятки · C255
+
 - 2026-11-24 · чужая запись shared через импорт stock/supply замыкает цикл (stock→material, supply→dicts/partners, incomes→supply→dicts→incomes) · операции в `stock-writes` / `supply-writes`, вызов из цикла — `common/*-owner-port`, не DI · C254-w
 - 2026-11-24 · проекция брони `salesOrderLineId` и движений `num` не в контракте — слой бросает · без проекции, документ целиком; где `deletedAt` не было — `includeDeleted` · C254-c
 - 2026-11-24 · перевод finance на sharedFind сузил бы статью снятой заявки в снимке оплаты · `includeDeleted` на связи снимка; distinct и агрегат fill-audit слой не берёт · C254-b
