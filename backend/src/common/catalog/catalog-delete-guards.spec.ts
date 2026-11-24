@@ -55,7 +55,7 @@ type Remover = (model: unknown) => { remove: (id: string) => Promise<void> };
 const cases: { title: string; make: Remover; owners: string[]; crm: string[] }[] = [
   {
     title: 'MaterialService',
-    make: (m) => new MaterialService(m as never, {} as never, {} as never, {} as never, undefined),
+    make: (m) => new MaterialService(m as never, {} as never, {} as never, {} as never, undefined, { isEnabled: async () => true } as never),
     owners: ['products', 'productmodules', 'materials'],
     crm: ['costcalculations', 'purchaseorders'],
   },

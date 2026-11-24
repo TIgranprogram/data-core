@@ -132,6 +132,7 @@ export class MaterialController {
     return this.service.findById(id, user.organizationId);
   }
 
+  /** C261: новая карточка. Флаг `c261.materials.card.api` выключен — 409, маршрут остаётся. */
   @Post()
   @Roles('admin', 'manager')
   @AuditAction({ action: 'create', entityType: 'Material' })
@@ -140,6 +141,7 @@ export class MaterialController {
     return this.service.create(dto, user.organizationId);
   }
 
+  /** C261: правка карточки. Флаг выключен — 409. Остаток в теле не пишется. */
   @Patch(':id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'update', entityType: 'Material', idParam: 'id' })
@@ -158,6 +160,7 @@ export class MaterialController {
     return this.service.setPassportSpec(id, body, user.organizationId);
   }
 
+  /** C261: снятие карточки (`deletedAt`). Флаг выключен — 409, маршрут остаётся. */
   @Delete(':id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'delete', entityType: 'Material', idParam: 'id' })
@@ -167,6 +170,7 @@ export class MaterialController {
     return this.service.remove(id, user.organizationId);
   }
 
+  /** C261: копия — тоже новая карточка. Флаг выключен — 409. */
   @Post(':id/duplicate')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'duplicate', entityType: 'Material', idParam: 'id' })

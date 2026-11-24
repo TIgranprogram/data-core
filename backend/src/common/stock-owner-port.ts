@@ -8,6 +8,7 @@ export {
   attachMaterialPhoto,
   insertMaterial,
   insertPdmMaterials,
+  materialCardSet,
   patchMaterial,
   patchPdmMaterial,
   patchPdmMaterialAliases,

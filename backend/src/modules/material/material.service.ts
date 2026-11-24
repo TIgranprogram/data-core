@@ -15,7 +15,9 @@ import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-r
 import { mergePassportSpec, presentPassportSpec, type StoredPassportSpec } from '../../common/catalog/passport-link';
 import { STOCK_VISIBLE } from '../../common/catalog/stock-visible';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
-import { archiveMaterial, insertMaterial, patchMaterial, saveMaterialComposition, setMaterialPassportSpec } from '../../common/stock-owner-port';
+import { archiveMaterial, insertMaterial, materialCardSet, patchMaterial, saveMaterialComposition, setMaterialPassportSpec } from '../../common/stock-owner-port';
+import { FeatureFlagService } from '../feature-flag/feature-flag.service';
+import { MATERIAL_CARD_API_FLAG } from './material-card-flag';
 
 @Injectable()
 export class MaterialService {
@@ -28,11 +30,21 @@ export class MaterialService {
     private readonly counter: CounterService,
     private readonly catalogGraph: CatalogGraphService,
     @Optional() compositionLines: CompositionLineService | undefined,
+    @Optional() private readonly flags?: FeatureFlagService,
   ) {
     this.compositionLines = compositionLines ?? new CompositionLineService();
   }
 
+  /** C261: выкл — CRM снова может писать Mongo. Маршрут при этом остаётся и отвечает 409. */
+  private async assertCardApi() {
+    const on = this.flags ? await this.flags.isEnabled(MATERIAL_CARD_API_FLAG) : false;
+    if (!on) {
+      throw new ConflictException('Флаг c261.materials.card.api выключен: карточку материала снова пишет CRM в Mongo. Маршруты API не сняты.');
+    }
+  }
+
   async create(dto: CreateMaterialDto, organizationId?: string | null): Promise<MaterialDocument> {
+    await this.assertCardApi();
     this.assertUniqueDimensionTypes(dto.dimensions);
     const article = this.normalizeRequiredArticle(dto.article);
     let sku = dto.sku;
@@ -47,12 +59,10 @@ export class MaterialService {
     else (dto as { workTypes?: unknown }).workTypes = workTypes;
     try {
       // остаток — только storageitems (ДМ.5): stockQty из запроса игнорируем, при создании 0
+      const card = materialCardSet({ ...dto, article, sku, ...(colors !== undefined ? { colors } : {}) });
       return await insertMaterial(this.model, {
-        ...dto,
+        ...card,
         stockQty: 0,
-        article,
-        sku,
-        ...(colors !== undefined ? { colors } : {}),
         ...this.organizationWrite(organizationId),
       });
     } catch (err) {
@@ -201,6 +211,7 @@ export class MaterialService {
   }
 
   async update(id: string, dto: UpdateMaterialDto, organizationId?: string | null): Promise<MaterialDocument> {
+    await this.assertCardApi();
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException(`Material ${id} not found`);
     if (dto.categoryId) await this.loadAssignableMaterialCategory(dto.categoryId, organizationId);
     if (dto.article !== undefined) dto.article = this.normalizeRequiredArticle(dto.article);
@@ -212,11 +223,8 @@ export class MaterialService {
     if (!doc || doc.deletedAt) throw new NotFoundException(`Material ${id} not found`);
 
     // findOneAndUpdate — тот же баг photoIds/VersionError, что у Product (TZ-CATALOG-339).
-    const $set: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(dto as Record<string, unknown>)) {
-      if (key === 'stockQty') continue; // остаток — только storageitems (ДМ.5)
-      if (value !== undefined) $set[key] = value;
-    }
+    // Только известные поля карточки. stockQty и чужие ключи в $set не попадают.
+    const $set = materialCardSet(dto);
     if (colors !== undefined) $set.colors = colors;
     const $unset: Record<string, ''> = {};
     const kind = dto.materialKind ?? doc.materialKind;
@@ -306,6 +314,7 @@ export class MaterialService {
   }
 
   async remove(id: string, organizationId?: string | null): Promise<void> {
+    await this.assertCardApi();
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException(`Material ${id} not found`);
     const doc = organizationId
       ? await this.model.findOne({ _id: new Types.ObjectId(id), deletedAt: null, ...this.organizationFilter(organizationId) }).exec()
@@ -317,6 +326,7 @@ export class MaterialService {
   }
 
   async duplicate(sourceId: string, organizationId?: string | null): Promise<MaterialDocument> {
+    await this.assertCardApi();
     if (!Types.ObjectId.isValid(sourceId)) throw new NotFoundException(`Material ${sourceId} not found`);
     const source = organizationId
       ? await this.model.findOne({ _id: new Types.ObjectId(sourceId), deletedAt: null, ...this.organizationFilter(organizationId) }).exec()

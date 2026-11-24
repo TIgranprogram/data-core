@@ -8880,6 +8880,7 @@
       },
       "post": {
         "operationId": "MaterialController_create",
+        "description": "C261. Флаг c261.materials.card.api выключен — 409, маршрут остаётся.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -9167,6 +9168,7 @@
       },
       "patch": {
         "operationId": "MaterialController_update",
+        "description": "C261. Флаг c261.materials.card.api выключен — 409, маршрут остаётся. Остаток в теле не пишется.",
         "parameters": [
           {
             "name": "id",
@@ -9198,6 +9200,7 @@
       },
       "delete": {
         "operationId": "MaterialController_remove",
+        "description": "C261. Флаг c261.materials.card.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -9245,6 +9248,7 @@
     "/api/materials/{id}/duplicate": {
       "post": {
         "operationId": "MaterialController_duplicate",
+        "description": "C261. Копия карточки. Флаг c261.materials.card.api выключен — 409.",
         "parameters": [
           {
             "name": "id",

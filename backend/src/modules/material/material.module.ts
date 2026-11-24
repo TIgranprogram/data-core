@@ -9,11 +9,13 @@ import { CounterModule } from '../counter/counter.module';
 import { Category, CategorySchema } from '../category/category.schema';
 import { CatalogGraphModule } from '../../common/catalog/catalog-graph.module';
 import { CompositionLineService } from '../../common/catalog/composition-line.service';
+import { FeatureFlagModule } from '../feature-flag/feature-flag.module';
 
 @Module({
   imports: [
     CounterModule,
     CatalogGraphModule,
+    FeatureFlagModule,
     MongooseModule.forFeature([
       { name: Material.name, schema: MaterialSchema },
       { name: MaterialPrice.name, schema: MaterialPriceSchema },

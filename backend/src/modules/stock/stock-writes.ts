@@ -55,6 +55,28 @@ export function moveReservationsToOrder(db: Db, lineId: unknown, orderId: unknow
 }
 
 /**
+ * Поля карточки, которые API имеет право записать.
+ * `stockQty` и остаток сюда не входят: их держат storageitems.
+ * `deletedAt` — только снятие, не правка.
+ */
+const MATERIAL_CARD_FIELDS = [
+  'name', 'article', 'sku', 'materialKind', 'assortment', 'standardRef', 'materialGrade', 'weightKg',
+  'unit', 'categoryId', 'description', 'pricePerUnit', 'dimensions', 'colors', 'photoIds', 'mainPhotoId',
+  'supplierId', 'notes', 'pdmCode', 'pdmAliases', 'pdm', 'dimSource', 'isProfile', 'profileId',
+  'isDefaultFormat', 'scrapFactor', 'needsName', 'workTypes',
+] as const;
+
+/** Оставляет только известные поля карточки. Чужой ключ не попадает в `$set`. */
+export function materialCardSet(input: object): Record<string, unknown> {
+  const src = input as Record<string, unknown>;
+  const set: Record<string, unknown> = {};
+  for (const key of MATERIAL_CARD_FIELDS) {
+    if (src[key] !== undefined) set[key] = src[key];
+  }
+  return set;
+}
+
+/**
  * Карточка материала. Правила (артикул, виды работ, версия) остаются в MaterialService.
  * Здесь только запись коллекции: импорт модуля material в stock замыкает пару.
  */

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { MaterialService } from './material.service';
+import { MATERIAL_CARD_API_FLAG } from './material-card-flag';
 import type { CreateMaterialDto } from './dto/create-material.dto';
 import type { UpdateMaterialDto } from './dto/update-material.dto';
 import type { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
@@ -12,6 +13,8 @@ const CATEGORY_ID = new Types.ObjectId().toString();
 function query<T>(value: T) {
   return { exec: jest.fn().mockResolvedValue(value) };
 }
+
+const flagsOn = { isEnabled: async () => true };
 
 function buildService(
   opts: {
@@ -24,6 +27,7 @@ function buildService(
     counterNext?: jest.Mock;
     find?: jest.Mock;
     countDocuments?: jest.Mock;
+    flags?: { isEnabled: (key: string) => Promise<boolean> };
   } = {},
 ) {
   const create = opts.create ?? jest.fn();
@@ -39,7 +43,8 @@ function buildService(
   const categoryModel = { findById: categoryFindById } as any;
   const counter = { next: counterNext } as any;
   const catalogGraph = { getWhereUsed: jest.fn() } as unknown as CatalogGraphService;
-  const service = new MaterialService(model, categoryModel, counter, catalogGraph, undefined);
+  const flags = opts.flags ?? flagsOn;
+  const service = new MaterialService(model, categoryModel, counter, catalogGraph, undefined, flags as never);
   return { service, create, findById, findOne, updateOne, categoryFindById, counterNext, find, countDocuments };
 }
 
@@ -80,6 +85,54 @@ function doc(overrides: Record<string, unknown> = {}) {
 }
 
 describe('MaterialService (TZ-MATERIALS-303/307)', () => {
+  describe('C261 — флаг карточки', () => {
+    it('выключен — 409 на создание, правку и снятие, записи нет', async () => {
+      const create = jest.fn();
+      const findOneAndUpdate = jest.fn();
+      const updateOne = jest.fn();
+      const flags = { isEnabled: jest.fn(async () => false) };
+      const { service } = buildService({ create, findOneAndUpdate, updateOne, flags });
+      await expect(service.create(dto())).rejects.toMatchObject({ status: 409 });
+      await expect(service.update('507f1f77bcf86cd799439011', { name: 'Лист' })).rejects.toMatchObject({ status: 409 });
+      await expect(service.remove('507f1f77bcf86cd799439011')).rejects.toMatchObject({ status: 409 });
+      await expect(service.duplicate('507f1f77bcf86cd799439011')).rejects.toMatchObject({ status: 409 });
+      expect(flags.isEnabled).toHaveBeenCalledWith(MATERIAL_CARD_API_FLAG);
+      expect(create).not.toHaveBeenCalled();
+      expect(findOneAndUpdate).not.toHaveBeenCalled();
+      expect(updateOne).not.toHaveBeenCalled();
+    });
+
+    it('выключен — список читается', async () => {
+      const { service, find } = buildService({ flags: { isEnabled: async () => false } });
+      await expect(service.findAll({})).resolves.toMatchObject({ items: [], total: 0 });
+      expect(find).toHaveBeenCalled();
+    });
+
+    it('правка пишет цену и размеры и не пишет остаток', async () => {
+      const findOneAndUpdate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(doc()) });
+      const { service } = buildService({
+        findById: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(doc()) }),
+        findOneAndUpdate,
+      });
+      await service.update('507f1f77bcf86cd799439011', {
+        name: 'Лист',
+        pricePerUnit: 10,
+        dimensions: [{ type: 'thickness', value: 4 }],
+        stockQty: 5,
+        quantity: 9,
+        editedInApp: true,
+      } as UpdateMaterialDto);
+      const [, update] = findOneAndUpdate.mock.calls[0] as [unknown, { $set: Record<string, unknown> }];
+      expect(update.$set).toEqual({
+        name: 'Лист',
+        pricePerUnit: 10,
+        dimensions: [{ type: 'thickness', value: 4 }],
+      });
+      expect(update.$set).not.toHaveProperty('stockQty');
+      expect(JSON.stringify(update)).not.toContain('replace');
+    });
+  });
+
   describe('article contract (TZ-CATALOG-338)', () => {
     it('rejects a missing article before touching persistence', async () => {
       const { service, create } = buildService();

@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { moveReservationsToOrder, renameMaterialColor, renameStockLabel } from './stock-writes';
+import { materialCardSet, moveReservationsToOrder, renameMaterialColor, renameStockLabel } from './stock-writes';
 import { moveSupplyRequestsToOrder, renameSupplyLabel } from '../supply/supply-writes';
 
 function fake() {
@@ -26,6 +26,19 @@ describe('запись shared у хозяина', () => {
     await renameStockLabel(db, 'stockmovements', 'reason', 'Брак', 'Заводской брак');
     expect(calls[0].coll).toBe('stockmovements');
     expect(calls[0].update).toEqual({ $set: { reason: 'Заводской брак' } });
+  });
+
+  it('карточка материала: в набор попадают только известные поля', () => {
+    const set = materialCardSet({
+      name: 'Лист',
+      pricePerUnit: 10,
+      dimensions: [{ type: 'thickness', value: 4 }],
+      stockQty: 5,
+      quantity: 5,
+      editedInApp: true,
+      deletedAt: new Date(),
+    });
+    expect(set).toEqual({ name: 'Лист', pricePerUnit: 10, dimensions: [{ type: 'thickness', value: 4 }] });
   });
 
   it('цвет позиции — точная строка массива', async () => {

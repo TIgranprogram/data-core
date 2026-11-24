@@ -4,6 +4,7 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { FeatureFlagService } from '../../modules/feature-flag/feature-flag.service';
+import { MATERIAL_CARD_API_FLAG } from '../../modules/material/material-card-flag';
 import { WAREHOUSE_API_FLAG } from '../../modules/stock/warehouse-flag';
 
 const DEFAULT_FLAGS = [
@@ -43,6 +44,14 @@ const DEFAULT_FLAGS = [
     key: WAREHOUSE_API_FLAG,
     label: 'Склады пишет API',
     description: 'Включён — хозяин записи warehouses это API data-core. Выключен — CRM снова может писать Mongo; POST/PATCH/DELETE /api/stock/warehouses остаются и отвечают 409.',
+    enabledByDefault: false,
+    category: 'stock',
+    isActive: true,
+  },
+  {
+    key: MATERIAL_CARD_API_FLAG,
+    label: 'Карточку материала пишет API',
+    description: 'Включён — хозяин записи карточки materials это API data-core. Выключен — CRM снова может писать Mongo; POST/PATCH/DELETE /api/materials остаются и отвечают 409. Остаток, история цен, состав и паспорт флаг не смотрит.',
     enabledByDefault: false,
     category: 'stock',
     isActive: true,
