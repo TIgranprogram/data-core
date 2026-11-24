@@ -6,6 +6,7 @@ import type { Connection, Types } from 'mongoose';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { firstPhotoThumbs } from '../../common/photo-thumbs';
 import { openSectionsFor } from '../../common/app-sections';
+import { isSharedCollection, sharedCount, sharedFind } from '../../common/shared-collections';
 
 type Q = Record<string, unknown>;
 type Db = NonNullable<Connection['db']>;
@@ -19,6 +20,7 @@ export async function lockedInvoices(db: Db, rows: Array<Record<string, unknown>
   if (!ids.length) return new Set();
   const [bound, received] = await Promise.all([
     db.collection('supplyinvoices').find({ _id: { $in: ids }, receiptBoundaryAt: { $ne: null } }, { projection: { _id: 1 } }).toArray(),
+    // distinct мимо слоя: sharedFind/sharedCount его не берут. Фильтр уже с deletedAt: null.
     db.collection('supplyrequests').distinct('invoiceId', { invoiceId: { $in: ids }, deletedAt: null, status: 'received' }),
   ]);
   return new Set([...bound.map((x) => String(x._id)), ...received.map(String)]);
@@ -152,7 +154,13 @@ export class FillAuditService {
       if (d.money && !money) continue;
       if (opts.only && opts.only !== d.key) continue;
       const c = db.collection(d.coll);
-      const [count, rows] = await Promise.all([c.countDocuments(d.q), c.find(d.q).sort(d.sort).limit(limit).toArray()]);
+      // shared — без проекции: фото и подписи шире узкого списка. Фильтр групп уже с deletedAt. Чужие коллекции как были.
+      const [count, rows] = isSharedCollection(d.coll)
+        ? await Promise.all([
+          sharedCount(c, d.coll, d.q) as Promise<number>,
+          sharedFind(c, d.coll, d.q).sort(d.sort).limit(limit).toArray(),
+        ])
+        : await Promise.all([c.countDocuments(d.q), c.find(d.q).sort(d.sort).limit(limit).toArray()]);
       if (!count) continue;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars -- служебные поля описания группы в ответ не идут
       const { coll: _c, q: _q, item, sort: _s, ...g } = d;
@@ -178,14 +186,15 @@ export class FillAuditService {
    */
   private async articleGroup(limit: number): Promise<FillGroup | null> {
     const db = this.connection.db!;
+    // Агрегат мимо слоя: sharedFind не берёт pipeline (C254-0). $match уже с deletedAt: null.
     const reqs = await db.collection('supplyrequests').aggregate([
       { $match: { deletedAt: null, materialId: { $ne: null }, article: { $nin: [null, ''] } } },
       { $sort: { requestDate: -1 } },
       { $group: { _id: '$materialId', article: { $first: '$article' }, num: { $first: '$num' } } },
     ]).toArray();
     if (!reqs.length) return null;
-    const mats = await db.collection('materials').find({ _id: { $in: reqs.map((r) => r._id) }, deletedAt: null }, { projection: { name: 1, article: 1 } }).toArray();
-    const all = await db.collection('materials').find({ deletedAt: null, article: { $nin: [null, ''] } }, { projection: { article: 1 } }).toArray();
+    const mats = await sharedFind(db.collection('materials'), 'materials', { _id: { $in: reqs.map((r) => r._id) }, deletedAt: null }, { projection: { name: 1, article: 1 } }).toArray();
+    const all = await sharedFind(db.collection('materials'), 'materials', { deletedAt: null, article: { $nin: [null, ''] } }, { projection: { article: 1 } }).toArray();
     const owner = new Map(all.map((m) => [String(m.article).trim().toLowerCase(), String(m._id)]));
     const req = new Map(reqs.map((r) => [String(r._id), r]));
     const items: Item[] = [];

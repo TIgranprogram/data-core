@@ -23,6 +23,7 @@ import { ExpenseArticlesService } from '../expense-articles/expense-articles.ser
 import { articleOfCategory, PAYROLL_CODE } from '../expense-articles/articles-tree';
 import { buildByArticles, opsOfCell, type ByArticlesOpts } from './by-articles';
 import { buildForecast, expectedOps, invoiceStaleSince, type ExpenseSrc, type IncomeSrc } from './forecast';
+import { sharedFind } from '../../common/shared-collections';
 
 const iso = (d: unknown) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : '');
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -105,7 +106,7 @@ export class FinanceService {
       { projection: { no: 1, date: 1, status: 1, payerCompanyId: 1, amount: 1, currency: 1, currencyName: 1, financialLines: 1, exchangeRate: 1, confirmedAmountRub: 1, vatMode: 1, vatRate: 1, declaredVatAmount: 1, paymentAccountingVersion: 1, paymentSnapshot: 1 } }).toArray();
     const ids = invoices.map((x) => x._id);
     const [rows, summaries, companies] = await Promise.all([
-      ids.length ? db.collection('supplyrequests').find({ invoiceId: { $in: ids }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { invoiceId: 1, title: 1, qty: 1, priceHint: 1, articleId: 1, categoryId: 1, salesOrderId: 1, costCenter: 1 } }).toArray() : [],
+      ids.length ? sharedFind(db.collection('supplyrequests'), 'supplyrequests', { invoiceId: { $in: ids }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { invoiceId: 1, title: 1, qty: 1, priceHint: 1, articleId: 1, categoryId: 1, salesOrderId: 1, costCenter: 1 } }).toArray() : [],
       this.supply.invoicePaymentSummaries(ids), ourCompanies(this.connection),
     ]);
     const visible = await visibleFinanceRequests(this.connection, scope, rows.map((row) => String(row._id)));
@@ -154,7 +155,7 @@ export class FinanceService {
     const [reqs, incs, shipped, payroll, cats, orgs, paidInvoices, tree, otherExpenses] = await Promise.all([
       // оплаченные — по дате оплаты (paidAt, нет — дата счёта); неоплаченные с датой счёта в периоде — «счета к оплате»;
       // раньше периода (не старше 90 дней) — те же просроченные, что прогноз ставит на сегодня
-      includeSupply ? db.collection('supplyrequests').find({ ...(factsOnly ? { paid: true } : {}), ...(onlySource === 'request' ? { invoiceId: null } : onlySource === 'invoice' ? { invoiceId: { $ne: null } } : {}), deletedAt: null, status: { $ne: 'cancelled' }, priceHint: { $gt: 0 }, companyId: { $in: companyIds }, $or: [
+      includeSupply ? sharedFind(db.collection('supplyrequests'), 'supplyrequests', { ...(factsOnly ? { paid: true } : {}), ...(onlySource === 'request' ? { invoiceId: null } : onlySource === 'invoice' ? { invoiceId: { $ne: null } } : {}), deletedAt: null, status: { $ne: 'cancelled' }, priceHint: { $gt: 0 }, companyId: { $in: companyIds }, $or: [
         { paid: true, $or: [{ paidAt: range }, { paidAt: null, invoiceDate: range }] }, { paid: { $ne: true }, invoiceDate: range }, ...overdueClause] },
         { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, categoryId: 1, supplierId: 1, costCenter: 1, costObject: 1, salesOrderId: 1, salesOrderLineId: 1, articleId: 1, photoIds: 1, paid: 1, paidAt: 1, invoiceId: 1 } }).toArray() : [],
       includeIncome ? db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, $and: [{ $or: [{ companyId: { $in: companyIds } }, { 'payments.companyId': { $in: companyIds } }, { 'legacyPaymentMetadata.companyId': { $in: companyIds } }] }], $or: [{ 'payments.date': range }, { paidDate: range }] },
@@ -193,9 +194,10 @@ export class FinanceService {
     if (factsOnly) for (const payment of ledgerFacts) {
       for (const item of payment.allocations || []) if (item.salesOrderLineId === undefined) sourceRequestIds.add(String(item.requestId));
     }
-    const lineReqs = sourceRequestIds.size ? await db.collection('supplyrequests').find(
+    // Раньше без deletedAt: снятая заявка всё ещё подтверждает статью и строку снимка. includeDeleted не сужает выдачу.
+    const lineReqs = sourceRequestIds.size ? await sharedFind(db.collection('supplyrequests'), 'supplyrequests',
       { _id: { $in: [...sourceRequestIds].filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id)) } },
-      { projection: { articleId: 1, categoryId: 1, salesOrderId: 1, salesOrderLineId: 1, costCenter: 1, costObject: 1, supplierId: 1, deletedAt: 1, status: 1 } },
+      { includeDeleted: true, projection: { articleId: 1, categoryId: 1, salesOrderId: 1, salesOrderLineId: 1, costCenter: 1, costObject: 1, supplierId: 1, deletedAt: 1, status: 1 } },
     ).toArray() : [];
     const lineReq = new Map(lineReqs.map((r) => [String(r._id), r]));
     const articleOf = (articleId: unknown, categoryId: unknown) => (articleId ? String(articleId) : articleOfCategory(tree, categoryId)?.id);
@@ -213,7 +215,7 @@ export class FinanceService {
         } } }
       } }
     ]).toArray() : [];
-    const legacyRows = legacyIds.length ? await db.collection('supplyrequests').find({ invoiceId: { $in: legacyIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { invoiceId: 1, qty: 1, priceHint: 1, status: 1, articleId: 1, categoryId: 1, salesOrderId: 1, costCenter: 1, costObject: 1 } }).toArray() : [];
+    const legacyRows = legacyIds.length ? await sharedFind(db.collection('supplyrequests'), 'supplyrequests', { invoiceId: { $in: legacyIds }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { invoiceId: 1, qty: 1, priceHint: 1, status: 1, articleId: 1, categoryId: 1, salesOrderId: 1, costCenter: 1, costObject: 1 } }).toArray() : [];
     const legacyHeader = new Map(legacyHeaders.map((r) => [String(r._id), r])), legacyRowMap = new Map<string, FinancialRecord[]>();
     for (const row of legacyRows) { const key = String(row.invoiceId); if (!legacyRowMap.has(key)) legacyRowMap.set(key, []); legacyRowMap.get(key)!.push(row); }
     const ledgerById = new Map<string, { payment: FinancialRecord; allocation: FinancialRecord }>();
@@ -320,7 +322,7 @@ export class FinanceService {
     const noCompany = { $or: [{ companyId: null }, { companyId: { $exists: false } }, { companyId: { $nin: ours } }] };
     const tree = await this.articles.tree();
     const [reqs, incs, paidNoArticle] = await Promise.all([
-      access.supply ? db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, ...requestMatch, $or: [
+      access.supply ? sharedFind(db.collection('supplyrequests'), 'supplyrequests', { deletedAt: null, status: { $ne: 'cancelled' }, ...requestMatch, $or: [
         { invoiceDate: { $ne: null }, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] },
         { priceHint: { $gt: 0 }, $or: [{ invoiceDate: null }, { invoiceDate: { $exists: false } }] }, { paid: true, $or: [{ priceHint: null }, { priceHint: { $exists: false } }, { priceHint: { $lte: 0 } }] }, // оплачено без суммы — в календарь не попало
         { invoiceDate: { $ne: null }, priceHint: { $gt: 0 }, ...noCompany },
@@ -328,12 +330,13 @@ export class FinanceService {
       access.income ? db.collection('incomes').find({ deletedAt: null, cancelledAt: null, $or: [{ amount: { $lte: 0 } }, { reportDate: null }, { reportDate: { $exists: false } }, ...noCompany.$or] },
         { projection: { orderNo: 1, title: 1, amount: 1, reportDate: 1, companyId: 1 } }).limit(limit).toArray() : [],
       // оплачено, а статья не определилась ни заявкой, ни категорией
-      access.supply ? db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, ...requestMatch, paid: true, priceHint: { $gt: 0 }, articleId: null },
+      access.supply ? sharedFind(db.collection('supplyrequests'), 'supplyrequests', { deletedAt: null, status: { $ne: 'cancelled' }, ...requestMatch, paid: true, priceHint: { $gt: 0 }, articleId: null },
         { projection: { num: 1, title: 1, priceHint: 1, paidAt: 1, invoiceDate: 1, invoiceNo: 1, categoryId: 1 } }).sort({ paidAt: -1, num: -1 }).toArray() : [],
     ]);
     const undatedFilter: FinancialRecord = { deletedAt: null, payerCompanyId: { $in: ours }, 'undatedPaymentEvidence.state': 'pending' };
     if (scope && access.supply) {
       const match = requestMatch.$and![0];
+      // distinct мимо слоя: sharedFind/sharedCount его не берут. Фильтр уже с deletedAt: null.
       const visible = await db.collection('supplyrequests').distinct('invoiceId', { deletedAt: null, invoiceId: { $ne: null }, status: { $ne: 'cancelled' }, $and: [match] });
       const hidden = new Set((await db.collection('supplyrequests').distinct('invoiceId', { deletedAt: null, invoiceId: { $in: visible }, status: { $ne: 'cancelled' }, $nor: [match] })).map(String));
       undatedFilter._id = { $in: visible.filter(x => !hidden.has(String(x))) };
@@ -416,7 +419,7 @@ export class FinanceService {
     const stale = new Date(invoiceStaleSince(today) + 'T00:00:00Z'); // старые неоплаченные счета — не прогноз, а чистка данных
     const requestMatch = scope ? { $and: [await docScopeMatch(this.connection, scope)] } : {};
     const [reqs, incs, orgs, payDue] = await Promise.all([
-      access.supply ? db.collection('supplyrequests').find({ deletedAt: null, status: { $ne: 'cancelled' }, paid: { $ne: true }, priceHint: { $gt: 0 }, companyId: { $in: ids }, ...requestMatch,
+      access.supply ? sharedFind(db.collection('supplyrequests'), 'supplyrequests', { deletedAt: null, status: { $ne: 'cancelled' }, paid: { $ne: true }, priceHint: { $gt: 0 }, companyId: { $in: ids }, ...requestMatch,
         $or: [{ invoiceDate: { $gte: stale } }, { invoiceDate: null, status: { $in: ['in_progress', 'requested', 'ordered'] } }, { invoiceDate: { $exists: false }, status: { $in: ['in_progress', 'requested', 'ordered'] } }] },
       { projection: { num: 1, title: 1, priceHint: 1, invoiceDate: 1, invoiceNo: 1, companyId: 1, supplierId: 1, status: 1, photoIds: 1, invoiceId: 1 } }).toArray() : [],
       access.income ? db.collection('incomes').find({ deletedAt: null, cancelledAt: null, amount: { $gt: 0 }, companyId: { $in: ids }, paidDate: null },

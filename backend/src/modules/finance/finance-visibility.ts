@@ -5,6 +5,7 @@ import type { AuthenticatedUser } from '../../common/decorators/current-user.dec
 import { canSeePayroll } from '../../common/roles-hierarchy';
 import type { StockScope } from '../../common/stock-scope';
 import { docScopeMatch } from '../../common/supply-scope';
+import { sharedFind } from '../../common/shared-collections';
 import type { Op } from './cashflow';
 
 export function financeVisibility(actor?: AuthenticatedUser) {
@@ -33,7 +34,7 @@ export function excludedFinanceSources(access: FinanceVisibility) {
 export async function visibleFinanceRequests(connection: Connection, scope: StockScope | null, ids: string[]) {
   if (!scope) return null;
   const objectIds = [...new Set(ids)].filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
-  const docs = objectIds.length ? await connection.db!.collection('supplyrequests').find(
+  const docs = objectIds.length ? await sharedFind(connection.db!.collection('supplyrequests'), 'supplyrequests',
     { _id: { $in: objectIds }, deletedAt: null, ...await docScopeMatch(connection, scope) },
     { projection: { _id: 1 } },
   ).toArray() : [];

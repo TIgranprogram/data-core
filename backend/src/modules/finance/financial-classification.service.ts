@@ -18,6 +18,7 @@ import { applyIncomeClassification } from '../incomes/income-writes';
 import { incomePayments } from '../incomes/income.schema';
 import { incomeIdentityHash } from '../incomes/income-payment-identities';
 import { ClassificationDto } from './operations.dto';
+import { sharedCount, sharedFind } from '../../common/shared-collections';
 type Address = { collection: string; document: Row; metadata: Row; path: string | null; operationId: string; sourceId: string; date: string; companyId: string; source: 'invoice' | 'request' | 'income' | 'expense' | 'payroll'; invoiceId?: unknown; requestId?: unknown; editable: boolean; reason?: string; amount: number };
 const day = (value: unknown) => new Date(String(value)).toISOString().slice(0, 10);
 @Injectable()
@@ -27,7 +28,14 @@ export class FinancialClassificationService {
   /** Адрес источника не зависит от эффективного аналитического заказа. Временный income reference только читается. */
   async locate(operationId: string, session?: ClientSession): Promise<Address> {
     const bits = operationId.split(':'), kind = bits[0], options = session ? { session } : {};
-    const find = async (collection: string, id: string) => { const doc = await this.db.collection(collection).findOne({ _id: oid(id, 'источника'), deletedAt: null }, options); if (!doc) throw new NotFoundException('Источник операции не найден'); return doc as Row; };
+    const find = async (collection: string, id: string) => {
+      const filter = { _id: oid(id, 'источника'), deletedAt: null };
+      const doc = collection === 'supplyrequests'
+        ? (await sharedFind(this.db.collection(collection), 'supplyrequests', filter, { findOptions: options }).limit(1).toArray())[0]
+        : await this.db.collection(collection).findOne(filter, options);
+      if (!doc) throw new NotFoundException('Источник операции не найден');
+      return doc as Row;
+    };
     if (kind === 'expense' && bits.length === 2) {
       const doc = await find('expenses', bits[1]); return { collection: 'expenses', document: doc, metadata: doc, path: null, operationId, sourceId: bits[1], date: day(doc.date), companyId: String(doc.companyId || ''), source: 'expense', editable: true, amount: Number(doc.amount) };
     }
@@ -54,7 +62,7 @@ export class FinancialClassificationService {
         if (!migrated) throw new NotFoundException('Историческая операция уже не является активным фактом');
         return this.locate('supply-payment:' + String(migrated._id) + ':' + bits[2], session);
       }
-      const rows = await this.db.collection('supplyrequests').find({ invoiceId: doc._id, deletedAt: null, status: { $ne: 'cancelled' } }, options).toArray();
+      const rows = await sharedFind(this.db.collection('supplyrequests'), 'supplyrequests', { invoiceId: doc._id, deletedAt: null, status: { $ne: 'cancelled' } }, { findOptions: options }).toArray();
       const request = rows.find(r => String(r._id) === bits[2]), snap = doc.paymentSnapshot, line = (snap?.lines || []).find((r: Row) => String(r.requestId) === bits[2]);
       if (!line && (!request?.paid || doc.status !== 'paid')) throw new NotFoundException('Историческая оплата не найдена');
       const reconciliation = legacyReconciliation(doc, financials(doc, rows));
@@ -80,9 +88,12 @@ export class FinancialClassificationService {
     if (write && !effectiveRoles(actor.role).some(r => r === 'manager' || r === 'admin') && !actor.isOwner) throw new ForbiddenException('Нет права менять классификацию источника');
     if (scope && target.requestId) {
       const sc = await docScopeMatch(this.connection, scope);
-      if (!await this.db.collection('supplyrequests').findOne({ _id: target.requestId, deletedAt: null, ...sc })) throw new ForbiddenException('Операция не из вашего склада');
+      if (!(await sharedFind(this.db.collection('supplyrequests'), 'supplyrequests', { _id: target.requestId, deletedAt: null, ...sc }).limit(1).toArray())[0]) throw new ForbiddenException('Операция не из вашего склада');
       if (write && target.invoiceId) {
-        const [all, visible] = await Promise.all([this.db.collection('supplyrequests').countDocuments({ invoiceId: target.invoiceId, deletedAt: null }), this.db.collection('supplyrequests').countDocuments({ invoiceId: target.invoiceId, deletedAt: null, ...sc })]);
+        const [all, visible] = await Promise.all([
+          sharedCount(this.db.collection('supplyrequests'), 'supplyrequests', { invoiceId: target.invoiceId, deletedAt: null }) as Promise<number>,
+          sharedCount(this.db.collection('supplyrequests'), 'supplyrequests', { invoiceId: target.invoiceId, deletedAt: null, ...sc }) as Promise<number>,
+        ]);
         if (all !== visible) throw new ForbiddenException('В счёте есть заявки не из вашего склада');
       }
     }
