@@ -20,7 +20,7 @@
 - [x] **C249** — `fontDir` + граница finance↔supply. [fontDir](../C249-finance-supply-boundary/REPORT-fontDir.md) · [C249b](../C249-finance-supply-boundary/REPORT.md)
 - [x] **C250** — инвентаризация писателей + `raw-query` без массового перевода. [Отчёт](../C250-raw-query-inventory/REPORT.md) · [INVENTORY](../C250-raw-query-inventory/INVENTORY.md)
 - [x] **C251** — хозяин-операций `incomes`. [Отчёт](../C251-incomes-owner-writes/REPORT.md) · L-251
-- [ ] **C252** — хозяин-операций `salesorders`. [ТЗ](../C252-salesorders-owner-writes/TZ.md)
+- [x] **C252** — хозяин-операций `salesorders`. [Отчёт](../C252-salesorders-owner-writes/REPORT.md) · L-252
 - [ ] **C253** — хозяин/фасад `products`. [ТЗ](../C253-products-owner-writes/TZ.md)
 - [ ] **C254** — shared CRM **мелкими поставками** (подчек-лист в ТЗ). [ТЗ](../C254-shared-collections-layer/TZ.md)
 - [ ] **C255** — границы постепенно после очистки доменов; **финал после C254**. [ТЗ](../C255-domain-boundaries-eslint/TZ.md)
@@ -29,6 +29,6 @@
 
 ## Сейчас (обновлять при каждом этапе)
 
-**Активный этап:** C252 следующий · C256 в дереве ждёт приёмки  
-**Статус:** C246–C251 ✅ · C257[~] · C258 ✅  
+**Активный этап:** C253 следующий  
+**Статус:** C246–C252 ✅ · C256 ✅ · C257[~] · C258 ✅  
 **Последнее обновление:** 24.11.2026

@@ -1,4 +1,5 @@
 import { archiveOrderConflict, withOrderWrite } from '../../common/order-archive/write';
+import { applyShipmentStage } from '../../common/salesorder-owner-port';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
@@ -26,7 +27,7 @@ const isOid = (v: unknown) => Types.ObjectId.isValid(String(v));
 /**
  * Отгрузки заказов (ОТГ): запись, остаток по позициям, автоматический этап заказа
  * (первая отгрузка — «Частично отгружен», остаток 0 везде — «Отгружен», отмена — назад), печатная форма.
- * `salesorders.stage` правится напрямую, `incomes` только читаются.
+ * Этап заказа пишет хозяин договоров, `incomes` только читаются.
  */
 @Injectable()
 export class ShipmentsService {
@@ -97,7 +98,7 @@ export class ShipmentsService {
     const lines = await this.incomes(orderId, session);
     const ships = await this.live(orderId, session);
     const stage = stageAfterShipments((cur?.stage as OrderStage) || 'new', this.rem(lines, ships), ships.length);
-    if (stage !== (cur?.stage ?? 'new')) await this.db().collection('salesorders').updateOne({ _id: orderId }, { $set: { stage, updatedAt: new Date() } }, { session });
+    await applyShipmentStage(this.db(), orderId, stage, (cur?.stage as OrderStage | undefined) ?? 'new', session);
     return stage;
   }
 

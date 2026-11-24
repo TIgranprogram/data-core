@@ -1,26 +1,10 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection } from 'mongoose';
+import { archiveOrderConflict, claimWritableOrders } from '../../modules/salesorders/salesorder-writes';
 
 type Db = NonNullable<Connection['db']>;
 
-export function archiveOrderConflict() {
-  return new ConflictException({ code: 'ORDER_ARCHIVED', message: 'Договор в архиве. Для изменений администратор должен возобновить договор.' });
-}
-
-/** Фиксация архива и обычная запись занимают один документ; переносы занимают договоры в одном порядке. */
-export async function claimWritableOrders(db: Db, session: ClientSession, orderIds: readonly unknown[]) {
-  const ids = [...new Set(orderIds.filter(id => id != null).map(String))].sort();
-  for (const id of ids) {
-    const _id = new Types.ObjectId(id);
-    const result = await db.collection('salesorders').updateOne(
-      { _id, activeArchiveVersion: null }, { $inc: { passportGuard: 1 } }, { session },
-    );
-    if (!result.matchedCount) {
-      if (await db.collection('salesorders').findOne({ _id }, { session, projection: { _id: 1 } })) throw archiveOrderConflict();
-      throw new NotFoundException('Договор не найден');
-    }
-  }
-}
+export { archiveOrderConflict, claimWritableOrders };
 
 export async function withOrderWrite<T>(connection: Connection, orderIds: readonly unknown[], write: (session: ClientSession) => Promise<T>) {
   const session = await connection.startSession();

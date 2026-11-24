@@ -1,5 +1,6 @@
 import { Types, type Connection } from 'mongoose';
 import { orderKey } from '../../common/text/order-key';
+import { upsertOrderByImportKey } from './salesorder-writes';
 
 type Doc = Record<string, unknown>;
 
@@ -22,13 +23,5 @@ export async function findOrCreateOrder(
     stage: 'new', importKey, source: p.source, deletedAt: null, createdAt: now, updatedAt: now,
   };
   for (const k of Object.keys(insert)) if (insert[k] === undefined) delete insert[k];
-  const coll = connection.db!.collection('salesorders');
-  try {
-    const r = await coll.findOneAndUpdate({ importKey }, { $setOnInsert: insert }, { upsert: true, returnDocument: 'after', includeResultMetadata: false });
-    return r as Doc;
-  } catch (e) {
-    // гонка двух вставок с одним ключом: уникальный индекс отбил вторую — берём первую
-    if ((e as { code?: number }).code === 11000) return (await coll.findOne({ importKey })) as Doc;
-    throw e;
-  }
+  return upsertOrderByImportKey(connection.db!, importKey, insert);
 }

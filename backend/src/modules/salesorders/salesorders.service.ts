@@ -1,5 +1,6 @@
 import { archiveOrderConflict, claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
 import { confirmOrderLineProduct, restoreLinesDeletedWithOrder, softDeleteLinesWithOrder, syncOrderHeaderCache } from '../incomes/income-writes';
+import { advanceContractStage, applyShipmentStage, assignContractsToProduction, moveContractProduction, renameOrderCustomers, renameOrderPaymentForm } from './salesorder-writes';
 import { loadOrderMatches } from '../matching/match-facts';
 import { LegalPatchDto } from '../../common/legal/legal.dto';
 import { assertIntakeIndexes, assertSalesBusinessIndex, assertIntakeReplay, intakeContentHash, intakeBusinessKey, legalHash, legalPresentation, legalSummary, patchLegal, prepareLegal, validateLegalFiles, validateLegalParties } from '../../common/legal/legal-utils';
@@ -595,5 +596,25 @@ export class SalesOrdersService {
       }
       return { applied: true, count: todo.length };
     });
+  }
+
+  /** Операции чужих мест. Сессия уже открыта у вызывающего: вторую транзакцию не начинаем. */
+  assignProduction(found: readonly Record<string, unknown>[], productionNo: string, now: Date, session: ClientSession) {
+    return assignContractsToProduction(this.connection.db!, found, productionNo, now, session);
+  }
+  moveProduction(id: unknown, from: string, to: string, session: ClientSession) {
+    return moveContractProduction(this.connection.db!, id, from, to, session);
+  }
+  advanceStage(id: unknown, fromStage: unknown, toStage: string, session: ClientSession) {
+    return advanceContractStage(this.connection.db!, id, fromStage, toStage, session);
+  }
+  async renameCustomers(ids: readonly unknown[], customer: string, now: Date, session: ClientSession): Promise<void> {
+    await renameOrderCustomers(this.connection.db!, ids, customer, now, session);
+  }
+  async renamePaymentForm(fromName: string, toName: string): Promise<void> {
+    await renameOrderPaymentForm(this.connection.db!, fromName, toName);
+  }
+  setStageAfterShipment(orderId: Types.ObjectId, stage: string, current: string, session: ClientSession) {
+    return applyShipmentStage(this.connection.db!, orderId, stage, current, session);
   }
 }

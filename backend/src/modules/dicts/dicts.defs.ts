@@ -2,6 +2,7 @@ import type { mongo } from 'mongoose';
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { renameIncomeText } from '../incomes/income-writes';
+import { renameOrderPaymentForm } from '../../common/salesorder-owner-port';
 import { sameRe } from '../../common/text/same-text';
 import { normSize } from '../../common/catalog/materials-text';
 import { moveOrderedRef } from '../../common/catalog/ordered-refs';
@@ -303,7 +304,7 @@ function paymentFormsList(): DictBase {
     },
     // шапка заказа — истина, строки — её кэш: меняем обе, иначе деньги и заказ расходятся
     reassign: async (db, from, to) => {
-      await db.collection('salesorders').updateMany({ paymentForm: sameRe(from.name) }, { $set: { paymentForm: s(to.name), editedInApp: true, updatedAt: new Date() } });
+      await renameOrderPaymentForm(db, from.name, s(to.name));
       return (await renameIncomeText(db, 'paymentForm', s(from.name), s(to.name))).modifiedCount;
     },
     candidates: async (db) => {

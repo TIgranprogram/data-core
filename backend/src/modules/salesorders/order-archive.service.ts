@@ -11,6 +11,7 @@ import { ArchiveCloseCommand, ArchiveCommand } from './order-archive.dto';
 import { archiveFacts, blockers, type Blocker, type Facts } from './order-archive-facts';
 import { commitFiles, fileError, prepareFiles } from './order-archive-files';
 import { ARCHIVES, CHUNKS, REOPENS, type ArchiveFile } from './order-archive.schema';
+import { closeOrderArchive, lockLiveOrder, reopenOrderArchive } from './salesorder-writes';
 
 const missing = () => new NotFoundException('Архивный комплект или договор не найден');
 const stale = () => new ConflictException({ code: 'ARCHIVE_STALE', message: 'Состояние договора изменилось. Откройте карточку заново' });
@@ -118,11 +119,10 @@ export class OrderArchiveService implements OnApplicationBootstrap {
     const preparedHash = factHash(before);
     const prepared = await prepareFiles(this.db, before, this.modules);
     return this.transaction(async session => {
-      const orders = this.db.collection('salesorders');
       // Применённая команда ничего не пишет. Новая берёт общий барьер до чтения фактов.
       const replay = await this.prior(orderId, dto, 'close', actor, session);
       if (replay.receipt) return replay.receipt;
-      const lock = await orders.updateOne({ _id: orderId, deletedAt: null }, { $inc: { passportGuard: 1 } }, { session });
+      const lock = await lockLiveOrder(this.db, orderId, session);
       if (!lock.modifiedCount) throw missing();
       const o = await this.order(orderId, session);
       if (clock(o) !== dto.expectedStateVersion || o.activeArchiveVersion) throw stale();
@@ -139,7 +139,7 @@ export class OrderArchiveService implements OnApplicationBootstrap {
         paymentFacts: facts.lines.filter(l => !l.cancelledAt).map(l => ({ incomeId: l._id, legacy: !l.payments?.length && !!l.paidDate })) };
       if (mongo.BSON.calculateObjectSize(snapshot) > 15 * 1024 * 1024) fileError('Снимок данных превысил предел документа MongoDB', 'ARCHIVE_TOO_LARGE');
       await this.db.collection(ARCHIVES).insertOne(snapshot, { session });
-      await orders.updateOne({ _id: orderId }, { $set: { stage: 'closed', activeArchiveVersion: version, archiveStateVersion: stateVersion, updatedAt: archivedAt } }, { session });
+      await closeOrderArchive(this.db, orderId, version, stateVersion, archivedAt, session);
       await this.audit(orderId, actor, 'salesorder.archived', version, reason, archivedAt, session);
       return { version, stateVersion };
     });
@@ -150,10 +150,9 @@ export class OrderArchiveService implements OnApplicationBootstrap {
     validCommand(dto);
     const orderId = oid(id);
     return this.transaction(async session => {
-      const orders = this.db.collection('salesorders');
       const seen = await this.prior(orderId, dto, 'reopen', actor, session);
       if (seen.receipt) return seen.receipt;
-      const lock = await orders.updateOne({ _id: orderId, deletedAt: null }, { $inc: { passportGuard: 1 } }, { session });
+      const lock = await lockLiveOrder(this.db, orderId, session);
       if (!lock.modifiedCount) throw missing();
       const o = await this.order(orderId, session);
       if (clock(o) !== dto.expectedStateVersion || !o.activeArchiveVersion) throw stale();
@@ -164,8 +163,7 @@ export class OrderArchiveService implements OnApplicationBootstrap {
       await this.db.collection(REOPENS).insertOne({ orderId, version, stateVersion, reopenedAt, reopenedBy: actor.username, actorId: actor.id, reopenReason,
         clientUid: dto.clientUid, requestHash: seen.requestHash }, { session });
       const stage = source.lines.some((l: mongo.Document) => !l.cancelledAt && l.lineType !== 'service') ? 'shipped' : 'ready';
-      await orders.updateOne({ _id: orderId, activeArchiveVersion: version },
-        { $unset: { activeArchiveVersion: '' }, $set: { archiveStateVersion: stateVersion, stage, updatedAt: reopenedAt } }, { session });
+      await reopenOrderArchive(this.db, orderId, version, stateVersion, stage, reopenedAt, session);
       await this.audit(orderId, actor, 'salesorder.archive.reopened', version, reopenReason, reopenedAt, session);
       return { version, stateVersion };
     });
