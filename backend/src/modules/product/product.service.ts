@@ -1,6 +1,6 @@
 import { ConflictException, GoneException, Injectable, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, Types, type ClientSession } from 'mongoose';
 import { QrService } from '../qr/qr.service';
 import { CounterService } from '../counter/counter.service';
 import { Category, CategoryDocument } from '../category/category.schema';
@@ -18,6 +18,17 @@ import { CreateCompositionLineDto, UpdateCompositionLineDto } from '../../common
 import { CatalogGraphService } from '../../common/catalog/catalog-graph.service';
 import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
 import { blankMissingUploadUrls } from '../document-render/document-render.utils';
+import {
+  applyPlanToProduct, applyProductWorkNorm, archiveShowcaseProduct, assignShowcaseSku, attachPdmProductPhoto,
+  claimPassportProductVersion, claimProductPhotoVersion, commitBulkProductRow, commitPassportTemplate,
+  fillEmptyOrderName, fillEmptyProductCategory, fillEmptyProductWeight, fillProductDesigner,
+  importPassportProductFields, insertPdmProducts, insertProductCopy, insertShowcaseProduct,
+  patchShowcaseProduct, promoteProductPassportField, reassignProductCategory, reassignProductFacet,
+  reassignProductMaterialSize, reassignProductMaterialSpec, reassignProductPart, reassignProductPassportKind,
+  reassignProductPassportPart, reassignProductPassportPhrase, reassignProductSeries, replacePassportDefaults,
+  replaceProductComposition, restoreBulkProduct, restoreShowcaseProduct, saveProductRoute,
+  saveReleasedProductComposition, setDefaultsFromPassport, setShowcaseFacetElements, updatePdmProduct,
+} from './product-writes';
 
 @Injectable()
 export class ProductService {
@@ -338,6 +349,46 @@ export class ProductService {
 
   async attachModule(_productId: string, _moduleId: string): Promise<ProductDocument> { void _productId; void _moduleId; throw new GoneException('Legacy productModuleIds writes are disabled; use the composition API'); }
   async detachModule(_productId: string, _moduleId: string): Promise<void> { void _productId; void _moduleId; throw new GoneException('Legacy productModuleIds writes are disabled; use the composition API'); }
+
+  /** Операции чужих мест. Сессия уже открыта у вызывающего: вторую транзакцию не начинаем. */
+  private get writesDb() { return this.model.db.db!; }
+  replaceDefaults(id: Types.ObjectId, defaults: unknown) { return replacePassportDefaults(this.writesDb, id, defaults); }
+  commitBulk(id: unknown, expected: Record<string, unknown>, commit: Record<string, unknown> | Record<string, unknown>[], session: ClientSession) { return commitBulkProductRow(this.writesDb, id, expected, commit, session); }
+  insertShowcase(doc: Record<string, unknown>, session?: ClientSession) { return insertShowcaseProduct(this.writesDb, doc, session); }
+  setFacetElements(id: unknown, elements: unknown, session?: ClientSession) { return setShowcaseFacetElements(this.writesDb, id, elements, session); }
+  assignSku(id: Types.ObjectId, sku: string) { return assignShowcaseSku(this.writesDb, id, sku); }
+  insertCopy(doc: Record<string, unknown>) { return insertProductCopy(this.writesDb, doc); }
+  patchShowcase(id: Types.ObjectId, patch: Record<string, unknown> | Record<string, unknown>[]) { return patchShowcaseProduct(this.writesDb, id, patch); }
+  archiveShowcase(id: Types.ObjectId) { return archiveShowcaseProduct(this.writesDb, id); }
+  restoreShowcase(id: Types.ObjectId) { return restoreShowcaseProduct(this.writesDb, id); }
+  undoBulk(id: Types.ObjectId, expected: Record<string, unknown>, patch: Record<string, unknown> | Record<string, unknown>[]) { return restoreBulkProduct(this.writesDb, id, expected, patch); }
+  replaceComposition(id: Types.ObjectId, composition: unknown[]) { return replaceProductComposition(this.writesDb, id, composition); }
+  defaultsFromPassport(id: Types.ObjectId, defaults: Record<string, unknown>) { return setDefaultsFromPassport(this.writesDb, id, defaults); }
+  commitTemplate(filter: Record<string, unknown>, compare: unknown[], set: Record<string, unknown>) { return commitPassportTemplate(this.writesDb, filter, compare, set); }
+  reassignPart(fromId: unknown, toId: unknown) { return reassignProductPart(this.writesDb, fromId, toId); }
+  reassignSeries(fromName: unknown, toName: unknown) { return reassignProductSeries(this.writesDb, fromName, toName); }
+  reassignMaterialSize(materialIds: unknown[], fromName: string, toName: string) { return reassignProductMaterialSize(this.writesDb, materialIds, fromName, toName); }
+  reassignMaterialSpec(fromId: unknown, toId: unknown) { return reassignProductMaterialSpec(this.writesDb, fromId, toId); }
+  reassignPassportPart(fromId: Types.ObjectId, toId: Types.ObjectId) { return reassignProductPassportPart(this.writesDb, fromId, toId); }
+  reassignPassportKind(fromId: unknown, toId: unknown) { return reassignProductPassportKind(this.writesDb, fromId, toId); }
+  reassignPassportPhrase(root: string, fromId: string, toId: string) { return reassignProductPassportPhrase(this.writesDb, root, fromId, toId); }
+  reassignCategory(fromId: unknown, toId: unknown) { return reassignProductCategory(this.writesDb, fromId, toId); }
+  reassignFacet(fromId: unknown, toId: unknown) { return reassignProductFacet(this.writesDb, fromId, toId); }
+  fillOrderName(productId: string, title: string) { return fillEmptyOrderName(this.writesDb, productId, title); }
+  fillDesigner(productId: Types.ObjectId, assigneeId: unknown) { return fillProductDesigner(this.writesDb, productId, assigneeId); }
+  applyPlan(id: unknown, current: unknown, set: Record<string, unknown>, unset: Record<string, unknown>, stamp: Date, session: ClientSession) { return applyPlanToProduct(this.writesDb, id, current, set, unset, stamp, session); }
+  applyWorkNorm(id: unknown, types: unknown) { return applyProductWorkNorm(this.writesDb, id, types); }
+  saveRoute(id: Types.ObjectId, set: Record<string, unknown>, unset: Record<string, unknown>) { return saveProductRoute(this.writesDb, id, set, unset); }
+  saveReleasedComposition(id: Types.ObjectId, lines: unknown, session: ClientSession) { return saveReleasedProductComposition(this.writesDb, id, lines, session); }
+  claimForPassport(id: Types.ObjectId, session: ClientSession) { return claimPassportProductVersion(this.writesDb, id, session); }
+  claimForPhoto(id: Types.ObjectId, session: ClientSession) { return claimProductPhotoVersion(this.writesDb, id, session); }
+  importPassportFields(productId: unknown, productSet: Record<string, unknown>, session: ClientSession) { return importPassportProductFields(this.writesDb, productId, productSet, session); }
+  promotePassportField(filter: Record<string, unknown>, update: Record<string, unknown>) { return promoteProductPassportField(this.writesDb, filter, update); }
+  fillPdmCategory(id: unknown, categoryId: unknown, session: ClientSession) { return fillEmptyProductCategory(this.model, id, categoryId, session); }
+  fillPdmWeight(id: unknown, massKg: number, session: ClientSession) { return fillEmptyProductWeight(this.model, id, massKg, session); }
+  updateFromPdm(id: unknown, set: Record<string, unknown>, session: ClientSession) { return updatePdmProduct(this.model, id, set, session); }
+  insertFromPdm(docs: Record<string, unknown>[], session: ClientSession) { return insertPdmProducts(this.model, docs, session); }
+  attachPdmPhoto(id: unknown, photoId: unknown, makeMain: boolean) { return attachPdmProductPhoto(this.model, id, photoId, makeMain); }
 
   private async findActive(id: string, organizationId?: string | null): Promise<ProductDocument> { if (!Types.ObjectId.isValid(id)) throw new NotFoundException(`Product ${id} not found`); const doc = await this.model.findOne({ _id: new Types.ObjectId(id), deletedAt: null, ...this.organizationFilter(organizationId) }).exec(); if (!doc) throw new NotFoundException(`Product ${id} not found`); return doc; }
   private normalizeRequiredCode(value: string | undefined, label: string): string {

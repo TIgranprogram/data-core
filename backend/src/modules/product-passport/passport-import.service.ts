@@ -1,4 +1,5 @@
 import { claimWritableOrders } from '../../common/order-archive/write';
+import { importPassportProductFields } from '../product/product-writes';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, Types, type ClientSession } from 'mongoose';
@@ -228,8 +229,7 @@ export class PassportImportService {
         for (const old of current.links) if (changedLinks.includes(String(old.kind))) await hash(old.photoId);
         // Запись общей точки изделия исключает незаметное пересечение двух импортов.
         await claimWritableOrders(db, session, changes.map(change => change.order?._id));
-        const productWrite = await db.collection('products').updateOne({ _id: productId, deletedAt: null }, { $set: { ...productSet, updatedAt: new Date() }, $inc: { __v: 1 } }, { session });
-        if (!productWrite.matchedCount) throw new ConflictException('Изделие изменено или удалено');
+        await importPassportProductFields(db, productId, productSet, session);
         for (const kind of changedLinks) {
           await db.collection('productphotos').updateMany({ productId, purpose: 'passport', kind, deletedAt: null }, { $set: { deletedAt: new Date(), updatedAt: new Date() } }, { session });
           if (!selected.has(kind)) continue; // legacy foundation у анкерного изделия только убирается из актуальных связей

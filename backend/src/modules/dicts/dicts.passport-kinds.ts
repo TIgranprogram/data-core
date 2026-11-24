@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import type { mongo } from 'mongoose';
 import { KINDS_DICT } from '../../common/passport/kind';
 import { moveOrderedRef } from '../../common/catalog/ordered-refs';
+import { reassignProductPassportKind } from '../product/product-writes';
 import type { DictBase, Doc, Field } from './dicts.defs';
 import { PP_FIELD, ppCode } from './dicts.product-groups';
 
@@ -105,7 +106,7 @@ export function passportKindDefs(simple: Simple): DictBase {
     reassign: async (db, from, to) => {
       if (String(from._id) === String(to._id)) return 0;
       const g = await db.collection('categories').updateMany({ type: 'product', passportKindId: from._id }, { $set: { passportKindId: to._id } });
-      const p = await db.collection('products').updateMany({ 'passportDefaults.kindId': String(from._id) }, { $set: { 'passportDefaults.kindId': String(to._id), updatedAt: new Date() } });
+      const p = { modifiedCount: await reassignProductPassportKind(db, from._id, to._id) };
       const ph = await db.collection('dict_values').updateMany(phrasesOf(from._id), moveOrderedRef('kindIds', from._id, to._id));
       return g.modifiedCount + p.modifiedCount + ph.modifiedCount;
     },

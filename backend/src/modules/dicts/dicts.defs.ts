@@ -3,6 +3,9 @@ import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { renameIncomeText } from '../incomes/income-writes';
 import { renameOrderPaymentForm } from '../../common/salesorder-owner-port';
+import {
+  reassignProductMaterialSize, reassignProductMaterialSpec, reassignProductPart, reassignProductPassportPart, reassignProductSeries,
+} from '../product/product-writes';
 import { sameRe } from '../../common/text/same-text';
 import { normSize } from '../../common/catalog/materials-text';
 import { moveOrderedRef } from '../../common/catalog/ordered-refs';
@@ -234,8 +237,7 @@ function productPartsList(): DictBase {
     ...base,
     ...withProducts(noUsage,
       async (_db, d) => ({ 'parts.partId': d._id }),
-      async (db, from, to) => (await db.collection('products').updateMany({ 'parts.partId': from._id },
-        { $set: { 'parts.$[p].partId': to._id } }, { arrayFilters: [{ 'p.partId': from._id }] })).modifiedCount),
+      async (db, from, to) => reassignProductPart(db, from._id, to._id)),
   };
 }
 
@@ -253,7 +255,7 @@ function productSeriesList(): DictBase {
       const [rows, total] = await Promise.all([db.collection('products').find(q).sort({ _id: -1 }).limit(15).project({ sku: 1, name: 1 }).toArray(), db.collection('products').countDocuments(q)]);
       return { title: 'Изделия', total, items: rows.map((r) => ({ label: `${s(r.sku)} ${s(r.name)}`.trim(), href: '#products?open=' + String(r._id) })) };
     },
-    reassign: async (db, from, to) => (await db.collection('products').updateMany({ series: re(from.name) }, { $set: { series: s(to.name), updatedAt: new Date() } })).modifiedCount,
+    reassign: async (db, from, to) => reassignProductSeries(db, from.name, to.name),
     candidates: async (db) => {
       const found = new Map<string, { name: string; uses: number; source: string }>();
       for (const [k, n] of await tally(db, 'products', 'series')) add(found, k, n, 'изделия');
@@ -837,10 +839,7 @@ const BASE: DictBase[] = [
       ppUsage({ pp: 'materialIds', dicts: [{ dict: 'passportDefects', field: 'applies', title: 'Дефект' }, { dict: 'passportSortament', field: 'material', title: 'Сортамент' }] }),
       async (_db, d) => ({ $or: [{ 'materialsSpec.rows.materialId': d._id }, { 'materialsSpec.coatingIds': d._id }] }),
       async (db, from, to) => {
-        const p = db.collection('products');
-        let n = (await p.updateMany({ 'materialsSpec.rows.materialId': from._id }, { $set: { 'materialsSpec.rows.$[r].materialId': to._id } }, { arrayFilters: [{ 'r.materialId': from._id }] })).modifiedCount;
-        await p.updateMany({ $and: [{ 'materialsSpec.coatingIds': from._id }, { 'materialsSpec.coatingIds': { $ne: to._id } }] }, { $push: { 'materialsSpec.coatingIds': to._id } } as Document);
-        n += (await p.updateMany({ 'materialsSpec.coatingIds': from._id }, { $pull: { 'materialsSpec.coatingIds': from._id } } as Document)).modifiedCount;
+        let n = await reassignProductMaterialSpec(db, from._id, to._id);
         // МЦ-2: позиции склада, связанные с материалом паспорта
         n += (await db.collection('materials').updateMany({ 'passportSpec.materialId': from._id }, { $set: { 'passportSpec.materialId': to._id } })).modifiedCount;
         return n;
@@ -866,8 +865,7 @@ const BASE: DictBase[] = [
         if (s(from.material) !== s(to.material)) throw new BadRequestException('Объединять можно размеры одного материала');
         const m = await matIdsByCode(db, s(from.material));
         if (!m.length) return 0;
-        return (await db.collection('products').updateMany({ 'materialsSpec.rows': { $elemMatch: { materialId: { $in: m }, sizes: s(from.name) } } },
-          { $set: { 'materialsSpec.rows.$[r].sizes.$[z]': s(to.name) } }, { arrayFilters: [{ 'r.materialId': { $in: m } }, { z: s(from.name) }] })).modifiedCount;
+        return reassignProductMaterialSize(db, m, s(from.name), s(to.name));
       }),
     editRoles: ['director'],
   },
@@ -883,12 +881,7 @@ const BASE: DictBase[] = [
     ...withProducts(partPhraseUses,
       async (_db, d) => ({ $or: [{ 'materialsSpec.rows.partIds': d._id }, { 'passportDefaults.simpleDescription.partIds': d._id }] }),
       async (db, from, to) => {
-        const products = db.collection('products');
-        const partPath = 'passportDefaults.simpleDescription.partIds';
-        const rich = await products.updateMany({ 'materialsSpec.rows.partIds': from._id },
-          { $set: { 'materialsSpec.rows.$[].partIds.$[p]': to._id } }, { arrayFilters: [{ p: from._id }] });
-        const brief = await products.updateMany({ [partPath]: from._id }, moveOrderedRef(partPath, from._id, to._id));
-        return rich.modifiedCount + brief.modifiedCount;
+        return reassignProductPassportPart(db, from._id, to._id);
       }),
     editRoles: ['director'],
   },

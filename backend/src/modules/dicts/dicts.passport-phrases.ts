@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import type { mongo } from 'mongoose';
 import { checkNode, leavesOf, buildForest, rootIdOf, toNode, type PhraseNode } from '../../common/passport/phrase-tree';
+import { reassignProductPassportPhrase } from '../product/product-writes';
 import type { DictBase, Doc } from './dicts.defs';
 
 type Db = mongo.Db;
@@ -195,7 +196,7 @@ export function passportPhrasesDef(base: DictBase): DictBase {
       if (!root || root !== rootOf(all, String(to._id)) || !leaf(from) || !leaf(to)) return 0;
       const a = String(from._id), b = String(to._id);
       const p = await db.collection('productpassports').updateMany({ status: 'draft', [`textChoices.${root}`]: a }, { $set: { [`textChoices.${root}`]: b, updatedAt: new Date() } });
-      const g = await db.collection('products').updateMany({ [`passportDefaults.textChoices.${root}`]: a }, { $set: { [`passportDefaults.textChoices.${root}`]: b, updatedAt: new Date() } });
+      const g = await reassignProductPassportPhrase(db, root, a, b);
       return p.modifiedCount + g.modifiedCount;
     },
   };

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import type { mongo } from 'mongoose';
+import { reassignProductCategory } from '../product/product-writes';
 import type { DictBase } from './dicts.defs';
 
 type Db = mongo.Db;
@@ -108,7 +109,7 @@ export function productGroupDefs({ translit }: Ctx): DictBase[] {
       const [rows, total] = await Promise.all([db.collection('products').find(q).sort({ name: 1 }).limit(15).project({ name: 1, sku: 1 }).toArray(), db.collection('products').countDocuments(q)]);
       return { title: 'Изделия группы', total, items: rows.map((r) => ({ label: s(r.name), sub: s(r.sku), href: '#products?open=' + String(r._id) })) };
     },
-    reassign: async (db, from, to) => (await db.collection('products').updateMany({ categoryId: from._id }, { $set: { categoryId: to._id } })).modifiedCount,
+    reassign: async (db, from, to) => reassignProductCategory(db, from._id, to._id),
   };
 
   const sections: DictBase = {

@@ -12,6 +12,7 @@ import {
 } from '../../common/work-route-rows';
 import type { ApplyToProductDto, CheckDto, SavePlanDto } from './dto/order-line-plan.dto';
 import { r2 } from '../../common/work-facts';
+import { applyPlanToProduct } from '../product/product-writes';
 import { WorkFactsService } from './work-facts.service';
 
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -221,8 +222,7 @@ export class OrderLinePlanService implements OnModuleInit {
       if (ms(dto.productUpdatedAt ?? null) !== ms(current)) throw new ConflictException('Изделие изменили после копии — обновите план');
       const { set, unset } = productFields(plan.parts ?? [], plan.steps ?? []);
       const stamp = new Date();
-      const res = await this.db().collection('products').updateOne({ _id: prod._id, updatedAt: current }, { $set: { ...set, updatedAt: stamp }, ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session });
-      if (!res.matchedCount) throw new ConflictException('Изделие изменили после копии — обновите план');
+      await applyPlanToProduct(this.db(), prod._id, current, set, unset, stamp, session);
       await this.plans().updateOne({ _id: plan._id }, { $set: { productRevAtCopy: stamp, origin: 'product', updatedAt: stamp }, $inc: { rev: 1 } }, { session });
       return { inc, product: { id: String(prod._id), updatedAt: stamp } };
     });

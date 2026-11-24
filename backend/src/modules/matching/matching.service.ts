@@ -1,4 +1,5 @@
 import { matchIncomeLine } from '../../common/income-owner-port';
+import { fillEmptyOrderName } from '../product/product-writes';
 import { claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
@@ -200,13 +201,8 @@ export class MatchingService {
   }
 
   /** У изделия пустое «название в договоре» (orderName, CRM его не читает) — записать название позиции договора; заполненное не трогаем. */
-  private async fillOrderName(productId: string, title: string) {
-    const name = title.trim();
-    if (!name) return;
-    await this.connection.db!.collection('products').updateOne(
-      { _id: new Types.ObjectId(productId), $or: [{ orderName: { $exists: false } }, { orderName: null }, { orderName: '' }] },
-      { $set: { orderName: name } },
-    );
+  private fillOrderName(productId: string, title: string) {
+    return fillEmptyOrderName(this.connection.db!, productId, title);
   }
 
   /** Запомнить «такая формулировка = это изделие» (повтор — счётчик +1, изделие обновляется). */

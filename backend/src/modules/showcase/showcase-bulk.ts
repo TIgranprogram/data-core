@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { legacyDefaultsReplacement, mergePassportDefaults, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { variants, type Db, type Doc } from './showcase-common';
+import { restoreBulkProduct } from '../../common/product-owner-port';
 import { bulkExpected, bulkFingerprint } from './showcase-bulk-cas';
 
 /** То, что массовым действиям нужно от витрины (одиночные операции — те же, что и в карточке). */
@@ -77,8 +78,7 @@ export class ShowcaseBulk {
         { $set: { ...Object.fromEntries(Object.entries($set).map(([k, v]) => [k, { $literal: v }])), passportDefaults: defaultReplacement } },
         ...(Object.keys($unset).length ? [{ $unset: Object.keys($unset) }] : []),
       ] : { $set, ...(Object.keys($unset).length ? { $unset } : {}) };
-      const r = await this.db.collection('products').updateOne({ _id: new Types.ObjectId(it.id), deletedAt: null, ...bulkExpected(current, keys) }, patch);
-      if (!r.matchedCount) throw new ConflictException('Изделие изменено другим пользователем — обновите список');
+      const r = await restoreBulkProduct(this.db, new Types.ObjectId(it.id), bulkExpected(current, keys), patch);
       restored += r.modifiedCount;
       } catch (e) { failed.push({ id: it.id, message: e instanceof Error ? e.message : String(e) }); }
     }

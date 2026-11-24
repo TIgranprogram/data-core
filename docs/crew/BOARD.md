@@ -11,7 +11,7 @@
 | C251 | Хозяин записи incomes | done · [Отчёт](C251-incomes-owner-writes/REPORT.md) |
 | C255 | ESLint-границы доменов | очередь · [ТЗ](C255-domain-boundaries-eslint/TZ.md) |
 | C254 | Слой общих CRM-коллекций | очередь · [ТЗ](C254-shared-collections-layer/TZ.md) |
-| C253 | Запись products через хозяина | очередь · [ТЗ](C253-products-owner-writes/TZ.md) |
+| C253 | Запись products через хозяина | done · [Отчёт](C253-products-owner-writes/REPORT.md) |
 | C252 | Запись salesorders через хозяина | done · [Отчёт](C252-salesorders-owner-writes/REPORT.md) |
 | C250 | raw-query + инвентаризация писателей | done · [Отчёт](C250-raw-query-inventory/REPORT.md) · [INVENTORY](C250-raw-query-inventory/INVENTORY.md) |
 | C249 | fontDir + граница finance↔supply | done · [fontDir](C249-finance-supply-boundary/REPORT-fontDir.md) · [C249b](C249-finance-supply-boundary/REPORT.md) |

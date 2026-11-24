@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Types, type ClientSession, type Connection } from 'mongoose';
 import { createHash } from 'crypto';
+import { claimPassportProductVersion } from '../product/product-writes';
 import { canon } from './passport-snapshot-refresh';
 
 export interface PassportProductVersion {
@@ -33,8 +34,7 @@ export async function claimPassportProduct(connection: Connection, productId: un
     const current = await connection.db!.collection('products').findOne({ _id, deletedAt: null }, { session });
     if (!current || businessFingerprint(current) !== expected.businessFingerprint) throw new ConflictException('Изделие изменилось во время подготовки паспорта — повторите создание');
   }
-  const result = await connection.db!.collection('products').updateOne({ _id, deletedAt: null }, { $inc: { __v: 1 }, $set: { updatedAt: new Date() } }, { session });
-  if (!result.matchedCount) throw new ConflictException('Изделие изменилось во время подготовки паспорта — повторите создание');
+  await claimPassportProductVersion(connection.db!, _id, session);
 }
 
 /** Позиционный guard уже может владеть session; самостоятельный паспорт получает свою транзакцию. */

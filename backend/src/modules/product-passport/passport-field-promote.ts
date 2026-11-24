@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Types, type mongo } from 'mongoose';
 import { MAX_OVERRIDE_TEXT } from '../../common/passport/text-overrides';
+import { promoteProductPassportField } from '../product/product-writes';
 import type { FieldRef } from './passport-snapshot-field';
 
 export interface PromoteResult { ok: true; target: string; kind: FieldRef['kind']; affected: number; shared: boolean }
@@ -89,7 +90,12 @@ export async function promoteField(db: mongo.Db, ref: FieldRef, text: string, ol
     set.passportDefaults = ref.kind === 'funnel' ? { textOverrides: { [ref.id]: value } } : { manualText: [p.key] };
     if (ref.kind === 'product') set[p.path] = value;
   }
-  const r = await p.coll.updateOne({ _id: p.rec._id, deletedAt: null, [p.path]: p.raw === undefined ? { $exists: false } : p.raw, ...(nullDefaults ? { passportDefaults: null } : {}) }, { $set: set, ...(ref.kind === 'product' && !nullDefaults ? { $addToSet: { 'passportDefaults.manualText': p.key } } : {}) });
-  if (r.matchedCount !== 1) throw conflict();
+  const filter = { _id: p.rec._id, deletedAt: null, [p.path]: p.raw === undefined ? { $exists: false } : p.raw, ...(nullDefaults ? { passportDefaults: null } : {}) };
+  const update = { $set: set, ...(ref.kind === 'product' && !nullDefaults ? { $addToSet: { 'passportDefaults.manualText': p.key } } : {}) };
+  if (ref.kind === 'product' || ref.kind === 'funnel') await promoteProductPassportField(db, filter, update);
+  else {
+    const r = await p.coll.updateOne(filter, update);
+    if (r.matchedCount !== 1) throw conflict();
+  }
   return p.result;
 }

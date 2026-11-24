@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import type { mongo } from 'mongoose';
+import { reassignProductFacet } from '../product/product-writes';
 import type { DictBase, Doc, Field } from './dicts.defs';
 
 type Db = mongo.Db;
@@ -130,14 +131,11 @@ export function productFacetDefs(simple: Simple): DictBase[] {
     // объединение: сначала добавить новое значение, потом убрать старое (иначе $pull после $addToSet не нужен, а порядок обратный стёр бы связь)
     reassign: async (db, from: Doc, to: Doc) => {
       if (String(from._id) === String(to._id)) return 0;
-      let n = 0;
-      for (const [coll, extra] of [['products', {}], ['dict_values', { dict: 'passportPhrases' }]] as const) {
-        const q = { ...extra, facetValueIds: from._id };
-        const r = await db.collection(coll).updateMany(q, { $addToSet: { facetValueIds: to._id } });
-        await db.collection(coll).updateMany(q, { $pull: { facetValueIds: from._id } } as never);
-        n += r.modifiedCount;
-      }
-      return n;
+      const products = await reassignProductFacet(db, from._id, to._id);
+      const q = { dict: 'passportPhrases', facetValueIds: from._id };
+      const phrases = await db.collection('dict_values').updateMany(q, { $addToSet: { facetValueIds: to._id } });
+      await db.collection('dict_values').updateMany(q, { $pull: { facetValueIds: from._id } } as never);
+      return products + phrases.modifiedCount;
     },
     candidates: undefined, fromName: undefined,
     editRoles: ['director'],

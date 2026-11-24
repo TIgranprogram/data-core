@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, type ClientSession } from 'mongoose';
 import { ProductPhoto, ProductPhotoDocument } from './product-photo.schema';
+import { claimProductPhotoVersion } from '../product/product-writes';
 import { checkPurposeKind, purposeFilter } from './product-photo-purpose';
 
 export interface UpsertProductPhotoDto {
@@ -30,8 +31,7 @@ export class ProductPhotoService {
     let result!: T;
     try {
       await session.withTransaction(async () => {
-        const found = await this.model.db.db!.collection('products').updateOne({ _id: productId, deletedAt: null }, { $inc: { __v: 1 }, $set: { updatedAt: new Date() } }, { session });
-        if (!found.matchedCount) throw new NotFoundException('Изделие не найдено');
+        await claimProductPhotoVersion(this.model.db.db!, productId, session);
         result = await write(session);
       });
       return result;

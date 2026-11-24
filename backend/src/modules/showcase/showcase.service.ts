@@ -16,6 +16,10 @@ import { parseCatalog } from './catalog-rows';
 import { legacyDefaultsReplacement, normalizePassportDefaults, presentPassportDefaults, type PassportDefaults } from './passport-defaults';
 import { facetElementsPatch } from './facet-elements';
 import { bindDraftProduct } from '../../common/income-owner-port';
+import {
+  archiveShowcaseProduct, assignShowcaseSku, commitBulkProductRow, insertProductCopy, insertShowcaseProduct,
+  patchShowcaseProduct, replacePassportDefaults, restoreShowcaseProduct, setShowcaseFacetElements,
+} from '../../common/product-owner-port';
 import { writableCascadeRows } from '../../common/order-archive/cascade';
 import { withOrderWrite } from '../../common/order-archive/write';
 import { productNameKey, shortProductName } from './order-product-name';
@@ -261,10 +265,7 @@ export class ShowcaseService {
     const _id = oid(id, 'изделия');
     if (!(await this.db.collection('products').findOne({ _id, deletedAt: null }, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено');
     const v = await this.preparePassportDefaults(b);
-    const result = await this.db.collection('products').updateOne({ _id, deletedAt: null }, [
-      { $set: { passportDefaults: legacyDefaultsReplacement(v), updatedAt: new Date() } },
-    ]);
-    if (!result.matchedCount) throw new NotFoundException('Изделие не найдено');
+    await replacePassportDefaults(this.db, _id, legacyDefaultsReplacement(v));
     return this.get(id);
   }
 
@@ -309,8 +310,7 @@ export class ShowcaseService {
       passportDefaults: legacyDefaultsReplacement(normalized), updatedAt: { $literal: new Date() },
     } }] : { $set: { ...set, updatedAt: new Date() } };
     const expected = bulkExpected(raw, [...keys, 'categoryId', 'passportDefaults']);
-    const result = await this.db.collection('products').updateOne({ _id: raw._id, deletedAt: null, ...expected }, commit, { session });
-    if (!result.matchedCount) throw new ConflictException('Изделие изменено другим пользователем — обновите список и повторите');
+    await commitBulkProductRow(this.db, raw._id, expected, commit, session);
     const afterDefaults = normalized ? { ...normalized,
       ...Object.fromEntries(Object.entries((raw.passportDefaults ?? {}) as Record<string, unknown>).filter(([key]) => ['simpleDescription', 'manualDescription', 'manualPurpose', 'manualInstall'].includes(key))),
     } : undefined;
@@ -429,12 +429,12 @@ export class ShowcaseService {
     if (opts.requireType && !clean(dto.type)) throw new BadRequestException('Укажите раздел изделия');
     const set = await this.fields({ ...dto, name: dto.name ?? sku }, undefined, session);
     const now = new Date();
-    const { insertedId } = await this.db.collection('products').insertOne({ sku, kind: 'good', unit: 'шт', status: 'draft', listPrice: 0, basePrice: 0, costPrice: 0, defaultMarkupPercent: 30, stockQty: 0,
-      photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], isActive: true, deletedAt: null, hasPassport: false, hasDrawing: false, ...set, ...(set.photoIds ? { mainPhotoId: (set.photoIds as Types.ObjectId[])[0] ?? null } : {}), source: 'showcase', createdAt: now, updatedAt: now }, { session });
+    const { insertedId } = await insertShowcaseProduct(this.db, { sku, kind: 'good', unit: 'шт', status: 'draft', listPrice: 0, basePrice: 0, costPrice: 0, defaultMarkupPercent: 30, stockQty: 0,
+      photoIds: [], mainPhotoId: null, productModuleIds: [], composition: [], isActive: true, deletedAt: null, hasPassport: false, hasDrawing: false, ...set, ...(set.photoIds ? { mainPhotoId: (set.photoIds as Types.ObjectId[])[0] ?? null } : {}), source: 'showcase', createdAt: now, updatedAt: now }, session);
     // C028: изделие, созданное по ходу воронки, сразу с признаками — их элементы в умолчания паспорта (как при правке)
     if (Array.isArray(set.facetValueIds) && (set.facetValueIds as unknown[]).length) {
       const fromFacets = await facetElementsPatch(this.db, insertedId, set.facetValueIds as Types.ObjectId[], session);
-      if (fromFacets) await this.db.collection('products').updateOne({ _id: insertedId }, { $set: { 'passportDefaults.elements': fromFacets } }, { session });
+      if (fromFacets) await setShowcaseFacetElements(this.db, insertedId, fromFacets, session);
     }
     return { id: insertedId, skuWarning };
   }
@@ -453,7 +453,7 @@ export class ShowcaseService {
     const passports = await this.db.collection('productpassports').countDocuments({ deletedAt: null, productId: _id });
     if (!confirm) return { id, sku: String(d.sku), changed: false, passports, confirmRequired: true, warning: passports ? `Артикул изменится у изделия, выпущено паспортов: ${passports}` : 'Артикул изменится' };
     const auto = (await nextSku(this.db, this.counter, d.categoryId as Types.ObjectId))!;
-    await this.db.collection('products').updateOne({ _id }, { $set: { sku: auto.sku, updatedAt: new Date() } });
+    await assignShowcaseSku(this.db, _id, auto.sku);
     return { id, sku: auto.sku, oldSku: String(d.sku), changed: true, passports, ...(auto.warning ? { skuWarning: auto.warning } : {}) };
   }
 
@@ -471,7 +471,7 @@ export class ShowcaseService {
       const cand = `${clean(src.sku)}-копия${i > 1 ? '-' + i : ''}`;
       if (!(await this.db.collection('products').findOne({ sku: skuRegex(cand) }, { projection: { _id: 1 } }))) sku = cand;
     }
-    const { insertedId } = await this.db.collection('products').insertOne(cloneDoc(src as Doc, sku));
+    const { insertedId } = await insertProductCopy(this.db, cloneDoc(src as Doc, sku));
     const created = await this.get(String(insertedId));
     return auto?.warning ? { ...created, skuWarning: auto.warning } : created;
   }
@@ -490,7 +490,7 @@ export class ShowcaseService {
     if (!baseSku) throw new BadRequestException('У основного изделия нет артикула — задайте его в карточке');
     const taken = await this.db.collection('products').find({ sku: new RegExp(`^${escapeRe(baseSku)}\\.[0-9]+$`, 'i') }, { projection: { sku: 1 } }).toArray();
     const sku = variantSku(baseSku, taken.map((t) => String(t.sku)));
-    const { insertedId } = await this.db.collection('products').insertOne(variantDoc(src as Doc, base as Doc, sku));
+    const { insertedId } = await insertProductCopy(this.db, variantDoc(src as Doc, base as Doc, sku));
     return this.get(String(insertedId));
   }
 
@@ -561,8 +561,7 @@ export class ShowcaseService {
       ...Object.fromEntries(Object.entries(set).map(([k, v]) => [k, { $literal: v }])),
       passportDefaults: { $mergeObjects: [{ $ifNull: ['$passportDefaults', {}] }, { $literal: nextDefaults }] },
     } }] : { $set: set };
-    const r = await this.db.collection('products').updateOne({ _id, deletedAt: null }, patch);
-    if (!r.matchedCount) throw new NotFoundException('Изделие не найдено');
+    await patchShowcaseProduct(this.db, _id, patch);
     return this.get(id);
   }
 
@@ -581,13 +580,12 @@ export class ShowcaseService {
       const n = await this.db.collection(coll).countDocuments(q);
       if (n) throw new ConflictException(`Изделие используется в ${what} (${n}) — удалить нельзя`);
     }
-    const r = await this.db.collection('products').updateOne({ _id, deletedAt: null }, { $set: { deletedAt: new Date() } });
-    if (!r.matchedCount) throw new NotFoundException('Изделие не найдено');
+    await archiveShowcaseProduct(this.db, _id);
     return { id, deleted: true };
   }
 
   async restore(id: string) {
-    await this.db.collection('products').updateOne({ _id: oid(id, 'изделия') }, { $set: { deletedAt: null } });
+    await restoreShowcaseProduct(this.db, oid(id, 'изделия'));
     return this.get(id);
   }
 

@@ -1,5 +1,5 @@
 import { exerciseInstructions } from '../../common/passport/exercise-instructions';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { checkChoices, toNode } from '../../common/passport/phrase-tree';
 import { MAX_OVERRIDE_TEXT } from '../../common/passport/text-overrides';
@@ -7,6 +7,7 @@ import { renderSelectedParts, selectedPartsIssue, type SimpleDescription } from 
 import { MANUAL_TEXT_KEYS, normalizePassportDefaults, NUMS, PRESENTATION_DEFAULT_KEYS } from './passport-defaults';
 import type { Db } from './showcase-common';
 import { resolveKind } from '../../common/passport/kind';
+import { commitPassportTemplate } from '../../common/product-owner-port';
 import { inheritedPassportCategory } from '../../common/passport/passport-inherit';
 
 type Rec = Record<string, unknown>;
@@ -225,11 +226,5 @@ export async function patchPassportTemplate(db: Db, productId: Types.ObjectId, c
   if (Object.keys(fields).length) set.passportDefaults = replaceKeys(path, fields);
   if (has(to, 'facetValueIds')) set.facetValueIds = facets === null ? '$$REMOVE' : { $literal: facets };
   // Mongo 4.4: конвейер атомарно инициализирует null/отсутствующее поле и сливает только затронутые пути.
-  const result = await products.updateOne({ ...filter, $expr: { $and: compare } }, [
-    { $set: set },
-  ]);
-  if (!result.matchedCount) {
-    if (!(await products.findOne(filter, { projection: { _id: 1 } }))) throw new NotFoundException('Изделие не найдено');
-    throw new ConflictException('Настройки изменились — перечитайте книжку');
-  }
+  await commitPassportTemplate(db, filter, compare, set);
 }

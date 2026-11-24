@@ -3,6 +3,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
+import { saveProductRoute } from '../product/product-writes';
 import { normalizeRows, productFields, rowsFromProduct, WHOLE_PRODUCT, type PartRow, type StepIn, type StepRow } from '../../common/work-route-rows';
 import type { RouteDto } from './dto/work.dto';
 import type { WorkStep } from './work-task.schema';
@@ -115,7 +116,7 @@ export class WorkRouteService {
     const parts = dto.parts ?? prev.parts.map((x) => ({ id: String(x._id), ...(x.partId ? { partId: String(x.partId) } : {}), ...(x.lineId ? { lineId: String(x.lineId) } : {}), name: x.name, qty: x.qty, checked: x.checked }));
     const rows = normalizeRows({ parts, steps: dto.steps as StepIn[] }, prev, { typeNames: await this.typeNames(dto.steps.map((s) => s.workTypeId)), by: userId && Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : undefined, now: new Date(), keepLinks: false });
     const { set, unset } = productFields(rows.parts, rows.steps as StepRow[]);
-    await this.db().collection('products').updateOne({ _id: p._id as Types.ObjectId }, { $set: { ...set, updatedAt: new Date() }, ...(Object.keys(unset).length ? { $unset: unset } : {}) });
+    await saveProductRoute(this.db(), p._id as Types.ObjectId, set, unset);
     return this.get(productId);
   }
 

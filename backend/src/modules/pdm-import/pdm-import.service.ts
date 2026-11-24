@@ -13,6 +13,7 @@ import type { PdmApplyDto, PdmDecision, PdmFileFormDto, PdmItemDto, PdmTreeDto }
 import { PdmImport, type PdmFound, type PdmImportDocument } from './pdm-import.schema';
 import { checkLines, checkTree, diffComposite, diffPart, dimensionsOf, linesOf, ownerKindOf, writeOrder, type PlannedLine } from './pdm-plan';
 import { buildPlan, exactHit, pdmKey, siteKey, siteOf, type Lookup, type Plan, type PlanRow, type SiteDoc } from './pdm-plan-rows';
+import { fillEmptyProductCategory, fillEmptyProductWeight, insertPdmProducts, updatePdmProduct } from '../product/product-writes';
 import { fastenerPatch, newMaterial, newModule, newProduct, newSortament, parseDecisions, takeFields, updateOf } from './pdm-write';
 
 const STALE = 'Данные на сайте изменились — проверьте ещё раз';
@@ -51,9 +52,8 @@ export class PdmImportService {
     for (const f of fins) {
       const no = /^(\d{1,3})\s/.exec(String(f.item.folder ?? '').trim())?.[1];
       const g = no ? await cats.findOne({ groupNo: no, deletedAt: null }, { projection: { _id: 1 }, session }) : null;
-      if (g) await this.products.updateOne({ _id: f.id, $or: [{ categoryId: null }, { categoryId: { $exists: false } }] }, { $set: { categoryId: g._id } }, { session }).exec();
-      const kg = Number(f.item.massKg);
-      if (kg > 0) await this.products.updateOne({ _id: f.id, $or: [{ weightKg: null }, { weightKg: { $exists: false } }, { weightKg: 0 }] }, { $set: { weightKg: Math.round(kg * 10) / 10 } }, { session }).exec();
+      if (g) await fillEmptyProductCategory(this.products, f.id, g._id, session);
+      await fillEmptyProductWeight(this.products, f.id, Number(f.item.massKg), session);
     }
   }
 
@@ -189,7 +189,7 @@ export class PdmImportService {
     await this.writeMaterials(group('part'), lines, out, org, session);
     await this.writeFasteners(group('fastener', 'purchased'), out, org, session);
     await this.writeComposite(group('module'), lines, out, org, session, this.modules as unknown as AnyModel, newModule);
-    await this.writeComposite(group('product'), lines, out, org, session, this.products as unknown as AnyModel, newProduct);
+    await this.writeComposite(group('product'), lines, out, org, session, this.products as unknown as AnyModel, newProduct, true);
     await this.fillProductFromFolder(group('product'), session);
     for (const f of fins.values()) if (f.item.docs?.length || f.item.preview) owners[f.item.designation] = { kind: ownerKindOf(f.item.kind), id: f.id };
 
@@ -279,7 +279,7 @@ export class PdmImportService {
     if (fresh.length) await this.materials.create(fresh, { session, ordered: true });
   }
 
-  private async writeComposite(list: Fin[], lines: Map<string, PlannedLine[]>, out: { created: number; linked: number; updated: number; skipped: number }, org: string | null | undefined, session: ClientSession, model: AnyModel, make: typeof newModule): Promise<void> {
+  private async writeComposite(list: Fin[], lines: Map<string, PlannedLine[]>, out: { created: number; linked: number; updated: number; skipped: number }, org: string | null | undefined, session: ClientSession, model: AnyModel, make: typeof newModule, product = false): Promise<void> {
     const fresh: Record<string, unknown>[] = [];
     for (const f of list) {
       const ls = lines.get(f.item.designation) ?? [];
@@ -288,11 +288,15 @@ export class PdmImportService {
       const diff = diffComposite(f.existing.composition, ls);
       const set = updateOf({ item: f.item, existing: f.existing, take: takeFields(diff.fill, diff.conflicts, f.decision), lines: ls, renameToPdm: f.decision?.fields?.[f.item.kind === 'product' ? 'sku' : 'article'] === 'pdm' });
       if (!set) { out.skipped += 1; continue; }
-      await model.updateOne({ _id: f.id }, { $set: set }, { session });
+      if (product) await updatePdmProduct(model, f.id, set, session);
+      else await model.updateOne({ _id: f.id }, { $set: set }, { session });
       out.updated += 1;
     }
     // модули пишем в порядке «листья первыми» (list уже в нём); одной пачкой — порядок вставки сохраняется
-    if (fresh.length) await model.create(fresh, { session, ordered: true });
+    if (fresh.length) {
+      if (product) await insertPdmProducts(model, fresh, session);
+      else await model.create(fresh, { session, ordered: true });
+    }
   }
 
   // ───── файлы ─────

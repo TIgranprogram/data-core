@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { oid } from '../../common/list-query';
 import type { DataVersionService } from '../../common/data-version/data-version.service';
+import { replaceProductComposition } from '../../common/product-owner-port';
 import { wouldCycle } from './composition-cycle';
 import { clean, LIVE, loadPhotos, type Db, type Doc } from './showcase-common';
 
@@ -122,7 +123,7 @@ export class ShowcaseComposition {
       };
     });
     const others = ((d.composition as Record<string, unknown>[] | undefined) ?? []).filter((l) => !replace.has(String(l.lineType)));
-    await this.db.collection('products').updateOne({ _id }, { $set: { composition: [...next, ...others], updatedAt: new Date() } });
+    await replaceProductComposition(this.db, _id, [...next, ...others]);
     return id;
   }
 

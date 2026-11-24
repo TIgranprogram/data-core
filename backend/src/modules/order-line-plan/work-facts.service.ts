@@ -6,6 +6,7 @@ import { oid } from '../../common/list-query';
 import { dayOf, factSpan, leadDays } from '../../common/work-schedule';
 import { daysFromHours, hourRate, median, normSum, perUnit, r2 } from '../../common/work-facts';
 import { WHOLE_PRODUCT, type PartRow, type StepRow } from '../../common/work-route-rows';
+import { applyProductWorkNorm } from '../product/product-writes';
 import { ShowcaseService } from '../showcase/showcase.service';
 
 type Doc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -152,7 +153,7 @@ export class WorkFactsService {
       applied++; totalHours += hours;
       return { ...w, hours };
     });
-    if (applied) await this.products().updateOne({ _id: prod._id }, { $set: { workTypes: types, updatedAt: new Date() } });
+    if (applied) await applyProductWorkNorm(this.db(), prod._id, types);
     return { applied, skipped, totalHours: r2(totalHours) };
   }
 

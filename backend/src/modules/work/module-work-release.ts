@@ -4,6 +4,7 @@ import { legalHash } from '../../common/legal/legal-utils';
 import { storedModuleMaterialLines, storedProductModuleLines } from '../../common/catalog/composition-line.service';
 import { oid } from '../../common/list-query';
 import { claimWritableOrders, withOrderWrite } from '../../common/order-archive/write';
+import { saveReleasedProductComposition } from '../product/product-writes';
 
 import type { CounterService } from '../counter/counter.service';
 import type { WorkStep } from '../../common/work-step';
@@ -124,7 +125,9 @@ export class ModuleWorkRelease {
         return { collection: 'productmodules', id: doc._id, lines, legacy: () => storedModuleMaterialLines(doc.materials) };
       };
       const save = (owner: { collection: string; id: Types.ObjectId }, lines: CatalogLine[]) =>
-        this.db.collection(owner.collection).updateOne({ _id: owner.id }, { $set: { composition: lines, updatedAt: new Date() }, $inc: { __v: 1 } }, { session });
+        owner.collection === 'products'
+          ? saveReleasedProductComposition(this.db, owner.id, lines, session)
+          : this.db.collection(owner.collection).updateOne({ _id: owner.id }, { $set: { composition: lines, updatedAt: new Date() }, $inc: { __v: 1 } }, { session });
       const from = await parent(dto.fromModuleId);
       if (dto.action === 'materialize') {
         if (!from.lines.length) {

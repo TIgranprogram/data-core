@@ -1,4 +1,5 @@
 import { withOrderWrite } from '../../common/order-archive/write';
+import { fillProductDesigner } from '../product/product-writes';
 import { withDesignWrite } from './design-write';
 import type { ClientSession } from 'mongoose';
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
@@ -158,7 +159,7 @@ export class DesignService {
   /** Завершили: пустому «Кто проектировал» (products.designerId) изделия ставим исполнителя; заполненный не трогаем. */
   private async fillDesigner(productId: unknown, assigneeId: unknown) {
     if (!productId || !assigneeId) return;
-    await this.db().collection('products').updateOne({ _id: productId as Types.ObjectId, designerId: null }, { $set: { designerId: assigneeId, updatedAt: new Date() } });
+    await fillProductDesigner(this.db(), productId as Types.ObjectId, assigneeId);
   }
 
   private async lineOf(incomeId: unknown) {

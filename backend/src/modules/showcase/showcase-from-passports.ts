@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { Types, type Connection } from 'mongoose';
 import { writableCascadeRows } from '../../common/order-archive/cascade';
 import { withOrderWrite } from '../../common/order-archive/write';
+import { setDefaultsFromPassport } from '../../common/product-owner-port';
 import { normalizePassportDefaults } from './passport-defaults';
 import { inheritedPassportCategory } from '../../common/passport/passport-inherit';
 import { candidateGroups, modelKey, passportScore, type PassportModel } from './passport-models';
@@ -114,7 +115,7 @@ export class ShowcaseFromPassports {
       // категория, совпавшая с унаследованной от группы, своей не становится (иначе молча перебьёт связь «группа → категория»)
       const catId = defaults.passportCategory ? (await this.db.collection('products').findOne({ _id: id }, { projection: { categoryId: 1 } }))?.categoryId : null;
       if (defaults.passportCategory && defaults.passportCategory === (await inheritedPassportCategory(this.db, catId))?.code) delete defaults.passportCategory;
-      if (Object.keys(defaults).length) await this.db.collection('products').updateOne({ _id: id }, { $set: { passportDefaults: defaults, source: 'passports' } });
+      if (Object.keys(defaults).length) await setDefaultsFromPassport(this.db, id, defaults);
     } catch { /* неверные значения в старом паспорте — изделие без значений по умолчанию */ }
     return id;
   }
