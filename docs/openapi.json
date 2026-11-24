@@ -5490,6 +5490,7 @@
       },
       "post": {
         "operationId": "SupplyController_create",
+        "description": "C262. Флаг c262.supply.requests.api выключен — 409, маршрут остаётся.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -5629,6 +5630,7 @@
       },
       "patch": {
         "operationId": "SupplyController_update",
+        "description": "C262. Флаг c262.supply.requests.api выключен — 409, маршрут остаётся. Приход этим маршрутом не ставится.",
         "parameters": [
           {
             "name": "id",
@@ -5660,6 +5662,7 @@
       },
       "delete": {
         "operationId": "SupplyController_remove",
+        "description": "C262. Флаг c262.supply.requests.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",

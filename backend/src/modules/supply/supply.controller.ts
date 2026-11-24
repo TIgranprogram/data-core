@@ -406,6 +406,7 @@ export class SupplyController {
     return this.supply.get(id, scope);
   }
 
+  /** C262: новая заявка. Флаг `c262.supply.requests.api` выключен — 409, маршрут остаётся. */
   @Post('requests')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.created', entityType: 'SupplyRequest' })
@@ -414,6 +415,7 @@ export class SupplyController {
     return this.supply.create(dto, user?.id, scope);
   }
 
+  /** C262: правка карточки. Флаг выключен — 409. Приход этим маршрутом не ставится. */
   @Patch('requests/:id')
   @Roles('admin', 'manager')
   @AuditAction({ action: 'supply.request.updated', entityType: 'SupplyRequest', idParam: 'id' })
@@ -433,7 +435,7 @@ export class SupplyController {
     return this.supply.update(id, body, user?.role, user?.id);
   }
 
-  /** В корзину (мягкое удаление). */
+  /** C262: в корзину. Флаг выключен — 409, маршрут остаётся. */
   @Delete('requests/:id')
   @UseGuards(ConfirmTokenGuard)
   @Roles('admin', 'manager')

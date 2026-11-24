@@ -36,6 +36,7 @@
 | L-259 | план CRM→API принят; код перевода (C260+) только после L-259 и по одному срезу | [C259 PLAN-SLICES](../C259-crm-api-client-plan/PLAN-SLICES.md) | начинать C260+ без принятого плана; один флаг на все срезы |
 | L-260 | запись `warehouses` в API через stock-writes; флаг `c260.warehouses.api` (выкл = 409, CRM может Mongo) | [C260 REPORT](../C260-warehouses-api-slice/REPORT.md) | сырая запись warehouses мимо stock-writes; включать флаг без перевода CRM |
 | L-261 | карточка `materials` (create/patch/archive/копия) под флагом `c261.materials.card.api`; остаток не в срезе | [C261 REPORT](../C261-materials-card-api-slice/REPORT.md) | писать карточку мимо stock-writes; включать флаг без перевода CRM |
+| L-262 | заявка `supplyrequests` (create/patch/delete) под флагом `c262.supply.requests.api`; приход не в срезе | [C262 REPORT](../C262-supply-request-api-slice/REPORT.md) | писать заявку мимо хозяина; вешать флаг на receive; включать без перевода CRM |
 | L-DEC | модульный монолит, не микросервисы | DECISION | «да» владельца на смену курса |
 
 ## Правила для любого агента

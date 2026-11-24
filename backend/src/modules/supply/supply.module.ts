@@ -3,6 +3,7 @@ import { ExpenseArticlesModule } from '../expense-articles/expense-articles.modu
 import { SupplyInvoicePaymentsService } from './supply-invoice-payments.service';
 import { SupplyInvoicePayment, SupplyInvoicePaymentSchema } from './supply-invoice-payment.schema';
 import { Module } from '@nestjs/common';
+import { FeatureFlagModule } from '../feature-flag/feature-flag.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuditModule } from '../audit/audit.module';
 import { CounterModule } from '../counter/counter.module';
@@ -32,6 +33,7 @@ import { SupplierCatalogService } from './supplier-catalog.service';
 /** /api/supply — заявки снабжения на общей коллекции CRM kppdf (docs/UNIFY-SUPPLY-WAREHOUSE.md). */
 @Module({
   imports: [
+    FeatureFlagModule,
     ExpenseArticlesModule,
     StockModule,
     PhotosModule,

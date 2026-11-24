@@ -3,6 +3,8 @@ import { sameRe } from '../../common/text/same-text';
 
 type Db = mongo.Db;
 
+/** Карточка заявки (create/patch/delete) — `SupplyService` и флаг C262. Здесь чужие сценарии: справочник и перенос. Флаг их не смотрит. */
+
 const clean = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const labelRe = (name: unknown) => new RegExp(`^\\s*${clean(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i');
 

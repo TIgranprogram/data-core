@@ -1,7 +1,10 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { SupplyService } from './supply.service';
+import { SUPPLY_REQUEST_API_FLAG } from './supply-request-flag';
 import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel } from './supply-labels';
+
+const flagsOn = { isEnabled: async () => true };
 
 /** Цепочка запросов Mongoose — любой метод возвращает её же, exec отдаёт результат. */
 const chain = (result: unknown) => {
@@ -33,6 +36,41 @@ describe('supply-labels', () => {
     expect(priorityFromLabel(' ')).toBeUndefined();
     expect(labelFromPriority('urgent')).toBe('Срочно');
     expect(labelFromPriority(undefined)).toBe('Обычный');
+  });
+});
+
+describe('C262 — флаг заявки', () => {
+  const make = (flags: { isEnabled: jest.Mock }) => {
+    const model = { create: jest.fn(), updateOne: jest.fn(), findOne: jest.fn(() => chain(null)), aggregate: jest.fn(() => chain([])) };
+    const service = new SupplyService({} as never, model as never, {} as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, {} as never, undefined, undefined, undefined, undefined, flags as never);
+    return { service, model };
+  };
+
+  it('выключен — 409 на создание, правку и снятие, записи нет', async () => {
+    const flags = { isEnabled: jest.fn(async () => false) };
+    const { service, model } = make(flags);
+    const id = String(new Types.ObjectId());
+    await expect(service.create({ title: 'Болт' })).rejects.toMatchObject({ status: 409 });
+    await expect(service.update(id, { title: 'Гайка' })).rejects.toMatchObject({ status: 409 });
+    await expect(service.remove(id)).rejects.toMatchObject({ status: 409 });
+    expect(flags.isEnabled).toHaveBeenCalledWith(SUPPLY_REQUEST_API_FLAG);
+    expect(model.create).not.toHaveBeenCalled();
+    expect(model.updateOne).not.toHaveBeenCalled();
+  });
+
+  it('выключен — подсказка списка читается', async () => {
+    const flags = { isEnabled: jest.fn(async () => false) };
+    const { service } = make(flags);
+    await expect(service.lookup({})).resolves.toMatchObject({ items: [], total: 0 });
+    expect(flags.isEnabled).not.toHaveBeenCalled();
+  });
+
+  it('приход и откат не спрашивают флаг', async () => {
+    const flags = { isEnabled: jest.fn(async () => { throw new Error('флаг'); }) };
+    const { service } = make(flags);
+    await expect(service.receive('x', {})).rejects.toThrow(BadRequestException);
+    await expect(service.rollbackReceipt('x', {}, { role: 'admin', username: 'boss' })).rejects.toThrow(BadRequestException);
+    expect(flags.isEnabled).not.toHaveBeenCalled();
   });
 });
 
@@ -83,7 +121,7 @@ describe('SupplyService', () => {
       createItem: jest.fn(async () => ({ id: String(new Types.ObjectId()) })),
     };
     counters = { setSeqAtLeast: jest.fn(async () => undefined), nextSeq: jest.fn(async () => (Number(last?.num) || 0) + 1) };
-    service = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never);
+    service = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, undefined, undefined, flagsOn as never);
   });
 
   describe('lookup', () => {

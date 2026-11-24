@@ -4,6 +4,7 @@
 
 | ID | Суть | Статус |
 |--|--|--|
+| C262 | Заявка снабжения через API | done · [Отчёт](C262-supply-request-api-slice/REPORT.md) · L-262 |
 | C261 | Карточка материала через API | done · [Отчёт](C261-materials-card-api-slice/REPORT.md) · L-261 |
 | C260 | Склады через API (срез 1) | done · [Отчёт](C260-warehouses-api-slice/REPORT.md) · L-260 |
 | C259 | План CRM→API (без кода) | done · [План](C259-crm-api-client-plan/PLAN-SLICES.md) · L-259 |

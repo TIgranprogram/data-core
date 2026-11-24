@@ -6,6 +6,7 @@ import {
 import { FeatureFlagService } from '../../modules/feature-flag/feature-flag.service';
 import { MATERIAL_CARD_API_FLAG } from '../../modules/material/material-card-flag';
 import { WAREHOUSE_API_FLAG } from '../../modules/stock/warehouse-flag';
+import { SUPPLY_REQUEST_API_FLAG } from '../../modules/supply/supply-request-flag';
 
 const DEFAULT_FLAGS = [
   {
@@ -54,6 +55,14 @@ const DEFAULT_FLAGS = [
     description: 'Включён — хозяин записи карточки materials это API data-core. Выключен — CRM снова может писать Mongo; POST/PATCH/DELETE /api/materials остаются и отвечают 409. Остаток, история цен, состав и паспорт флаг не смотрит.',
     enabledByDefault: false,
     category: 'stock',
+    isActive: true,
+  },
+  {
+    key: SUPPLY_REQUEST_API_FLAG,
+    label: 'Заявку пишет API',
+    description: 'Включён — хозяин записи заявки supplyrequests это API data-core. Выключен — CRM снова может писать Mongo; POST/PATCH/DELETE /api/supply/requests остаются и отвечают 409. Приход и откат прихода флаг не смотрит.',
+    enabledByDefault: false,
+    category: 'supply',
     isActive: true,
   },
   // «Паспорта v2» больше не флаг: с 2026-10-23 это единственный вид паспорта (БЗ-7 шаг 1б); запись в базе ни на что не влияет

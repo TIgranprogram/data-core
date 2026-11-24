@@ -2,6 +2,9 @@ import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { foldPurchases, topSupplier } from '../stock/purchase-history';
 import { SupplyService } from './supply.service';
+import { SUPPLY_REQUEST_API_FLAG } from './supply-request-flag';
+
+const flagsOn = { isEnabled: async () => true };
 
 /** Цепочка запросов Mongoose — любой метод возвращает её же, exec отдаёт результат. */
 const chain = (result: unknown) => {
@@ -40,6 +43,9 @@ describe('SupplyService.createBulk', () => {
   let history: Map<string, unknown[]>;
   let service: SupplyService;
   let model: { findOne: jest.Mock; findById: jest.Mock; create: jest.Mock; find: jest.Mock; aggregate: jest.Mock };
+  let connection: { db: { collection: jest.Mock } };
+  let stock: { findMaterialByName: jest.Mock; purchaseSuppliers: jest.Mock };
+  let counters: { setSeqAtLeast: jest.Mock; nextSeq: jest.Mock };
 
   beforeEach(() => {
     saved = [];
@@ -61,7 +67,7 @@ describe('SupplyService.createBulk', () => {
       countDocuments: jest.fn(async (f: Record<string, unknown>) => (colls[name] ?? []).filter((d) => !f._id || inList(f._id, d._id)).length),
       findOne: jest.fn(async () => null),
     });
-    const connection = { db: { collection: jest.fn(collection) } };
+    connection = { db: { collection: jest.fn(collection) } };
     model = {
       findOne: jest.fn((f: Record<string, unknown>) => chain(f.clientUid ? saved.find((d) => d.clientUid === f.clientUid) ?? null : null)),
       findById: jest.fn((id: unknown) => chain(saved.find((d) => String(d._id) === String(id)) ?? null)),
@@ -69,10 +75,10 @@ describe('SupplyService.createBulk', () => {
       find: jest.fn(() => chain([])),
       aggregate: jest.fn(() => chain([])),
     };
-    const stock = { findMaterialByName: jest.fn(async () => null), purchaseSuppliers: jest.fn(async () => history) };
+    stock = { findMaterialByName: jest.fn(async () => null), purchaseSuppliers: jest.fn(async () => history) };
     let seq = 0;
-    const counters = { setSeqAtLeast: jest.fn(async () => undefined), nextSeq: jest.fn(async () => ++seq) };
-    service = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never);
+    counters = { setSeqAtLeast: jest.fn(async () => undefined), nextSeq: jest.fn(async () => ++seq) };
+    service = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, undefined, undefined, flagsOn as never);
     // get() тянет present() с десятком справочников — для проверки записи достаточно сырого документа
     jest.spyOn(service, 'get').mockImplementation((async (id: string) => saved.find((d) => String(d._id) === id) ?? { id }) as never);
     jest.spyOn(service as never, 'assertNew').mockResolvedValue(undefined as never);
@@ -107,6 +113,16 @@ describe('SupplyService.createBulk', () => {
 
   it('несуществующая позиция → 400, ничего не записано', async () => {
     await expect(service.createBulk(body([{ materialId: String(m1), qty: 1 }, { materialId: String(oidOf()), qty: 1 }]), null)).rejects.toBeInstanceOf(BadRequestException);
+    expect(saved).toHaveLength(0);
+  });
+
+  it('флаг выключен — пачка не пишет заявки', async () => {
+    const flags = { isEnabled: jest.fn(async () => false) };
+    const blocked = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, undefined, undefined, flags as never);
+    jest.spyOn(blocked, 'get').mockImplementation((async (id: string) => saved.find((d) => String(d._id) === id) ?? { id }) as never);
+    jest.spyOn(blocked as never, 'assertNew').mockResolvedValue(undefined as never);
+    await expect(blocked.createBulk(body([{ materialId: String(m1), qty: 1 }]), null)).rejects.toMatchObject({ status: 409 });
+    expect(flags.isEnabled).toHaveBeenCalledWith(SUPPLY_REQUEST_API_FLAG);
     expect(saved).toHaveLength(0);
   });
 

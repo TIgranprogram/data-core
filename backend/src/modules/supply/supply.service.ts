@@ -36,6 +36,8 @@ import { topSupplier } from '../stock/purchase-history';
 import { SupplierAliases } from './supplier-aliases';
 import { labelFromPriority, labelFromStatus, priorityFromLabel, statusFromLabel } from './supply-labels';
 import { SupplyRequest, SupplyRequestDocument } from './supply-request.schema';
+import { FeatureFlagService } from '../feature-flag/feature-flag.service';
+import { SUPPLY_REQUEST_API_FLAG } from './supply-request-flag';
 
 /** Заявки пачкой: тело `POST /supply/requests/bulk`. */
 export interface SupplyBulkInput {
@@ -111,7 +113,16 @@ export class SupplyService {
     @Optional() private readonly zones?: ZonesService,
     @Optional() private readonly audit?: AuditService,
     @Optional() private readonly financialArticles?: ExpenseArticlesService,
+    @Optional() private readonly flags?: FeatureFlagService,
   ) {}
+
+  /** C262: выкл — CRM снова может писать Mongo. Маршрут при этом остаётся и отвечает 409. Приход и откат флаг не смотрит. */
+  private async assertRequestApi() {
+    const on = this.flags ? await this.flags.isEnabled(SUPPLY_REQUEST_API_FLAG) : false;
+    if (!on) {
+      throw new ConflictException('Флаг c262.supply.requests.api выключен: заявку снова пишет CRM в Mongo. Маршруты API не сняты.');
+    }
+  }
 
   /** Итоги оплат счетов для календаря: сумма и число платежей, без истории. */
   invoicePaymentSummaries(ids: unknown[], visibleRequestIds?: unknown[]) {
@@ -404,6 +415,7 @@ export class SupplyService {
 
   /** В корзину (мягко). Приход на склад по заявке, если был, остаётся — его отменяют на складе. */
   async remove(id: string) {
+    await this.assertRequestApi();
     // строка счёта: удаление сломало бы сумму счёта и оплату — сначала убрать из счёта (пересчёт и журнал там)
     const cur = await this.model.findOne({ _id: oid(id, 'заявки'), deletedAt: null }, { invoiceId: 1, paid: 1 }).lean().exec() as { invoiceId?: unknown; paid?: boolean } | null;
     if (cur?.invoiceId) throw new BadRequestException('Заявка входит в счёт — сначала уберите её из счёта (кнопка «Убрать» в счёте)');
@@ -480,6 +492,7 @@ export class SupplyService {
   }
 
   async create(dto: SupplyInput, userId?: string, scope?: StockScope | null) {
+    await this.assertRequestApi();
     if (dto.clientUid) {
       const dup = await this.model.findOne({ clientUid: dto.clientUid }).lean().exec();
       if (dup) return this.get(String(dup._id), scope);
@@ -536,6 +549,7 @@ export class SupplyService {
   /**
    * Заявки пачкой (C036 Ш3): по строке на позицию. Поставщик — из прошлых закупок (чаще, затем свежее), цена — последняя у него
    * за единицу × количество, иначе из прайса (`supplieritems`). Всё проверяется до записи; повтор с тем же `clientUid` отдаёт те же заявки.
+   * Флаг C262 не отдельный: каждая строка идёт через `create()`.
    */
   async createBulk(dto: SupplyBulkInput, scope: StockScope | null, userId?: string) {
     const db = this.connection.db!;
@@ -634,6 +648,7 @@ export class SupplyService {
   }
 
   async update(id: string, dto: SupplyInput, _userRole?: string, actorId?: string) {
+    await this.assertRequestApi();
     // менеджер правит суммы заявок (решение 2026-10-29, docs/CHECKLIST-MANAGER-ROLE.md); роли без денег суммы не пришлют — их срезает MoneyMask
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
     // Цена и количество строки счёта — только через PATCH строки с пересчётом amount в транзакции.
@@ -721,6 +736,7 @@ export class SupplyService {
   /**
    * Оприходовать: приход на склад по умолчанию + статус «received» (как receive() в CRM).
    * Нет привязанного материала — находим по наименованию или заводим новую позицию склада.
+   * Флаг C262 не смотрит: приход — срез C265.
    */
   async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId?: string) {
     const out = await this.receiveRaw(id, dto, userId);
@@ -801,6 +817,7 @@ export class SupplyService {
    * ЗЯ-1 п.2: «Откатить приёмку» (только администратор). dryRun / без confirm — план с warnings[];
    * confirm + причина — сервер сам отменяет приход на склад (cancelMovement), сбрасывает received*
    * и возвращает заявку в работу. Остатка не хватает (товар уже израсходован) — блок, склад в минус не уходит.
+   * Флаг C262 не смотрит: откат прихода — срез C265.
    */
   async rollbackReceipt(id: string, dto: { confirm?: boolean; reason?: string }, actor: OverrideActor, dryRun = false) {
     assertAdminActor(actor, 'Откат приёмки');
