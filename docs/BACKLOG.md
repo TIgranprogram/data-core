@@ -8,14 +8,13 @@
 
 Владелец 24.11: чинить архитектуру точечно; каждый этап сам завершён и оставляет сайт рабочим; недоделанное не выкладывать; продолжение — по чек-листу любым ИИ.
 
-Архитектура: **модульный монолит с хозяевами доменов** — [DECISION](crew/C246-architecture-modularity/DECISION.md).  
-Вход: [CHECKLIST](crew/C246-architecture-modularity/CHECKLIST.md) · [PLAN](crew/C246-architecture-modularity/PLAN.md).
+Архитектура: **модульный монолит с хозяевами** — [PROGRAM](crew/C246-architecture-modularity/PROGRAM.md) · [LOCKS](crew/C246-architecture-modularity/LOCKS.md) · [CHECKLIST](crew/C246-architecture-modularity/CHECKLIST.md).
 
-- [x] C246: аудит + решение + план; правки второго взгляда в DECISION/PLAN/CHECKLIST.
-- [x] C247: цикл work ↔ order-line-plan снят; audit-cycles 0; [отчёт](crew/C247-break-work-plan-cycle/REPORT.md).
-- [x] C248: ourCompanies в common; 501 юнит PASS; [отчёт](crew/C248-our-companies-common/REPORT.md).
-- [ ] C249a/C250 в параллели; затем C249b → C255 по CHECKLIST.
-- [ ] Параллельно не смешивать с выкладкой недоделанного этапа.
+- [x] C246–C250: аудит, циклы, ourCompanies, fontDir, finance↔supply, inventory+raw-query.
+- [ ] C251 → C255 по CHECKLIST (C251 в работе).
+- [ ] Параллель: C256 автоматика рельсов; черновик C257 контракт shared.
+- [ ] После C255: [BEYOND](crew/C246-architecture-modularity/BEYOND-CHECKLIST.md). CRM→API только после «да».
+- [ ] Недоделанное не выкладывать; закрытые замки не переоткрывать.
 
 ## ▶ Было: приоритет 23.11.2026 — разбор договоров и приёмка
 
@@ -115,9 +114,9 @@
 
 Рабочая ветка `main`. Программа C246–C255. Недоделанный код этапа не выкладывать.
 
-- [x] C247 и C248 закрыты (циклы 0; ourCompanies в common).
-- [ ] [CHECKLIST](crew/C246-architecture-modularity/CHECKLIST.md): принять C249a/C250, затем C249b.
-- [ ] Прочий бэклог — после текущего этапа или отдельным «да».
+- [x] Пакет замков/рельсов/BEYOND ТЗ (PROGRAM, LOCKS, RAILS, C256–C259).
+- [ ] C251 → принять и коммит; параллель C256/C257.
+- [ ] Прочий бэклог — после этапа или отдельным «да».
 
 ## ▶ Было: сейчас (21.11.2026 — завершён выпуск)
 

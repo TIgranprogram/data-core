@@ -4,6 +4,10 @@
 
 | ID | Суть | Статус |
 |--|--|--|
+| C259 | План CRM→API (без кода) | очередь · [ТЗ](C259-crm-api-client-plan/TZ.md) |
+| C258 | Playbook DTO по касанию | очередь · [ТЗ](C258-dto-by-touch-playbook/TZ.md) |
+| C257 | Контракт shared с CRM | очередь/черновик · [ТЗ](C257-shared-compat-contract/TZ.md) |
+| C256 | Автоматика рельсов (циклы≥3) | следующий параллель · [ТЗ](C256-arch-rails-automation/TZ.md) |
 | C255 | ESLint-границы доменов | очередь · [ТЗ](C255-domain-boundaries-eslint/TZ.md) |
 | C254 | Слой общих CRM-коллекций | очередь · [ТЗ](C254-shared-collections-layer/TZ.md) |
 | C253 | Запись products через хозяина | очередь · [ТЗ](C253-products-owner-writes/TZ.md) |

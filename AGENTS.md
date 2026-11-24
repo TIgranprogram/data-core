@@ -16,6 +16,8 @@
 
 **Ответственные за код.** До правки сверяй пути с [реестром зон](docs/roles/ownership.json). Владелец работает по своему ТЗ, короткой карте и дельте. Изменение межзонного контракта, границ или постоянной проверки принимает архитектор. Перед коммитом `node backend/scripts/review-scope.mjs owners --staged` показывает роли и отпечатки проверки. Порядок и отметки — [docs/roles/README.md](docs/roles/README.md).
 
+**Архитектура (замки, 24.11.2026).** Курс и очередь: [docs/crew/C246-architecture-modularity/PROGRAM.md](docs/crew/C246-architecture-modularity/PROGRAM.md). Закрытый этап `[x]` + REPORT не «улучшают» без дефекта — [LOCKS.md](docs/crew/C246-architecture-modularity/LOCKS.md). Перед архитектурной правкой — [CHECKLIST](docs/crew/C246-architecture-modularity/CHECKLIST.md) / [BEYOND](docs/crew/C246-architecture-modularity/BEYOND-CHECKLIST.md).
+
 ## Что это
 
 **Personal Data Core** — личное ядро данных: MongoDB (rs0) + REST API на NestJS 10 / Mongoose 8. Данные живут здесь, клиенты (таблицы, скрипты, приложения, ИИ-агенты) ходят **только через API** по JWT или машинному ключу `kppd_…`. Бэкенд вынесен из старого проекта **kppdf-8.0** (CRM) и вычищен до ядра и справочников, сейчас 72 модуля (список — `backend/src/app.module.ts`).
