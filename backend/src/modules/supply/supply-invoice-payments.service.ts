@@ -10,7 +10,7 @@ import { createHash } from 'crypto';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
 import { oid } from '../../common/list-query';
 import { assertAdminActor, overrideConfirm, type OverrideActor } from '../../common/admin-override';
-import { ourCompanies } from '../incomes/incomes.service';
+import { ourCompanies } from '../../common/our-companies';
 import { CreateInvoicePaymentDto, VoidInvoicePaymentDto } from './dto-invoice';
 import { SupplyInvoice, type SupplyInvoiceDocument } from './supply-invoice.schema';
 import { SupplyRequest, type SupplyRequestDocument } from './supply-request.schema';

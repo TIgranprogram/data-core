@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 import { OFFERS_ONLY_KEY } from '../../common/offers-only';
-import { ourCompanies } from '../incomes/incomes.service';
+import { ourCompanies } from '../../common/our-companies';
 import { OffersService } from './offers.service';
 
 /** КП-2: предпросмотр без записи, копия с наценкой, стандартные тексты, фирмы «только для КП». */

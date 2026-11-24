@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types, type ClientSession } from 'mongoose';
 import { oid } from '../../common/list-query';
-import { ourCompanies } from '../incomes/incomes.service';
+import { ourCompanies } from '../../common/our-companies';
 import { SupplyInvoice, SupplyInvoiceDocument } from './supply-invoice.schema';
 import { SupplyRequest, SupplyRequestDocument } from './supply-request.schema';
 import { SupplyInvoicePaymentsService } from './supply-invoice-payments.service';

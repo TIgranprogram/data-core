@@ -6,7 +6,7 @@ import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { oid } from '../../common/list-query';
-import { ourCompanies } from '../incomes/incomes.service';
+import { ourCompanies } from '../../common/our-companies';
 import type { PayoutDto, TimesheetDto } from './dto';
 import { MONTH, PAY_KIND_LABEL, accrued, dueDate, monthsBetween, payoutDays, r2, type PayKind } from './payroll-calc';
 

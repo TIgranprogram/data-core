@@ -7,7 +7,7 @@ import { canSeeMoney, effectiveRoles } from '../../common/roles-hierarchy';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import type { StockScope } from '../../common/stock-scope';
 import { oid } from '../../common/list-query';
-import { ourCompanies } from '../incomes/incomes.service';
+import { ourCompanies } from '../../common/our-companies';
 import { parseDay } from '../expenses/expense-rules';
 import { buildFinancialTree, flattenFinancialTree, articleDescendants } from '../expense-articles/articles-tree';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';

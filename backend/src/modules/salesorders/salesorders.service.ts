@@ -11,7 +11,7 @@ import { Types } from 'mongoose';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
-import { ourCompanies } from '../incomes/incomes.service';
+import { ourCompanies } from '../../common/our-companies';
 import { normText } from '../../common/text/norm-text';
 import { ZonesService } from '../zones/zones.service';
 import type { SalesOrderDto } from './dto';

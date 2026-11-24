@@ -2,6 +2,7 @@
 
 > Закрытые темы — одна строка: дата · что было · как решено · источник. Перед работой — Grep по теме здесь.
 
+- 2026-11-24 · finance/supply/заказы импортировали `ourCompanies` из incomes · список организаций в `common/our-companies.ts`, правила оплат остались в incomes; `jest.spyOn` ставить на модуль, который импортирует потребитель, реэкспорт шпиона не переносит · C248
 - 2026-11-18 · первая запись `composition` прятала `materials[]` / `productModuleIds`, GET legacy давал новый `_id` · перенос до add/update (`storedModuleMaterialLines` / `storedProductModuleLines`), граф читает legacy только пока массив пуст · C142 фикс legacy
 - 2026-11-18 · «Взять из состава» смотрело только прямые `lineType: material` — модуль давал 0 строк · `fromComposition` → `composition-expand`: модуль рекурсивно, сырьё детали в таблицу, вложенное изделие не раскрываем (свой паспорт); выпущенный паспорт поле не пересобирает · C142 §B
 - 2026-11-11 · второй живой паспорт на позицию нельзя закрыть unique-индексом `incomeId` (на проде без «да»; старые дубли и аннулированные) · замок в коде `assertOneLive` (409), корзину прячет soft-delete, себя исключаем; файл печати не в DTO (иначе forbidNonWhitelisted), только `POST /passports/:id/print-file` · C062

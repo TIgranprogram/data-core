@@ -15,7 +15,7 @@
 
 - [x] **C246** — аудит + решение + план (+ REVIEW-NOTES). [DECISION](DECISION.md) · [PLAN](PLAN.md)
 - [x] **C247** — снять цикл `work` ↔ `order-line-plan`. [Отчёт](../C247-break-work-plan-cycle/REPORT.md)
-- [ ] **C248** — `ourCompanies` в `common` (без доменных правил доходов). [ТЗ](../C248-our-companies-common/TZ.md)
+- [x] **C248** — `ourCompanies` в `common` (без доменных правил доходов). [Отчёт](../C248-our-companies-common/REPORT.md)
 - [ ] **C249** — граница finance↔supply + **вынос `fontDir`**. [ТЗ](../C249-finance-supply-boundary/TZ.md)
 - [ ] **C250** — инвентаризация писателей (Mongoose/`bulkWrite`/скрипты/админка) + отдельно `raw-query` без массового перевода. [ТЗ](../C250-raw-query-inventory/TZ.md)
 - [ ] **C251** — хозяин-операций `incomes` (тесты до/после: отмена, частичный сбой). [ТЗ](../C251-incomes-owner-writes/TZ.md)
@@ -26,6 +26,6 @@
 
 ## Сейчас (обновлять при каждом этапе)
 
-**Активный этап:** C248 (следующий)  
-**Статус:** C247 ✅; audit-cycles = 0; код следующих этапов не начат  
+**Активный этап:** C250 + C249a(fontDir) в работе; C248 принят  
+**Статус:** C249b (finance↔supply) можно после коммита C248  
 **Последнее обновление:** 24.11.2026

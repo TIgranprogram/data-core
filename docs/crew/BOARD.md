@@ -11,7 +11,7 @@
 | C251 | Запись incomes через хозяина | очередь · [ТЗ](C251-incomes-owner-writes/TZ.md) |
 | C250 | raw-query + инвентаризация писателей | очередь · [ТЗ](C250-raw-query-inventory/TZ.md) |
 | C249 | Граница finance ↔ supply | очередь · [ТЗ](C249-finance-supply-boundary/TZ.md) |
-| C248 | ourCompanies в common | очередь · [ТЗ](C248-our-companies-common/TZ.md) |
+| C248 | ourCompanies в common | done · [Отчёт](C248-our-companies-common/REPORT.md) |
 | C247 | Снять цикл work ↔ order-line-plan | done · [Отчёт](C247-break-work-plan-cycle/REPORT.md) |
 | C246 | Модульность: аудит, выбор архитектуры, план | план уточнён · [CHECKLIST](C246-architecture-modularity/CHECKLIST.md) |
 | C245 | Пульт сохраняет вход рабочего сайта | Готово локально · [QA](C245-pult-remember-login/QA-REPORT.md) |

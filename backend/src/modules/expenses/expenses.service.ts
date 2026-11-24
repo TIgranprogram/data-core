@@ -6,7 +6,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import type { ClientSession, Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { dateRange, oid, parseList } from '../../common/list-query';
-import { ourCompanies } from '../incomes/incomes.service';
+import { ourCompanies } from '../../common/our-companies';
 import { cleanText, parseAmount, parseDay } from './expense-rules';
 import type { CreateExpenseDto, UpdateExpenseDto } from './dto/expense.dto';
 

@@ -11,7 +11,7 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { loadOrderMatches } from '../matching/match-facts';
 import { blockText, isMatched } from '../matching/matching-rules';
-import { ourCompanies } from '../incomes/incomes.service';
+import { ourCompanies } from '../../common/our-companies';
 import { loadReadinessFacts, readinessChecks, readinessWarnings, type Readiness } from './order-readiness';
 import { checkAssign, compareProductionNo, groupKey, summarize, toProduce, type ProduceLine } from './production-orders';
 import { SalesOrder, SalesOrderDocument } from './sales-order.schema';

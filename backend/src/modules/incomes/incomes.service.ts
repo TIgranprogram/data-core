@@ -17,7 +17,7 @@ import { INCOME_NO_CONTRACT_DEDUPE_DAYS, incomeNoContractText, noContract } from
 import { ProductRequestsService } from '../product-requests/product-requests.service';
 import { ZonesService } from '../zones/zones.service';
 import { DesignService } from '../design/design.service';
-import { offersOnlyIds } from '../../common/offers-only';
+import { ourCompanies } from '../../common/our-companies';
 import { parseSheetDate } from '../../common/date-parse';
 import { dateRange, oid, oids, parseList } from '../../common/list-query';
 import { tokensFilter } from '../../common/text/search-norm';
@@ -43,13 +43,8 @@ const LOCKED_FIELDS = ['title', 'qty', 'unit', 'unitPrice', 'amountManual'];
 /** Поля шапки заказа, продублированные в позиции (кэш; истина — salesorders). */
 const HEADER_CACHE = ['orderNo', 'customer', 'companyId', 'paymentForm', 'shipDate'] as const;
 
-/** Наши компании (organizations.isOurCompany): название → id. Для доходов новые «наши компании» не создаются. */
-export async function ourCompanies(connection: Connection, opts: { withOffersOnly?: boolean } = {}) {
-  // фирмы «только для КП» в «Деньгах» не показываем (настройка offers.onlyCompanyIds); КП берут полный список
-  const hide = opts.withOffersOnly ? [] : (await offersOnlyIds(connection.db!)).map((x) => new Types.ObjectId(x));
-  const docs = await connection.db!.collection('organizations').find({ deletedAt: null, isOurCompany: true, ...(hide.length ? { _id: { $nin: hide } } : {}) }, { projection: { name: 1, shortName: 1 } }).toArray();
-  return docs.map((d) => ({ id: d._id as Types.ObjectId, name: String(d.shortName || d.name), full: String(d.name) }));
-}
+/** Реэкспорт для модуля доходов. Внешние модули берут список из common/our-companies. */
+export { ourCompanies };
 
 /**
  * Доходы (строки заказов). Список с суммой и счётчиками «ждут оплаты / оплачено»; amount и reportDate

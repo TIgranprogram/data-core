@@ -14,7 +14,7 @@ import { costCenterLabel } from '../supply/cost-center';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
-import { ourCompanies } from '../incomes/incomes.service';
+import { ourCompanies } from '../../common/our-companies';
 import { buildCashflow, buildPending, buildSummary, foldOverdueInvoices, openingFromStart, type Op, type Start } from './cashflow';
 import { incomePayments, type IncomePayment } from '../incomes/income.schema';
 import { PayrollService } from '../payroll/payroll.service';
