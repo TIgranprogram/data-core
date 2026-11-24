@@ -2,6 +2,7 @@
 
 > Закрытые темы — одна строка: дата · что было · как решено · источник. Перед работой — Grep по теме здесь.
 
+- 2026-11-24 · АБЗ-6 нельзя закрывать пакетом Query-DTO: `Record` pipe не проверяет, класс с `forbidNonWhitelisted` даёт 400 на ключ вне инвентаря · один эндпоинт по PLAYBOOK C258; новый образец маршрута отложен · C258
 - 2026-11-24 · finance импортировал частные `supply/invoice-financials`, `cost-center`, `invoice-payment-summary` · суммы и подпись направления в `common/`, агрегаты оплат — метод `SupplyService` через DI; дата факта и прямая приёмка остались в supply · C249b
 - 2026-11-24 · finance/supply/заказы импортировали `ourCompanies` из incomes · список организаций в `common/our-companies.ts`, правила оплат остались в incomes; `jest.spyOn` ставить на модуль, который импортирует потребитель, реэкспорт шпиона не переносит · C248
 - 2026-11-18 · первая запись `composition` прятала `materials[]` / `productModuleIds`, GET legacy давал новый `_id` · перенос до add/update (`storedModuleMaterialLines` / `storedProductModuleLines`), граф читает legacy только пока массив пуст · C142 фикс legacy

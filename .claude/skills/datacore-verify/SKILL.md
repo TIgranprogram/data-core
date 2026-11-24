@@ -78,6 +78,8 @@ docker compose cp backend:/app/openapi.json docs/openapi.json
 Сначала `docker compose up -d --build backend` и дождаться healthy: старый образ молча выгружает старый контракт (14.11: стенд от 12.11 стёр 6 путей). Сверка — `git diff docs/openapi.json` не должен удалять пути без причины. Затем skill `datacore-docs-sync`.
 Без своего стека — из backend-контейнера стенда после `node tools/stand-look.mjs --refresh` (15.11): `C=$(docker ps --format "{{.Names}}" | grep night-backend)`, затем `MSYS_NO_PATHCONV=1 docker exec $C node dist/src/export-openapi.js /tmp/openapi.json` и `MSYS_NO_PATHCONV=1 docker cp $C:/tmp/openapi.json docs/openapi.json`.
 
+Новый или суженный DTO на уже живом маршруте — не пакетом. Шаги и `forbidNonWhitelisted`: `docs/crew/C258-dto-by-touch-playbook/PLAYBOOK.md` (L-258). Лишний ключ в e2e виден только при `createTestApp({ strictValidation: true })`.
+
 ## Отчёт
 
 Пиши фактические числа (suites/tests, exit-коды). Не удалось прогнать (нет Docker) — так и скажи, не выдавай за пройденное.
