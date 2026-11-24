@@ -1,5 +1,6 @@
 import { claimStockLinks, withOrderWrite } from '../../common/order-archive/write';
 import type { DirectReceiptTarget } from './cost-center';
+import { invoicePaymentSummaries as loadInvoicePaymentSummaries } from './invoice-payment-summary';
 import { hasUndatedPayment, undatedLocked } from './undated-payment';
 import { normText } from '../../common/text/norm-text';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
@@ -111,6 +112,11 @@ export class SupplyService {
     @Optional() private readonly audit?: AuditService,
     @Optional() private readonly financialArticles?: ExpenseArticlesService,
   ) {}
+
+  /** Итоги оплат счетов для календаря: сумма и число платежей, без истории. */
+  invoicePaymentSummaries(ids: unknown[], visibleRequestIds?: unknown[]) {
+    return loadInvoicePaymentSummaries(this.connection, ids, visibleRequestIds);
+  }
 
   private async withArticleReference<T>(id: unknown, write: (session?: ClientSession) => Promise<T>, forceSession = false): Promise<T> {
     if (!id && !forceSession) return write();

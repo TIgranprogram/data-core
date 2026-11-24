@@ -13,7 +13,7 @@ import { docScopeMatch } from '../../common/supply-scope';
 import { CLASSIFICATION_FIELDS, effectiveClassification, originalClassification } from '../../common/financial-classification';
 import { ExpenseArticlesService } from '../expense-articles/expense-articles.service';
 import { articleOfCategory, buildTree } from '../expense-articles/articles-tree';
-import { financials, legacyReconciliation, type FinancialRecord as Row } from '../supply/invoice-financials';
+import { financials, legacyReconciliation, type FinancialRecord as Row } from '../../common/invoice-amounts';
 import { incomePayments } from '../incomes/income.schema';
 import { incomeIdentityHash } from '../incomes/income-payment-identities';
 import { ClassificationDto } from './operations.dto';

@@ -184,7 +184,7 @@ GET /api/passports/:id дополнен effectiveImages (URL и fromProduct) д�
 
 ## C158 — платежи и финансовые реквизиты счетов
 
-Расширение supply: `GET|POST /supply/invoices/:id/payments`, `POST /supply/invoices/:id/payments/:paymentId/void`; прежние pay/unpay используют общий путь. Новая supplyinvoicepayments зарегистрирована внутри SupplyModule; `supply-invoice-payment.schema.ts`, `supply-invoice-payments.service.ts`, чистые расчёты `invoice-financials.ts`; DTO и схема документа рядом. Исходные цены/валюта/НДС строк — на стороне счёта, shared supplyrequests не расширяется. PATCH реквизитов/строк и ответы списка/карточки дополнены по crew/C158-supply-financial-fields/CONTRACT.md.
+Расширение supply: `GET|POST /supply/invoices/:id/payments`, `POST /supply/invoices/:id/payments/:paymentId/void`; прежние pay/unpay используют общий путь. Новая supplyinvoicepayments зарегистрирована внутри SupplyModule; `supply-invoice-payment.schema.ts`, `supply-invoice-payments.service.ts`, суммы счетов — `common/invoice-amounts.ts` (реэкспорт и дата факта — `invoice-financials.ts`); DTO и схема документа рядом. Исходные цены/валюта/НДС строк — на стороне счёта, shared supplyrequests не расширяется. PATCH реквизитов/строк и ответы списка/карточки дополнены по crew/C158-supply-financial-fields/CONTRACT.md.
 
 C231. `POST /api/supply/invoices/:id/receive` принимает отмеченные `requestIds` на заказ по `directOrderId` либо напрямую на офис, цех или СМР по `directCostCenter` (`office|workshop|smr`, необязательный `directCostObject`). Остатки склада не меняются. Повтор для того же назначения возвращает `receivedCount: 0`. [Контракт и сценарии](crew/C231-direct-to-order/REPORT.md).
 

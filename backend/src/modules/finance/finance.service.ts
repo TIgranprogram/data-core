@@ -7,10 +7,10 @@ import { canReadFact, excludedFinanceSources, financeVisibility, supplyFact, vis
 import { docScopeMatch } from '../../common/supply-scope';
 import { classifiedOperation } from './financial-operations';
 import { temporaryIncomeOperationId } from '../incomes/income-payment-identities';
-import { invoicePaymentSummaries } from '../supply/invoice-payment-summary';
-import { financials, paymentTotals, allocate, legacyReconciliation, FOREIGN_INVOICE_CURRENCIES, type FinancialRecord } from '../supply/invoice-financials';
+import { financials, paymentTotals, allocate, legacyReconciliation, FOREIGN_INVOICE_CURRENCIES, type FinancialRecord } from '../../common/invoice-amounts';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { costCenterLabel } from '../supply/cost-center';
+import { costCenterLabel } from '../../common/cost-center-label';
+import { SupplyService } from '../supply/supply.service';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
 import { Types } from 'mongoose';
@@ -37,7 +37,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
  */
 @Injectable()
 export class FinanceService {
-  constructor(@InjectConnection() private readonly connection: Connection, private readonly payroll: PayrollService, private readonly articles: ExpenseArticlesService) {}
+  constructor(@InjectConnection() private readonly connection: Connection, private readonly payroll: PayrollService, private readonly articles: ExpenseArticlesService, private readonly supply: SupplyService) {}
 
   private period(q: Record<string, unknown>) {
     const now = new Date();
@@ -106,7 +106,7 @@ export class FinanceService {
     const ids = invoices.map((x) => x._id);
     const [rows, summaries, companies] = await Promise.all([
       ids.length ? db.collection('supplyrequests').find({ invoiceId: { $in: ids }, deletedAt: null, status: { $ne: 'cancelled' } }, { projection: { invoiceId: 1, title: 1, qty: 1, priceHint: 1, articleId: 1, categoryId: 1, salesOrderId: 1, costCenter: 1 } }).toArray() : [],
-      invoicePaymentSummaries(this.connection, ids), ourCompanies(this.connection),
+      this.supply.invoicePaymentSummaries(ids), ourCompanies(this.connection),
     ]);
     const visible = await visibleFinanceRequests(this.connection, scope, rows.map((row) => String(row._id)));
     const byInvoice = new Map<string, FinancialRecord[]>();

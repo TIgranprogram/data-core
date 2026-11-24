@@ -1,5 +1,5 @@
 import { effectiveClassification, type ClassificationMetadata, type ClassificationInput } from '../../common/financial-classification';
-import { costCenterLabel } from '../supply/cost-center';
+import { costCenterLabel } from '../../common/cost-center-label';
 import type { Op } from './cashflow';
 export interface OperationIdentity { operationId: string; sourceId: string; companyId: string; paymentId?: string; allocationId?: string; invoiceId?: string; sourceLink: string; scopeRequestId?: string; classificationEditable: boolean; classificationReason?: string | null; warnings?: string[] }
 /** Тот же effective resolver применяется до всех денежных сводок, не только на новой странице. */

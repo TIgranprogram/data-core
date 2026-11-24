@@ -16,7 +16,7 @@
 - [x] **C246** — аудит + решение + план (+ REVIEW-NOTES). [DECISION](DECISION.md) · [PLAN](PLAN.md)
 - [x] **C247** — снять цикл `work` ↔ `order-line-plan`. [Отчёт](../C247-break-work-plan-cycle/REPORT.md)
 - [x] **C248** — `ourCompanies` в `common` (без доменных правил доходов). [Отчёт](../C248-our-companies-common/REPORT.md)
-- [~] **C249** — `fontDir` ✅ [отчёт](../C249-finance-supply-boundary/REPORT-fontDir.md); **C249b** finance↔supply ещё `[ ]`. [ТЗ](../C249-finance-supply-boundary/TZ.md)
+- [x] **C249** — `fontDir` + граница finance↔supply. [fontDir](../C249-finance-supply-boundary/REPORT-fontDir.md) · [C249b](../C249-finance-supply-boundary/REPORT.md)
 - [x] **C250** — инвентаризация писателей + `raw-query` без массового перевода. [Отчёт](../C250-raw-query-inventory/REPORT.md) · [INVENTORY](../C250-raw-query-inventory/INVENTORY.md)
 - [ ] **C251** — хозяин-операций `incomes` (тесты до/после: отмена, частичный сбой). [ТЗ](../C251-incomes-owner-writes/TZ.md)
 - [ ] **C252** — хозяин-операций `salesorders`. [ТЗ](../C252-salesorders-owner-writes/TZ.md)
@@ -26,6 +26,6 @@
 
 ## Сейчас (обновлять при каждом этапе)
 
-**Активный этап:** C249b (finance↔supply) в работе  
-**Статус:** C248 ✅ · C249a ✅ · C250 ✅ · следующий после C249b — C251  
+**Активный этап:** следующий **C251** (хозяин incomes)  
+**Статус:** C246–C250 ✅ · C249 полный ✅  
 **Последнее обновление:** 24.11.2026

@@ -1,5 +1,5 @@
 import { originalClassification, effectiveClassification } from '../../common/financial-classification';
-import { moscowToday } from '../supply/invoice-financials';
+import { moscowToday } from '../../common/moscow-today';
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { type Connection } from 'mongoose';
