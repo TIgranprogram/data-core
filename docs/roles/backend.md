@@ -2,6 +2,7 @@
 
 > Закрытые темы — одна строка: дата · что было · как решено · источник. Перед работой — Grep по теме здесь.
 
+- 2026-11-24 · сырое чтение shared нельзя разом сажать на `liveFilter`: где `deletedAt` не задан, выдача сузится · контракт полей и `sharedFind` в `common/shared-collections`; образец только если фильтр уже живой и проекция из контракта (`disk/integrity`) · C254-0
 - 2026-11-24 · чужая запись products через импорт модуля замыкает цикл (product → category → showcase) · операция в `product-writes.ts`, витрина зовёт `common/product-owner-port.ts`, не DI · C253
 - 2026-11-24 · чужая запись salesorders через импорт модуля замыкает цикл (shipments ↔ salesorders, partners → salesorders → incomes) · операция в `salesorder-writes.ts`, вызов из цикла — `common/salesorder-owner-port.ts`, не DI · C252
 - 2026-11-24 · `audit-cycles` видел только пары и всегда выходил 0 · циклы ≥3 ищутся от наименьшего имени; новая находка — код 1; 10 известных длинных в `KNOWN_LONG`, модули не рвались · C256

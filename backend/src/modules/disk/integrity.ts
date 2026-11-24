@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Types, type Connection } from 'mongoose';
+import { isSharedCollection, sharedFind, type SharedReadCursor } from '../../common/shared-collections';
 
 /**
  * А1 (2026-10-26): проверка целостности данных склада — ТОЛЬКО ЧТЕНИЕ, ничего не исправляет.
@@ -26,16 +27,22 @@ export class IntegrityService {
     const db = this.connection.db!;
     const alive = { deletedAt: null };
     const ids = (docs: { _id: unknown }[]) => docs.slice(0, 5).map((d) => String(d._id));
+    // C254-0: shared уже с deletedAt и проекцией из контракта. salesorders в слой не входит.
+    const read = (name: string, filter: Record<string, unknown>, projection: Record<string, 1>): SharedReadCursor => {
+      const col = db.collection(name);
+      if (isSharedCollection(name)) return sharedFind(col, name, filter, { projection });
+      return col.find(filter, { projection }) as unknown as SharedReadCursor;
+    };
     const [negative, emptyRes, resList, items] = await Promise.all([
-      db.collection('storageitems').find({ ...alive, quantity: { $lt: 0 } }, { projection: { _id: 1 } }).limit(500).toArray(),
-      db.collection('reservations').find({ ...alive, status: 'active', qty: { $lte: 0 } }, { projection: { _id: 1 } }).limit(500).toArray(),
-      db.collection('reservations').find({ ...alive, status: 'active' }, { projection: { materialId: 1, salesOrderId: 1 } }).limit(5000).toArray(),
-      db.collection('storageitems').find({ ...alive, materialId: { $ne: null } }, { projection: { materialId: 1 } }).limit(20000).toArray(),
+      read('storageitems', { ...alive, quantity: { $lt: 0 } }, { _id: 1 }).limit(500).toArray(),
+      read('reservations', { ...alive, status: 'active', qty: { $lte: 0 } }, { _id: 1 }).limit(500).toArray(),
+      read('reservations', { ...alive, status: 'active' }, { materialId: 1, salesOrderId: 1 }).limit(5000).toArray(),
+      read('storageitems', { ...alive, materialId: { $ne: null } }, { materialId: 1 }).limit(20000).toArray(),
     ]);
     const matIds = [...new Set([...resList, ...items].map((d) => d.materialId).filter(Boolean).map(String))];
     const soIds = [...new Set(resList.map((d) => d.salesOrderId).filter(Boolean).map(String))];
-    const liveSet = async (coll: string, list: string[]) => new Set((await db.collection(coll)
-      .find({ _id: { $in: list.map((s) => new Types.ObjectId(s)) }, ...alive }, { projection: { _id: 1 } }).toArray()).map((d) => String(d._id)));
+    const liveSet = async (coll: string, list: string[]) => new Set((await read(coll,
+      { _id: { $in: list.map((s) => new Types.ObjectId(s)) }, ...alive }, { _id: 1 }).toArray()).map((d) => String(d._id)));
     const [mats, sos] = await Promise.all([liveSet('materials', matIds), liveSet('salesorders', soIds)]);
     const resNoMat = resList.filter((d) => d.materialId && !mats.has(String(d.materialId)));
     const resNoSo = resList.filter((d) => d.salesOrderId && !sos.has(String(d.salesOrderId)));
