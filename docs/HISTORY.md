@@ -133,3 +133,5 @@
 - 2026-11-23: **v2.51**,tagrelease-v2.51-3488bca5/runtime3488bca5. C244: общийbatchresolver фото позиции→каталог→passportoverview→legacy,беззаписи/миграции; закрытыеархивы иC017listконтракт прежние. Unit406/4175,e2e112/918 безпропусков,tsc/ESLint0,архитектор/ownedUI6/6/designerPASS; ворота/backup/health/smoke7/7/CRM200. Наprod14JSONравныfreshmanualbaseline:3позиции6/6/4,ручноеmainфото3413 иissued629–631сохранены,6imageURLsдоступны. Ручноефотопоявилосьдообновления,неприписываетсяfallback; [факт](crew/C244-order-product-photo/POSTRELEASE-REPORT.md).
 
 - 2026-11-24 (дом, через VPS): **v2.51** повтор, тег `release-v2.51-5ee80d93`, backend `a9897e4a`. C260–C265 API-срезы shared + флаги forceOn; full e2e 111/112 (1 skip) в TEST-LOG; ворота/health/smoke 7/7. После выпуска `kppdf-backend` остановлен (:3000=000), datacore ready 200; все 6 флагов enabled. Чек-лист: `crew/C260-warehouses-api-slice/CHECKLIST.md`.
+
+- 2026-11-24 (дом): у Mongo-пользователя `kppdf` снято `readWrite` на `datacore` (`roles=[]`); CRM по-прежнему Exited; datacore ready 200. Код не менялся.

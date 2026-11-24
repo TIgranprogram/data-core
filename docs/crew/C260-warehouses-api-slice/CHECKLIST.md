@@ -15,6 +15,7 @@
 - [x] **Выкладка** — v2.51 тег `release-v2.51-5ee80d93`, health 200, смоук 7/7 (24.11)
 - [x] **Флаги C260–C265** — на проде enabled true (forceOn сид + проверка API)
 - [x] **Гасить kppdf** — `kppdf-backend` Exited (24.11 после выкладки)
+- [x] **Mongo readWrite у kppdf** — снят 24.11 (`roles=[]`); контейнер CRM выключен
 - [ ] Мелочи сайта — S/M, без shared/kppdf
 
 ## Опора
