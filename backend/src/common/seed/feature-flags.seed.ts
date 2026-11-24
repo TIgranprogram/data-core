@@ -48,7 +48,7 @@ const DEFAULT_FLAGS = [
     key: WAREHOUSE_API_FLAG,
     label: 'Склады пишет API',
     description: 'Включён — хозяин записи warehouses это API data-core. Выключен — CRM снова может писать Mongo; POST/PATCH/DELETE /api/stock/warehouses остаются и отвечают 409.',
-    enabledByDefault: false,
+    enabledByDefault: true,
     category: 'stock',
     isActive: true,
   },
@@ -56,7 +56,7 @@ const DEFAULT_FLAGS = [
     key: MATERIAL_CARD_API_FLAG,
     label: 'Карточку материала пишет API',
     description: 'Включён — хозяин записи карточки materials это API data-core. Выключен — CRM снова может писать Mongo; POST/PATCH/DELETE /api/materials остаются и отвечают 409. Остаток, история цен, состав и паспорт флаг не смотрит.',
-    enabledByDefault: false,
+    enabledByDefault: true,
     category: 'stock',
     isActive: true,
   },
@@ -64,7 +64,7 @@ const DEFAULT_FLAGS = [
     key: SUPPLY_REQUEST_API_FLAG,
     label: 'Заявку пишет API',
     description: 'Включён — хозяин записи заявки supplyrequests это API data-core. Выключен — CRM снова может писать Mongo; POST/PATCH/DELETE /api/supply/requests остаются и отвечают 409. Приход и откат прихода флаг не смотрит.',
-    enabledByDefault: false,
+    enabledByDefault: true,
     category: 'supply',
     isActive: true,
   },
@@ -72,7 +72,7 @@ const DEFAULT_FLAGS = [
     key: STOCK_MOVE_API_FLAG,
     label: 'Движение склада пишет API',
     description: 'Включён — хозяин записи stockmovements и storageitems.quantity это API data-core. Выключен — CRM снова может писать Mongo; move/batch/пересчёт/корректировка/отмена/обрезок остаются и отвечают 409. Бронь и приход флаг не смотрит.',
-    enabledByDefault: false,
+    enabledByDefault: true,
     category: 'stock',
     isActive: true,
   },
@@ -80,7 +80,7 @@ const DEFAULT_FLAGS = [
     key: STOCK_RESERVE_API_FLAG,
     label: 'Бронь пишет API',
     description: 'Включён — хозяин записи reservations и storageitems.reservedQty это API data-core. Выключен — CRM снова может писать Mongo; бронь, снятие, выдача и спецификация остаются и отвечают 409. Движение остатка и приход флаг не смотрит.',
-    enabledByDefault: false,
+    enabledByDefault: true,
     category: 'stock',
     isActive: true,
   },
@@ -88,7 +88,7 @@ const DEFAULT_FLAGS = [
     key: SUPPLY_RECEIVE_API_FLAG,
     label: 'Приход по заявке пишет API',
     description: 'Включён — хозяин прихода и отката прихода это API data-core. Выключен — CRM снова может писать Mongo; POST receive и rollback-receipt остаются и отвечают 409. Карточка заявки — отдельный флаг.',
-    enabledByDefault: false,
+    enabledByDefault: true,
     category: 'supply',
     isActive: true,
   },
@@ -102,11 +102,20 @@ export class FeatureFlagsSeed implements OnApplicationBootstrap {
   constructor(private readonly flags: FeatureFlagService) {}
 
   async onApplicationBootstrap(): Promise<void> {
+    /** C260–C265: владелец 24.11 — API хозяин shared; сид и обновление `enabledByDefault`. */
+    const forceOn = new Set([
+      WAREHOUSE_API_FLAG,
+      MATERIAL_CARD_API_FLAG,
+      SUPPLY_REQUEST_API_FLAG,
+      STOCK_MOVE_API_FLAG,
+      STOCK_RESERVE_API_FLAG,
+      SUPPLY_RECEIVE_API_FLAG,
+    ]);
     for (const f of DEFAULT_FLAGS) {
       const exists = await this.flags
         .findAll()
         .then((arr) => arr.find((d) => d.key === f.key));
-      if (exists) continue;
+      if (exists && !forceOn.has(f.key)) continue;
       try {
         await this.flags.upsert(f.key, {
           label: f.label,
