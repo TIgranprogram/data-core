@@ -23,12 +23,12 @@
 - [x] **C252** — хозяин-операций `salesorders`. [Отчёт](../C252-salesorders-owner-writes/REPORT.md) · L-252
 - [x] **C253** — хозяин/фасад `products`. [Отчёт](../C253-products-owner-writes/REPORT.md) · L-253
 - [x] **C254** — shared CRM **мелкими поставками** (0/a/b/c/w/doc). [Отчёт](../C254-shared-collections-layer/REPORT.md) · L-254 · full — перед выкладкой
-- [ ] **C255** — границы постепенно после очистки доменов; **финал после C254**. [ТЗ](../C255-domain-boundaries-eslint/TZ.md)
+- [x] **C255** — границы доменов (частичное правило + карта). [Отчёт](../C255-domain-boundaries-eslint/REPORT.md) · L-255 · долг полного index
 
-После C255 → [BEYOND-CHECKLIST.md](BEYOND-CHECKLIST.md) (C256 можно раньше — аддитивно).
+После C255 → [BEYOND-CHECKLIST.md](BEYOND-CHECKLIST.md). Программа C246–C255 внутри data-core **закрыта**.
 
 ## Сейчас (обновлять при каждом этапе)
 
-**Активный этап:** C255 (ESLint-границы доменов)  
-**Статус:** C246–C254 ✅ · C256 ✅ · C257[~] · C258 ✅  
+**Активный этап:** BEYOND — C260 по явному старту (план C259 принят)  
+**Статус:** C246–C255 ✅ · C256–C259 ✅  
 **Последнее обновление:** 24.11.2026

@@ -98,9 +98,24 @@ CRM kppdf (:3000, https://kppdf-crm.ru) ──────── напряму�
 
 ## Общие хелперы (АБЗ-1, 2026-10-23)
 
-Модули `modules/*` не должны импортировать друг друга по кругу (проверка: `node backend/scripts/audit-cycles.js`, `-v` — откуда связь; скрипт ловит **взаимные пары**, длинные циклы — отдельно). Общее, из-за чего были циклы, лежит в `common/`: `common/catalog/` — состав изделия (composition-line), граф «где используется» (catalog-graph), ссылки CRM (catalog-references), category-resolver, схемы `Product` и `ProductModule` (их моделями пользуются оба модуля); `common/text/` — `normText`, `search-norm`, `order-key`. В `common/` — типы и чистые функции, не доменные правила. Новое общее — сюда, а не импортом из соседнего модуля; после правки — снова `audit-cycles.js`.
+Модули `modules/*` не должны импортировать друг друга по кругу (проверка: `node backend/scripts/audit-cycles.js`, `-v` — откуда связь; скрипт ловит **взаимные пары и циклы длины ≥3**, L-256). Общее, из-за чего были циклы, лежит в `common/`: `common/catalog/` — состав изделия (composition-line), граф «где используется» (catalog-graph), ссылки CRM (catalog-references), category-resolver, схемы `Product` и `ProductModule` (их моделями пользуются оба модуля); `common/text/` — `normText`, `search-norm`, `order-key`. В `common/` — типы и чистые функции, не доменные правила. Новое общее — сюда, а не импортом из соседнего модуля; после правки — снова `audit-cycles.js`.
 
 > **Актуальность (C246, 24.11.2026):** фраза «взаимных пар — 0» ниже по истории АБЗ-1 устарела как гарантия «навсегда». Снимок после аудита — [crew/C246-architecture-modularity/REPORT.md](crew/C246-architecture-modularity/REPORT.md); текущее число — только свежий прогон `audit-cycles.js`. Программа хозяев доменов — [C246/CHECKLIST](crew/C246-architecture-modularity/CHECKLIST.md).
+
+## Карта доменов (C255, 24.11.2026)
+
+Модульный монолит: один процесс API. Хозяин хранит бизнес-операцию. Папки не переносим. CRM по-прежнему пишет общие коллекции напрямую.
+
+| Домен | Хозяин | Публичный вход |
+|--|--|--|
+| Доходы | `incomes` | `modules/incomes/index.ts` — модуль, фасад, `income-writes` |
+| Заказы | `salesorders` | `modules/salesorders/index.ts` — модуль, фасады, `salesorder-writes` |
+| Изделия | `product` | `modules/product/index.ts` — модуль, фасад, `product-writes` |
+| Склад и заявки | `stock`, `supply` | сервис и `*-writes`; чужой вызов из цикла — порт в `common/` (L-254), в это правило не входят |
+| Платформа | `auth`, `user`, `role`, `permissions`, `feature-flag` | бизнес-модули не импортирует |
+| Общее | `common/` | типы, чистые функции и порты цикла. В три домена выше — только `index.ts` или свой порт на `*-writes` |
+
+Включено: снаружи нельзя брать закрытый файл трёх доменов; уже открытые файлы пока можно; платформа не импортирует бизнес; `common/` кроме spec входит в эти три домена только через `index.ts` или порт цикла. Полное «любой чужой модуль только через index» и запрет `common/` на остальные бизнес-модули не включены — прямых импортов десятки, список и этапы в [C255 REPORT](crew/C255-domain-boundaries-eslint/REPORT.md). Проверка: `node backend/scripts/audit-domain-boundaries.js` (то же правило в eslint). Циклы ≥3 этим правилом не дублируются.
 
 
 ### HTTP-логи: заголовки авторизации

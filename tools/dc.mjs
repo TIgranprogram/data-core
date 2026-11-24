@@ -261,6 +261,11 @@ async function cmdCheck() {
     : `пар ${pairs}, новых длинных ${fresh}` + (stale > 0 ? `, список шире на ${stale}` : '');
   say(ok ? (known === 0 ? 'циклы модулей: нет' : `циклы модулей: новых нет, длинных в дереве ${known}`) : 'циклы модулей: ' + detail);
   if (!ok) bad++;
+  // C255: публичный вход трёх доменов и платформа. Полное «только index» скрипт не включает.
+  const bounds = step('границы доменов', process.execPath, ['backend/scripts/audit-domain-boundaries.js']);
+  const boundsLine = bounds.out.trim().split('\n').pop() || '';
+  say(bounds.code === 0 ? cut(boundsLine, 140) : 'границы доменов: ОШИБКА — ' + cut(boundsLine, 110));
+  if (bounds.code) bad++;
   const atl = await atlasCheck();
   log('\n=== карта сайта ===\n' + ([...atl.errors, ...atl.warns].join('\n') || 'ок'));
   say(atl.errors.length ? `карта сайта: ОШИБКИ ${atl.errors.length} — ${cut(atl.errors[0], 90)} (dc atlas --check)` : `карта сайта: ок${atl.warns.length ? `, сверить ${atl.warns.length} (dc atlas --check)` : ''}`);

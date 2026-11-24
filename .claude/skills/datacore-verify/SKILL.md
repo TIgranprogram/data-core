@@ -13,7 +13,7 @@ description: Проверка изменений в data-core — typecheck, ю�
 |--|--|--|
 | — | только доки | ничего |
 | smoke | только `backend/pwa/**`, `backend/admin/**` | `node backend/scripts/pwa-import-check.mjs` (синтаксис и импорты всех файлов, 0,4 с) + `npx jest src/pwa-guards --silent`; QA не пересобирать (pwa/admin смонтированы папками) |
-| smoke | `backend/src/**` (одна область) | `npx tsc --noEmit` + `npx jest src/modules/<модуль> --silent` + eslint модуля; `node scripts/audit-cycles.js` (код 0: пар 0, новых длинных 0; белый список в скрипте — известный долг C256); e2e — только своего файла |
+| smoke | `backend/src/**` (одна область) | `npx tsc --noEmit` + `npx jest src/modules/<модуль> --silent` + eslint модуля; `node scripts/audit-cycles.js` (код 0: пар 0, новых длинных 0; белый список в скрипте — известный долг C256); `node scripts/audit-domain-boundaries.js` (C255: закрытые файлы трёх доменов и платформа; полное «только index» не включено); e2e — только своего файла |
 | full | перед выкладкой L/XL; класс XL; если с последней строки `docs/TEST-LOG.md` менялся `backend/src`/`backend/test` | весь юнит + e2e `npm run test:e2e` (нужен Docker; память 8 ГБ уже в скрипте — без неё Node падает, 15.11) → строка в TEST-LOG; без изменений с прошлой записи — не повторять |
 
 Приёмка UI — `docs/UI-ACCEPTANCE.md`, экономная последовательность — `docs/DESIGN-WORKFLOW.md`. Снимки изменённых состояний входят в порученную проверку интерфейса. Пересборка QA — только при изменении `backend/src`. Длинные прогоны и разбор падений — агенту qa (sonnet).

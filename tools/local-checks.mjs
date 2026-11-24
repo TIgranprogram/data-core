@@ -70,6 +70,7 @@ export function plan(options = {}, exists = p => fs.existsSync(path.join(ROOT, p
     node('imports', 'Синтаксис и импорты PWA/admin', ['backend/scripts/pwa-import-check.mjs']),
     node('design-lint', 'Правила дизайна', ['backend/scripts/design-lint.mjs']),
     node('cycles', 'Циклы модулей', ['backend/scripts/audit-cycles.js']),
+    node('domain-boundaries', 'Границы доменов', ['backend/scripts/audit-domain-boundaries.js']),
     node('pult', 'Пульт', ['--test', ...fs.readdirSync(path.join(ROOT, 'pult/test')).filter(f => f.endsWith('.test.mjs')).map(f => `pult/test/${f}`)], { timeoutMs: 180000 }),
     node('tools', 'Инструменты проверок', ['--test', 'tools/local-checks.test.mjs', 'tools/site-audit.test.mjs', 'tools/ai-tester/vision-review.test.mjs'], { timeoutMs: 180000 }),
     node('pixels-tool', 'Инструмент сравнения PNG', ['--test', 'tools/design-checks/compare.test.mjs'], { skip: !design }),

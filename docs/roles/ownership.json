@@ -20,7 +20,7 @@
       "id": "backend",
       "owner": "backend",
       "paths": [
-        "backend/src/**", "backend/assets/**", "backend/.eslintrc.js", "backend/.prettierrc",
+        "backend/src/**", "backend/assets/**", "backend/eslint-rules/**", "backend/.eslintrc.js", "backend/.prettierrc",
         "backend/README.md", "backend/jest.config.ts", "backend/nest-cli.json", "backend/package.json",
         "backend/pnpm-lock.yaml", "backend/tsconfig.build.json", "backend/tsconfig.json",
         "docs/MAP.md", "docs/data-model.md", "docs/openapi.json"

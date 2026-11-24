@@ -4,12 +4,12 @@
 
 | ID | Суть | Статус |
 |--|--|--|
-| C259 | План CRM→API (без кода) | очередь · [ТЗ](C259-crm-api-client-plan/TZ.md) |
+| C259 | План CRM→API (без кода) | done · [План](C259-crm-api-client-plan/PLAN-SLICES.md) · L-259 |
 | C258 | Playbook DTO по касанию | done · [PLAYBOOK](C258-dto-by-touch-playbook/PLAYBOOK.md) · [Отчёт](C258-dto-by-touch-playbook/REPORT.md) |
 | C257 | Контракт shared с CRM | черновик принят · [CONTRACT](C257-shared-compat-contract/CONTRACT.md) · [Отчёт](C257-shared-compat-contract/REPORT.md) |
 | C256 | Автоматика рельсов (циклы≥3) | done · [Отчёт](C256-arch-rails-automation/REPORT.md) |
 | C251 | Хозяин записи incomes | done · [Отчёт](C251-incomes-owner-writes/REPORT.md) |
-| C255 | ESLint-границы доменов | в работе · [ТЗ](C255-domain-boundaries-eslint/TZ.md) |
+| C255 | ESLint-границы доменов | done · [Отчёт](C255-domain-boundaries-eslint/REPORT.md) · L-255 |
 | C254 | Слой общих CRM-коллекций | done · [Отчёт](C254-shared-collections-layer/REPORT.md) |
 | C253 | Запись products через хозяина | done · [Отчёт](C253-products-owner-writes/REPORT.md) |
 | C252 | Запись salesorders через хозяина | done · [Отчёт](C252-salesorders-owner-writes/REPORT.md) |
