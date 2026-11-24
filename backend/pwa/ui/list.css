@@ -1,20 +1,21 @@
 /* ОР-1: часть бывшего base.css — список, бейджи, карточка. Порядок подключения в index.html важен (каскад). */
 /* ---------- Список ---------- */
-.toolbar { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; padding: var(--s3); border-bottom: 1px solid var(--border); }
+.toolbar { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; padding: var(--s2) var(--s3); border-bottom: 1px solid var(--border); }
 .toolbar select { max-width: 240px; }
 .chips { display: flex; gap: 2px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 0 var(--s3); border-bottom: 1px solid var(--border); }
-.chip { flex: none; white-space: nowrap; height: 44px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: none; font: inherit; font-weight: 500; cursor: pointer; color: var(--muted); margin-bottom: -1px; }
+.chip { flex: none; white-space: nowrap; height: var(--control-height); padding: 0 var(--s2); border: 0; border-bottom: 2px solid transparent; background: none; font: inherit; font-weight: 500; cursor: pointer; color: var(--muted); margin-bottom: -1px; }
+@media (max-width: 720px), (pointer: coarse) { .chip { height: var(--tap); padding: 0 12px; } }
 .chip:hover { color: var(--text); }
 .chip.active { color: var(--text); border-bottom-color: var(--gold); font-weight: 600; }
 .chip b { font-weight: 600; margin-left: 6px; font-size: 12px; color: var(--muted); background: var(--surface-3); border-radius: 9px; padding: 1px 7px; }
 .chip.active b { background: var(--gold-soft); color: var(--gold-deep); }
 .table-wrap { overflow-x: auto; }
 table.list { width: 100%; border-collapse: collapse; font-size: var(--fs-table); }
-table.list th { text-align: left; font-weight: 600; color: var(--muted); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .05em; padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--surface-2); user-select: none; }
+table.list th { text-align: left; font-weight: 600; color: var(--muted); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: .05em; padding: 7px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; background: var(--surface-2); user-select: none; }
 table.list th.sortable { cursor: pointer; }
 table.list th.sortable:hover { color: var(--text); }
 table.list th .arrow { margin-left: 4px; color: var(--gold-deep); }
-table.list td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+table.list td { padding: 7px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
 table.list td.k-col-act, table.list th.k-col-act { padding-right: var(--s4); } /* правый край кнопок строки = край кнопок шапки (отступ панели --s4, C116: было 14 → расхождение 2 px) */
 table.list tbody tr { cursor: pointer; }
 table.list tbody tr:hover { background: var(--row-hover); }

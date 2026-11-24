@@ -17,6 +17,7 @@ import { mark } from './mark.js';
 import { viewStore, listKeys, listQuery } from './list-view.js';
 import { paintTiles } from './list-tiles.js';
 import { paintChips } from './list-chips.js';
+import { listFilterState } from '../../core/list-filter-state.js';
 import { periodState, paintPeriods } from './list-periods.js';
 import { rowActions, longPress, paintGallery, paintRows, emptyBlock } from './list-rows.js';
 // Контракт section.list (все опции) описан в ./list-view.js
@@ -64,14 +65,6 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   // «Выбрать» — явный вход в выбор нескольких строк (на ПК без Ctrl+клик, на телефоне без долгого нажатия)
   const selBtn = false ? h('button', { class: 'btn btn-ghost', type: 'button', title: 'Отметить несколько строк и изменить их разом (на ПК — Ctrl+клик, на телефоне — долгое нажатие)',
     onclick: () => (bulkMode ? exitBulkMode() : enterBulkMode()) }, 'Выбрать') : null;
-  const head = h('div', { class: 'page-head' },
-    h('h1', null, section.title, ' ', countEl),
-    h('span', { class: 'spacer' }),
-    viewSwitch,
-    selBtn,
-    ...(L.headActions && canEditSection(section) ? L.headActions(() => load()) : []),
-    exportBtn,
-    canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
   // ---------- Поиск и фильтры (создаются один раз) ----------
   // общий поиск (ПО.3): пусто = весь список — q убирается из адреса и запроса, страница — на первую
   const defaultSearch = L.searchPlaceholder || 'Поиск…';
@@ -80,6 +73,16 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   const otherFilters = (L.filters || []).filter((f) => f.type !== 'chips' && f.type !== 'hidden');
   const side = !!(L.sidebar || otherFilters.length || L.toolbarExtra);
   const sideChips = L.sidebar && !L.chipsTop;
+  // C266 §3.0: число один раз — в чипе «Все N», не ещё в h1. На доске и Ганте чипы скрыты — число остаётся в h1.
+  const countInChips = chipFilters.some((f) => f.count);
+  const head = h('div', { class: 'page-head' },
+    h('h1', null, section.title, ' ', countEl),
+    h('span', { class: 'spacer' }),
+    viewSwitch,
+    selBtn,
+    ...(L.headActions && canEditSection(section) ? L.headActions(() => load()) : []),
+    exportBtn,
+    canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
   const toolbar = h('div', { class: 'toolbar' }, side ? null : h('div', { class: 'search' }, sb.el));
   const controls = {};
   const sideParts = []; // выпадающие списки/даты левой панели
@@ -101,25 +104,18 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   }
   const extra = L.toolbarExtra ? L.toolbarExtra() : null;
   if (extra) { sideParts.push(extra.el); extra.update(P, st()); }
-  const resetBtn = h('button', { class: 'btn btn-ghost' + (side ? ' ls-reset' : ''), type: 'button', onclick: () => resetFilters() }, side ? 'Сбросить всё' : 'Сбросить');
+  const resetBtn = h('button', { class: 'btn btn-sm ls-reset', type: 'button', onclick: () => resetFilters() }, side ? 'Сбросить всё' : 'Сбросить');
   if (!side) toolbar.append(resetBtn);
-  /** Сколько фильтров выбрано (для кнопки «Фильтры · N» на телефоне). */
   let ganttCount = 0;
-  const extraFilterKeys = () => (L.extraKeys || []).filter(k => !(st().gallery && L.gallery.pathKeys?.includes(k)));
-  const activeFilters = () => st().gantt ? (L.filters || []).filter((f) => f.key !== 'status') : L.filters || [];
-  const selCount = () => activeFilters().filter((f) => P[f.key] && P[f.key] !== 'all').length
-    + extraFilterKeys().reduce((n, k) => n + (k !== 'all' && P[k] ? String(P[k]).split('|').filter(Boolean).length : 0), 0);
-
+  const filterState = () => listFilterState(L, P, st());
+  const activeFilters = () => filterState().filters;
+  const selCount = () => filterState().count;
   const anyFilter = () => selCount() > 0 || (st().gantt && ganttCount > 0);
   function resetFilters() {
-    const clear = { q: undefined, page: undefined };
-    for (const f of activeFilters()) clear[f.key] = undefined;
-    for (const k of extraFilterKeys()) clear[k] = undefined;
+    const { clear } = filterState();
     if (st().gantt && ganttCount) gantt?.resetFilters?.();
-    sb.set('', true);
-    patch(clear);
+    sb.set('', true); patch(clear);
   }
-  // Чипы: варианты загружаются один раз, счётчики — с каждым ответом
   const chipsBox = h('div', { class: sideChips ? 'ls-chips' : 'chips' });
   const hintBox = h('div', { class: 'list-hint', hidden: true });
   let chipOpts = null;
@@ -196,8 +192,8 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
   if (tilesBox) loadTiles(false);
   function renderTiles() { paintTiles({ L, P, tiles, tilesBox, tileTagBox, side }); }
   const ganttFields = L.gantt ? h('div', { hidden: true }) : null;
-  const filters = side ? filterPanel({ key: section.id, search: sb.el,
-    fields: [tilesGroup, chipFilters.length && sideChips ? chipsBox : null, ...sideParts, resetBtn, ganttFields],
+  const filters = side ? filterPanel({ key: section.id, search: sb.el, reset: resetBtn,
+    fields: [tilesGroup, chipFilters.length && sideChips ? chipsBox : null, ...sideParts, ganttFields],
     content: [panel, boardBox, ganttBox] }) : null;
   const inlineChipTools = L.board?.inlineChips && chipFilters.length && !sideChips ? filters?.el.querySelector(':scope > .filter-tools') : null;
   const el = mark(h('div', { class: 'list-screen' + (side ? ' has-side' : '') }, head,
@@ -209,7 +205,9 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     sb.set(P.q || '');
     sb.input.placeholder = (isGantt && L.gantt.searchPlaceholder) || defaultSearch;
     for (const [k, c] of Object.entries(controls)) c.value = P[k] || '';
-    resetBtn.hidden = !(anyFilter() || P.q);
+    const filtered = anyFilter() || !!P.q;
+    resetBtn.hidden = !filtered;
+    resetBtn.classList.toggle('is-on', filtered);
     if (ganttFields) ganttFields.hidden = !isGantt;
     filters?.setCount(selCount() + (isGantt ? ganttCount : 0));
     btnBoard.classList.toggle('active', isBoard);
@@ -217,11 +215,13 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     btnGantt?.classList.toggle('active', isGantt);
     btnTable.classList.toggle('active', !isBoard && !isGallery && !isGantt);
     tableBox.hidden = isBoard || isGallery || isGantt; foot.hidden = isBoard || isGantt; galleryBox.hidden = !isGallery;
+    countEl.hidden = countInChips && !isBoard && !isGantt;
     if (quickBox) quickBox.hidden = isBoard || isGantt;
     panel.classList.toggle('compact', isBoard || isGantt);
     boardBox.hidden = !isBoard; ganttBox.hidden = !isGantt;
     chipsBox.hidden = isGantt; renderHead(); renderChips(); renderTiles();
-    const hint = L.hints && !isBoard ? L.hints[P[L.hintKey || 'status'] || ''] : '';
+    // C266 §3.0: серая подсказка над таблицей выключена. L.hintsOn — только если без текста нельзя работать.
+    const hint = L.hintsOn && L.hints && !isBoard ? L.hints[P[L.hintKey || 'status'] || ''] : '';
     // banner(P) → { text, keys } — особая выборка (пришли по ссылке «Все →»): пометка + «Показать все» (снимает keys)
     const bn = L.banner ? L.banner(P) : null;
     if (bn) { hintBox.replaceChildren(h('b', null, bn.text), ' ', h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => patch(Object.fromEntries([...bn.keys, 'page'].map((k) => [k, undefined]))) }, 'Показать все')); hintBox.hidden = false; hintBox.classList.add('banner'); }
@@ -279,7 +279,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     if (per && !isBoard) { limit = 2000; page = 1; }
     if (isGantt) {
       firstDrawn(); countEl.textContent = '';
-      if (!gantt) { gantt = L.gantt.mount(L.gantt, L.path, query, { filterFields: ganttFields, onFilterCount: (n) => { ganttCount = n; if (st().gantt) { filters?.setCount(selCount() + n); resetBtn.hidden = !(anyFilter() || P.q); } }, onOpen, onChanged: () => gantt.reload(), onTotal: (n) => { if (st().gantt) countEl.textContent = qty(n); } }); ganttBox.replaceChildren(gantt.el); }
+      if (!gantt) { gantt = L.gantt.mount(L.gantt, L.path, query, { filterFields: ganttFields, onFilterCount: (n) => { ganttCount = n; if (st().gantt) { filters?.setCount(selCount() + n); const on = anyFilter() || !!P.q; resetBtn.hidden = !on; resetBtn.classList.toggle('is-on', on); } }, onOpen, onChanged: () => gantt.reload(), onTotal: (n) => { if (st().gantt) countEl.textContent = qty(n); } }); ganttBox.replaceChildren(gantt.el); }
       else gantt.setQuery(query);
       return;
     }

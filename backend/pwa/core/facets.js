@@ -62,7 +62,7 @@ export function facetsOf(name) {
   };
 }
 
-export const FACETS = [['wash', 'Мойка'], ['pipe', 'Профиль и размер трубы'], ['section', 'Сечение'], ['grade', 'Марка'], ['thick', 'Толщина, мм'], ['type', 'Тип'], ['thread', 'Резьба'], ['diameter', 'Диаметр, мм'], ['length', 'Длина, мм'], ['std', 'Стандарт']];
+export const FACETS = [['wash', 'Мойка'], ['pipe', 'Труба'], ['section', 'Сечение'], ['grade', 'Марка'], ['thick', 'Толщина, мм'], ['type', 'Тип'], ['thread', 'Резьба'], ['diameter', 'Диаметр, мм'], ['length', 'Длина, мм'], ['std', 'Стандарт']];
 const facetSeparator = new RegExp(`\\|(?=(?:${FACETS.map(([key]) => key).join('|')}):)`);
 export const parseFt = (s) => Object.fromEntries(String(s || '').split(facetSeparator).filter((x) => x.includes(':')).map((x) => {
   const i = x.indexOf(':');
@@ -80,14 +80,16 @@ export const pipeParts = (v) => {
   // Старый адрес мог хранить одно сечение без вида/длины: хлебная крошка не должна падать.
   return { kind: parts.length === 1 ? 'rect' : kind, section: section ?? kind, len: Number.isFinite(Number(len)) ? Number(len) : 0 };
 };
-/** Подпись значения: без лишних слов — «80×80×3 6м», «Ø57×3,5 12м», лист «3 мм». */
+/** Подпись значения. Труба в фильтре — только сечение («20×20×2»), без «6м» (C266: одинаковые плитки). */
 export const facetLabel = (key, v) => {
   if (key === 'section') return String(v ?? '').replace(/^(Труба|Лист)\s+/i, '');
   if (key !== 'pipe') return v;
   const { section, len } = pipeParts(v);
   // section может быть пустым у старого адреса фильтра — не звать .replace у undefined (ошибка «для разбора» на складе).
   const label = String(section ?? '').replace(/^Труба\s+/i, '').replace(/\s*\(.*\)$/, '');
-  return label ? `${label} ${len ? len / 1000 + 'м' : 'куски'}` : 'Сечение не указано';
+  if (!label) return 'Сечение не указано';
+  // куски без длины — пометка; стандартные метры длины в плитке не пишем
+  return len ? label : `${label} куски`;
 };
 const sizes = (v) => (String(v).match(/\d+(?:[.,]\d+)?/g) || []).map((x) => Number(x.replace(',', '.')));
 const bySize = (a, b) => { const x = sizes(a), y = sizes(b); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0); return 0; };

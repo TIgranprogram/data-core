@@ -17,7 +17,8 @@ function paint() {
   const out = [];
   parts.forEach((p, i) => { if (i) out.push(h('span', { class: 'crumb-sep', 'aria-hidden': 'true' }, '›')); out.push(p); });
   el.replaceChildren(...out);
-  el.hidden = !state.group;
+  // C266: без хвоста и без ссылки на группу крошки = дубль меню + h1 — скрываем
+  el.hidden = !state.group || (!tail && !state.groupHref);
 }
 
 /** Показать крошки раздела; group пустая — полосы нет (у раздела нет группы). */

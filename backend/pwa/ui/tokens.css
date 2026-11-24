@@ -17,28 +17,28 @@
   --fs: 14px;
   --fs-sm: 12.5px;
   --fs-table: 13.5px;
-  --fs-h1: 26px;   /* заголовок страницы */
-  --fs-h2: 19px;   /* заголовок карточки, окна */
-  --fs-h3: 16px;   /* заголовок блока / очереди / панели */
-  --fs-label: 11.5px; /* подпись раздела в карточке, шапка таблицы (заглавными) */
+  --fs-h1: 22px;   /* заголовок страницы (C266: плотнее CRM) */
+  --fs-h2: 17px;   /* заголовок карточки, окна */
+  --fs-h3: 15px;   /* заголовок блока / очереди / панели */
+  --fs-label: 11px; /* подпись раздела в карточке, шапка таблицы (заглавными) */
   --fs-xs: 11px; /* компактные метки / mono в узкой колонке */
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
-  --radius: 10px;
+  --radius: 8px;
   --radius-pill: 999px; /* бейдж / тонкая полоска прогресса */
-  --control-height: 36px;
-  --control-compact: 30px;
+  --control-height: 32px;
+  --control-compact: 28px;
   --tap: 44px; /* минимальная зона нажатия на телефоне */
   /* Стиль «картотека» (ДС-1, STYLE-DECISION): псевдонимы карточки, один бренд — одна правка */
-  --card-pad: var(--s3) var(--s4); --card-gap: var(--s3); --card-min: 240px; --cell-pad: var(--s2) var(--s3);
-  --radius-sm: 7px;
+  --card-pad: var(--s2) var(--s3); --card-gap: var(--s2); --card-min: 240px; --cell-pad: 6px var(--s2);
+  --radius-sm: 6px;
   --shadow: 0 1px 2px rgba(20, 26, 38, .05), 0 2px 8px rgba(20, 26, 38, .05);
   --shadow-sm: 0 1px 2px rgba(20, 26, 38, .08);
   --shadow-lg: 0 12px 40px rgba(20, 26, 38, .16), 0 0 0 1px rgba(210, 170, 60, .14);
-  --gutter: 32px;
+  --gutter: 24px;
   --sidebar-w: 248px; /* ШП: ширина пользователя — на <html> из core/prefs.js */
   --sidebar-icons-w: 72px; /* меню иконками, 721–1100 px */
-  --topbar-h: 64px;
+  --topbar-h: 52px;
 
   /* бумага */
   --bg: #f1f4f3;
@@ -312,7 +312,7 @@
 }
 
 @media (max-width: 1100px) { :root { --gutter: 20px; } }
-@media (max-width: 720px) { :root { --card-pad: var(--s3); --gutter: 12px; --fs-h1: 21px; --fs-h2: 17px; --fs-h3: 15px; --topbar-h: 56px; } }
+@media (max-width: 720px) { :root { --card-pad: var(--s3); --gutter: 12px; --fs-h1: 20px; --fs-h2: 16px; --fs-h3: 15px; --topbar-h: 52px; --control-height: 36px; --control-compact: 32px; } }
 
 /* ИЗ-19: «Крупный» вид (Мой профиль → Вид экрана; атрибут ставит core/prefs.js).
    Весь экран чуть крупнее (текст, поля, кнопки), фото в списках — заметно крупнее. */

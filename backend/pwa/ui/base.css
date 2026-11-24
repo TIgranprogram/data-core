@@ -83,8 +83,8 @@ h3 { font-size: var(--fs-h3); font-weight: 650; color: var(--text); margin: 0; l
 }
 
 /* ---------- Страница (на всю ширину, поля — --gutter) ---------- */
-.page { width: 100%; padding: var(--s5) var(--gutter) var(--s6); }
-.page-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s4); flex-wrap: wrap; min-height: 38px; }
+.page { width: 100%; padding: var(--s2) var(--gutter) var(--s5); }
+.page-head { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s1); flex-wrap: wrap; min-height: var(--control-height); }
 .page-head .count { color: var(--muted); font-weight: 400; }
 .page-head .sub { color: var(--muted); font-size: var(--fs-sm); margin-top: 4px; }
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }

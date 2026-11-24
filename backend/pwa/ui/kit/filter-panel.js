@@ -6,7 +6,7 @@ import { button } from './index.js';
 let nextId = 0;
 
 /** Общая левая панель. Поля остаются в DOM, поиск и кнопка доступны в обоих состояниях. */
-export function filterPanel({ key, fields, search, content, count = 0 }) {
+export function filterPanel({ key, fields, search, content, count = 0, reset }) {
   const id = 'list-filters-' + ++nextId;
   const pref = 'dc:filters:open:' + key;
   const mobile = () => matchMedia('(max-width: 720px)').matches;
@@ -22,9 +22,10 @@ export function filterPanel({ key, fields, search, content, count = 0 }) {
   makeResizable(side, { prefKey: 'filterW', edge: 'right', label: 'Ширина панели фильтров' });
   const shade = h('div', { class: 'ls-shade', onclick: close });
   const grid = h('div', { class: 'ls-grid' }, side, h('div', { class: 'ls-main' }, content));
+  // C266: «Сбросить всё» — вверху рядом с «Фильтры», не внизу панели (сливалось с текстом)
   const el = h('div', { class: 'filter-layout', onkeydown: (e) => {
     if (e.key === 'Escape' && open && !e.defaultPrevented) { e.stopPropagation(); close(); }
-  } }, h('div', { class: 'filter-tools' }, toggle, search), grid, shade);
+  } }, h('div', { class: 'filter-tools' }, toggle, reset || null, search), grid, shade);
   function sync() {
     side.hidden = shade.hidden = !open;
     side.classList.toggle('open', open);

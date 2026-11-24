@@ -3,7 +3,7 @@ import { loadZones, zoneNow } from '../../core/zone.js';
 import { h } from '../../core/dom.js';
 import { patch } from '../../core/router.js';
 import { PREFIX } from '../../core/api.js';
-import { facetValues, FACETS, index, pick, facetLabel, parseFt, PIPE_KINDS, pipeParts } from '../../core/facets.js';
+import { facetValues, FACETS, index, pick, facetLabel, parseFt, PIPE_KINDS, pipeParts, normSearch } from '../../core/facets.js';
 import { mark } from './mark.js';
 import { busyBlock } from './busy.js';
 import { searchBox } from './searchbox.js';
@@ -67,6 +67,18 @@ function scope(items, P, categoryKey, sel) {
 }
 
 const OPEN_MAX = 6; // группа до 6 значений раскрыта, длиннее — свёрнута
+
+/** Размер переносится между сторонами сечения, дробная часть остаётся с числом. */
+const tileLabel = (key, value) => String(facetLabel(key, value)).split(/(?=×)/).flatMap((part, i) => i ? [h('wbr'), part] : [part]);
+
+/** Плитки признака: значение | счётчик (эталон «Длина»). */
+function numChips(key, vals, set, label) {
+  return h('div', { class: 'ff-nums', role: 'group', 'aria-label': label },
+    ...vals.map(([v, n]) => h('button', {
+      type: 'button', class: 'ff-num', 'aria-pressed': 'false', 'aria-label': `${facetLabel(key, v)} — позиций: ${n}`, 'data-fk': 'v:' + key + ':' + v,
+      onclick: () => set(key, v),
+    }, h('span', { class: 'ff-nv' }, ...tileLabel(key, v)), h('span', { class: 'ff-nn' }, String(n)))));
+}
 
 export function facetFilter({ categoryKey = 'categoryId', inline = false, loadItems = heldStockList } = {}) {
   let items = null; let src = null; let P = {};
@@ -143,26 +155,50 @@ export function facetFilter({ categoryKey = 'categoryId', inline = false, loadIt
  * первый из них раскрыт («следующий шаг»), остальные свёрнуты. У значений — число позиций; показываются лишь варианты,
  * у которых есть позиции при уже выбранном. Выбор в группе один, повторный клик снимает.
  */
-/** Кнопки вместо списка: мойка и трубы по видам, цвет — группа. */
-function chipsOf(key, vals, label, set) {
-  const chip = ([v, n]) => {
-    const text = facetLabel(key, v);
-    const cut = key === 'pipe' ? text.lastIndexOf(' ') : -1;
-    return h('label', { class: 'ff-check ff-chip' },
-      h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, onclick: (e) => { e.preventDefault(); set(key, v); } }),
-      h('span', { class: 'ff-cv' }, cut > 0 ? [h('span', { class: 'ff-sec' }, text.slice(0, cut)), h('span', { class: 'ff-len' }, text.slice(cut + 1))] : text), h('b', { class: 'ff-cn' }, String(n)));
-  };
-  const grid = (list) => h('div', { class: 'ff-grid', role: 'radiogroup', 'aria-label': label }, ...list.map(chip));
-  if (key === 'wash') return h('div', { class: 'ff-grid' }, ...vals.map((x) => h('div', { class: 'ff-grid1 ' + (x[0] === 'Мытая' ? 'k-washed' : 'k-raw') }, chip(x))));
-  return h('div', null, ...PIPE_KINDS.flatMap(([kind, title]) => {
-    const list = vals.filter(([v]) => pipeParts(v).kind === kind);
-    return list.length ? [h('div', { class: 'k-' + kind }, h('div', { class: 'ff-sub' }, title), grid(list))] : [];
-  }));
+const PIPE_SHOW = 24; // длинный список трубы: сначала столько, остальное — «Ещё»
+
+/** Кнопки: мойка — цветные; труба — те же плитки `.ff-num`, что длина/толщина (без «6м»). */
+function chipsOf(key, vals, label, set, { query = '', showAll = false, onQuery, onMore } = {}) {
+  if (key === 'wash') {
+    return h('div', { class: 'ff-nums ff-wash', role: 'group', 'aria-label': label }, ...vals.map(([v, n]) => {
+      const wash = v === 'Мытая' ? 'k-washed' : 'k-raw';
+      return h('button', {
+        type: 'button', class: 'ff-num ' + wash, 'aria-pressed': 'false', 'aria-label': `${facetLabel(key, v)} — позиций: ${n}`, 'data-fk': 'v:' + key + ':' + v,
+        onclick: () => set(key, v),
+      }, h('span', { class: 'ff-nv' }, ...tileLabel(key, v)), h('span', { class: 'ff-nn' }, String(n)));
+    }));
+  }
+  const q = normSearch(query);
+  const matched = q
+    ? vals.filter(([v]) => {
+      const { section, len } = pipeParts(v);
+      const hay = normSearch(`${facetLabel(key, v)} ${section || ''} ${len ? len / 1000 + 'м' : ''}`);
+      return hay.includes(q);
+    })
+    : vals;
+  const shown = showAll || matched.length <= PIPE_SHOW ? matched : matched.slice(0, PIPE_SHOW);
+  const rest = matched.length - shown.length;
+  const find = searchBox({ value: query, placeholder: 'Найти размер…', label: 'Найти размер трубы', className: 'ff-pipe-q', delay: 0, onSearch: (q) => onQuery?.(q) });
+  find.input.dataset.fk = 'pipe-q';
+  const tile = ([v, n]) => h('button', {
+    type: 'button', class: 'ff-num', 'aria-pressed': 'false', 'aria-label': `${facetLabel(key, v)} — позиций: ${n}`, 'data-fk': 'v:' + key + ':' + v,
+    onclick: () => set(key, v),
+  }, h('span', { class: 'ff-nv' }, ...tileLabel(key, v)), h('span', { class: 'ff-nn' }, String(n)));
+  const blocks = PIPE_KINDS.flatMap(([kind, title]) => {
+    const list = shown.filter(([v]) => pipeParts(v).kind === kind);
+    return list.length ? [h('div', { class: 'k-' + kind }, h('div', { class: 'ff-sub' }, title), h('div', { class: 'ff-nums', role: 'group', 'aria-label': title }, ...list.map(tile)))] : [];
+  });
+  return h('div', { class: 'ff-pipe' },
+    vals.length > 8 ? find.el : null,
+    ...blocks,
+    !blocks.length ? h('div', { class: 'muted small', role: 'status' }, q ? 'Нет такого размера' : 'Нет вариантов') : null,
+    rest > 0 ? h('button', { type: 'button', class: 'btn btn-ghost btn-sm ff-more', 'data-fk': 'pipe-more', onclick: () => onMore?.() }, `Ещё ${rest}`) : null);
 }
 
 function inlineFilter(categoryKey, loadItems) {
   let items = null; let src = null; let P = {}; let seq = 0;
   const folded = new Map();
+  let pipeQ = ''; let pipeAll = false;
   const crumbs = h('div', { class: 'ff-crumbs', hidden: true });
   const body = h('div', { class: 'ff-body' });
   const el = mark(h('div', { class: 'ff ff-inline' }, h('div', { class: 'ls-h' }, 'Уточнить'), crumbs, body), 'filter');
@@ -177,7 +213,11 @@ function inlineFilter(categoryKey, loadItems) {
     if (!body.children.length) body.replaceChildren(busyBlock('', { cls: 'muted small' }));
     if (!await load()) return;
     if (my !== seq) return;
-    const fk = document.activeElement?.dataset?.fk; // фокус не теряем при перерисовке
+    const active = document.activeElement;
+    const fk = active?.dataset?.fk; // фокус и позицию ввода не теряем при перерисовке
+    const caret = fk === 'pipe-q' ? [active.selectionStart, active.selectionEnd] : null;
+    const scroller = el.closest('.ls-body');
+    const scroll = scroller?.scrollTop;
     const sel = parseFt(P.ft);
     const names = Object.fromEntries(FACETS);
     const selEntries = FACETS.map(([k]) => [k, sel[k]]).filter(([, v]) => v);
@@ -190,21 +230,38 @@ function inlineFilter(categoryKey, loadItems) {
       if (sel[key]) return null; // выбранный шаг — уже строкой сверху
       const vals = facetValues(scope(items, P, categoryKey, sel), key).slice(0, key === 'pipe' ? 200 : key === 'type' ? 30 : 40);
       if (vals.length < 2) return null; // один вариант — выбирать нечего
-      const open = folded.has(key) ? folded.get(key) : first || key === 'wash' || key === 'pipe';
+      // C266: длинную трубу не раскрывать сразу; мойку и короткий первый шаг — да
+      const open = folded.has(key) ? folded.get(key) : (key === 'wash' || (first && key !== 'pipe' && vals.length <= OPEN_MAX));
       first = false;
-      // колонки — только для коротких значений: длинные («Лист, 2 мм, ГОСТ…») в колонке шириной ~67 px встают столбиком по букве (стенд 15.11)
-      const longest = Math.max(0, ...vals.map(([v]) => String(v).length));
-      const colCls = key === 'type' ? '' : vals.length > 16 && longest <= 8 ? ' ff-cols ff-cols3' : vals.length > 8 && longest <= 14 ? ' ff-cols' : '';
+      // C266: все признаки — плитки `.ff-num` (как «Длина»); труба/мойка — chipsOf
+      const bodyNodes = !open ? null
+        : key === 'wash' ? chipsOf(key, vals, label, set)
+        : key === 'pipe' ? chipsOf(key, vals, label, set, {
+          query: pipeQ, showAll: pipeAll,
+          onQuery: (q) => { pipeQ = q; pipeAll = false; render(); },
+          onMore: () => { pipeAll = true; render(); },
+        })
+        : numChips(key, vals, set, label);
       return h('div', { class: 'ff-group' + (open ? ' open' : '') },
-        h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); render(); } },
+        h('button', { type: 'button', class: 'ff-gh', 'data-fk': 'g:' + key, 'aria-expanded': String(open), onclick: () => { folded.set(key, !open); if (key === 'pipe' && open) { pipeQ = ''; pipeAll = false; } render(); } },
           h('span', { class: 'ff-gl' }, label), h('span', { class: 'ff-gn' }, String(vals.length)), h('span', { class: 'ff-chev', 'aria-hidden': 'true' }, '▾')),
-        !open ? null : key === 'wash' || key === 'pipe' ? chipsOf(key, vals, label, set) : h('div', { class: 'ff-checks' + colCls, role: 'radiogroup', 'aria-label': label }, ...vals.map(([v, n]) => h('label', { class: 'ff-check' },
-          h('input', { type: 'radio', name: 'ff-' + key, 'data-fk': 'v:' + key + ':' + v, onclick: (e) => { e.preventDefault(); set(key, v); } }), h('span', { class: 'ff-cv' }, facetLabel(key, v)), h('b', { class: 'ff-cn' }, String(n))))));
+        bodyNodes);
     }).filter(Boolean);
     body.replaceChildren(...(groups.length ? groups : [h('div', { class: 'muted small' }, selEntries.length || P.q || P.status ? 'Уточнять больше нечего' : 'В этой категории признаков нет')]));
-    if (fk) [...el.querySelectorAll('[data-fk]')].find((n) => n.dataset.fk === fk)?.focus({ preventScroll: true });
+    if (fk) {
+      const nodes = [...el.querySelectorAll('[data-fk]')];
+      const same = nodes.find((n) => n.dataset.fk === fk);
+      const key = fk.split(':')[1];
+      const fallback = nodes.find((n) => n.dataset.fk === 'x:' + key || n.dataset.fk === 'g:' + key) || nodes[0];
+      (same || fallback)?.focus({ preventScroll: !!same });
+      if (caret && same) same.setSelectionRange(...caret);
+      if (same && scroller) scroller.scrollTop = scroll;
+    }
   }
-  return { el, update: (next) => { P = { ...next }; render(); }, reset: () => items && (items = null) };
+  return { el, update: (next) => {
+    if (P[categoryKey] !== next[categoryKey] || (P.ft && !next.ft)) { pipeQ = ''; pipeAll = false; folded.clear(); }
+    P = { ...next }; render();
+  }, reset: () => items && (items = null) };
 }
 
 /** Миниатюра значения из o.thumb (адрес картинки с сервера) — когда шаг не задал свой icon. */
