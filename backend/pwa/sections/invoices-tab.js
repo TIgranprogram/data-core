@@ -58,7 +58,7 @@ export function mountInvoicesTab(params = {}) {
     },
   });
   const load = (opt) => more.reload(opt);
-  const reset = button({ label: 'Сбросить фильтры', kind: 'ghost', cls: 'ls-reset', onClick: () => {
+  const reset = button({ label: 'Сбросить всё', kind: 'ghost', cls: 'ls-reset', onClick: () => {
     for (const key of Object.keys(F)) F[key] = '';
     for (const control of [statusSel, supSel, articleSel, ctrSel, dateSel, from, to]) {
       control.value = '';
@@ -71,15 +71,17 @@ export function mountInvoicesTab(params = {}) {
   const filters = filterPanel({
     key: 'requests-invoices',
     search: q.el,
+    reset,
     fields: [field('Статус', statusSel), field('Поставщик', supSel), field('Статья расходов', articleSel),
-      field('Договор поставщика', ctrSel), field('Дата оплаты', dateSel), field('С даты', from), field('По дату', to), reset],
+      field('Договор поставщика', ctrSel), field('Дата оплаты', dateSel), field('С даты', from), field('По дату', to)],
     content: [rows, more.el],
   });
-  const el = h('div', { class: 'invl-tab' }, h('p', { class: 'hint' }, 'Откройте счёт по его названию. Позиции и разрешённые действия — в правой панели. Фильтр статьи отбирает счета по любой подходящей строке; счёт показывается целиком.'), filters.el);
+  const el = h('div', { class: 'invl-tab' }, filters.el);
   function reload() {
     const count = Object.entries(F).filter(([key, value]) => key !== 'q' && value).length;
     filters.setCount(count);
     reset.hidden = !count && !F.q;
+    reset.classList.toggle('is-on', !reset.hidden);
     return load();
   }
   reload();

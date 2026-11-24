@@ -2,7 +2,7 @@
 export const STOCK = { id: 'stock', tpl: 'card', tplStatus: 'ok', band: 'stock', col: 2, sec: 'stock', t: 'Остатки', l: ['где и сколько лежит,', 'приём, бронь, выдача'],
     seq: true, inside: [
       { id: 'priem', t: 'Приём', l: 'из заявки, с телефона или вручную', in: ['requests', 'stockmobile'] },
-      { id: 'pozicii-po-polkam', t: 'Позиции по полкам', l: 'категория → тип → вся номенклатура доступной зоны; нули серым «Нет в наличии»', out: ['needs', 'movements', 'shortage', 'shipping'] },
+      { id: 'pozicii-po-polkam', t: 'Позиции по полкам', l: 'категория → тип → вся номенклатура доступной зоны; фильтры мойки и размера слева, поиск размера и «Ещё»; нули серым «Нет в наличии»', out: ['needs', 'movements', 'shortage', 'shipping'] },
       { id: 'bron', t: 'Бронь', l: 'держит материал за позицией заказа' },
       { id: 'vydacha', t: 'Выдача', l: 'в работу по брони или заданию', out: ['work'] },
       { id: 'zony-sklada', t: 'Зоны склада', l: 'кто за какую зону отвечает', alt: true },

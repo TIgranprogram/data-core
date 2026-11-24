@@ -62,13 +62,11 @@ export const products = {
     extraKeys: ['sec', 'grp', 'sub'],
     top: productPathBar,
     defaultView: (P) => P.needsIdentification === '1' ? 'table' : undefined,
-    toolbarExtra: () => {
-      const funnel = prodFunnel();
-      return { ...funnel, el: stack(hint('«Требует уточнения»: группа каталога, вид изделия или тип паспорта. Остальная готовность паспорта проверяется в его шаблоне.'), funnel.el) };
-    },
+    toolbarExtra: () => prodFunnel(),
     filters: [
       { key: 'series', label: 'Серия', type: 'hidden' }, // ПРД.6: последний шаг воронки слева (toolbarExtra)
-      { key: 'status', label: 'Статус', type: 'chips', allLabel: 'Все', options: () => data.statusChips() },
+      { key: 'status', label: 'Статус', type: 'chips', allLabel: 'Все', options: () => data.statusChips(),
+        count: (resp, v) => (v ? undefined : (resp.counts?.all ?? resp.total)) },
       { key: 'needsIdentification', label: 'Уточнение изделия', type: 'chips', allLabel: 'Все изделия', options: () => [{ value: '1', label: 'Требует уточнения' }] },
     ],
     limit: 100, // таблица: по умолчанию 100 строк, меньше — выбор внизу

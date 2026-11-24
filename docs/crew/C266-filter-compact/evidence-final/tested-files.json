@@ -1,0 +1,27 @@
+{
+  "base": "e32e99b3",
+  "sha256": {
+    "backend/pwa/core/facets.js": "2a11eae2642fb1903bd7153b0654e7ec1cf4e7c2b83d4c8c21473f6193b78694",
+    "backend/pwa/index.html": "5f175c35076119bb3c55d29bc03a3efbd30a10892ca5e94c70e5dae4e8f00154",
+    "backend/pwa/sections/atlas-stock.js": "c6750f1173be12136ad91586774a7f7ac7afae054189a76fff69a41c60851ca9",
+    "backend/pwa/sections/help-guide-data.js": "b4ebeca6156cc5a3573e1e05f8dfd8f4219bf1dc8dd5a1530b682512fa559950",
+    "backend/pwa/sections/invoices-tab.js": "7e975e9005dc5b47e5a356deebad73306d09671df3f9e2d5abf2e99258284fb3",
+    "backend/pwa/sections/matching-queue.js": "aa42764ddeaf213074692ce003e9867efe04e71bdab03568f0a0c12b751c79be",
+    "backend/pwa/sections/products.js": "d7509f883aea03b51643f92243e973bf3ebb51c649da7e681c16af3a0d357ffe",
+    "backend/pwa/sections/salesorders-unassigned.js": "8edf5454d7986514abeab325c5feee1b8ffd946dd567ab86c89200268de2850d",
+    "backend/pwa/sections/stock.js": "0bfa9c09b3a68339afadaf3968c9ebf8636e031b5c23a52d484369ce8adc2b65",
+    "backend/pwa/ui/base.css": "0b12a2b02c15eefaa8e55187b0e5076c1bdb21c208e9e040417a574a799545f0",
+    "backend/pwa/ui/form.css": "4c99935fa6dfb46bbfbfae5303cb0eb6732a72c4a25775c51a2cf3fba1deb131",
+    "backend/pwa/ui/kit/crumbs.js": "727d3c0fa6c3d8b5a7f84da9e987bf7614558668f0ed37d3712a73e12c043ed8",
+    "backend/pwa/ui/kit/filter-panel.js": "7e63c5e7478a16e5759d52c17d30c5ef43a8014a2c8aee732c97a9e6b2588874",
+    "backend/pwa/ui/kit/filter.js": "d79d09be76b9bcf036aeca93580849ec62e019c117bfdf9e2b5b3b0122cae866",
+    "backend/pwa/ui/kit/kit.css": "212c9c8404fec858213d9932969581b3db691c4764caf606a2e7d66da82721fc",
+    "backend/pwa/ui/kit/list.js": "b9f93b72ff9b92cb5ae4a0068399b69f1aa335ac65559d995a5e89ada64fa04d",
+    "backend/pwa/ui/list.css": "ecbb4338d734f21205c753ce29b84309305e50656d4ca64d17811066c23fb82c",
+    "backend/pwa/ui/panels.css": "29e9e5e55ecbe02de38a73da7fb216bcb713f873eb2a12f2d6440fa18cfbaea1",
+    "backend/pwa/ui/screens.css": "83db276158c395dfa7d9504d6a2e3652917b387841b892fb3af280a5a2603aa5",
+    "backend/pwa/ui/tokens.css": "14ce455be773755c9b6bb83cb637463f5a8460504d15eb8c3dab06b3442e8a15",
+    "backend/pwa/core/list-filter-state.js": "07792089f092b98f7d9c783b55d1445d5b3da9212a085773a1cd72b87be7a6ec"
+  },
+  "algorithm": "sha256-utf8-lf"
+}

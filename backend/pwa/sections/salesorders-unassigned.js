@@ -153,7 +153,7 @@ export function unassignedBar(getPicker, afterMove) {
 /** Блок над списком «Заказов»: плашка «Договоры без заказа (N)» → раскрывается выбор с полосой действий. */
 export function unassignedTop(reload) {
   const box = h('div', { class: 'ua-box' });
-  const sec = section({ title: 'Договоры без заказа', count: '', body: [box] }); // раскрывающийся блок со счётчиком и стрелкой (kit section)
+  const sec = section({ title: 'Договоры без заказа', count: '', plain: true, tone: 'neutral', body: [box] }); // строка над таблицей, без воздуха карточки (C266)
   const nEl = sec.querySelector('.k-sec-n'); nEl.hidden = true;
   const el = h('div', { class: 'ua-top' }, sec);
   let picker = null;

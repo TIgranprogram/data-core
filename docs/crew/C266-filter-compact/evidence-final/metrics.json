@@ -1,0 +1,872 @@
+{
+  "checks": [
+    {
+      "ok": true,
+      "name": "light: труба сначала свёрнута"
+    },
+    {
+      "ok": true,
+      "name": "light-collapsed: панель в окне",
+      "data": 499.1875
+    },
+    {
+      "ok": true,
+      "name": "light-collapsed: панель на одном уровне со списком"
+    },
+    {
+      "ok": true,
+      "name": "light-collapsed: панель без горизонтального скролла"
+    },
+    {
+      "ok": true,
+      "name": "light-collapsed: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "light-collapsed: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "light: первые 24 варианта"
+    },
+    {
+      "ok": true,
+      "name": "light-expanded: панель в окне",
+      "data": 1072
+    },
+    {
+      "ok": true,
+      "name": "light-expanded: панель на одном уровне со списком"
+    },
+    {
+      "ok": true,
+      "name": "light-expanded: панель без горизонтального скролла"
+    },
+    {
+      "ok": true,
+      "name": "light-expanded: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "light-expanded: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "light: Ещё показывает остальные"
+    },
+    {
+      "ok": true,
+      "name": "light: тело панели прокручивается"
+    },
+    {
+      "ok": true,
+      "name": "light: латинский и русский х дают одинаковый результат",
+      "data": {
+        "latin": 2,
+        "cyrillic": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "light: пустая выдача объяснена"
+    },
+    {
+      "ok": true,
+      "name": "light: Esc очищает поиск"
+    },
+    {
+      "ok": true,
+      "name": "light: каретка остаётся на месте"
+    },
+    {
+      "ok": true,
+      "name": "light: размер выбран"
+    },
+    {
+      "ok": true,
+      "name": "light: фокус на выбранном шаге"
+    },
+    {
+      "ok": true,
+      "name": "light: одна труба считается одним фильтром",
+      "data": "Фильтры · 1"
+    },
+    {
+      "ok": true,
+      "name": "light: выбранный шаг снимается"
+    },
+    {
+      "ok": true,
+      "name": "light: мойка выбирается"
+    },
+    {
+      "ok": true,
+      "name": "light: общий сброс завершён"
+    },
+    {
+      "ok": true,
+      "name": "light: панель закрывается"
+    },
+    {
+      "ok": true,
+      "name": "light: открытие панели запомнено"
+    },
+    {
+      "ok": true,
+      "name": "light-2560: панель в окне",
+      "data": 1432
+    },
+    {
+      "ok": true,
+      "name": "light-2560: панель на одном уровне со списком"
+    },
+    {
+      "ok": true,
+      "name": "light-2560: панель без горизонтального скролла"
+    },
+    {
+      "ok": true,
+      "name": "light-2560: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "light-2560: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "light-1024: панель в окне",
+      "data": 892
+    },
+    {
+      "ok": true,
+      "name": "light-1024: панель на одном уровне со списком"
+    },
+    {
+      "ok": true,
+      "name": "light-1024: панель без горизонтального скролла"
+    },
+    {
+      "ok": true,
+      "name": "light-1024: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "light-1024: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "light-1440: панель в окне",
+      "data": 632
+    },
+    {
+      "ok": true,
+      "name": "light-1440: панель на одном уровне со списком"
+    },
+    {
+      "ok": true,
+      "name": "light-1440: панель без горизонтального скролла"
+    },
+    {
+      "ok": true,
+      "name": "light-1440: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "light-1440: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "#requests?view=table: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "#requests?view=table: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "#products?view=table: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "#products?view=table: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "#money?tab=debts: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "#money?tab=debts: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "#movements: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "#movements: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "soft: труба сначала свёрнута"
+    },
+    {
+      "ok": true,
+      "name": "soft-collapsed: панель в окне",
+      "data": 506.171875
+    },
+    {
+      "ok": true,
+      "name": "soft-collapsed: панель на одном уровне со списком"
+    },
+    {
+      "ok": true,
+      "name": "soft-collapsed: панель без горизонтального скролла"
+    },
+    {
+      "ok": true,
+      "name": "soft-collapsed: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "soft-collapsed: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "soft: первые 24 варианта"
+    },
+    {
+      "ok": true,
+      "name": "soft-expanded: панель в окне",
+      "data": 1072
+    },
+    {
+      "ok": true,
+      "name": "soft-expanded: панель на одном уровне со списком"
+    },
+    {
+      "ok": true,
+      "name": "soft-expanded: панель без горизонтального скролла"
+    },
+    {
+      "ok": true,
+      "name": "soft-expanded: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "soft-expanded: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "soft: Ещё показывает остальные"
+    },
+    {
+      "ok": true,
+      "name": "soft: тело панели прокручивается"
+    },
+    {
+      "ok": true,
+      "name": "soft: латинский и русский х дают одинаковый результат",
+      "data": {
+        "latin": 2,
+        "cyrillic": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "soft: пустая выдача объяснена"
+    },
+    {
+      "ok": true,
+      "name": "soft: Esc очищает поиск"
+    },
+    {
+      "ok": true,
+      "name": "soft: каретка остаётся на месте"
+    },
+    {
+      "ok": true,
+      "name": "soft: размер выбран"
+    },
+    {
+      "ok": true,
+      "name": "soft: фокус на выбранном шаге"
+    },
+    {
+      "ok": true,
+      "name": "soft: одна труба считается одним фильтром",
+      "data": "Фильтры · 1"
+    },
+    {
+      "ok": true,
+      "name": "soft: выбранный шаг снимается"
+    },
+    {
+      "ok": true,
+      "name": "soft: мойка выбирается"
+    },
+    {
+      "ok": true,
+      "name": "soft: общий сброс завершён"
+    },
+    {
+      "ok": true,
+      "name": "soft: панель закрывается"
+    },
+    {
+      "ok": true,
+      "name": "soft: открытие панели запомнено"
+    },
+    {
+      "ok": true,
+      "name": "dark: труба сначала свёрнута"
+    },
+    {
+      "ok": true,
+      "name": "dark-collapsed: панель в окне",
+      "data": 499.1875
+    },
+    {
+      "ok": true,
+      "name": "dark-collapsed: панель на одном уровне со списком"
+    },
+    {
+      "ok": true,
+      "name": "dark-collapsed: панель без горизонтального скролла"
+    },
+    {
+      "ok": true,
+      "name": "dark-collapsed: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "dark-collapsed: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "dark: первые 24 варианта"
+    },
+    {
+      "ok": true,
+      "name": "dark-expanded: панель в окне",
+      "data": 1072
+    },
+    {
+      "ok": true,
+      "name": "dark-expanded: панель на одном уровне со списком"
+    },
+    {
+      "ok": true,
+      "name": "dark-expanded: панель без горизонтального скролла"
+    },
+    {
+      "ok": true,
+      "name": "dark-expanded: значения целиком",
+      "data": []
+    },
+    {
+      "ok": true,
+      "name": "dark-expanded: страница без лишнего скролла"
+    },
+    {
+      "ok": true,
+      "name": "dark: Ещё показывает остальные"
+    },
+    {
+      "ok": true,
+      "name": "dark: тело панели прокручивается"
+    },
+    {
+      "ok": true,
+      "name": "dark: латинский и русский х дают одинаковый результат",
+      "data": {
+        "latin": 2,
+        "cyrillic": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "dark: пустая выдача объяснена"
+    },
+    {
+      "ok": true,
+      "name": "dark: Esc очищает поиск"
+    },
+    {
+      "ok": true,
+      "name": "dark: каретка остаётся на месте"
+    },
+    {
+      "ok": true,
+      "name": "dark: размер выбран"
+    },
+    {
+      "ok": true,
+      "name": "dark: фокус на выбранном шаге"
+    },
+    {
+      "ok": true,
+      "name": "dark: одна труба считается одним фильтром",
+      "data": "Фильтры · 1"
+    },
+    {
+      "ok": true,
+      "name": "dark: выбранный шаг снимается"
+    },
+    {
+      "ok": true,
+      "name": "dark: мойка выбирается"
+    },
+    {
+      "ok": true,
+      "name": "dark: общий сброс завершён"
+    },
+    {
+      "ok": true,
+      "name": "dark: панель закрывается"
+    },
+    {
+      "ok": true,
+      "name": "dark: открытие панели запомнено"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "light-collapsed",
+      "side": {
+        "x": 272,
+        "y": 147,
+        "right": 512,
+        "bottom": 499.1875,
+        "width": 240,
+        "height": 352.1875
+      },
+      "main": {
+        "x": 528,
+        "y": 147,
+        "right": 1881,
+        "bottom": 1072,
+        "width": 1353,
+        "height": 925
+      },
+      "body": {
+        "client": 350,
+        "scroll": 350,
+        "width": 238,
+        "scrollWidth": 238
+      },
+      "clipped": [],
+      "height": 1080,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "light",
+      "focus": ""
+    },
+    {
+      "name": "light-expanded",
+      "side": {
+        "x": 272,
+        "y": 147,
+        "right": 512,
+        "bottom": 1072,
+        "width": 240,
+        "height": 925
+      },
+      "main": {
+        "x": 528,
+        "y": 147,
+        "right": 1881,
+        "bottom": 1072,
+        "width": 1353,
+        "height": 925
+      },
+      "body": {
+        "client": 923,
+        "scroll": 1311,
+        "width": 238,
+        "scrollWidth": 238
+      },
+      "clipped": [],
+      "height": 1080,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "light",
+      "focus": "g:pipe"
+    },
+    {
+      "name": "light-2560",
+      "side": {
+        "x": 272,
+        "y": 147,
+        "right": 512,
+        "bottom": 1432,
+        "width": 240,
+        "height": 1285
+      },
+      "main": {
+        "x": 528,
+        "y": 147,
+        "right": 2521,
+        "bottom": 1432,
+        "width": 1993,
+        "height": 1285
+      },
+      "body": {
+        "client": 1283,
+        "scroll": 1311,
+        "width": 238,
+        "scrollWidth": 238
+      },
+      "clipped": [],
+      "height": 1440,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "light",
+      "focus": "g:pipe"
+    },
+    {
+      "name": "light-1024",
+      "side": {
+        "x": 92,
+        "y": 187,
+        "right": 332,
+        "bottom": 892,
+        "width": 240,
+        "height": 705
+      },
+      "main": {
+        "x": 344,
+        "y": 187,
+        "right": 989,
+        "bottom": 892,
+        "width": 645,
+        "height": 705
+      },
+      "body": {
+        "client": 703,
+        "scroll": 1311,
+        "width": 238,
+        "scrollWidth": 238
+      },
+      "clipped": [],
+      "height": 900,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "light",
+      "focus": "g:pipe"
+    },
+    {
+      "name": "light-1440",
+      "side": {
+        "x": 272,
+        "y": 147,
+        "right": 512,
+        "bottom": 632,
+        "width": 240,
+        "height": 485
+      },
+      "main": {
+        "x": 528,
+        "y": 147,
+        "right": 1401,
+        "bottom": 632,
+        "width": 873,
+        "height": 485
+      },
+      "body": {
+        "client": 483,
+        "scroll": 1311,
+        "width": 238,
+        "scrollWidth": 238
+      },
+      "clipped": [],
+      "height": 640,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "light",
+      "focus": "g:pipe"
+    },
+    {
+      "name": "#requests?view=table",
+      "side": {
+        "x": 0,
+        "y": 0,
+        "right": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0
+      },
+      "main": {
+        "x": 272,
+        "y": 188,
+        "right": 1401,
+        "bottom": 892,
+        "width": 1129,
+        "height": 704
+      },
+      "body": {
+        "client": 0,
+        "scroll": 0,
+        "width": 0,
+        "scrollWidth": 0
+      },
+      "clipped": [],
+      "height": 900,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "light",
+      "focus": ""
+    },
+    {
+      "name": "#products?view=table",
+      "side": {
+        "x": 0,
+        "y": 0,
+        "right": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0
+      },
+      "main": {
+        "x": 272,
+        "y": 147,
+        "right": 1401,
+        "bottom": 892,
+        "width": 1129,
+        "height": 745
+      },
+      "body": {
+        "client": 0,
+        "scroll": 0,
+        "width": 0,
+        "scrollWidth": 0
+      },
+      "clipped": [],
+      "height": 900,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "light",
+      "focus": ""
+    },
+    {
+      "name": "#money?tab=debts",
+      "side": {
+        "x": 0,
+        "y": 0,
+        "right": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0
+      },
+      "main": {
+        "x": 272,
+        "y": 180.390625,
+        "right": 1401,
+        "bottom": 892,
+        "width": 1129,
+        "height": 711.609375
+      },
+      "body": {
+        "client": 0,
+        "scroll": 0,
+        "width": 0,
+        "scrollWidth": 0
+      },
+      "clipped": [],
+      "height": 900,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "light",
+      "focus": ""
+    },
+    {
+      "name": "#movements",
+      "side": {
+        "x": 0,
+        "y": 0,
+        "right": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0
+      },
+      "main": {
+        "x": 272,
+        "y": 145,
+        "right": 1401,
+        "bottom": 892,
+        "width": 1129,
+        "height": 747
+      },
+      "body": {
+        "client": 0,
+        "scroll": 0,
+        "width": 0,
+        "scrollWidth": 0
+      },
+      "clipped": [],
+      "height": 900,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "light",
+      "focus": ""
+    },
+    {
+      "name": "soft-collapsed",
+      "side": {
+        "x": 272,
+        "y": 147,
+        "right": 512,
+        "bottom": 506.171875,
+        "width": 240,
+        "height": 359.171875
+      },
+      "main": {
+        "x": 528,
+        "y": 147,
+        "right": 1881,
+        "bottom": 1072,
+        "width": 1353,
+        "height": 925
+      },
+      "body": {
+        "client": 357,
+        "scroll": 357,
+        "width": 238,
+        "scrollWidth": 238
+      },
+      "clipped": [],
+      "height": 1080,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "soft",
+      "focus": ""
+    },
+    {
+      "name": "soft-expanded",
+      "side": {
+        "x": 272,
+        "y": 147,
+        "right": 512,
+        "bottom": 1072,
+        "width": 240,
+        "height": 925
+      },
+      "main": {
+        "x": 528,
+        "y": 147,
+        "right": 1881,
+        "bottom": 1072,
+        "width": 1353,
+        "height": 925
+      },
+      "body": {
+        "client": 923,
+        "scroll": 1353,
+        "width": 238,
+        "scrollWidth": 238
+      },
+      "clipped": [],
+      "height": 1080,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "soft",
+      "focus": "g:pipe"
+    },
+    {
+      "name": "dark-collapsed",
+      "side": {
+        "x": 272,
+        "y": 147,
+        "right": 512,
+        "bottom": 499.1875,
+        "width": 240,
+        "height": 352.1875
+      },
+      "main": {
+        "x": 528,
+        "y": 147,
+        "right": 1881,
+        "bottom": 1072,
+        "width": 1353,
+        "height": 925
+      },
+      "body": {
+        "client": 350,
+        "scroll": 350,
+        "width": 238,
+        "scrollWidth": 238
+      },
+      "clipped": [],
+      "height": 1080,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "dark",
+      "focus": ""
+    },
+    {
+      "name": "dark-expanded",
+      "side": {
+        "x": 272,
+        "y": 147,
+        "right": 512,
+        "bottom": 1072,
+        "width": 240,
+        "height": 925
+      },
+      "main": {
+        "x": 528,
+        "y": 147,
+        "right": 1881,
+        "bottom": 1072,
+        "width": 1353,
+        "height": 925
+      },
+      "body": {
+        "client": 923,
+        "scroll": 1311,
+        "width": 238,
+        "scrollWidth": 238
+      },
+      "clipped": [],
+      "height": 1080,
+      "pageOverflow": 0,
+      "pageX": -15,
+      "theme": "dark",
+      "focus": "g:pipe"
+    }
+  ],
+  "screenshots": [
+    "light-collapsed.png",
+    "light-expanded.png",
+    "light-search.png",
+    "light-selected.png",
+    "light-2560.png",
+    "light-1024.png",
+    "light-1440.png",
+    "-requests-view-table.png",
+    "-products-view-table.png",
+    "-money-tab-debts.png",
+    "-movements.png",
+    "soft-collapsed.png",
+    "soft-expanded.png",
+    "soft-search.png",
+    "soft-selected.png",
+    "dark-collapsed.png",
+    "dark-expanded.png",
+    "dark-search.png",
+    "dark-selected.png"
+  ],
+  "errors": []
+}

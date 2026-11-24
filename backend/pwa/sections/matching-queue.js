@@ -46,7 +46,7 @@ export function unmatchedOrders(r) {
 /** Блок над списком: кнопка «Несопоставленные · N» (скрыта при 0) и раскрывающаяся таблица; open — сразу таблица, без кнопки (экран «Сопоставление»). */
 export function unmatchedTop({ open = false } = {}) {
   const box = h('div', { class: 'ua-box' });
-  const sec = open ? null : section({ title: 'Несопоставленные', count: '', body: [box] }); // раскрывающийся блок со счётчиком и стрелкой (kit section)
+  const sec = open ? null : section({ title: 'Несопоставленные', count: '', plain: true, tone: 'neutral', body: [box] }); // строка, не карточка: над таблицей не раздувает шапку (C266)
   if (sec) sec.hidden = true;
   const el = h('div', { class: 'ua-top' }, sec || box);
   let items = [], total = 0, q = '', onlyProd = false, loaded = false;
