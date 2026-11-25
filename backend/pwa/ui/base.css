@@ -145,13 +145,13 @@ a.kpi:hover { text-decoration: none; border-color: var(--border-strong); }
 :root[data-theme='soft'] .page:has(.wk-wrap .board) .page-head { border-bottom-color: var(--border); }
 :root[data-theme='soft'] .board .col-head { padding: var(--s3); }
 :root[data-theme='soft'] .board .col-body { padding-inline: var(--s3); padding-block-end: var(--s3); }
-.col { background: var(--col-bg); border: 1px solid var(--col-border); border-radius: var(--radius); display: flex; flex-direction: column; max-height: calc(100vh - 220px); min-height: 120px; }
+.col { background: var(--col-bg); border: 1px solid var(--col-border); border-radius: var(--radius); display: flex; flex-direction: column; max-height: calc(100dvh - 220px); min-height: 120px; overflow: hidden; }
 .col.drop { outline: 2px dashed var(--primary); outline-offset: -2px; background: var(--primary-soft); }
 .col-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px; font-weight: 600; }
 .col-head .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tone, var(--muted)); }
 .col-head .n { margin-left: auto; color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
-/* flex:1 + min-height:0 — иначе при overflow:hidden у предков (C266) колонка режется без скролла */
-.col-body { flex: 1; min-height: 0; padding: 0 8px 8px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: var(--card-gap); }
+/* flex:1 1 0 + min-height:0 — иначе при overflow:hidden у предков (C266) колонка режется без скролла */
+.col-body { flex: 1 1 0; min-height: 0; padding: 0 8px 8px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: var(--card-gap); }
 .col-more { text-align: center; font-size: var(--fs-sm); padding: 4px 0 8px; }
 .tcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--card-pad); cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
 .tcard.t-grouped { border-left: 4px solid var(--oc, var(--border)); }

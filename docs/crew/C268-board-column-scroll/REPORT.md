@@ -1,19 +1,14 @@
 # C268 — отчёт
 
-**Статус:** код готов, выкладка по поручению владельца.
+**Статус:** postrelease FAIL → правка потолка колонки → повторный выпуск.
 
 ## Сделано
-1. `.col-body` снова сжимается и крутится (`flex:1; min-height:0`).
-2. Под замком C266 (≥721) высота доски доходит до колонок: заявки, `.wk-wrap` (в работе), проектирование.
-3. У «Проектирования» отдельно протянута высота `design-board-layout` → `.col-body` и левая очередь.
+1. `.col-body`: `flex:1 1 0; min-height:0; overflow-y:auto`.
+2. Потолок `.col`: `max-height: calc(100dvh - 220px)` (не `100%` родителя).
+3. Цепочка `flex:1 1 0` + `overflow:hidden` для заявок / `.wk-wrap` / `design-board-layout`.
 
-## Файлы
-`backend/pwa/ui/base.css`, `panels.css`, `screens.css`, `kit/kit.css`, `kit/design-board.css`
-
-## Проверки
-- `review-scope owners --staged` — frontend + designer
-- UI-REVIEW — см. соседний файл
-- После выпуска: глазами «Проектирование» / «Заявки» / «В работе»
+## Postrelease v2.57
+FAIL: `max-height:100%` при auto-высоте доски = высота контента; `.col-body` 6612×6612 без скролла. См. POSTRELEASE.md.
 
 ## Урок
-Замок высоты списка (C266) обязан сразу давать скролл и таблице, и `.col-body` досок, включая вложенные mount (`.wk-wrap`, `design-board-layout`).
+Под `overflow:hidden` у списка потолок колонки — от окна (`dvh`), не процент от доски.

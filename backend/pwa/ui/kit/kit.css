@@ -1364,8 +1364,8 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
   .ls-main > div:has(> .board.board-pics),
   .ls-main > div:has(> .wk-wrap),
   .ls-main > div:has(> .design-board-layout) { flex: 1; min-height: 0; }
-  .ls-main .board.board-pics { height: 100%; margin-top: 0; min-height: 0; }
-  .ls-main .board.board-pics > .col { max-height: 100%; min-height: 0; }
+  .ls-main .board.board-pics { max-height: 100%; margin-top: 0; min-height: 0; }
+  .ls-main .board.board-pics > .col { max-height: calc(100dvh - 220px); min-height: 0; overflow: hidden; }
 }
 /* Кнопка общего полноэкранного просмотра фото (C159). */
 .lightbox-close { position: fixed; top: var(--s4); right: var(--s4); z-index: 2; background: var(--surface); color: var(--text); border-color: var(--border); cursor: pointer; }
