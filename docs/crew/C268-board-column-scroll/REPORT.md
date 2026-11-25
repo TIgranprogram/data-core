@@ -1,6 +1,6 @@
 # C268 — отчёт
 
-**Статус:** postrelease FAIL → правка потолка колонки → повторный выпуск.
+**Статус:** закрыто · v2.59 PASS на проде (client=588, scroll=6612).
 
 ## Сделано
 1. `.col-body`: `flex:1 1 0; min-height:0; overflow-y:auto`.
