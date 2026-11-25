@@ -136,4 +136,6 @@
 
 - 2026-11-24 (дом): у Mongo-пользователя `kppdf` снято `readWrite` на `datacore` (`roles=[]`); CRM по-прежнему Exited; datacore ready 200. Код не менялся.
 
+- 2026-11-25 (дом, через VPS): **v2.57**, тег `release-v2.57-676ed3cb`, PWA `676ed3cb`. C268: скролл колонок досок после C266 (проектирование / заявки / в работе). Ворота/health/smoke 7/7. Глазами — после жёсткого обновления. [REPORT](crew/C268-board-column-scroll/REPORT.md).
+
 - 2026-11-24 (дом, через VPS): **v2.54**, тег `release-v2.54-d9c0c0d3`, PWA `d9c0c0d3`, backend `a9897e4a`. C266 плотность списков/фильтры (коммиты `350df4e9` + `1c01a096` + тест-ворота `d9c0c0d3`). Приёмка UI-REVIEW PASS, REPORT-FINAL; ворота/health/smoke 7/7. После выпуска: version.json `v=d9c0c0d3`, фильтры склада (труба/поиск/Ещё/выбор/снятие/сброс) PASS. CRM не поднимали. [DEPLOY-PROMPT](crew/C266-filter-compact/DEPLOY-PROMPT.md), [RELEASE](crew/C266-filter-compact/RELEASE.md).
