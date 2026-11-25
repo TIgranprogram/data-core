@@ -240,8 +240,10 @@
     align-items: stretch; align-content: stretch;
     overflow-x: auto; overflow-y: hidden;
   }
+  /* Явная высота колонки: иначе flex:1 у .col-body схлопывается до ~0 (v2.58 clientHeight=8) */
   .main:has(> .page .list-screen) .ls-main .board:not(.design-status-board) > .col {
-    max-height: calc(100dvh - 220px); min-height: 0; overflow: hidden;
+    height: calc(100dvh - 220px); max-height: calc(100dvh - 220px);
+    min-height: 0; overflow: hidden;
   }
 }
 
