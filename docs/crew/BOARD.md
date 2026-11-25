@@ -4,7 +4,7 @@
 
 | ID | Суть | Статус |
 |--|--|--|
-| C268 | Скролл колонок досок после C266 | v2.58 hotfix · 0ebbacd0 · [POSTRELEASE](C268-board-column-scroll/POSTRELEASE.md) |
+| C268 | Скролл колонок досок после C266 | v2.59 · 5430be32 · ждём postrelease · [POSTRELEASE](C268-board-column-scroll/POSTRELEASE.md) |
 | C267 | Доска заявок: пауза429 и повтор колонки | код+проверки+дизайнер PASS · выпуск отдельно · [REPORT](C267-requests-rate-limit/REPORT.md) |
 | C266 | Плотность списков и завершённые фильтры | done · v2.54 · [RELEASE](C266-filter-compact/RELEASE.md) · [UI-REVIEW](C266-filter-compact/UI-REVIEW.md) |
 | C265 | Приход + откат через API | done · [Отчёт](C265-receipt-api-slice/REPORT.md) · L-265 |

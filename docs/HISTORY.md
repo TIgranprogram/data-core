@@ -136,6 +136,8 @@
 
 - 2026-11-24 (дом): у Mongo-пользователя `kppdf` снято `readWrite` на `datacore` (`roles=[]`); CRM по-прежнему Exited; datacore ready 200. Код не менялся.
 
+- 2026-11-25 (дом, через VPS): **v2.59**, тег `release-v2.59-5430be32`, PWA `5430be32`. C268: явная высота `.col` (v2.58 ложный PASS при clientHeight=8). [POSTRELEASE](crew/C268-board-column-scroll/POSTRELEASE.md).
+
 - 2026-11-25 (дом, через VPS): **v2.58**, тег `release-v2.58-0ebbacd0`, PWA `0ebbacd0`. C268 hotfix: потолок колонки `100dvh`, не `max-height:100%` (v2.57 FAIL на проде). [POSTRELEASE](crew/C268-board-column-scroll/POSTRELEASE.md).
 
 - 2026-11-25 (дом, через VPS): **v2.57**, тег `release-v2.57-676ed3cb`, PWA `676ed3cb`. C268: скролл колонок досок после C266 (проектирование / заявки / в работе). Ворота/health/smoke 7/7. Глазами — после жёсткого обновления. [REPORT](crew/C268-board-column-scroll/REPORT.md).
