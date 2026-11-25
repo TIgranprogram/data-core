@@ -223,6 +223,24 @@
   .main:has(> .page .list-screen) .list-side > .resizer::before {
     top: 72px; margin-top: 0;
   }
+
+  /* Доски под тем же замком высоты: крутятся колонки (.col-body), не страница.
+     Покрывает прямую доску (заявки), .wk-wrap (в работе) и .design-board-layout. */
+  .main:has(> .page .list-screen) .ls-main > div:has(.board) {
+    flex: 1; min-height: 0; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .main:has(> .page .list-screen) .ls-main .wk-wrap {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+  }
+  /* design-status-board — узкая боковая панель: свои max-height, не растягивать на 100% */
+  .main:has(> .page .list-screen) .ls-main .board:not(.design-status-board) {
+    flex: 1; min-height: 0; height: 100%; max-height: 100%; margin-top: 0;
+    align-items: stretch;
+  }
+  .main:has(> .page .list-screen) .ls-main .board:not(.design-status-board) > .col {
+    max-height: 100%; min-height: 0;
+  }
 }
 
 /* Стикеры и фото задач проектирования (DESIGN §4 «Стикеры») */

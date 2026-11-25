@@ -150,7 +150,8 @@ a.kpi:hover { text-decoration: none; border-color: var(--border-strong); }
 .col-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px; font-weight: 600; }
 .col-head .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tone, var(--muted)); }
 .col-head .n { margin-left: auto; color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
-.col-body { padding: 0 8px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--card-gap); }
+/* flex:1 + min-height:0 — иначе при overflow:hidden у предков (C266) колонка режется без скролла */
+.col-body { flex: 1; min-height: 0; padding: 0 8px 8px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: var(--card-gap); }
 .col-more { text-align: center; font-size: var(--fs-sm); padding: 4px 0 8px; }
 .tcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--card-pad); cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
 .tcard.t-grouped { border-left: 4px solid var(--oc, var(--border)); }
