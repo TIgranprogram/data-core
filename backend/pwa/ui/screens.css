@@ -1422,7 +1422,7 @@ body:has(.drawer:not(.docked)) .chat-win { z-index: 40; }
 @media (max-width: 600px) { .fill-quick input, .fill-quick input[type="date"] { flex: 1 1 8em; width: auto; } }
 
 /* «В работе» (производство): доска по видам работ, маршрут, запуск из заказа, «Маршрут изготовления» у изделия */
-.wk-wrap { min-width: 0; min-height: 0; }
+.wk-wrap { min-width: 0; }
 .wk-dots { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
 .wk-dot { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--surface); flex: none; }
 .wk-dot.done { background: var(--ok); border-color: var(--ok); }

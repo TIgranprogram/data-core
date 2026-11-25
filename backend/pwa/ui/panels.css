@@ -223,28 +223,6 @@
   .main:has(> .page .list-screen) .list-side > .resizer::before {
     top: 72px; margin-top: 0;
   }
-
-  /* Доски под замком высоты: крутится .col-body.
-     Важно: max-height колонки — от окна (vh), не 100% родителя.
-     Иначе при height:auto у доски «100%» = высота контента и скролла нет (C268 postrelease FAIL). */
-  .main:has(> .page .list-screen) .ls-main > div:has(.board) {
-    flex: 1 1 0; min-height: 0; overflow: hidden;
-    display: flex; flex-direction: column;
-  }
-  .main:has(> .page .list-screen) .ls-main .wk-wrap {
-    flex: 1 1 0; min-height: 0; overflow: hidden;
-    display: flex; flex-direction: column;
-  }
-  .main:has(> .page .list-screen) .ls-main .board:not(.design-status-board) {
-    flex: 1 1 0; min-height: 0; max-height: 100%; margin-top: 0;
-    align-items: stretch; align-content: stretch;
-    overflow-x: auto; overflow-y: hidden;
-  }
-  /* Явная высота колонки: иначе flex:1 у .col-body схлопывается до ~0 (v2.58 clientHeight=8) */
-  .main:has(> .page .list-screen) .ls-main .board:not(.design-status-board) > .col {
-    height: calc(100dvh - 220px); max-height: calc(100dvh - 220px);
-    min-height: 0; overflow: hidden;
-  }
 }
 
 /* Стикеры и фото задач проектирования (DESIGN §4 «Стикеры») */
