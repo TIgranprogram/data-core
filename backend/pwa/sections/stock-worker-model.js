@@ -27,9 +27,9 @@ export function workerPipePieces(item) {
 }
 
 export function workerPipeMetres(item) {
-  const factor = workerPieceFactor(item), length = workerLength(item);
-  if (factor == null || length == null || item.quantity == null) return null;
-  const metres = /^м\.?$/i.test(text(item.unit)) ? Number(item.quantity) : Number(item.quantity) * length / 1000;
+  const unit = text(item.unit).toLowerCase().replace(/\.$/, ''), length = workerLength(item);
+  if (item.quantity == null || !(unit === 'м' || unit === 'шт' && length != null)) return null;
+  const metres = unit === 'м' ? Number(item.quantity) : Number(item.quantity) * length / 1000;
   return Number.isFinite(metres) ? metres : null;
 }
 
@@ -50,18 +50,6 @@ export function workerInputQuantity(item, input, kind) {
   return quantity;
 }
 
-/** Переносим только целые трубы; каждую строку считаем в её исходной единице. */
-export function workerPipeTransfer(target, next, source) {
-  if (!source || source.countMode !== 'single') return null;
-  const targetFactor = workerPieceFactor(target), sourceFactor = workerPieceFactor(source);
-  const expected = Number(source.quantity), previous = Number(target.quantity ?? 0);
-  const materialId = workerMaterialId(source);
-  if (!materialId || targetFactor == null || sourceFactor == null || !Number.isFinite(expected) || !Number.isFinite(previous)) return null;
-  const available = Math.min(expected, Number(source.free ?? expected - Number(source.reservedQty || 0)));
-  const pieces = Math.floor(Math.min(snapInteger((next - previous) / targetFactor), snapInteger(available / sourceFactor)));
-  if (!Number.isSafeInteger(pieces) || pieces <= 0) return null;
-  return { materialId, qty: Math.min(available, workerInputQuantity(source, pieces, 'pipe')), expected, pieces };
-}
 export const workerColumnKey = item => JSON.stringify([item.washed === true ? true : item.washed === false ? false : null, workerLength(item)]);
 export const workerItemMatches = (item, context) => !context || item?.metal === context.kind;
 export const workerZoneName = kind => ({ pipe: 'Трубы', sheet: 'Листовой материал' })[kind];
@@ -98,33 +86,6 @@ export function workerCreateBody(value, kind, categories) {
   const name = [category.name, section, kind === 'pipe' ? `${dims.length} мм` : '', kind === 'pipe' ? workerWash({ washed }) : '', grade].filter(Boolean).join(' · ');
   if (name.length > 300) throw new Error('Название длиннее300 символов: сократите марку.');
   return { name, unit, categoryId: category.id, dims, materialGrade: grade || null, washed, assortment: text(value.assortment).slice(0, 200) || null };
-}
-/** Один ключ для контекста ячейки и для материала: иначе «Мытая» никогда не найдёт пару. */
-const geometryKey = value => {
-  const profile = value.sectionProfile;
-  if (profile && (profile.state !== 'complete' || value.offcutOf)) return null;
-  const dims = value.dims || {}, shape = value.shape || profile?.shape;
-  if (!['rect', 'round'].includes(shape)) return null;
-  return JSON.stringify([text(value.categoryId), shape,
-    positive(profile ? profile.widthMm : dims.width), positive(profile ? profile.heightMm : dims.height),
-    positive(profile ? profile.diameterMm : dims.diameter), positive(profile ? profile.wallMm : dims.thickness)]);
-};
-const gradeKey = value => text(value.materialGrade) || 'Марка не указана';
-
-/**
- * Тот же размер и длина в соседнем столбце «Не мытая»: предложение перенести остаток,
- * когда рабочий вписывает количество в «Мытая». Возвращает только материал с остатком.
- */
-export function workerWashCounterpart(target, items) {
-  if (!target || target.washed !== true || !Array.isArray(items)) return null;
-  const item = 'sectionProfile' in target;
-  const grade = gradeKey(target);
-  const length = item ? workerLength(target) : positive(target.dims?.length);
-  const geometry = geometryKey(target);
-  if (!geometry || !length || workerPieceFactor(target) == null) return null;
-  return items.find(other => other !== target && other.washed === false && other.countMode === 'single'
-    && gradeKey(other) === grade && workerLength(other) === length && geometryKey(other) === geometry
-    && workerPieceFactor(other) != null && snapInteger(Number(other.quantity) / workerPieceFactor(other)) >= 1) || null;
 }
 
 const metalOrder = ['ordinary', 'unknown', 'stainless'];

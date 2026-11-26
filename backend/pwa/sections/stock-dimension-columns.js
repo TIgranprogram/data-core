@@ -7,13 +7,13 @@ export const dimensionValue = value => Number(value) > 0 ? qty(value) : '—';
 export const washValue = item => item.washed == null ? 'Не указано' : item.washed ? 'Мытая' : 'Не мытая';
 export const stockZero = item => Number(item.quantity) === 0;
 export const inlineCountAllowed = item => item.countMode === 'single';
+export const stockCountRestriction = item => inlineCountAllowed(item) ? '' : item.countMode === 'multiple'
+  ? 'Несколько мест хранения — пересчёт общего остатка недоступен'
+  : 'Способ пересчёта не подтверждён — общий остаток доступен только для просмотра';
 /** Общее количество нескольких ячеек нельзя пересчитывать как одну storageitem. */
 export function stockCountCell(item, control) {
-  if (inlineCountAllowed(item)) return control;
-  const reason = item.countMode === 'multiple'
-    ? 'Несколько мест хранения — пересчёт общего остатка недоступен'
-    : 'Способ пересчёта не подтверждён — общий остаток доступен только для просмотра';
-  return h('div', { title: reason }, control, h('div', { class: 'muted small' }, reason));
+  const reason = stockCountRestriction(item);
+  return reason ? h('div', { title: reason }, control, h('div', { class: 'muted small' }, reason)) : control;
 }
 export const materialValue = item => /^(?:нержавеющая|оцинкованная) сталь$|^алюминий$|^сталь$/i.test(item.materialGrade || '') ? item.materialGrade : 'Не указан';
 export const gradeValue = item => materialValue(item) === item.materialGrade ? 'Не указана' : item.materialGrade || 'Не указана';

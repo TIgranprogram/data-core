@@ -23,10 +23,11 @@ export function moveCell(input, dx, dy) {
   }
   return false;
 }
-export function gridField(cls, label, start, save, readOnly = false, confirm = null) {
+export function gridField(cls, label, start, save, readOnly = false, { confirm, onSaveError } = {}) {
   if (readOnly) return h('span', { 'aria-label': label }, start || '—');
   const { input } = textInput({ value: start, ...(cls === 'pg-in' ? { inputmode: 'decimal' } : {}) });
   input.classList.add(cls); input.readOnly = readOnly; input.setAttribute('aria-label', label);
+  input.defaultValue = start;
   input.size = cls === 'pg-in' ? 8 : 24;
   noDrag(input);
   let was = start, saving = false, returnFocus = false;
@@ -48,9 +49,12 @@ export function gridField(cls, label, start, save, readOnly = false, confirm = n
     if (saving || input.dataset.gridReplacing || input.value.trim() === was) return;
     saving = true; input.disabled = true; input.classList.add('is-busy');
     try {
-      await save(input.value.trim()); was = input.value = input.value.trim();
+      await save(input.value.trim()); was = input.defaultValue = input.value = input.value.trim();
       input.dataset.saved = '1';
-    } catch (error) { input.value = was; toastError(error, 'сохранить'); }
+    } catch (error) {
+      if (onSaveError) onSaveError(error);
+      else { input.value = was; toastError(error, 'сохранить'); }
+    }
     finally { saving = false; input.disabled = false; input.classList.remove('is-busy'); if (returnFocus) restore(); }
   });
   const jump = (dx, dy) => { input.blur(); if (!moveCell(input, dx, dy)) { if (saving) returnFocus = true; else restore(); } };

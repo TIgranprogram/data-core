@@ -2,46 +2,18 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { button, section, fieldRow, textInput, toolbar, select, enhanceSelect, busyBlock, failBlock } from '../ui/kit/index.js';
-import { workerCreateBody, workerCountBody, workerInputQuantity, workerPipeMetres, workerPipeTransfer, workerUnit, workerMaterialId } from './stock-worker-model.js';
+import { workerCreateBody, workerCountBody, workerInputQuantity, workerPipeMetres, workerUnit } from './stock-worker-model.js';
 
 /** Компактное создание в явной зоне. Успешный create не повторяется при ошибке count. */
-export function workerCreate({ kind, getZone, host, changed, counterpart = null }) {
-  let generation = 0, node = null, destroyed = false, quickInFlight = 0;
-  const drafts = new Map();
-  const blank = () => ({ value: '', createdId: '', createdUnit: '', transferDecided: false, transfer: null });
-  const draft = key => drafts.get(key) || blank();
-  const remember = input => {
-    const key = input.dataset.workerKey;
-    if (!key) return;
-    const record = drafts.get(key) || blank();
-    if (record.value !== input.value) { record.transferDecided = false; record.transfer = null; delete input.dataset.transferDecided; delete input.dataset.transfer; }
-    record.value = input.value;
-    if (input.dataset.createdId) record.createdId = input.dataset.createdId;
-    if (input.dataset.createdUnit) record.createdUnit = input.dataset.createdUnit;
-    if (input.dataset.transferDecided) { record.transferDecided = true; record.transfer = input.dataset.transfer || null; }
-    record.input = input;
-    drafts.set(key, record);
-  };
-  const restore = input => {
-    const record = draft(input.dataset.workerKey);
-    input.value = record.value;
-    if (record.createdId) input.dataset.createdId = record.createdId;
-    if (record.createdUnit) input.dataset.createdUnit = record.createdUnit;
-    if (record.transferDecided) { input.dataset.transferDecided = '1'; if (record.transfer) input.dataset.transfer = record.transfer; }
-  };
-  const clear = (input, refresh = true) => {
-    const created = draft(input.dataset.workerKey).createdId;
-    drafts.delete(input.dataset.workerKey);
-    for (const key of ['createdId', 'createdUnit', 'transferDecided', 'transfer']) delete input.dataset[key];
-    input.value = '';
-    if (created && refresh) changed();
-  };
+export function workerCreate({ kind, getZone, host, changed }) {
+  let generation = 0, node = null, destroyed = false;
+  const createdCells = new Map();
   const close = () => { generation++; node?.remove(); node = null; };
   return {
-    draft,
-    remember,
-    clear,
-    quickPending() { return quickInFlight > 0 || [...drafts.values()].some(record => record.createdId && record.input?.isConnected); },
+    clear(input) {
+      if (createdCells.delete(input.dataset.workerKey)) changed();
+    },
+    quickPending() { return [...createdCells.values()].some(entry => entry.input.isConnected); },
     async open(context = {}, anchor) {
       if (destroyed) return;
       close(); const own = generation;
@@ -126,87 +98,33 @@ export function workerCreate({ kind, getZone, host, changed, counterpart = null 
         (body.querySelector('input') || category).focus();
       } catch (error) { if (own === generation && !destroyed) body.replaceChildren(failBlock(error, () => this.open(context, anchor)), button({ label: 'Отмена', onClick: close })); }
     },
-    /**
-     * Ячейка с готовым контекстом: спрашиваем только количество. Создание без формы;
-     * Enter — создать, Escape — очистить. Ошибка остаётся в ячейке, повтор не создаёт дубль.
-     */
-    async quick(context, input) {
-      if (destroyed || !input || input.disabled) return;
-      restore(input);
-      const cell = input.closest('td');
-      const errorBox = cell?.querySelector('[data-worker-entry-error]');
-      const show = (text) => { if (errorBox) { errorBox.textContent = text; errorBox.hidden = !text; } };
-      if (cell?.querySelector('[data-worker-transfer]')) return; // ждём выбор переноса
-      const raw = String(input.value || '').trim();
-      if (!raw) { show(''); input.focus(); return; }
-      let number;
-      try { number = workerInputQuantity(context, raw, kind); }
-      catch (error) { show(error.message); input.focus(); return; }
+    /** Повтор после частичного сбоя отправляет только пересчёт уже созданного материала. */
+    async quick(context, input, value) {
+      if (destroyed) return;
+      workerInputQuantity(context, value, kind);
       const zone = getZone();
-      if (!zone?.id) { show('Складская зона ещё не загружена. Повторите.'); return; }
-      const unit = input.dataset.createdUnit || context.unit || '';
-      const stored = input.dataset.transferDecided ? input.dataset.transfer : undefined;
-      const transfer = stored ? JSON.parse(stored) : null;
-      const run = async (move) => {
-        let createdId = input.dataset.createdId || '';
-        let completed = false;
-        quickInFlight++;
-        show(''); input.disabled = true; input.classList.add('is-busy');
-        try {
-          if (!createdId) {
-            let body;
-            try { body = workerCreateBody(context, kind, [{ id: context.categoryId, name: context.categoryName }]); }
-            catch (error) { show(String(error?.message || 'Проверьте размеры.')); return; }
-            const created = await api('/stock/items', { method: 'POST', query: { zoneId: zone.id }, body });
-            if (destroyed) return;
-            createdId = workerMaterialId(created);
-            input.dataset.createdId = createdId;
-            input.dataset.createdUnit = created.unit || body.unit;
-            remember(input);
-            if (created.countMode && created.countMode !== 'single') throw new Error('Материал создан, но у него общий остаток: количество меняйте в карточке.');
-          }
-          const lines = [];
-          const quantity = workerInputQuantity({ ...context, unit: input.dataset.createdUnit || unit }, raw, kind);
-          if (quantity !== 0) lines.push({ materialId: createdId, qty: quantity, expected: 0 });
-          if (move) lines.push({ materialId: move.materialId, qty: move.expected - move.qty, expected: move.expected });
-          if (lines.length) await api('/stock/batch', { method: 'POST', body: { type: 'count', note: kind === 'pipe' ? 'Трубы' : 'Листовой материал', lines } });
-          if (destroyed) return;
-          clear(input, false); completed = true;
-        } catch (error) {
-          if (destroyed) return;
-          remember(input);
-          show(createdId ? 'Материал создан, количество не сохранено. Enter — повторить остаток.' : String(error?.message || 'Не удалось создать материал.'));
-        } finally {
-          quickInFlight--;
-          if (!destroyed) {
-            input.disabled = false; input.classList.remove('is-busy');
-            if (document.activeElement === document.body || document.activeElement === input) input.focus();
-            if (completed) changed();
-          }
-        }
-      };
-      // В «Мытая» вписали количество, а в «Не мытая» того же размера есть остаток — предлагаем перенос.
-      const other = !input.dataset.transferDecided && number > 0 ? counterpart?.(context) : null;
-      const proposed = workerPipeTransfer(context, number, other);
-      if (proposed) {
-        const decide = move => {
-          input.dataset.transferDecided = '1';
-          input.dataset.transfer = move ? JSON.stringify(move) : '';
-          remember(input);
-          panel.remove(); run(move);
-        };
-        const panel = h('div', { class: 'pg-worker-confirm', 'data-worker-transfer': '1', role: 'group', 'aria-label': 'Перенос из не мытой' },
-          h('strong', null, `В «Не мытая» ${qty(other.quantity)} ${workerUnit(other)}. Списать ${qty(proposed.pieces)} шт?`),
-          toolbar(button({ label: `Списать ${qty(proposed.pieces)} шт`, kind: 'primary', onClick: () => decide(proposed) }),
-            button({ label: 'Только добавить', kind: 'ghost', onClick: () => decide(null) }),
-            button({ label: 'Отмена', kind: 'ghost', onClick: () => { panel.remove(); show(''); input.focus(); } })));
-        panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); panel.remove(); show(''); input.focus(); } });
-        cell.append(panel); panel.querySelector('button')?.focus();
-        return;
+      if (!zone?.id) throw new Error('Складская зона ещё не загружена. Повторите.');
+      const key = input.dataset.workerKey;
+      let entry = createdCells.get(key);
+      if (!entry) {
+        const dto = workerCreateBody(context, kind, [{ id: context.categoryId, name: context.categoryName }]);
+        const created = await api('/stock/items', { method: 'POST', query: { zoneId: zone.id }, body: dto });
+        if (destroyed) return;
+        entry = { item: { ...dto, ...created, quantity: 0 }, input };
+        createdCells.set(key, entry);
       }
-      await run(transfer);
+      try {
+        const body = workerCountBody(entry.item, value, 'Трубы', kind);
+        if (body.lines[0].qty !== 0) await api('/stock/batch', { method: 'POST', body });
+      } catch (error) {
+        const action = entry.item.countMode === 'single' ? 'Enter — повторить. Escape — обновить таблицу.' : 'Откройте карточку материала для пересчёта.';
+        throw new Error('Материал создан, количество не сохранено. ' + action, { cause: error });
+      }
+      if (destroyed) return;
+      createdCells.delete(key);
+      changed();
     },
     preserve() { if (node?.tagName === 'TR') { const form = node.querySelector('[data-worker-entry]'); node.remove(); node = form; } if (node) host.append(node); },
-    destroy() { destroyed = true; close(); },
+    destroy() { destroyed = true; createdCells.clear(); close(); },
   };
 }

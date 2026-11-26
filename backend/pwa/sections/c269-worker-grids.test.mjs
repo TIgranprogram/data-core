@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test, { before, after } from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { chromium } from '../../../tools/design-checks/node_modules/playwright-core/index.mjs';
 import { findBrowser } from '../../../tools/browser-path.mjs';
-import { workerPipeBlocks, workerSheetBlocks, workerCountBody, workerPipeMetres, workerPipePieces, workerPipeTransfer } from './stock-worker-model.js';
+import { workerPipeBlocks, workerSheetBlocks, workerCountBody, workerPipeMetres, workerPipePieces } from './stock-worker-model.js';
 
 const pipe = (id, extra = {}) => ({ id, materialId: id, name: 'Труба ' + id, metal: 'pipe', materialGrade: 'Ст3', unit: 'м', countMode: 'single', quantity: 12, reservedQty: 1, washed: true,
   sectionProfile: { shape: 'rect', state: 'complete', label: '40×20×2', widthMm: 40, heightMm: 20, wallMm: 2 }, dims: { length: 6000 }, ...extra });
@@ -34,9 +35,9 @@ test('остаток с дробной трубой остаётся в метр
   assert.equal(workerPipeMetres(pipe('id', { quantity: 7 })), 7);
   assert.equal(workerPipePieces(pipe('id', { quantity: 12 + Number.EPSILON * 8 })), 2);
   assert.equal(workerPipePieces(pipe('id', { quantity: 0 })), 0);
-  const source = pipe('raw', { unit: 'шт', quantity: 3 });
-  assert.equal(workerPipeTransfer(pipe('id', { quantity: 7 }), 12, source), null);
-  assert.deepEqual(workerPipeTransfer(pipe('id', { quantity: 7 }), 18, source), { materialId: 'raw', qty: 1, expected: 3, pieces: 1 });
+  assert.equal(workerPipeMetres(pipe('raw', { unit: 'шт', quantity: 3 })), 18);
+  assert.equal(workerPipeMetres(pipe('id', { quantity: 7, dims: {} })), 7);
+  assert.equal(workerPipeMetres(pipe('raw', { unit: 'шт', quantity: 3, dims: {} })), null);
 });
 test('листы группируются по явной марке/поверхности/unit без потери обрезков', () => {
   const rows = [{ id: 'a', materialGrade: 'Ст3', unit: 'лист' }, { id: 'b', materialGrade: 'Ст3', unit: 'лист', assortment: 'Лист рифлёный' }, { id: 'c', offcutOf: 'a', unit: 'шт' }];
@@ -115,7 +116,7 @@ test('pipe: динамические столбцы, уникальные ID, н
   assert.deepEqual(ids.sort(), items.map(item => item.materialId).sort());
   assert.ok((await page.locator('thead').allTextContents()).join(' ').includes('7,5 м'));
   assert.equal(await page.locator('[data-material-id="unknown"] input.pg-in').count(), 0);
-  assert.match(await page.locator('[data-material-id="unknown"]').textContent(), /0 м/);
+  assert.equal(await page.locator('[data-material-id="unknown"]').textContent(), '—');
   assert.equal(await page.locator('td .pg-worker-source').count(), 0);
   assert.match(await page.locator('[data-material-id="duplicate"]').getAttribute('title'), /Труба duplicate/);
   assert.equal(await page.locator('[data-material-id="unknown"] .pg-worker-zero').count(), 1);
@@ -123,11 +124,27 @@ test('pipe: динамические столбцы, уникальные ID, н
   const height = await page.locator('input.pg-in').first().evaluate(node => node.getBoundingClientRect().height); assert.equal(height, 48);
   assert.deepEqual(calls.filter(call => call.method !== 'GET'), []); assert.deepEqual(errors, []);
 });
+const proof = process.env.C273_PROOF_DIR;
+if (proof) for (const [theme, width] of [['light', 1440], ['dark', 1024]]) {
+  test(`снимки C273: ${theme}, ${width}`, async t => {
+    const { page } = await fixture(t, { mixedMetals: true });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+    await mkdir(proof, { recursive: true });
+    const ordinary = page.locator('.pg-block.k-round').first();
+    const stainless = page.locator('.pg-block.k-steel').first();
+    await ordinary.locator('input.pg-in').first().focus();
+    await ordinary.screenshot({ path: join(proof, `${theme}-steel.png`) });
+    await stainless.screenshot({ path: join(proof, `${theme}-stainless.png`) });
+    await ordinary.locator('[data-worker-row]').first().click();
+    await ordinary.getByText(/Всего по строке/).waitFor();
+    await page.screenshot({ path: join(proof, `${theme}-detail.png`) });
+  });
+}
 test('пересчёт и внешний reload сохраняют фокус, черновик, каретку следующей ячейки', async t => {
   const { page, calls, errors } = await fixture(t);
   const field = page.locator('[data-material-id="six"] input.pg-in');
   await field.fill('3'); await field.press('Enter');
-  await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('input[data-saved]'));
   const next = page.locator('input[data-worker-key="duplicate:count"]'); await next.focus(); await next.fill('17'); await next.evaluate(node => node.setSelectionRange(1, 1));
   await page.evaluate(() => window.grid.reload());
@@ -179,13 +196,12 @@ test('внешний reload сохраняет примечание sheet, че�
   assert.equal(await note.evaluate(node => document.activeElement === node && node.selectionStart === 2), true);
   assert.equal(calls.filter(call => call.method === 'PATCH').length, 0);
 });
-test('ошибка пересчёта сохраняет черновик у материала и не меняет данные', async t => {
+test('ошибка пересчёта возвращает сохранённый остаток в ячейку', async t => {
   const { page, items } = await fixture(t, { fail: true });
   const input = page.locator('[data-material-id="six"] input.pg-in');
   await input.fill('99'); await input.press('Enter');
-  await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
-  await page.getByText('Остаток изменился', { exact: true }).waitFor();
-  assert.equal(await input.inputValue(), '99');
+  await page.locator('.toast').filter({ hasText: 'Остаток изменился' }).waitFor();
+  assert.equal(await input.inputValue(), '2');
   assert.equal(items.find(item => item.materialId === 'six').quantity, 12);
 });
 test('103 материала: явная текущая страница, серверная page2 без cap10000', async t => {
@@ -248,7 +264,6 @@ test('пересчёт открытой строки инвалидирует т
   await cell.locator('xpath=..').locator('button[data-worker-row]').click();
   await page.waitForFunction(() => document.querySelectorAll('.pg-worker-operation-matrix tbody tr').length === 3);
   await cell.locator('input.pg-in').fill('3'); await cell.locator('input.pg-in').press('Enter');
-  await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('[data-material-id="six"] input[data-saved]'));
   await page.evaluate(() => window.grid.reload()); await page.waitForTimeout(100);
   assert.equal(historyAttempts.get('six'), 2); assert.equal(historyAttempts.get('twelve'), 1);

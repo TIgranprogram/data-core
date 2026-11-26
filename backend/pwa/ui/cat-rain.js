@@ -192,7 +192,9 @@ function frame() {
 
 /** set: 'cats' | 'dogs'. */
 export function startRain(set) {
-  if (canvas || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { stopRain(); return; }
+  if (canvas && kinds === SETS[set]) return;
+  stopRain();
   kinds = SETS[set];
   eyes = EYES[set];
   rare = RARE[set] ?? -1;

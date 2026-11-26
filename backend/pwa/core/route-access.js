@@ -1,4 +1,6 @@
 // Права показа рабочего места. Сервер отдельно проверяет каждый запрос.
+import { viewAsActive } from './view-as.js';
+
 export const OWNER = Object.freeze({
   passfunnel: 'docs', passports: 'docs', passarchive: 'docs', orderpass: 'docs', doctpl: 'docs',
   salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'salesorders', workplan: 'salesorders',
@@ -74,8 +76,9 @@ export function stockScreenAccess(session, requestedView) {
   const denied = { allowed: false, view, readOnly: true };
   if (!canOpen(session, 'stock')) return denied;
   if (!view) return { allowed: true, view: null, readOnly: false };
-  if (session.isAdmin) return { allowed: true, view, readOnly: false };
-  if (native) return native === view ? { allowed: true, view, readOnly: !session.canEdit } : denied;
+  const preview = (view === 'pipe' || view === 'sheet') && viewAsActive(session.realUser);
+  if (session.isAdmin) return { allowed: true, view, readOnly: preview };
+  if (native) return native === view ? { allowed: true, view, readOnly: preview || !session.canEdit } : denied;
   const user = session.user;
   const views = Object.hasOwn(user, 'stockViews')
     ? (Array.isArray(user.stockViews) ? user.stockViews.filter(value => ['pipe', 'sheet'].includes(value)) : [])

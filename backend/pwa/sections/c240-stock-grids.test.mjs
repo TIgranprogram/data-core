@@ -91,12 +91,12 @@ for (const [view, theme] of [['pipe', 'light'], ['sheet', 'dark']]) {
   });
 }
 
-test('родной экран Трубореза: подтверждённый пересчёт труб с записью в метрах и компактное создание', async t => {
+test('родной экран Трубореза: пересчёт по Enter с записью в метрах и компактное создание', async t => {
   const { page, calls, errors } = await fixture(t, { user: { role: 'r-pipe', baseRole: 'manager', roleLabel: 'Труборез', sections: ['stock'], stockViews: ['sheet'] } });
   const field = page.locator('table input.pg-in').first(); await field.waitFor();
-  await field.fill('3'); await field.press('Enter');
-  await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
-  await page.waitForFunction(() => document.querySelector('table input.pg-in[data-saved]'));
+  const counted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/api/stock/batch'));
+  await field.fill('3'); await field.press('Enter'); await counted;
+  assert.equal(await page.locator('[data-worker-count-confirm]').count(), 0);
   assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'pipe-one', qty: 18, expected: 12 });
   await page.getByRole('button', { name: 'Добавить материал', exact: true }).click();
   const entry = page.locator('[data-worker-entry]'); await entry.getByLabel('Единица учёта', { exact: true }).waitFor();
@@ -136,7 +136,7 @@ test('main: событие create не убирает подсказку час�
   const { page, calls, errors } = await fixture(t, { quickFailure: true, user: { role: 'r-pipe', baseRole: 'manager', roleLabel: 'Труборез', sections: ['stock'] } });
   const cell = page.locator('input[data-worker-create="cell"][title*="50×20×2"][title$="6 м"]').first();
   await cell.fill('2'); await cell.press('Enter');
-  const partial = page.getByText('Материал создан, количество не сохранено. Enter — повторить остаток.', { exact: true });
+  const partial = page.getByText('Материал создан, количество не сохранено. Enter — повторить. Escape — обновить таблицу.', { exact: true });
   await partial.waitFor();
   await page.waitForTimeout(450); // больше окна debounce dc:changed
   assert.equal(await partial.isVisible(), true);
@@ -146,6 +146,47 @@ test('main: событие create не убирает подсказку час�
   assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/stock/items').length, 1);
   assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines[0]),
     Array(2).fill({ materialId: 'created-pipe', qty: 12, expected: 0 }));
+  assert.deepEqual(errors, []);
+});
+
+test('рабочий фон переключает котиков и собачек без перезагрузки', async t => {
+  const { page, errors } = await fixture(t, { user: { role: 'r-pipe', baseRole: 'manager', roleLabel: 'Труборез', sections: ['stock'] } });
+  await page.locator('canvas.cat-rain').waitFor({ state: 'attached' });
+  const switched = await page.evaluate(async () => {
+    const { startRain, stopRain } = await import('/app/ui/cat-rain.js');
+    const cat = document.querySelector('canvas.cat-rain');
+    startRain('cats');
+    const sameCat = cat === document.querySelector('canvas.cat-rain');
+    startRain('dogs');
+    const dog = document.querySelector('canvas.cat-rain');
+    const changed = !cat.isConnected && dog?.isConnected;
+    startRain('dogs');
+    const sameDog = dog === document.querySelector('canvas.cat-rain');
+    stopRain();
+    return [sameCat, changed, sameDog, document.querySelectorAll('canvas.cat-rain').length];
+  });
+  assert.deepEqual(switched, [true, true, true, 0]);
+  assert.deepEqual(errors, []);
+});
+
+test('«Смотреть как» открывает обе рабочие сетки без элементов записи', async t => {
+  const { page, calls, errors } = await fixture(t, { user: { role: 'admin', sections: [] } });
+  await page.locator('.pg-worker-pipe input.pg-in').waitFor();
+  for (const [view, label] of [['pipe', 'Труборез'], ['sheet', 'Лазер лист']]) {
+    const selected = await page.evaluate(async ({ view, label }) => {
+      const { rememberRoles, setViewAs } = await import('/app/core/view-as.js');
+      rememberRoles([{ name: 'r-' + view, label, baseRole: 'manager', appSections: ['stock'] }]);
+      const selected = setViewAs('r-' + view);
+      location.hash = '#stock?view=' + view;
+      return selected;
+    }, { view, label });
+    assert.equal(selected, true);
+    await page.locator('.view-as').getByText(label, { exact: true }).waitFor();
+    await page.locator('.pg-worker-' + view + ' [data-material-id]').first().waitFor();
+    assert.equal(await page.locator('.pg-worker-' + view + ' input').count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'Принять на склад', exact: true }).count(), 0);
+  }
+  assert.deepEqual(calls.filter(call => call.method !== 'GET'), []);
   assert.deepEqual(errors, []);
 });
 

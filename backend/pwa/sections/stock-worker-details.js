@@ -1,10 +1,11 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { dateTime, qty } from '../core/format.js';
+import { stockPositionCode, stockPositionName } from '../core/stock-display.js';
 import { viewAsActive } from '../core/view-as.js';
 import { button, section, stack, stats, table, busyBlock, failBlock } from '../ui/kit/index.js';
 import { gridField } from './stock-grid-input.js';
-import { workerMaterialId, workerUnit, workerWash, workerLength } from './stock-worker-model.js';
+import { workerMaterialId, workerUnit, workerWash, workerLength, workerPipeMetres } from './stock-worker-model.js';
 import { workerHistory, workerOperationGroups } from './stock-worker-history.js';
 import { workerStockContext } from './stock-worker-context.js';
 import { workerContextView } from './stock-worker-context-view.js';
@@ -66,7 +67,7 @@ export function workerDetails() {
     begin() { rows.forEach(entry => entry.capture()); epoch++; rows.clear(); context.begin(); },
     invalidate(id) { history.invalidate(id); context.invalidate(id); },
     destroy() { destroyed = true; epoch++; rows.clear(); drafts.clear(); openKey = null; history.destroy(); context.destroy(); },
-    rowDetail({ key, label, items, columns, kind, readOnly, saveNote }) {
+    rowDetail({ key, label, items, columns, kind, readOnly, saveNote, distinguish = false }) {
       const own = epoch, id = 'pg-worker-detail-' + ++nextId;
       const content = h('div', { class: 'pg-worker-detail-content' });
       const detail = h('tr', { class: 'pg-worker-detail', id, hidden: openKey !== key, 'data-worker-detail-row': key }, h('td', { colspan: columns }, content));
@@ -80,6 +81,11 @@ export function workerDetails() {
       function build() {
         if (built) return;
         built = true;
+        if (kind === 'pipe' && items.length > 1) {
+          const lengths = items.map(workerPipeMetres);
+          const total = lengths.every(length => length != null) ? `${qty(lengths.reduce((sum, length) => sum + length, 0))} м` : 'Метраж известен не для всех труб';
+          content.append(h('h3', { class: 'pg-worker-category pg-worker-row-total' }, 'Всего по строке: ' + total));
+        }
         for (const item of items) {
           const materialId = workerMaterialId(item), unit = workerUnit(item);
           const note = gridField('pg-note', `Примечание, ${item.name}`, item.notes || '', async text => { await saveNote(item, text); drafts.delete(materialId); }, readOnly || kind === 'sheet');
@@ -102,11 +108,13 @@ export function workerDetails() {
             current,
           });
           paints.push(extra.paint);
-          const figures = stats([{ value: `${qty(item.quantity ?? 0)} ${unit}`, label: 'Фактически' },
+          const metres = kind === 'pipe' ? workerPipeMetres(item) : null;
+          const figures = stats([{ value: metres == null ? `${qty(item.quantity ?? 0)} ${unit}` : `${qty(metres)} м`, label: metres == null ? 'Фактически' : 'Всего метров' },
             { value: `${qty(item.reservedQty || 0)} ${unit}`, label: 'В брони' },
             { value: `${qty(item.free ?? Number(item.quantity || 0) - Number(item.reservedQty || 0))} ${unit}`, label: 'Свободно' }]);
           figures.classList.add('pg-worker-figures');
           const panel = section({ fixed: true, title: variant(kind, item), tone: 'neutral', body: [
+            distinguish ? h('p', { class: 'pg-worker-secondary' }, [stockPositionName(item), stockPositionCode(item) || item.article].filter(Boolean).join(' · ')) : null,
             figures,
             h('div', { class: 'pg-worker-secondary' }, Number(item.quantity) === 0 ? 'Нет в наличии' : Number(item.reservedQty) >= Number(item.quantity) ? 'Всё в брони' : 'В наличии'),
             h('div', { class: 'pg-worker-detail-note' }, h('h3', { class: 'pg-worker-category' }, 'Примечание'), note),
