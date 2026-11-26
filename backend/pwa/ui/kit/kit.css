@@ -1585,7 +1585,6 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .pg-worker .pg-worker-figures .stat:first-child b { font-size: var(--fs-h1); font-weight: 750; }
 .pg-worker .pg-worker-figures .stat span { font-size: var(--fs-sm); color: var(--muted); }
 .pg-worker .pg-worker-category { margin-block: var(--s2) var(--s1); font-size: var(--fs-sm); font-weight: 700; color: var(--heading); }
-.pg-worker .pg-worker-characteristics { display: grid; gap: var(--s1); overflow-wrap: anywhere; }
 .pg-worker .pg-worker-secondary { font-size: var(--fs-sm); font-weight: 400; line-height: 1.4; color: var(--muted); }
 .pg-worker .pg-worker-detail .k-sec-fhead h3 { font-size: var(--fs-h2); font-weight: 700; }
 .pg-worker .pg-worker-history .table-wrap { max-height: none; overflow: visible; }

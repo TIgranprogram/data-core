@@ -28,7 +28,7 @@ export function fillCardMenu({ menuBox, rare, hasTabs = false, layouts = [], lay
       acts.push(h('button', { type: 'button', role: 'menuitem', class: a.danger ? 'danger' : undefined, onclick: (e) => { setOpen(false); runAction(a, e.currentTarget); } }, a.label));
     });
     if (section.duplicate && section.form) acts.push(h('button', { type: 'button', role: 'menuitem', onclick: () => { setOpen(false); showForm('create', section.duplicate(row)); } }, 'Дублировать'));
-    if (section.remove) acts.push(h('button', { type: 'button', role: 'menuitem', class: 'danger', onclick: () => { setOpen(false); doRemove(); } }, 'Удалить'));
+    if (section.remove?.run) acts.push(h('button', { type: 'button', role: 'menuitem', class: 'danger', onclick: () => { setOpen(false); doRemove(); } }, 'Удалить'));
   }
   if (acts.length) items.unshift(...acts, h('hr', { class: 'menu-sep' }));
   menu.append(...items);
