@@ -351,6 +351,7 @@ export const NOT_ON_BUTTONS = {
   'deploy/synology/bundle-watch.sh': 'внутренний шаг сборки пакета',
   'deploy/synology/bundle.sh': 'на сервере; вызывает bundle-pc.sh',
   'deploy/synology/datacore-tunnel.sh': 'служба туннеля на сервере',
+  'deploy/synology/client-errors-report.js': 'подготовка сводки для проверок после выкладки и doctor',
   'deploy/synology/doctor-report.js': 'внутренняя часть doctor.sh',
   'deploy/synology/release.sh': 'кнопка выкладки выбирает его сама',
   'deploy/synology/verify-restore.js': 'внутренняя часть восстановления',

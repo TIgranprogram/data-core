@@ -15663,11 +15663,25 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "description": "Точное значение сохранённой версии. Отбор выполняется до группировки."
           }
         ],
         "responses": {
           "200": {
-            "description": "{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack, kind }] } по убыванию count"
+            "description": "{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack, kind }] } по убыванию count. При фильтре по версии ответ также содержит version на верхнем уровне."
+          },
+          "400": {
+            "description": "Параметр version должен быть одной непустой строкой до 40 символов"
           }
         },
         "tags": [

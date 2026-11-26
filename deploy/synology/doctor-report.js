@@ -1,5 +1,8 @@
 // Разбор ответов doctor.sh: строки ✓ / ⚠ / ✗ и итог. Пороги подобраны под 10 пользователей, без лишней тревоги.
-const parse = (k) => { try { return JSON.parse(process.env[k] || ''); } catch { return null; } };
+const { readFileSync } = require('node:fs');
+const { parseJson, readVersionErrors } = require('./client-errors-report.js');
+const [allErrors, currentErrors] = readFileSync(0, 'utf8').split('\0');
+const parse = (k) => parseJson(process.env[k]);
 let warn = 0, bad = 0;
 const ok = (t) => console.log('✓ ' + t);
 const w = (t) => { warn++; console.log('⚠ ' + t); };
@@ -45,14 +48,19 @@ if (!cache) w('Кэш сборки Docker: нет связи по ssh');
 else if (/GB/.test(cache) && parseFloat(cache) > 15) w(`Кэш сборки ${cache}: уменьшится при следующей выкладке`);
 else ok(`Кэш сборки Docker: ${cache}`);
 
-const errs = parse('ERRORS')?.items;
-if (!errs) w('Ошибки сайта: нет данных');
+const errs = parseJson(allErrors)?.items;
+const isError = (e) => e.name !== 'SlowScreen' && !/Нет связи/.test(e.message);
+const currentItems = readVersionErrors(currentErrors, ver?.v);
+const current = currentItems?.filter(isError);
+if (!current) w('Ошибки текущей версии: выборка недоступна');
+else if (current.length) x(`Ошибки в текущей версии: ${current.length} групп. Первая: ${String(current[0].message).slice(0, 90)} (${current[0].section || '-'})`);
+else if (currentItems.length >= 100) w('Ошибки текущей версии: достигнут предел в 100 групп, итог неполный');
+else ok('Ошибок текущей версии за сутки нет');
+
+if (!Array.isArray(errs)) w('Ошибки сайта: нет общей сводки');
 else {
-  const real = errs.filter((e) => e.name !== 'SlowScreen' && !/Нет связи/.test(e.message));
-  const cur = real.filter((e) => ver?.v && String(e.version || '').startsWith(ver.v));
-  if (cur.length) x(`Ошибки в текущей версии: ${cur.length} групп. Первая: ${String(cur[0].message).slice(0, 90)} (${cur[0].section || '-'})`);
-  else if (real.length) w(`Ошибки за сутки в старых версиях: ${real.length} групп`);
-  else ok('Ошибок сайта за сутки нет');
+  const real = errs.filter(isError);
+  if (!current?.length && real.length) w(`Ошибки за сутки по всем версиям: ${real.length} групп`);
   const slow = errs.filter((e) => e.name === 'SlowScreen' && e.count >= 3);
   if (slow.length) w('Часто медленно: ' + slow.map((e) => `${e.section} ×${e.count}`).join(', '));
 }

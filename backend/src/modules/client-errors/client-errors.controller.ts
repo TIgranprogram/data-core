@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, Post, Query } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -40,8 +40,13 @@ export class ClientErrorsController {
   @Roles('admin')
   @ApiOperation({ summary: 'Частые ошибки приложения за последние часы' })
   @ApiQuery({ name: 'hours', required: false, description: 'За сколько часов (по умолч. 24, макс. 720)' })
-  @ApiResponse({ status: 200, description: '{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack, kind }] } по убыванию count' })
-  top(@Query('hours') hours?: string) {
-    return this.service.top(hours);
+  @ApiQuery({ name: 'version', required: false, schema: { type: 'string', minLength: 1, maxLength: 40 }, description: 'Точное значение сохранённой версии. Отбор выполняется до группировки.' })
+  @ApiResponse({ status: 200, description: '{ items: [{ sig, count, users, lastAt, message, name, section, action, url, status, version, sampleStack, kind }] } по убыванию count. При фильтре по версии ответ также содержит version на верхнем уровне.' })
+  @ApiResponse({ status: 400, description: 'Параметр version должен быть одной непустой строкой до 40 символов' })
+  top(@Query('hours') hours?: string, @Query('version') version?: unknown) {
+    if (version !== undefined && (typeof version !== 'string' || !version.trim() || version.length > 40)) {
+      throw new BadRequestException('Укажите одну непустую версию до 40 символов');
+    }
+    return this.service.top(hours, version);
   }
 }

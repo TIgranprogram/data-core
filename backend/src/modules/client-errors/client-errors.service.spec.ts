@@ -195,6 +195,7 @@ describe('ClientErrorsService', () => {
     expect(res).toEqual({ items: [{ sig: 'a', count: 3 }] });
     const pipeline = (aggregate.mock.calls[0] as unknown as [Array<Record<string, any>>])[0];
     const since: Date = pipeline[0].$match.createdAt.$gte;
+    expect(pipeline[0].$match).not.toHaveProperty('version');
     expect(before - since.getTime()).toBeGreaterThanOrEqual(24 * 3600_000 - 5);
     expect(before - since.getTime()).toBeLessThan(24 * 3600_000 + 5000);
     expect(pipeline.find((s) => s.$group)!.$group._id).toBe('$sig');
@@ -203,6 +204,15 @@ describe('ClientErrorsService', () => {
     await service.top('100000');
     const p2 = (aggregate.mock.calls[1] as unknown as [Array<Record<string, any>>])[0];
     expect(Date.now() - p2[0].$match.createdAt.$gte.getTime()).toBeLessThan(720 * 3600_000 + 5000);
+  });
+
+  it('top с версией ограничивает вход агрегации до группировки и лимита', async () => {
+    const { service, aggregate } = makeService();
+    const version = '0794ccce';
+    const result = await service.top('2', version);
+    expect(result.version).toBe(version);
+    const pipeline = (aggregate.mock.calls[0] as unknown as [Array<Record<string, unknown>>])[0];
+    expect(pipeline[0]).toEqual({ $match: { createdAt: { $gte: expect.any(Date) }, version } });
   });
 });
 

@@ -121,14 +121,14 @@ export class ClientErrorsService {
     return true;
   }
 
-  /** Группы ошибок за последние `hours` часов по убыванию числа. */
-  async top(hoursRaw?: string): Promise<{ items: ClientErrorTopItem[] }> {
+  /** Группы ошибок за последние `hours` часов, при необходимости по одной версии. */
+  async top(hoursRaw?: string, version?: string): Promise<{ items: ClientErrorTopItem[]; version?: string }> {
     const h = parseInt(String(hoursRaw ?? ''), 10);
     const hours = Number.isFinite(h) && h > 0 ? Math.min(h, CLIENT_ERROR_TTL_DAYS * 24) : 24;
     const since = new Date(Date.now() - hours * 3600_000);
     const items = await this.model
       .aggregate<ClientErrorTopItem>([
-        { $match: { createdAt: { $gte: since } } },
+        { $match: { createdAt: { $gte: since }, ...(version === undefined ? {} : { version }) } },
         { $sort: { createdAt: -1 } },
         {
           $group: {
@@ -169,6 +169,6 @@ export class ClientErrorsService {
         },
       ])
       .exec();
-    return { items };
+    return version === undefined ? { items } : { items, version };
   }
 }

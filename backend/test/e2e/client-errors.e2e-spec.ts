@@ -118,6 +118,35 @@ describe('Ошибки клиента (ОШ2.1)', () => {
     await http().get('/api/client-errors/top').set(as(tok.manager)).expect(403);
   });
 
+  it('top с версией отбирает отдельные записи до группировки по sig', async () => {
+    const version = '0794ccce';
+    const other = '0794ccce1';
+    const message = 'Не удалось открыть карточку после обновления';
+    await http().post('/api/client-errors').set(as(admin.access)).send(full({ message, version })).expect(204);
+    await http().post('/api/client-errors').set(as(tok.manager)).send(full({ message, version })).expect(204);
+    await http().post('/api/client-errors').set(as(tok.manager)).send(full({ message, version: other })).expect(204);
+    await http().post('/api/client-errors').set(as(tok.manager)).send(full({ message, version: undefined })).expect(204);
+
+    const top = (selected?: string) => http().get('/api/client-errors/top')
+      .query(selected === undefined ? { hours: 24 } : { hours: 24, version: selected })
+      .set(as(admin.access)).expect(200);
+    const current = (await top(version)).body;
+    expect(current).toEqual({ version, items: [expect.objectContaining({ message, version, count: 2, users: 2 })] });
+    const previous = (await top(other)).body;
+    expect(previous).toEqual({ version: other, items: [expect.objectContaining({ sig: current.items[0].sig, version: other, count: 1, users: 1 })] });
+    expect((await top('deadbeef')).body).toEqual({ version: 'deadbeef', items: [] });
+    const combined = (await top()).body;
+    expect(Object.keys(combined)).toEqual(['items']);
+    expect(combined.items).toContainEqual(expect.objectContaining({ sig: current.items[0].sig, count: 4, users: 2 }));
+  });
+
+  it('top с версией по-прежнему требует admin и принимает одну непустую строку до 40 символов', async () => {
+    await http().get('/api/client-errors/top?version=0794ccce').set(as(tok.manager)).expect(403);
+    for (const query of ['version=', 'version=a&version=b', `version=${'a'.repeat(41)}`]) {
+      await http().get(`/api/client-errors/top?${query}`).set(as(admin.access)).expect(400);
+    }
+  });
+
   it('приватность: в сохранённом нет «секрет», query, Bearer, kppd_, JWT, длинного hex', async () => {
     const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
     const hex = 'a3f9c2e17b4d8f0e6a5c3b2d1e0f9a8b7c6d5e4f';
