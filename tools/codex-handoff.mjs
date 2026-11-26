@@ -58,11 +58,12 @@ function factsFromSummary(summary) {
     start: summary.date, completed: start + summary.durationMs, durationMs: summary.durationMs, quick: summary.quick, steps };
 }
 
-function readLatest(root) {
+function readRun(root, id) {
+  if (id !== undefined && (typeof id !== 'string' || !RUN_ID.test(id))) return { issue: 'Недействительный идентификатор прогона.' };
   const runs = path.join(root, RUNS);
   if (!fs.existsSync(runs)) return { issue: 'Локальных ночных прогонов пока нет.' };
   if (fs.realpathSync(runs) !== runs) return { issue: 'Каталог прогонов перенаправлен.' };
-  const id = fs.readdirSync(runs, { withFileTypes: true }).filter(entry => RUN_ID.test(entry.name))
+  id ??= fs.readdirSync(runs, { withFileTypes: true }).filter(entry => RUN_ID.test(entry.name))
     .map(entry => entry.name).sort().at(-1);
   if (!id) return { issue: 'Локальных ночных прогонов пока нет.' };
   const file = path.join(runs, id, 'summary.json');
@@ -118,11 +119,11 @@ function formatReport({ id, facts }, state, now) {
   return { reportId, report: `# Сводка для Codex ${reportId}\n\n${body}\n` };
 }
 
-export function runHandoff(root = ROOT, now = Date.now()) {
+export function runHandoff(root = ROOT, now = Date.now(), runId) {
   const realRoot = fs.realpathSync(root);
-  const latest = readLatest(realRoot);
-  if (!latest.facts) return { issue: latest.issue };
-  return formatReport(latest, gitState(realRoot, latest.facts.testedCommit), now);
+  const run = readRun(realRoot, runId);
+  if (!run.facts) return { issue: run.issue };
+  return formatReport(run, gitState(realRoot, run.facts.testedCommit), now);
 }
 
 export function persistHandoff(root, result) {

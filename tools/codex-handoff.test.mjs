@@ -77,6 +77,10 @@ test('новый незавершённый прогон не подменяет
   const dir = path.join(root, 'tools/.night/runs', newer);
   fs.mkdirSync(dir);
   assert.match(runHandoff(root, NOW).issue, /ещё нет итогового/);
+  const own = runHandoff(root, NOW, RUN);
+  assert.ok(own.report.includes(`runs/${RUN}/summary.json`));
+  assert.match(runHandoff(root, NOW, '2026-11-26_220000').issue, /ещё нет итогового/);
+  assert.match(runHandoff(root, NOW, '../outside').issue, /Недействительный идентификатор/);
   save('x'.repeat(256 * 1024 + 1), newer);
   assert.match(runHandoff(root, NOW).issue, /Размер/);
   save({ ...summary, steps: [...summary.steps, { step: SECRET }] }, newer);
@@ -88,4 +92,5 @@ test('новый незавершённый прогон не подменяет
   fs.rmdirSync(dir);
   fs.symlinkSync(path.join(root, 'tools/.night/runs', RUN), dir, process.platform === 'win32' ? 'junction' : 'dir');
   assert.match(runHandoff(root, NOW).issue, /перенаправлен/);
+  assert.deepEqual(runHandoff(root, NOW, RUN), own);
 });

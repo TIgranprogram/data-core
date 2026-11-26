@@ -1,6 +1,7 @@
 // node --test tools/night.test.mjs — защита стенда, замок, разбор итогов. Без Docker.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -228,6 +229,42 @@ test('T23: lifecycle не содержит удаления томов/колл�
   assert.doesNotMatch(source.slice(source.indexOf('export async function cmdNight')), /pushRunToControl\(/);
   const compose = fs.readFileSync(new URL('night/compose.yml', import.meta.url), 'utf8');
   assert.doesNotMatch(compose, /container_name:\s*dcnight|name:\s*dcnight/);
+});
+
+test('ранний отказ ночной подготовки оставляет локальную сводку, исходный код выхода и свободный замок', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dc-night-handoff-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const files = ['tools/night.mjs', 'tools/night-stand.mjs', 'tools/night-owner.mjs', 'tools/codex-handoff.mjs', 'pult/process.mjs'];
+  for (const file of files) {
+    fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    fs.copyFileSync(new URL('../' + file, import.meta.url), path.join(root, file));
+  }
+  execFileSync('git', ['init', '-q', '.'], { cwd: root, windowsHide: true });
+  const result = execFileSync(process.execPath, ['--input-type=module', '-e', `
+    import { cmdNight } from './tools/night.mjs';
+    const lines = [];
+    let requests = 0;
+    globalThis.fetch = async () => { requests++; throw new Error('unexpected request'); };
+    const code = await cmdNight({ quick: true }, { say: line => lines.push(line), log() {} });
+    console.log(JSON.stringify({ code, lines, requests }));
+  `], { cwd: root, encoding: 'utf8', windowsHide: true, timeout: 15000 });
+  const { code, lines, requests } = JSON.parse(result);
+  assert.equal(code, 2);
+  assert.equal(requests, 0);
+  assert.equal(fs.existsSync(path.join(root, 'tools/.night/lock.json')), false);
+  const runs = fs.readdirSync(path.join(root, 'tools/.night/runs'));
+  assert.equal(runs.length, 1);
+  const summary = JSON.parse(fs.readFileSync(path.join(root, 'tools/.night/runs', runs[0], 'summary.json'), 'utf8'));
+  assert.equal(summary.commit, '?');
+  assert.deepEqual(summary.steps.map(({ step, code }) => [step, code]), [['tool', 2]]);
+  const prefix = 'Сводка для Codex сохранена в ';
+  const reportPath = lines.find(line => line.startsWith(prefix))?.slice(prefix.length);
+  assert.match(reportPath, /^tools\/logs\/codex-handoff\/[a-f0-9]{16}\.md$/);
+  assert.ok(fs.readFileSync(path.join(root, 'tools/.night/runs', runs[0], 'night.log'), 'utf8').includes(prefix + reportPath));
+  const report = fs.readFileSync(path.join(root, reportPath), 'utf8');
+  assert.ok(report.includes(`runs/${runs[0]}/summary.json`));
+  assert.match(report, /состав прогона неполный/);
+  assert.doesNotMatch(report, /не удалось определить проверяемый origin\/main/);
 });
 
 test('T23: настоящий boot использует только новую пустую DB, loopback ports и restore без удаления', async (t) => {

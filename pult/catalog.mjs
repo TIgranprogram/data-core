@@ -70,7 +70,7 @@ export const COMMANDS = [
   { id: 'local-checks-last', section: 'check', sub: 'Тесты кода', title: 'Итог локальной проверки', risk: 'read', time: '1 с', run: { node: ['tools/local-checks.mjs', '--last'], soft: true },
     hint: 'Показывает итог и путь к единому отчёту последнего запуска. Тесты повторно не выполняются.' },
   { id: 'codex-handoff', section: 'check', sub: 'Тесты кода', title: 'Сводка ночных проверок для Codex', risk: 'read', time: '1 с', run: { node: ['tools/codex-handoff.mjs'], soft: true },
-    hint: 'Собирает проверяемые факты последнего прогона и сохраняет сводку на этом компьютере.' },
+    hint: 'Собирает факты последнего запуска по запросу. Ночной прогон также сохраняет эту сводку сам.' },
   // ---------- Каждый день ----------
   { id: 'day-start', section: 'day', extra: true, sub: 'Каждый день', title: 'Начало работы', risk: 'read', time: '20 с', needs: ['bash'], run: dc('start'), every: 1, why: 'Первая кнопка за день: ошибки сайта и состояние кода',
     hint: 'Первая кнопка за день. Ветка, отставание от GitHub, незакоммиченное и ошибки сайта за сутки.' },

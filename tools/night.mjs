@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import net from 'node:net';
 import { createNightStand } from './night-stand.mjs';
 import { DEVELOPMENT_PORTS, newStandRun } from './night-owner.mjs';
+import { persistHandoff, runHandoff } from './codex-handoff.mjs';
 import { terminateProcess } from '../pult/process.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -303,7 +304,7 @@ function prepareWorktree(ctx) {
   if (!fs.existsSync(srcNm)) return { error: 'нет backend/node_modules в основной папке — выполните pnpm install --frozen-lockfile' };
   if (!fs.existsSync(nm)) fs.symlinkSync(srcNm, nm, process.platform === 'win32' ? 'junction' : 'dir');
   if (fs.realpathSync(nm) !== fs.realpathSync(srcNm)) return { error: 'backend/node_modules ночной копии не указывает на зависимости основной папки' };
-  return { commit: commit.slice(0, 8) };
+  return { commit };
 }
 
 export async function cmdNight({ quick = false } = {}, ctx) {
@@ -311,19 +312,38 @@ export async function cmdNight({ quick = false } = {}, ctx) {
   assertStandSafe();
   const lk = acquireLock(LOCK);
   if (!lk.ok) { ctx.say(`Ночной прогон уже идёт (${lk.lock.host}, pid ${lk.lock.pid}, с ${new Date(lk.lock.start).toLocaleString('ru-RU')}) — отказываюсь`); return 2; }
-  const runDir = path.join(NIGHT_DIR, 'runs', stamp());
-  fs.mkdirSync(runDir, { recursive: true });
+  try {
+    return await runNight(quick, ctx, t0);
+  } finally {
+    releaseLock(LOCK);
+  }
+}
+
+async function runNight(quick, ctx, t0) {
+  const id = stamp(new Date(t0));
+  const runDir = path.join(NIGHT_DIR, 'runs', id);
+  try {
+    fs.mkdirSync(path.dirname(runDir), { recursive: true });
+    fs.mkdirSync(runDir);
+  } catch {
+    ctx.say('Не удалось создать отдельный каталог для ночного прогона.');
+    return 2;
+  }
   const runLog = [];
   const slog = (s) => { runLog.push(String(s)); ctx.log(s); };
   const sctx = { log: slog, say: ctx.say };
   const steps = [];
   let commit = '?';
   let run = null;
+  let preparationFailed = false;
   try {
     const wt = prepareWorktree(ctx);
-    if (wt.error) { ctx.say('Сбой: ' + wt.error); return 2; }
+    if (wt.error) {
+      preparationFailed = true;
+      throw new Error(wt.error);
+    }
     commit = wt.commit;
-    ctx.say(`Ночной прогон${quick ? ' (быстрый)' : ''}: origin/main ${commit}, worktree tools/.night/worktree`);
+    ctx.say(`Ночной прогон${quick ? ' (быстрый)' : ''}: origin/main ${commit.slice(0, 8)}, worktree tools/.night/worktree`);
     const be = path.join(WORKTREE, 'backend');
     const baseEnv = (() => { const { MONGO_URI, MONGO_DB, MONGO_DB_TEST, MONGO_PORT: _p, MONGO_ROOT_PASSWORD, ...rest } = process.env; return rest; })();
     const doStep = async (name, cmd, args, o) => {
@@ -371,14 +391,24 @@ export async function cmdNight({ quick = false } = {}, ctx) {
     steps.push(makeStep('tool', { code: 2, ms: 0, out: e.message }, commit));
   } finally {
     if (run) { try { standDown(sctx, run); } catch (e) { ctx.say('Cleanup отказан, данные сохранены: ' + e.message); steps.push(makeStep('cleanup', { code: 2, ms: 0, out: e.message }, commit)); } }
-    releaseLock(LOCK);
   }
   const sum = summarize(steps);
   const summary = { date: new Date(t0).toISOString(), commit, quick, durationMs: Date.now() - t0, ...sum, steps };
-  fs.writeFileSync(path.join(runDir, 'summary.json'), JSON.stringify(summary, null, 2));
+  const summaryFile = path.join(runDir, 'summary.json');
+  fs.writeFileSync(summaryFile + '.tmp', JSON.stringify(summary, null, 2), { flag: 'wx' });
+  fs.renameSync(summaryFile + '.tmp', summaryFile);
+  let handoffMessage;
+  try {
+    const report = runHandoff(ROOT, Date.now(), id);
+    handoffMessage = report.issue || 'Сводка для Codex сохранена в ' + persistHandoff(ROOT, report);
+  } catch {
+    handoffMessage = 'Не удалось сохранить локальную сводку для Codex.';
+  }
+  slog(handoffMessage);
   fs.writeFileSync(path.join(runDir, 'night.log'), runLog.join('\n') + '\n');
+  ctx.say(handoffMessage);
   for (const s of steps) ctx.say(stepLine(s));
-  ctx.say('Итог сохранён локально; live production transport не вызывается.');
+  ctx.say('Итог сохранён локально.');
   ctx.say(`Итог: зелёных ${sum.green}, красных ${sum.red} за ${Math.round(summary.durationMs / 1000)} с · ${path.relative(ROOT, runDir).replace(/\\/g, '/')}/summary.json`);
-  return sum.red ? 1 : 0;
+  return preparationFailed ? 2 : sum.red ? 1 : 0;
 }
