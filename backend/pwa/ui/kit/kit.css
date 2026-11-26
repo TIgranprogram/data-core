@@ -1595,6 +1595,14 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .pg-worker .pg-worker-operation-matrix .pg-worker-op-qty { width: 24%; }
 .pg-worker .pg-worker-operation-matrix strong { font-size: var(--fs); font-weight: 700; }
 .pg-worker .pg-worker-operation-group { min-width: 0; }
+.pg-worker .pg-worker-confirm { display: grid; gap: var(--s2); padding: var(--s2); margin-block-start: var(--s2); border: 1px solid var(--primary); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: var(--fs-sm); white-space: normal; text-align: start; }
+.pg-worker .pg-worker-confirm .k-toolbar { flex-wrap: wrap; }
+.pg-worker .pg-worker-new { text-align: center; }
+.pg-worker .pg-worker-new::placeholder { color: var(--muted); font-weight: 600; }
+.pg-worker .pg-worker-new-error { padding: 0 var(--s1) var(--s1); color: var(--danger); font-size: var(--fs-sm); line-height: 1.25; }
+.pg-worker [data-worker-entry] { margin-block: var(--s2); }
+.pg-worker [data-worker-entry] .k-fieldrow { align-items: end; }
+.pg-worker [data-worker-entry] .field { min-width: 0; }
 .pg-worker .pg-worker-detail-note { display: grid; gap: var(--s1); margin-block: var(--s2); }
 .pg-worker .pg-worker-history { margin-block-start: var(--s2); font-size: var(--fs); }
 .pg-worker .pg-worker-detail .k-row { white-space: normal; }
