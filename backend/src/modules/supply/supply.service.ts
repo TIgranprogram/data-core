@@ -498,7 +498,40 @@ export class SupplyService {
     return f;
   }
 
-  async create(dto: SupplyInput, userId?: string, scope?: StockScope | null) {
+  /** C271: ключ намерения не зависит от изменяемого остатка уже созданной заявки. */
+  async createStockRequest(id: string, dto: { qty: number; clientUid: string }, userId: string | undefined, scope: StockScope | null) {
+    oid(id, 'позиции');
+    const actorId = String(oid(userId ?? '', 'автора'));
+    const material = await this.stock.activeItem(id, scope);
+    await this.assertRequestApi();
+    if (typeof dto.qty !== 'number' || !Number.isFinite(dto.qty) || dto.qty <= 0) throw new BadRequestException('Укажите положительное количество');
+    const unit = String(material.unit ?? '').trim();
+    if (!unit) throw new BadRequestException('У позиции не указана единица измерения — заполните её в каталоге');
+    const uuid = dto.clientUid.toLowerCase();
+    const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+    const _id = new Types.ObjectId(hash(`C271:${actorId}:${uuid}`).slice(0, 24));
+    const fingerprint = `c271:${hash(JSON.stringify({ actorId, uuid, materialId: String(oid(id, 'позиции')), qty: dto.qty, unit }))}`;
+    const present = (doc: Record<string, unknown>) => {
+      if (doc.clientUid !== fingerprint) throw new ConflictException('Этот ключ отправки уже использован для другой заявки');
+      return { id: String(doc._id ?? doc.id), num: doc.num, materialId: String(doc.materialId), qty: doc.qty, unit: doc.unit, status: doc.status };
+    };
+    const previous = () => this.model.findOne({ _id }).setOptions({ includeSoftDeleted: true }).lean().exec();
+    const existing = await previous();
+    if (existing) return present(existing as unknown as Record<string, unknown>);
+    const input = { materialId: id, title: material.name, unit, qty: dto.qty, clientUid: fingerprint, requestedBy: actorId };
+    await this.assertNew(input, scope);
+    try {
+      return present(await this.create(input, actorId, scope, _id));
+    } catch (error) {
+      const duplicate = error as { code?: number; keyPattern?: Record<string, number>; keyValue?: Record<string, unknown> };
+      if (duplicate.code !== 11000 || !(duplicate.keyPattern?._id === 1 || String(duplicate.keyValue?._id ?? '') === String(_id))) throw error;
+      const winner = await previous();
+      if (!winner) throw error;
+      return present(winner as unknown as Record<string, unknown>);
+    }
+  }
+
+  async create(dto: SupplyInput, userId?: string, scope?: StockScope | null, ownerId?: Types.ObjectId) {
     await this.assertRequestApi();
     if (dto.clientUid) {
       const dup = await this.model.findOne({ clientUid: dto.clientUid }).lean().exec();
@@ -520,6 +553,7 @@ export class SupplyService {
       fields.num = await this.counters.nextSeq('SupplyRequest', 'N');
     }
     const document = {
+      ...(ownerId ? { _id: ownerId } : {}),
       status: 'requested', priority: 'normal', qty: 1, paid: false, requestDate: todayUtc(),
       ...Object.fromEntries(Object.entries(fields).filter(([k, v]) => v !== undefined && k !== 'sheetExtra.invoiceType')),
       ...(fields['sheetExtra.invoiceType'] ? { sheetExtra: { invoiceType: fields['sheetExtra.invoiceType'] } } : {}),

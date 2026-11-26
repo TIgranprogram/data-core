@@ -2757,39 +2757,9 @@
         ]
       }
     },
-    "/api/stock/warehouses": {
+    "/api/stock/items/{id}/reservations": {
       "get": {
-        "operationId": "StockController_warehouses",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Склад"
-        ]
-      },
-      "post": {
-        "operationId": "StockController_createWarehouse",
-        "description": "C260. Флаг c260.warehouses.api выключен — 409, маршрут остаётся.",
-        "responses": {
-          "201": {
-            "description": ""
-          },
-          "409": {
-            "description": "флаг выключен или нет единственного склада по умолчанию"
-          }
-        },
-        "tags": [
-          "Склад"
-        ]
-      }
-    },
-    "/api/stock/warehouses/{id}": {
-      "patch": {
-        "operationId": "StockController_patchWarehouse",
-        "description": "C260: только известные поля, $set.",
+        "operationId": "StockController_itemReservations",
         "parameters": [
           {
             "name": "id",
@@ -2808,10 +2778,78 @@
         "tags": [
           "Склад"
         ]
+      }
+    },
+    "/api/stock/warehouses": {
+      "get": {
+        "operationId": "StockController_warehouses",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      },
+      "post": {
+        "operationId": "StockController_createWarehouse",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWarehouseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
+    "/api/stock/warehouses/{id}": {
+      "patch": {
+        "operationId": "StockController_patchWarehouse",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchWarehouseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
       },
       "delete": {
         "operationId": "StockController_removeWarehouse",
-        "description": "C260: снятие, deletedAt.",
         "parameters": [
           {
             "name": "id",
@@ -3140,7 +3178,6 @@
     "/api/stock/movements/{id}/correct": {
       "post": {
         "operationId": "StockController_correctMovement",
-        "description": "C263. Флаг c263.stock.move.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -3174,7 +3211,6 @@
     "/api/stock/movements/{id}/cancel": {
       "post": {
         "operationId": "StockController_cancelMovement",
-        "description": "C263. Флаг c263.stock.move.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -3428,7 +3464,6 @@
     "/api/stock/reserve-list": {
       "post": {
         "operationId": "StockController_reserveList",
-        "description": "C264. Флаг c264.stock.reserve.api выключен — 409, маршрут остаётся.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3490,7 +3525,6 @@
     "/api/stock/reservations/issue": {
       "post": {
         "operationId": "StockController_issueReservations",
-        "description": "C264. Выдача по брони. Флаг c264.stock.reserve.api выключен — 409.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3538,7 +3572,6 @@
     "/api/stock/reservations/issue-order": {
       "post": {
         "operationId": "StockController_issueOrder",
-        "description": "C264. Выдача по заказу. Флаг c264.stock.reserve.api выключен — 409. salesOrderId не подменяется.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3563,7 +3596,6 @@
     "/api/stock/reservations/{id}": {
       "patch": {
         "operationId": "StockController_updateReservation",
-        "description": "C264. Флаг c264.stock.reserve.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -3597,7 +3629,6 @@
     "/api/stock/reservations/{id}/release": {
       "post": {
         "operationId": "StockController_releaseReservation",
-        "description": "C264. Снятие брони. Флаг c264.stock.reserve.api выключен — 409.",
         "parameters": [
           {
             "name": "id",
@@ -3621,7 +3652,6 @@
     "/api/stock/reservations/group/{batchId}/release": {
       "post": {
         "operationId": "StockController_releaseGroup",
-        "description": "C264. Снятие группы. Флаг c264.stock.reserve.api выключен — 409.",
         "parameters": [
           {
             "name": "batchId",
@@ -3669,7 +3699,6 @@
     "/api/stock/spec/apply": {
       "post": {
         "operationId": "StockController_specApply",
-        "description": "C264. Запись спецификации в брони. Флаг c264.stock.reserve.api выключен — 409. Просмотр флаг не смотрит.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3694,7 +3723,6 @@
     "/api/stock/batch": {
       "post": {
         "operationId": "StockController_batch",
-        "description": "C263. Флаг c263.stock.move.api выключен — 409, маршрут остаётся.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -3719,7 +3747,6 @@
     "/api/stock/batch/{batchId}/cancel": {
       "post": {
         "operationId": "StockController_cancelBatch",
-        "description": "C263. Отмена пакета. Флаг c263.stock.move.api выключен — 409.",
         "parameters": [
           {
             "name": "batchId",
@@ -3814,7 +3841,6 @@
     "/api/stock/items/{id}/offcut": {
       "post": {
         "operationId": "StockController_offcut",
-        "description": "C263. Флаг c263.stock.move.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -3848,7 +3874,6 @@
     "/api/stock/items/{id}/move": {
       "post": {
         "operationId": "StockController_move",
-        "description": "C263. Остаток in/out/adjust/count — флаг c263.stock.move.api. Бронь reserve/unreserve — флаг c264. Приход заявки флаг движения не смотрит.",
         "parameters": [
           {
             "name": "id",
@@ -4136,6 +4161,39 @@
         },
         "tags": [
           "Склады (зоны доступа)"
+        ]
+      }
+    },
+    "/api/stock/items/{id}/request": {
+      "post": {
+        "operationId": "SupplyStockRequestController_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplyStockRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Склад"
         ]
       }
     },
@@ -5503,7 +5561,6 @@
       },
       "post": {
         "operationId": "SupplyController_create",
-        "description": "C262. Флаг c262.supply.requests.api выключен — 409, маршрут остаётся.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -5643,7 +5700,6 @@
       },
       "patch": {
         "operationId": "SupplyController_update",
-        "description": "C262. Флаг c262.supply.requests.api выключен — 409, маршрут остаётся. Приход этим маршрутом не ставится.",
         "parameters": [
           {
             "name": "id",
@@ -5675,7 +5731,6 @@
       },
       "delete": {
         "operationId": "SupplyController_remove",
-        "description": "C262. Флаг c262.supply.requests.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -5817,7 +5872,6 @@
     "/api/supply/requests/{id}/receive": {
       "post": {
         "operationId": "SupplyController_receive",
-        "description": "C265. Флаг c265.supply.receive.api выключен — 409. Карточка заявки — флаг c262.",
         "parameters": [
           {
             "name": "id",
@@ -5851,7 +5905,6 @@
     "/api/supply/requests/{id}/rollback-receipt": {
       "post": {
         "operationId": "SupplyController_rollbackReceipt",
-        "description": "C265. Откат прихода. Флаг c265.supply.receive.api выключен — 409, в том числе план.",
         "parameters": [
           {
             "name": "id",
@@ -8898,7 +8951,6 @@
       },
       "post": {
         "operationId": "MaterialController_create",
-        "description": "C261. Флаг c261.materials.card.api выключен — 409, маршрут остаётся.",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -9186,7 +9238,6 @@
       },
       "patch": {
         "operationId": "MaterialController_update",
-        "description": "C261. Флаг c261.materials.card.api выключен — 409, маршрут остаётся. Остаток в теле не пишется.",
         "parameters": [
           {
             "name": "id",
@@ -9218,7 +9269,6 @@
       },
       "delete": {
         "operationId": "MaterialController_remove",
-        "description": "C261. Флаг c261.materials.card.api выключен — 409, маршрут остаётся.",
         "parameters": [
           {
             "name": "id",
@@ -9266,7 +9316,6 @@
     "/api/materials/{id}/duplicate": {
       "post": {
         "operationId": "MaterialController_duplicate",
-        "description": "C261. Копия карточки. Флаг c261.materials.card.api выключен — 409.",
         "parameters": [
           {
             "name": "id",
@@ -21716,6 +21765,96 @@
         "type": "object",
         "properties": {}
       },
+      "CreateWarehouseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Название склада"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "main",
+              "branch",
+              "transit",
+              "production",
+              "other"
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Ровно один склад по умолчанию"
+          },
+          "zoneNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "PatchWarehouseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "main",
+              "branch",
+              "transit",
+              "production",
+              "other"
+            ]
+          },
+          "address": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Ровно один склад по умолчанию"
+          },
+          "zoneNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "StockCorrectDto": {
         "type": "object",
         "properties": {
@@ -22365,6 +22504,10 @@
         }
       },
       "UpdateStockZoneDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SupplyStockRequestDto": {
         "type": "object",
         "properties": {}
       },

@@ -66,6 +66,12 @@ export class StockService {
   purchaseSuppliers(materialIds: Types.ObjectId[]) { return this.search.purchaseSuppliers(materialIds); }
   categorySummary(scope: StockScope | null, held = false) { return this.search.categorySummary(scope, held); }
   getItem(materialId: string, scope?: StockScope | null) { return this.search.getItem(materialId, scope); }
+  /** C271: существование живой позиции обязательно и при полном доступе. */
+  async activeItem(materialId: string, scope: StockScope | null) {
+    const item = await this.getItem(materialId);
+    await this.assertInScope([materialId], scope);
+    return item;
+  }
 
   // --- карточка позиции
   findMaterialByName(name: string) { return this.catalog.findMaterialByName(name); }
@@ -111,6 +117,7 @@ export class StockService {
   // --- брони
   reserveList(dto: Parameters<StockReservationsService['reserveList']>[0], userId?: string) { return this.resv.reserveList(dto, userId); }
   listReservations(scope: StockScope | null) { return this.resv.listReservations(scope); }
+  itemReservations(id: string, q: { page: number; limit: number }, scope: StockScope | null) { return this.resv.itemReservations(id, q, scope); }
   assertReservationsInScope(q: { ids?: string[]; salesOrderId?: string }, scope: StockScope | null) { return this.resv.assertReservationsInScope(q, scope); }
   releaseReservation(id: string, externalSession?: ClientSession) { return this.resv.releaseReservation(id, externalSession); }
   releaseGroup(batchId: string, scope: StockScope | null) { return this.resv.releaseGroup(batchId, scope); }

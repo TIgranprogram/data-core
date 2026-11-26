@@ -14,6 +14,7 @@ import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
 import { narrowToZone, type StockScope } from '../../common/stock-scope';
 import { StockZonesService } from '../stock-zones/stock-zones.service';
 import { StockService } from './stock.service';
+import { StockItemReservationsDto } from './stock-item-reservations.dto';
 
 /**
  * Склад на общих коллекциях CRM (materials + storageitems + stockmovements + reservations).
@@ -26,6 +27,12 @@ import { StockService } from './stock.service';
 @Controller('stock')
 export class StockController {
   constructor(private readonly stock: StockService, private readonly zones: StockZonesService) {}
+
+  @Get('items/:id/reservations')
+  @Roles('admin', 'director', 'manager', 'user')
+  itemReservations(@Param('id') id: string, @Query() q: StockItemReservationsDto, @StockScoped() scope: StockScope | null) {
+    return this.stock.itemReservations(id, q, scope);
+  }
 
   @Get('warehouses')
   @Roles('admin', 'director', 'manager', 'user')

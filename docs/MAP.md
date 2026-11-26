@@ -1,5 +1,7 @@
 # MAP — карта кода (модуль → маршруты → коллекции)
 
+**C271 — контекст материала в рабочей подстроке.** `POST /stock/items/:id/request` (SupplyStockRequestController в SupplyModule, `admin|manager` + StockScope + раздел stock) пишет узкую `supplyrequests` через `SupplyService.createStockRequest`; проверка флага `c262.supply.requests.api`, strict UUID `clientUid`, ответ без цены/поставщика/даты, идемпотентность по `(actor,UUID,material)`; старый `/supply/requests` у stock-роли закрыт. `GET /stock/items/:id/reservations` (StockService.itemReservations) —.page/.limit (1…100), адресные активные брони materialId в рамках scope, `total` по конкретному materialId, `salesOrder*` и `hanging` только из заказов; старый общий `/stock/reservations` не изменён. DTO: `supply-stock-request.dto.ts`, `stock-item-reservations.dto.ts`. Тесты: `supply.service.spec.ts` (25), `stock-reservations.service.spec.ts`, `worker-stock-context.e2e-spec.ts`. [Архитектура](crew/C271-worker-stock-context/ARCHITECTURE.md).
+
 **C244 — фото позиции из связанного изделия.** Общий batchresolver common/product-photos.ts используется common/photos.ts loadLinePhotos и прежним совместимым adapter showcase/showcase-photos.ts: own income→явные catalog photoIds→live passportoverview→legacyoverview→null. Сохраняет safe/live-проверки, без N+1/записи photoIds/новых DTO. Динамические detail/lookup получают тот же источник, что каталог; productionlist намеренно остаётся coverPhoto:null(C017), linesLookup и frozenarchive не менялись. [План/границы](crew/C244-order-product-photo/ARCH-PLAN.md).
 
 

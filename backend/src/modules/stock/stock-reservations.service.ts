@@ -36,6 +36,33 @@ export class StockReservationsService {
     if (!on) throw new ConflictException(STOCK_RESERVE_API_OFF);
   }
 
+  /** C271: материал и доступ проверены до адресной пагинации; чужие строки batch не читаются. */
+  async itemReservations(id: string, q: { page: number; limit: number }, scope: StockScope | null) {
+    const materialId = oid(id, 'позиции');
+    const material = await this.materials.findOne({ _id: materialId, deletedAt: null }, { unit: 1, categoryId: 1 }).lean().exec();
+    if (!material) throw new NotFoundException('Позиция не найдена');
+    if (!inScope(scope, { id: materialId, categoryId: material.categoryId })) throw new ForbiddenException('Эта позиция не из вашего склада');
+    const filter = { materialId, status: 'active', isActive: true, deletedAt: null };
+    const [docs, total] = await Promise.all([
+      this.reservations.find(filter).sort({ createdAt: -1, _id: -1 }).skip((q.page - 1) * q.limit).limit(q.limit).lean().exec(),
+      this.reservations.countDocuments(filter).exec(),
+    ]);
+    // Исторически удалённый заказ нужен только для подписи и предупреждения.
+    const orders = await this.connection.db!.collection('salesorders').find({ _id: { $in: docs.map(d => d.salesOrderId).filter(Boolean) as Types.ObjectId[] } },
+      { projection: { orderNo: 1, title: 1, stage: 1, deletedAt: 1 } }).toArray();
+    const byId = new Map(orders.map(order => [String(order._id), order]));
+    const items = docs.map(doc => {
+      const order = byId.get(String(doc.salesOrderId));
+      return { id: String(doc._id), materialId: String(materialId), qty: doc.qty, unit: material.unit ?? '',
+        groupName: doc.groupName || null, orderId: doc.orderId ?? '',
+        salesOrderId: doc.salesOrderId ? String(doc.salesOrderId) : null,
+        salesOrderLineId: doc.salesOrderLineId ? String(doc.salesOrderLineId) : null,
+        salesOrder: order ? [order.orderNo, order.title].filter(Boolean).join(' · ') || null : null,
+        hanging: hangingReason(order, doc.salesOrderId) };
+    });
+    return { items, total, page: q.page, limit: q.limit };
+  }
+
   /**
    * Бронь по списку (TASKS МВ.4): спецификация конструктора → бронь на складе под названием (и заказом).
    * Каждая строка бронирует min(нужно, свободно); чего не хватает — в ответе `short` (для «Заказать недостающее»).

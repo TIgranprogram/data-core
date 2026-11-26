@@ -14,6 +14,7 @@ import { MaterialModule } from '../material/material.module';
 import { StockModule } from '../stock/stock.module';
 import { PhotosModule } from '../photos/photos.module';
 import { SupplyController } from './supply.controller';
+import { SupplyStockRequestController } from './supply-stock-request.controller';
 import { SupplyRequest, SupplyRequestSchema } from './supply-request.schema';
 import { SupplierItem, SupplierItemSchema } from './supplier-item.schema';
 import { SupplyInvoice, SupplyInvoiceSchema } from './supply-invoice.schema';
@@ -52,7 +53,7 @@ import { SupplierCatalogService } from './supplier-catalog.service';
       { name: SupplierContract.name, schema: SupplierContractSchema },
     ]),
   ],
-  controllers: [SupplyIntakeReviewController, SupplyInvoiceIntakeController, SupplyController, SupplierContractController],
+  controllers: [SupplyStockRequestController, SupplyIntakeReviewController, SupplyInvoiceIntakeController, SupplyController, SupplierContractController],
   providers: [SupplyUndatedPaymentsService, SupplyInvoicePaymentsService, SupplyService, SupplierExcelService, SupplierCatalogService, SupplyInvoiceService, SupplyInvoiceIntakeService, SupplyIntakeReviewService, ReviewUploadGuard, SupplierContractService],
   exports: [SupplyService],
 })
