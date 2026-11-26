@@ -1,0 +1,41 @@
+name: Project guard
+
+# Обязательность результата для main задаёт правило защиты ветки на GitHub.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  project-guard:
+    name: Project guard
+    if: github.event_name != 'push' || github.event.deleted == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # В pull_request это пробное слияние, в push — опубликованный SHA.
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.0'
+          package-manager-cache: false
+      - name: Установить зависимости проверок
+        run: npm exec --yes --ignore-scripts --package=pnpm@9.15.0 -- pnpm --dir backend install --dev --frozen-lockfile --ignore-scripts
+      - name: Проверить содержимое
+        shell: bash
+        run: |
+          if [[ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]]; then
+            echo 'Checkout отличается от SHA события.' >&2
+            exit 1
+          fi
+          # При создании main применяется та же проверка дерева. Команда --range
+          # доступна для истории выпуска, где нужны отпечатки и для merge-коммитов.
+          node tools/project-guard.mjs

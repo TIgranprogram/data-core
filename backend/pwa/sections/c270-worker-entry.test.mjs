@@ -93,7 +93,7 @@ async function fixture(t, { kind = 'pipe', readOnly = false, receive = false, ma
 const writes = calls => calls.filter(call => call.method !== 'GET');
 const confirm = page => page.locator('[data-worker-count-confirm]');
 test('количество: Escape отменяет; Enter и Tab сразу сохраняют целые штуки в исходной единице', async t => {
-  const { page, calls, errors } = await fixture(t, { state: { delayCount: 120 } });
+  const { page, calls, items, errors } = await fixture(t, { state: { delayCount: 120 } });
   const input = page.locator('[data-material-id="first"] input.pg-in');
   await input.fill('7'); await input.press('Escape'); assert.equal(writes(calls).length, 0); assert.equal(await input.inputValue(), '2');
   await input.fill('3'); await input.press('Enter');
@@ -101,8 +101,11 @@ test('количество: Escape отменяет; Enter и Tab сразу с�
   assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'first', qty: 18, expected: 12 });
   assert.equal(writes(calls).length, 1);
   const response = page.waitForResponse('**/api/stock/batch');
-  await input.fill('0'); await input.press('Tab'); await response;
+  await input.fill('0'); await input.press('Tab');
+  assert.equal((await response).ok(), true);
+  await page.waitForFunction(() => document.querySelector('[data-material-id="first"] .pg-worker-zero input')?.value === '0');
   assert.deepEqual(writes(calls)[1].body.lines, [{ materialId: 'first', qty: 0, expected: 18 }]);
+  assert.equal(items.find(item => item.id === 'first').quantity, 0);
   assert.equal(await confirm(page).count(), 0); assert.deepEqual(errors, []);
 });
 
@@ -198,6 +201,28 @@ test('пустая координата: createOnly с zone, три трубы �
   assert.equal(created[0].query.zoneId, 'zone'); assert.equal(created[0].body.categoryId, 'pipe-cat'); assert.equal(created[0].body.unit, 'м');
   assert.deepEqual(created[0].body.dims, { width: 60, height: 20, thickness: 2, length: 12000 });
   assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines[0]), Array(2).fill({ materialId: 'created', qty: 36, expected: 0 }));
+  assert.deepEqual(errors, []);
+});
+
+test('пустая координата: после сбоя повтор с нулём сверяет остаток и оставляет конфликт видимым', async t => {
+  const state = { failCount: true }, { page, calls, items, errors } = await fixture(t, { state });
+  const cell = page.locator('[data-worker-create="cell"][title*="60×20×2"][title$="12 м"]').first();
+  await cell.fill('3'); await cell.press('Enter');
+  await cell.locator('..').getByText('Материал создан, количество не сохранено.', { exact: false }).waitFor();
+  const created = items.find(item => item.id === 'created');
+  created.quantity = 12;
+  state.failCount = false;
+  await cell.fill('0'); await cell.press('Enter');
+  await cell.locator('..').getByText('Материал создан, количество не сохранено.', { exact: false }).waitFor();
+  assert.equal(await cell.inputValue(), '0');
+  assert.equal(await cell.getAttribute('data-saved'), null);
+  assert.deepEqual(writes(calls).map(call => call.path), ['/api/stock/items', '/api/stock/batch', '/api/stock/batch']);
+  assert.deepEqual(writes(calls)[2].body.lines, [{ materialId: 'created', qty: 0, expected: 0 }]);
+  assert.equal(created.quantity, 12);
+  await cell.press('Escape');
+  const actual = page.locator('[data-material-id="created"] input.pg-in');
+  await actual.waitFor();
+  assert.equal(await actual.inputValue(), '1');
   assert.deepEqual(errors, []);
 });
 

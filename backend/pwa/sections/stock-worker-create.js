@@ -106,6 +106,7 @@ export function workerCreate({ kind, getZone, host, changed }) {
       if (!zone?.id) throw new Error('Складская зона ещё не загружена. Повторите.');
       const key = input.dataset.workerKey;
       let entry = createdCells.get(key);
+      const retry = Boolean(entry);
       if (!entry) {
         const dto = workerCreateBody(context, kind, [{ id: context.categoryId, name: context.categoryName }]);
         const created = await api('/stock/items', { method: 'POST', query: { zoneId: zone.id }, body: dto });
@@ -115,7 +116,8 @@ export function workerCreate({ kind, getZone, host, changed }) {
       }
       try {
         const body = workerCountBody(entry.item, value, 'Трубы', kind);
-        if (body.lines[0].qty !== 0) await api('/stock/batch', { method: 'POST', body });
+        // После сбоя исходный ноль уже нельзя считать подтверждённым.
+        if (retry || body.lines[0].qty !== 0) await api('/stock/batch', { method: 'POST', body });
       } catch (error) {
         const action = entry.item.countMode === 'single' ? 'Enter — повторить. Escape — обновить таблицу.' : 'Откройте карточку материала для пересчёта.';
         throw new Error('Материал создан, количество не сохранено. ' + action, { cause: error });

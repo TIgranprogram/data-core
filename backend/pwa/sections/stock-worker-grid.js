@@ -52,7 +52,13 @@ function pipeCell(item, options, context, label) {
         error.hidden = true;
         await options.create.quick(context, input, text);
         input.value = '';
-      }, false, { onSaveError(failure) { error.textContent = failure.message; error.hidden = false; } });
+      }, false, { onSaveError(failure) {
+        error.textContent = failure.message;
+        error.hidden = false;
+        queueMicrotask(() => {
+          if (!error.hidden && document.activeElement === input) error.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        });
+      } });
       wholePieces(input, '—');
       input.classList.add('pg-worker-new');
       input.title = label;

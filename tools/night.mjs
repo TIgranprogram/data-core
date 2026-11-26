@@ -278,26 +278,32 @@ function stamp(d = new Date()) {
 function prepareWorktree(ctx) {
   const f = sh('git', ['fetch', '--quiet', 'origin', 'main'], { timeout: 90000 });
   if (f.code) ctx.say('git fetch не удался — беру последний известный origin/main');
+  const target = sh('git', ['rev-parse', '--verify', 'origin/main^{commit}']);
+  if (target.code) return { error: 'не удалось определить проверяемый origin/main' };
+  const commit = target.stdout.trim();
+  // node_modules берём из основной папки. Сравнение с её HEAD пропускало расхождение с nightly SHA.
+  const manifests = ['backend/package.json', 'backend/pnpm-lock.yaml'];
+  if (sh('git', ['diff', '--quiet', commit, '--', ...manifests]).code !== 0) {
+    return { error: 'package.json или pnpm-lock.yaml основной папки отличаются от проверяемого коммита; обновите checkout и его зависимости' };
+  }
   if (fs.existsSync(path.join(WORKTREE, '.git'))) {
-    const r = sh('git', ['checkout', '--force', '--detach', 'origin/main'], { cwd: WORKTREE });
+    const state = checkoutState(WORKTREE);
+    if (!state || state.dirty) return { error: 'ночной worktree содержит локальные изменения; проверьте git status' };
+    const r = sh('git', ['checkout', '--detach', commit], { cwd: WORKTREE });
     if (r.code) return { error: 'worktree: checkout — ' + r.out.trim().slice(0, 150) };
-    sh('git', ['clean', '-fdq', '-e', 'backend/node_modules'], { cwd: WORKTREE });
   } else {
     sh('git', ['worktree', 'prune']);
     fs.mkdirSync(NIGHT_DIR, { recursive: true });
-    const r = sh('git', ['worktree', 'add', '--detach', WORKTREE, 'origin/main']);
+    const r = sh('git', ['worktree', 'add', '--detach', WORKTREE, commit]);
     if (r.code) return { error: 'worktree add — ' + r.out.trim().slice(0, 150) };
   }
   // зависимости не ставим заново: junction на node_modules основной папки (на Windows права админа не нужны)
   const nm = path.join(WORKTREE, 'backend', 'node_modules');
   const srcNm = path.join(ROOT, 'backend', 'node_modules');
-  if (!fs.existsSync(nm)) {
-    if (!fs.existsSync(srcNm)) return { error: 'нет backend/node_modules в основной папке — выполни pnpm install' };
-    fs.symlinkSync(srcNm, nm, 'junction');
-  }
-  const commit = sh('git', ['rev-parse', '--short', 'HEAD'], { cwd: WORKTREE }).stdout.trim();
-  const same = sh('git', ['diff', '--quiet', 'HEAD', '--', 'backend/pnpm-lock.yaml'], { cwd: ROOT }).code === 0;
-  return { commit, lockSame: same };
+  if (!fs.existsSync(srcNm)) return { error: 'нет backend/node_modules в основной папке — выполните pnpm install --frozen-lockfile' };
+  if (!fs.existsSync(nm)) fs.symlinkSync(srcNm, nm, process.platform === 'win32' ? 'junction' : 'dir');
+  if (fs.realpathSync(nm) !== fs.realpathSync(srcNm)) return { error: 'backend/node_modules ночной копии не указывает на зависимости основной папки' };
+  return { commit: commit.slice(0, 8) };
 }
 
 export async function cmdNight({ quick = false } = {}, ctx) {
@@ -318,7 +324,6 @@ export async function cmdNight({ quick = false } = {}, ctx) {
     if (wt.error) { ctx.say('Сбой: ' + wt.error); return 2; }
     commit = wt.commit;
     ctx.say(`Ночной прогон${quick ? ' (быстрый)' : ''}: origin/main ${commit}, worktree tools/.night/worktree`);
-    if (!wt.lockSame) ctx.say('! pnpm-lock основной папки отличается от origin/main — зависимости могут не совпасть');
     const be = path.join(WORKTREE, 'backend');
     const baseEnv = (() => { const { MONGO_URI, MONGO_DB, MONGO_DB_TEST, MONGO_PORT: _p, MONGO_ROOT_PASSWORD, ...rest } = process.env; return rest; })();
     const doStep = async (name, cmd, args, o) => {
@@ -336,7 +341,7 @@ export async function cmdNight({ quick = false } = {}, ctx) {
     await doStep('design-lint', process.execPath, ['backend/scripts/design-lint.mjs'], { cwd: WORKTREE, timeoutMs: 3 * MIN });
 
     if (!quick) {
-      const tools = await doStep('tools-unit', process.execPath, ['--test', 'tools/dc.test.mjs', 'tools/night.test.mjs', ...fs.readdirSync(path.join(ROOT, 'pult', 'test')).filter((f) => f.endsWith('.test.mjs')).map((f) => 'pult/test/' + f)], { cwd: ROOT, timeoutMs: 5 * MIN });
+      const tools = await doStep('tools-unit', process.execPath, ['--test', 'tools/dc.test.mjs', 'tools/night.test.mjs', ...fs.readdirSync(path.join(WORKTREE, 'pult', 'test')).filter((f) => f.endsWith('.test.mjs')).map((f) => 'pult/test/' + f)], { cwd: WORKTREE, timeoutMs: 5 * MIN });
       if (!tools.ok) throw new Error('Safety unit не прошли; новый стенд не создаётся');
       assertStandSafe();
       run = newStandRun({ apiPort: await freePort(), mongoPort: await freePort() });
@@ -353,11 +358,11 @@ export async function cmdNight({ quick = false } = {}, ctx) {
         await doStep('smoke', process.execPath, ['backend/scripts/qa-smoke.mjs'], { cwd: WORKTREE, env: { ...baseEnv, QA_BASE: `http://localhost:${run.apiPort}`, QA_DIR: stand.runDir(run) }, timeoutMs: 15 * MIN });
         // обход экранов: мусор на экране («[object …]», undefined, «Изменить» без сущности); код из worktree, вход — тестовый qa
         const qaPw = fs.readFileSync(path.join(stand.runDir(run), 'qa-login.txt'), 'utf8').trim();
-        await doStep('screen-walk', process.execPath, [path.join(ROOT, 'tools', 'screen-walk.mjs'), `http://localhost:${run.apiPort}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
+        await doStep('screen-walk', process.execPath, ['tools/screen-walk.mjs', `http://localhost:${run.apiPort}`], { cwd: WORKTREE, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
         // сценарии «как человек»: паспорт, документация, проектирование, продукция, доски (tools/scenarios.mjs)
-        await doStep('scenarios', process.execPath, [path.join(ROOT, 'tools', 'scenarios.mjs'), `http://localhost:${run.apiPort}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
+        await doStep('scenarios', process.execPath, ['tools/scenarios.mjs', `http://localhost:${run.apiPort}`], { cwd: WORKTREE, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 10 * MIN });
         // фильтры «Остатков»: число на кнопке признака = позиций в списке (замечание пользователя 2026-11-01)
-        await doStep('stock-filters', process.execPath, [path.join(ROOT, 'tools', 'stock-filter-check.mjs'), `http://localhost:${run.apiPort}`], { cwd: ROOT, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 5 * MIN });
+        await doStep('stock-filters', process.execPath, ['tools/stock-filter-check.mjs', `http://localhost:${run.apiPort}`], { cwd: WORKTREE, env: { ...baseEnv, STAND_LOGIN: 'qa', STAND_PASSWORD: qaPw }, timeoutMs: 5 * MIN });
       }
     }
   } catch (e) {

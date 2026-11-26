@@ -3,8 +3,8 @@
 #   bash deploy/synology/preflight.sh [--force-urgent]
 # Код 0 — можно выкладывать; 1 — нельзя. Последняя строка: «ВОРОТА: ОК» или «ВОРОТА: СТОП — причина».
 # Что проверяется — только то, что менялось с последней выкладки (тег release-*):
-#   1 нет незакоммиченного · 2 HEAD запушен в origin · 4 backend/src → tsc + весь юнит
-#   5 pwa/admin → импорты и синтаксис, node --test, pwa-guards · 6 pwa/admin → в коммитах «Дизайнер: принято|не нужно»
+#   1 нет незакоммиченного · 2 HEAD запушен в origin · 4 сервер и конфигурация → tsc + весь юнит
+#   5 pwa/admin → импорты и синтаксис, design-lint, node --test, pwa-guards · 6 pwa/admin → в коммитах «Дизайнер: принято|не нужно»
 #   7 коммит «Класс: L|XL» с backend/src → свежая строка TEST-LOG с e2e ✅
 # --force-urgent (сайт уже сломан, чиним срочно) пропускает только 6–7; 1–5 не пропускаются никогда.
 set -uo pipefail
@@ -45,7 +45,7 @@ node backend/scripts/review-scope.mjs owners --verify-range "$BASE..HEAD" || sto
 ok "проверки зон сверены с дельтами выпуска"
 CHANGED="$(git -c core.quotepath=off diff --name-only "$BASE" HEAD)"
 SRC=0; UI=0
-grep -qE '^backend/(src|test)/|^backend/package\.json$' <<<"$CHANGED" && SRC=1
+grep -qE '^backend/((src|test)/|(package\.json|pnpm-lock\.yaml|tsconfig(\.build)?\.json|nest-cli\.json|jest\.config\.ts)$)' <<<"$CHANGED" && SRC=1
 grep -qE '^backend/(pwa|admin)/' <<<"$CHANGED" && UI=1
 ok "с $( [[ $FIRST == 1 ]] && echo "HEAD~20 (тега выкладки ещё нет)" || echo "$BASE"): сервер $([[ $SRC == 1 ]] && echo менялся || echo нет), экран $([[ $UI == 1 ]] && echo менялся || echo нет)"
 
@@ -55,6 +55,11 @@ if [[ $SRC == 1 ]]; then
   (cd backend && npx jest --silent) >"$LOG" 2>&1 || { grep -E '●|FAIL|Tests:' "$LOG" | head -8; stop "юнит-тесты упали"; }
   ok "tsc 0; юнит: $(grep -E '^Tests:' "$LOG" | tail -1 | sed 's/^Tests: *//')"
   node backend/scripts/check-map.mjs >"$LOG" 2>&1 || echo "  ! карта: $(cat "$LOG")" # предупреждение, выкладку не держит
+fi
+
+# Настройки линтера могут менять ворота даже без правок файлов экранов.
+if [[ $UI == 1 ]] || grep -qE '^backend/scripts/design-(lint\.mjs|allow\.json|baseline\.json)$' <<<"$CHANGED"; then
+  node backend/scripts/design-lint.mjs >"$LOG" 2>&1 || { tail -25 "$LOG"; stop "design-lint: нарушений больше согласованного baseline"; }
 fi
 
 # 5. экран: синтаксис и импорты всех .js, тесты логики приложения, pwa-guards

@@ -115,6 +115,38 @@ test('FAIL всегда отклоняется, PARTIAL сохраняется �
   assert.match(f.cli('--verify-range', start + '..' + wip, 1), /PARTIAL допустим только/);
 });
 
+test('ворота проекта требуют архитектора с момента появления файла', t => {
+  const f = fixture(t);
+  const gates = ['.github/workflows/project-guard.yml', 'tools/project-guard.mjs'];
+  const current = readFileSync(ownership, 'utf8');
+  const legacy = JSON.parse(current);
+  const architect = legacy.zones.find(zone => zone.id === 'governance').reviewers[0];
+  architect.paths = architect.paths.filter(path => path !== '.github/workflows/**' && path !== 'tools/project-guard.mjs');
+  f.write(registry, JSON.stringify(legacy));
+  f.git('add', '--', registry);
+  const before = f.commit('Реестр до появления ворот проекта');
+  f.cli('--all');
+
+  for (const gate of gates) {
+    f.write(gate, '# fixture\n');
+    f.git('add', '--', gate);
+    const message = 'Для ворот нужен отдельный проверяющий architect: ' + gate;
+    assert.ok(f.cli('--staged', undefined, 1).includes(message));
+    assert.ok(f.cli('--all', undefined, 1).includes(message));
+    f.git('rm', '--cached', '--', gate);
+  }
+
+  f.write(registry, current);
+  f.git('add', '--', registry, ...gates);
+  const after = f.commit('Ворота проекта с архитектором');
+  assert.match(f.cli('--verify-range', f.legacy + '..' + after), /Проверено коммитов: 2/);
+  f.cli('--verify-commit', before);
+
+  f.write(registry, JSON.stringify(legacy));
+  f.git('add', '--', registry);
+  assert.match(f.cli('--staged', undefined, 1), /Для ворот нужен отдельный проверяющий architect/);
+});
+
 test('смена каталога и владельца назначает D по прежнему реестру, A/M по текущему', t => {
   const f = fixture(t);
   const before = f.commit('Реестр');

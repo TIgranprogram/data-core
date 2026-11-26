@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const REGISTRY = 'docs/roles/ownership.json';
 const GATE_FILES = [REGISTRY, 'backend/scripts/review-scope.mjs', '.githooks/commit-msg', '.githooks/pre-commit', 'deploy/synology/preflight.sh'];
+const PROJECT_GATE_FILES = ['.github/workflows/project-guard.yml', 'tools/project-guard.mjs'];
 const GIT_OPTIONS = { cwd: ROOT, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] };
 const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const ID = /^[a-z][a-z0-9-]*$/;
@@ -46,7 +47,7 @@ function patterns(list, label) {
   });
 }
 
-function loadRegistry(source) {
+function loadRegistry(source, files = []) {
   const registry = JSON.parse(source);
   if (registry.version !== 1 || !Array.isArray(registry.zones) || registry.zones.length === 0) {
     throw new Error('Нужен реестр зон версии 1: ' + REGISTRY);
@@ -71,8 +72,9 @@ function loadRegistry(source) {
     });
     return { id, owner, checks, matches: (file) => includes.some(match => match(file)) && !excludes.some(match => match(file)) };
   });
-  // Реестр и код ворот сами требуют независимой проверки, в том числе при изменении правил.
-  for (const file of GATE_FILES) {
+  // Новые ворота требуют проверяющего с появления файла в индексе или проверяемом коммите.
+  const present = new Set(files);
+  for (const file of [...GATE_FILES, ...PROJECT_GATE_FILES.filter(path => present.has(path))]) {
     const zone = ownerOf(zones, file);
     if (!zone.checks.some(check => check.role === 'architect' && check.matches(file))) {
       throw new Error('Для ворот нужен отдельный проверяющий architect: ' + file);
@@ -155,10 +157,11 @@ function registryInCommit(hash) {
 }
 
 function reviewScope(registry, priorRegistry, records, files) {
-  const zones = loadRegistry(registry);
   const changedRegistry = records.some(({ path }) => path === REGISTRY);
-  if (changedRegistry || records.some(({ path }) => PROFILE.test(path))) {
-    const tree = files();
+  const checkTree = changedRegistry || records.some(({ path }) => PROFILE.test(path));
+  const tree = checkTree ? files() : records.filter(({ status }) => status !== 'D').map(({ path }) => path);
+  const zones = loadRegistry(registry, tree);
+  if (checkTree) {
     if (changedRegistry) coverage(zones, tree);
     checkProfiles(zones, tree);
   }
@@ -282,8 +285,8 @@ function runOwners(mode, value, extra) {
   const against = mode === '--staged' && value === '--against' && extra.length === 1 ? extra[0] : '';
   if (extra.length && !against) throw new Error('Лишние аргументы.');
   if (mode === '--all' && !value) {
-    const zones = loadRegistry(readFileSync(join(ROOT, REGISTRY), 'utf8'));
     const files = tracked();
+    const zones = loadRegistry(readFileSync(join(ROOT, REGISTRY), 'utf8'), files);
     const totals = coverage(zones, files);
     checkProfiles(zones, files, { worktree: true });
     for (const zone of zones) console.log(zone.id + ' · ' + zone.owner + ' · ' + (totals.get(zone.id) || 0));

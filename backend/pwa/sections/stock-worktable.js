@@ -11,8 +11,8 @@ import { openStockOp } from './stock-ops.js';
 
 const PAGE_SIZE = 100;
 const config = {
-  pipe: { title: workerZoneName('pipe'), sort: 'sectionSize', columns: ['section', 'material', 'grade', 'wash', 'pipeLength'], sorts: [['sectionSize', 'Сечение'], ['length', 'Длина единицы'], ['quantity', 'Остаток'], ['name', 'Название']] },
-  sheet: { title: workerZoneName('sheet'), sort: 'sheetSize', columns: ['material', 'grade', 'surface', 'thickness', 'width', 'length', 'offcut'], sorts: [['sheetSize', 'Толщина, ширина, длина'], ['thickness', 'Толщина'], ['width', 'Ширина'], ['length', 'Длина'], ['quantity', 'Остаток'], ['name', 'Название']] },
+  pipe: { title: workerZoneName('pipe'), sort: 'sectionSize', sorts: [['sectionSize', 'Сечение'], ['length', 'Длина единицы'], ['quantity', 'Остаток'], ['name', 'Название']] },
+  sheet: { title: workerZoneName('sheet'), sort: 'sheetSize', sorts: [['sheetSize', 'Толщина, ширина, длина'], ['thickness', 'Толщина'], ['width', 'Ширина'], ['length', 'Длина'], ['quantity', 'Остаток'], ['name', 'Название']] },
 };
 /** Рабочие сетки используют те же scope/сортировку/страницы C242; каждый ввод относится к materialId. */
 export function mountStockWorktable(kind, { readOnly = false } = {}) {

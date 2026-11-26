@@ -4,6 +4,7 @@
 
 | ID | Суть | Статус |
 |--|--|--|
+| C274 | Аудит архитектуры, ролей и расхода ИИ, исправления и проверки кодом | аудит и первый пакет правок готовы · [Отчёт](C274-agent-architecture-audit/REPORT.md) · [Чек-лист](C274-agent-architecture-audit/CHECKLIST.md) |
 | C273 | Ввод количества труб по Enter или выходу из ячейки, метраж по клику на сечение | done · v2.71 · [Выпуск](C273-pipe-inline-count/RELEASE.md) |
 | C272 | Трубы в штуках, перевод в метры и цвета металла | done · v2.69 · [RELEASE](C271-worker-stock-context/RELEASE.md) |
 | C271 | Ожидания, брони и заказ материала из рабочей сетки | done · v2.69 · [RELEASE](C271-worker-stock-context/RELEASE.md) |
