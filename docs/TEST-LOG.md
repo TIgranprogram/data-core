@@ -344,3 +344,5 @@
 
 | 2026-11-24 | a9897e4a C260–C265 full перед выкладкой | unit ✅4263; tsc0; e2e ✅111/112 suites (1 skip), 906/918 tests (12 skip); ordinary27018 + special owned27237 | Guards-suites на выделенных БД; 0 FAIL. |
 
+| 2026-11-26 | 21fb1bef C269–C271 full перед выкладкой | unit ✅4297/4297; tsc0; pwa ✅75/75, guards 420/420, импорты 427/0; e2e ✅113/113 suites, 921/921 tests, 0FAIL/SKIP; 12 групп, изолированная Mongo :27119→:27118 | Полный прогон группами с выделенными БД (канон C244 run-full): 4 ordinary batch + c172/c240c242/c188/c198/stockscope/t26/c244/c271. Guard-наборы с запретом портов прошли через локальный TCP-прокси; прод и его БД не трогались. Предыдущий красный запуск и два промежуточных FAIL по окружению сохранены в `tools/logs/e2e-c270-c271-full.log` и `tools/logs/e2e-c270-c271-groups.log`. Адресный C271 e2e 3/3. |
+
