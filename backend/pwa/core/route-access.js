@@ -38,13 +38,17 @@ export function allowsWoodPanel(session, { of, open, new: isNew }) {
   return of === 'profile' || (of === 'wooditem' && isNew && !open && session.canEdit) || (!of && !open && !isNew);
 }
 
-export function canOpen(session, route, screen) {
+export function canOpen(session, route, screen, params = {}) {
   const user = session.user;
   if (!user || !route) return false;
   if (mobileOnly(user)) return route === 'stock-mobile' && !screen;
   if (route === 'wooditem') return screen === 'stock' && session.canEdit && canOpen(session, 'stock');
-  if (stockView(user) && !stockScreens.has(route)) return false;
-  if (stockView(user) === 'wood' && (route === 'movements' || (screen && route === 'stock'))) return false;
+  const native = stockView(user);
+  const nativeReceipt = (native === 'pipe' || native === 'sheet') && route === 'stockop' && screen === 'stock'
+    && session.canEdit && params.new === '1' && !params.open && params.op === 'in'
+    && params.workerKind === native && Boolean(params.workerZone) && !stockScreenAccess(session, params.view).readOnly;
+  if (native && !stockScreens.has(route) && !nativeReceipt) return false;
+  if (native === 'wood' && (route === 'movements' || (screen && route === 'stock'))) return false;
   const permitted = (id) => user.isOwner || user.role === 'admin' || !Array.isArray(user.sections) || user.sections.includes(id);
   const owner = Object.hasOwn(OWNER, route) ? OWNER[route] : route;
   if (owner === 'kit') return session.role === 'admin';
@@ -71,7 +75,7 @@ export function stockScreenAccess(session, requestedView) {
   if (!canOpen(session, 'stock')) return denied;
   if (!view) return { allowed: true, view: null, readOnly: false };
   if (session.isAdmin) return { allowed: true, view, readOnly: false };
-  if (native) return native === view ? { allowed: true, view, readOnly: false } : denied;
+  if (native) return native === view ? { allowed: true, view, readOnly: !session.canEdit } : denied;
   const user = session.user;
   const views = Object.hasOwn(user, 'stockViews')
     ? (Array.isArray(user.stockViews) ? user.stockViews.filter(value => ['pipe', 'sheet'].includes(value)) : [])
@@ -98,7 +102,7 @@ export function canFollow(session, href) {
   if (panel === 'wooditem' && !isWood) return false;
   if (isWood && !allowsWoodPanel(session, { of: panel, open: params.get('open'), new: params.get('new') })) return false;
   return canOpen(session, route) && (route !== 'stock' || canViewStock(session, params.get('view'))) &&
-    (!panel || canOpen(session, panel, route));
+    (!panel || canOpen(session, panel, route, Object.fromEntries(params)));
 }
 
 export const todayRoute = { delivery: 'requests', shipment: 'salesorders', design: 'design', question: 'design', work: 'work', payment: 'money' };

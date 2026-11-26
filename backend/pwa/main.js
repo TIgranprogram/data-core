@@ -148,7 +148,7 @@ const SEC_OF = { requests: 'supply', suppliercatalog: 'supply', contracts: 'supp
 const GROUP_FIRST = { 'Производство': 'salesorders', 'Продукция': 'products', 'Склад': 'stock', 'Снабжение': 'requests', 'Деньги': 'money', 'Управление': 'staff' };
 const GROUP_OF = { salesorders: 'Производство', matching: 'Производство', design: 'Производство', work: 'Производство', workschedule: 'Производство', products: 'Продукция', modules: 'Продукция', parts: 'Продукция', offers: 'Продукция', docs: 'Продукция', stock: 'Склад', 'stock-mobile': 'Склад', requests: 'Снабжение', suppliercatalog: 'Снабжение', contracts: 'Снабжение', orders: 'Деньги', money: 'Деньги', expenses: 'Деньги', payroll: 'Деньги', staff: 'Управление' };
 const NAV_IDS = new Set(NAV.map(([id]) => id));
-const allowed = (route, screen) => canOpen(session, route, screen) && (!['payroll', 'payout'].includes(route) || FEATURES.payroll);
+const allowed = (route, screen, params) => canOpen(session, route, screen, params) && (!['payroll', 'payout'].includes(route) || FEATURES.payroll);
 const root = $('#root');
 
 // ---------- Вход ----------
@@ -401,7 +401,7 @@ function unmountList() { mounted?.list?.destroy?.(); mounted = null; }
 const screenKey = (section, params) => (section === 'passports' ? 'docs' : section) + (section === 'search' ? '?' + (params.q || '') : '') + (section === 'stock' && params.view ? ':' + params.view : '');
 
 /** Параметры адреса, которые принадлежат правой панели (остальное — экрану слева). */
-const CARD_PARAMS = ['open', 'new', 'of', 'fill', 'title', 'unit', 'categoryName', 'op', 'materialId', 'rid', 'orderId', 'productionNo', 'lid', 'dstatus', 'lineId', 'article', 'supplierName', 'supplierId', 'priceHint', 'productUrl'];
+const CARD_PARAMS = ['open', 'new', 'of', 'fill', 'title', 'unit', 'categoryName', 'op', 'materialId', 'rid', 'orderId', 'productionNo', 'lid', 'dstatus', 'lineId', 'article', 'supplierName', 'supplierId', 'priceHint', 'productUrl', 'workerZone', 'workerKind'];
 /**
  * Работа в правой панели не меняет экран слева (решение владельца 2026-11-15): панель открыта, ссылка из неё ведёт
  * к записи другого раздела (#stock?open=…) — экран остаётся, запись открывается справа как of=stock. Выход — ✕ или меню слева.
@@ -440,7 +440,7 @@ function render(c) {
     const screen = Object.fromEntries(Object.entries(params).filter(([key]) => !CARD_PARAMS.includes(key)));
     go(section, screen, { replace: true }); return;
   }
-  if (params.of && !allowed(params.of, section)) {
+  if (params.of && !allowed(params.of, section, params)) {
     toast('Эта карточка для вашей роли закрыта.');
     const screen = Object.fromEntries(Object.entries(params).filter(([key]) => !CARD_PARAMS.includes(key)));
     go(section, screen, { replace: true }); return;
@@ -571,7 +571,8 @@ async function guardRoute(next) {
 setGuard(async (next) => { const ok = await guardRoute(next); if (ok) approvedRoute = routeKey(next); return ok; });
 
 /** Карточка: open=<id> или new=1; of=<раздел записи>, если запись другого раздела (на «Сегодня», заявка из склада). */
-const cardKey = (ofName, want, params) => ofName + want + (params.fill ? '~' + params.fill : '') + (['stockop', 'resedit', 'specimport', 'compsug'].includes(ofName) ? '@' + (params.op || '') + (params.materialId || '') + (params.rid || '') + (params.orderId || '') + (params.lid || '') : '');
+const cardKey = (ofName, want, params) => ofName + want + (params.fill ? '~' + params.fill : '') + (['stockop', 'resedit', 'specimport', 'compsug'].includes(ofName) ? '@' + (params.op || '') + (params.materialId || '') + (params.rid || '') + (params.orderId || '') + (params.lid || '') : '')
+  + (ofName === 'stockop' && params.workerZone ? '@' + params.workerZone + ':' + (params.workerKind || '') : '');
 function syncCard(section, params) {
   const ofName = params.of || (section === 'home' ? undefined : section);
   const sec = SECTIONS[ofName];

@@ -2,11 +2,11 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { button, section, fieldRow, textInput, toolbar, select, enhanceSelect, busyBlock, failBlock } from '../ui/kit/index.js';
-import { workerCreateBody, workerCountBody, workerUnit, workerMaterialId } from './stock-worker-model.js';
+import { workerCreateBody, workerCountBody, workerInputQuantity, workerPipeMetres, workerPipeTransfer, workerUnit, workerMaterialId } from './stock-worker-model.js';
 
 /** Компактное создание в явной зоне. Успешный create не повторяется при ошибке count. */
 export function workerCreate({ kind, getZone, host, changed, counterpart = null }) {
-  let generation = 0, node = null, destroyed = false;
+  let generation = 0, node = null, destroyed = false, quickInFlight = 0;
   const drafts = new Map();
   const blank = () => ({ value: '', createdId: '', createdUnit: '', transferDecided: false, transfer: null });
   const draft = key => drafts.get(key) || blank();
@@ -19,6 +19,7 @@ export function workerCreate({ kind, getZone, host, changed, counterpart = null 
     if (input.dataset.createdId) record.createdId = input.dataset.createdId;
     if (input.dataset.createdUnit) record.createdUnit = input.dataset.createdUnit;
     if (input.dataset.transferDecided) { record.transferDecided = true; record.transfer = input.dataset.transfer || null; }
+    record.input = input;
     drafts.set(key, record);
   };
   const restore = input => {
@@ -28,12 +29,19 @@ export function workerCreate({ kind, getZone, host, changed, counterpart = null 
     if (record.createdUnit) input.dataset.createdUnit = record.createdUnit;
     if (record.transferDecided) { input.dataset.transferDecided = '1'; if (record.transfer) input.dataset.transfer = record.transfer; }
   };
-  const clear = input => { drafts.delete(input.dataset.workerKey); for (const key of ['createdId', 'createdUnit', 'transferDecided', 'transfer']) delete input.dataset[key]; input.value = ''; };
+  const clear = (input, refresh = true) => {
+    const created = draft(input.dataset.workerKey).createdId;
+    drafts.delete(input.dataset.workerKey);
+    for (const key of ['createdId', 'createdUnit', 'transferDecided', 'transfer']) delete input.dataset[key];
+    input.value = '';
+    if (created && refresh) changed();
+  };
   const close = () => { generation++; node?.remove(); node = null; };
   return {
     draft,
     remember,
     clear,
+    quickPending() { return quickInFlight > 0 || [...drafts.values()].some(record => record.createdId && record.input?.isConnected); },
     async open(context = {}, anchor) {
       if (destroyed) return;
       close(); const own = generation;
@@ -68,7 +76,7 @@ export function workerCreate({ kind, getZone, host, changed, counterpart = null 
         }
         const wash = kind === 'pipe' ? select({ label: 'Мойка', value: context.washed === true ? '1' : context.washed === false ? '0' : '', options: [['', 'Не указана'], ['1', 'Мытая'], ['0', 'Не мытая']], onChange: () => reset() }) : null;
         if (wash) { wash.setAttribute('aria-label', 'Мойка'); enhanceSelect(wash); }
-        const amount = textInput({ label: 'Начальный остаток', value: '0', inputmode: 'decimal', onInput: () => reset() });
+        const amount = textInput({ label: kind === 'pipe' ? 'Начальный остаток, шт' : 'Начальный остаток', value: '0', inputmode: kind === 'pipe' ? 'numeric' : 'decimal', onInput: () => reset() });
         amount.input.dataset.workerInitial = '1';
         const preview = h('p', { role: 'status' }), errorBox = h('div');
         const read = () => ({ categoryId: category.value, unit: controls.unit.value, materialGrade: controls.materialGrade.value, shape: shape?.value,
@@ -83,17 +91,18 @@ export function workerCreate({ kind, getZone, host, changed, counterpart = null 
           try {
             if (!plan) {
               const dto = workerCreateBody(read(), kind, categories), value = amount.input.value.trim();
-              const number = value === '' ? NaN : Number(value.replace(',', '.'));
-              if (!Number.isFinite(number) || number < 0) throw new Error('Введите неотрицательный начальный остаток.');
-              plan = { dto, quantity: number };
-              preview.textContent = `${dto.name} · 0 → ${qty(number)} ${dto.unit}. Создать материал?`;
+              const quantity = workerInputQuantity(dto, value, kind);
+              plan = { dto, value, quantity };
+              const metres = kind === 'pipe' ? workerPipeMetres({ ...dto, quantity }) : null;
+              const amountLabel = kind === 'pipe' ? `${qty(Number(value))} шт${metres == null ? '' : ` = ${qty(metres)} м`}` : `${qty(quantity)} ${dto.unit}`;
+              preview.textContent = `${dto.name} · 0 → ${amountLabel}. Создать материал?`;
               submit.textContent = 'Сохранить'; return;
             }
             submitting = true; submit.disabled = cancel.disabled = true; body.classList.add('is-busy');
             for (const input of body.querySelectorAll('input,select')) input.disabled = true;
             if (!created) created = await api('/stock/items', { method: 'POST', query: { zoneId: zone.id }, body: plan.dto });
             if (own !== generation || destroyed) return;
-            if (plan.quantity !== 0) await api('/stock/batch', { method: 'POST', body: workerCountBody(created, String(plan.quantity), kind === 'pipe' ? 'Трубы' : 'Листовой материал') });
+            if (plan.quantity !== 0) await api('/stock/batch', { method: 'POST', body: workerCountBody({ ...plan.dto, ...created }, plan.value, kind === 'pipe' ? 'Трубы' : 'Листовой материал', kind) });
             if (own === generation && !destroyed) { close(); changed(); }
           } catch (error) {
             if (own !== generation || destroyed) return;
@@ -130,8 +139,9 @@ export function workerCreate({ kind, getZone, host, changed, counterpart = null 
       if (cell?.querySelector('[data-worker-transfer]')) return; // ждём выбор переноса
       const raw = String(input.value || '').trim();
       if (!raw) { show(''); input.focus(); return; }
-      const number = Number(raw.replace(',', '.'));
-      if (!Number.isFinite(number) || number < 0) { show('Введите неотрицательное количество.'); input.focus(); return; }
+      let number;
+      try { number = workerInputQuantity(context, raw, kind); }
+      catch (error) { show(error.message); input.focus(); return; }
       const zone = getZone();
       if (!zone?.id) { show('Складская зона ещё не загружена. Повторите.'); return; }
       const unit = input.dataset.createdUnit || context.unit || '';
@@ -139,6 +149,8 @@ export function workerCreate({ kind, getZone, host, changed, counterpart = null 
       const transfer = stored ? JSON.parse(stored) : null;
       const run = async (move) => {
         let createdId = input.dataset.createdId || '';
+        let completed = false;
+        quickInFlight++;
         show(''); input.disabled = true; input.classList.add('is-busy');
         try {
           if (!createdId) {
@@ -154,23 +166,29 @@ export function workerCreate({ kind, getZone, host, changed, counterpart = null 
             if (created.countMode && created.countMode !== 'single') throw new Error('Материал создан, но у него общий остаток: количество меняйте в карточке.');
           }
           const lines = [];
-          if (number !== 0) lines.push({ materialId: createdId, qty: number, expected: 0 });
+          const quantity = workerInputQuantity({ ...context, unit: input.dataset.createdUnit || unit }, raw, kind);
+          if (quantity !== 0) lines.push({ materialId: createdId, qty: quantity, expected: 0 });
           if (move) lines.push({ materialId: move.materialId, qty: move.expected - move.qty, expected: move.expected });
           if (lines.length) await api('/stock/batch', { method: 'POST', body: { type: 'count', note: kind === 'pipe' ? 'Трубы' : 'Листовой материал', lines } });
           if (destroyed) return;
-          clear(input); changed();
+          clear(input, false); completed = true;
         } catch (error) {
           if (destroyed) return;
           remember(input);
-          show(createdId ? `Материал создан, остаток0 ${input.dataset.createdUnit || unit}. Нажмите Enter, чтобы повторить только остаток.` : String(error?.message || 'Не удалось создать материал.'));
+          show(createdId ? 'Материал создан, количество не сохранено. Enter — повторить остаток.' : String(error?.message || 'Не удалось создать материал.'));
         } finally {
-          if (!destroyed) { input.disabled = false; input.classList.remove('is-busy'); input.focus(); }
+          quickInFlight--;
+          if (!destroyed) {
+            input.disabled = false; input.classList.remove('is-busy');
+            if (document.activeElement === document.body || document.activeElement === input) input.focus();
+            if (completed) changed();
+          }
         }
       };
       // В «Мытая» вписали количество, а в «Не мытая» того же размера есть остаток — предлагаем перенос.
-      const other = !stored && number > 0 ? counterpart?.(context) : null;
-      if (other) {
-        const move = Math.min(number, Number(other.quantity));
+      const other = !input.dataset.transferDecided && number > 0 ? counterpart?.(context) : null;
+      const proposed = workerPipeTransfer(context, number, other);
+      if (proposed) {
         const decide = move => {
           input.dataset.transferDecided = '1';
           input.dataset.transfer = move ? JSON.stringify(move) : '';
@@ -178,8 +196,8 @@ export function workerCreate({ kind, getZone, host, changed, counterpart = null 
           panel.remove(); run(move);
         };
         const panel = h('div', { class: 'pg-worker-confirm', 'data-worker-transfer': '1', role: 'group', 'aria-label': 'Перенос из не мытой' },
-          h('strong', null, `В «Не мытая» ${qty(other.quantity)} ${unit}. Списать ${qty(move)} ${unit}?`),
-          toolbar(button({ label: `Списать ${qty(move)} ${unit}`, kind: 'primary', onClick: () => decide({ materialId: workerMaterialId(other), qty: move, expected: Number(other.quantity) }) }),
+          h('strong', null, `В «Не мытая» ${qty(other.quantity)} ${workerUnit(other)}. Списать ${qty(proposed.pieces)} шт?`),
+          toolbar(button({ label: `Списать ${qty(proposed.pieces)} шт`, kind: 'primary', onClick: () => decide(proposed) }),
             button({ label: 'Только добавить', kind: 'ghost', onClick: () => decide(null) }),
             button({ label: 'Отмена', kind: 'ghost', onClick: () => { panel.remove(); show(''); input.focus(); } })));
         panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); panel.remove(); show(''); input.focus(); } });

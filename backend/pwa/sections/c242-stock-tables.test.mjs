@@ -163,7 +163,8 @@ for (const kind of ['pipe', 'sheet', 'wood']) test('P2 / ' + kind + ': сумм�
   const item = records[kind][0], row = page.locator(kind === 'wood' ? `tr[data-id="${item.id}"]` : `[data-material-id="${item.id}"]`);
   await row.waitFor();
   const count = row.locator('[aria-label^="Фактически"]');
-  assert.equal(await count.textContent(), '5');
+  assert.equal(await count.textContent(), kind === 'pipe' ? '—' : '5');
+  if (kind === 'pipe') await row.getByText('5 м', { exact: true }).waitFor();
   assert.equal(await count.evaluate(element => element.tagName), 'SPAN');
   assert.equal(await row.locator('input.pg-in').count(), 0);
   assert.equal(await row.getByText('Несколько мест хранения — пересчёт общего остатка недоступен', { exact: true }).count(), 1);
@@ -201,7 +202,7 @@ test('P2: отсутствующий или неизвестный countMode fai
   const input = page.locator('[data-material-id="zero-80"] input.pg-in'); await input.waitFor();
   const counted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/api/stock/batch'));
   await input.fill('1'); await input.press('Enter'); await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click(); await counted;
-  assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'zero-80', qty: 1, expected: 0 });
+  assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'zero-80', qty: 6, expected: 0 });
   assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/stock/items').length, 0);
 });
 

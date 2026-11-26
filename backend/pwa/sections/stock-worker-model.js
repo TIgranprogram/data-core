@@ -6,8 +6,65 @@ export const workerUnit = item => text(item.unit) || 'Ед. не указана'
 export const workerGrade = item => text(item.materialGrade) || 'Марка не указана';
 export const workerWash = item => item.washed === true ? 'Мытая' : item.washed === false ? 'Не мытая' : 'Мойка не указана';
 export const workerLength = item => positive(item.dims?.length);
+export const workerPieceFactor = item => {
+  const unit = text(item.unit).toLowerCase().replace(/\.$/, '');
+  if (unit === 'шт') return 1;
+  const metres = workerLength(item) / 1000;
+  return unit === 'м' && metres > 0 ? metres : null;
+};
+
+/** Учитываем только погрешность вычисления, а не дробные трубы в остатке. */
+const snapInteger = number => {
+  const nearest = Math.round(number);
+  return Math.abs(number - nearest) <= Math.min(1e-7, Number.EPSILON * Math.max(1, Math.abs(number)) * 8) ? nearest : number;
+};
+
+export function workerPipePieces(item) {
+  const factor = workerPieceFactor(item), quantity = item.quantity;
+  if (factor == null || quantity == null || !Number.isFinite(Number(quantity))) return null;
+  const pieces = snapInteger(Number(quantity) / factor);
+  return Number.isSafeInteger(pieces) && pieces >= 0 ? pieces : null;
+}
+
+export function workerPipeMetres(item) {
+  const factor = workerPieceFactor(item), length = workerLength(item);
+  if (factor == null || length == null || item.quantity == null) return null;
+  const metres = /^м\.?$/i.test(text(item.unit)) ? Number(item.quantity) : Number(item.quantity) * length / 1000;
+  return Number.isFinite(metres) ? metres : null;
+}
+
+export const workerQuantityText = (item, kind) => kind === 'pipe' ? String(workerPipePieces(item) ?? '') : String(item.quantity ?? 0);
+
+export function workerInputQuantity(item, input, kind) {
+  const value = String(input).trim();
+  if (kind === 'pipe') {
+    const factor = workerPieceFactor(item), pieces = Number(value);
+    if (factor == null) throw new Error('Для пересчёта укажите длину трубы и единицу учёта «м» или «шт».');
+    if (!/^\d+$/.test(value) || !Number.isSafeInteger(pieces)) throw new Error('Введите целое неотрицательное количество труб.');
+    const quantity = factor === 1 ? pieces : pieces * workerLength(item) / 1000;
+    if (!Number.isFinite(quantity)) throw new Error('Количество труб слишком большое.');
+    return quantity;
+  }
+  const quantity = value === '' ? NaN : Number(value.replace(',', '.'));
+  if (!Number.isFinite(quantity) || quantity < 0) throw new Error('Введите неотрицательное количество в единице учёта.');
+  return quantity;
+}
+
+/** Переносим только целые трубы; каждую строку считаем в её исходной единице. */
+export function workerPipeTransfer(target, next, source) {
+  if (!source || source.countMode !== 'single') return null;
+  const targetFactor = workerPieceFactor(target), sourceFactor = workerPieceFactor(source);
+  const expected = Number(source.quantity), previous = Number(target.quantity ?? 0);
+  const materialId = workerMaterialId(source);
+  if (!materialId || targetFactor == null || sourceFactor == null || !Number.isFinite(expected) || !Number.isFinite(previous)) return null;
+  const available = Math.min(expected, Number(source.free ?? expected - Number(source.reservedQty || 0)));
+  const pieces = Math.floor(Math.min(snapInteger((next - previous) / targetFactor), snapInteger(available / sourceFactor)));
+  if (!Number.isSafeInteger(pieces) || pieces <= 0) return null;
+  return { materialId, qty: Math.min(available, workerInputQuantity(source, pieces, 'pipe')), expected, pieces };
+}
 export const workerColumnKey = item => JSON.stringify([item.washed === true ? true : item.washed === false ? false : null, workerLength(item)]);
 export const workerItemMatches = (item, context) => !context || item?.metal === context.kind;
+export const workerZoneName = kind => ({ pipe: 'Трубы', sheet: 'Листовой материал' })[kind];
 
 /** Только явные оси профиля: название не является источником размеров для записи. */
 export function workerCreateContext(item, column) {
@@ -20,6 +77,7 @@ export function workerCreateContext(item, column) {
 /** Полный контекст ячейки: можно сразу спросить только количество, без формы. */
 export function workerQuickReady(context, kind) {
   if (!context?.categoryId || !text(context.categoryName) || !text(context.unit)) return false;
+  if (kind === 'pipe' && workerPieceFactor(context) == null) return false;
   const axes = kind === 'sheet' ? ['thickness', 'width', 'length'] : context.shape === 'round' ? ['diameter', 'thickness', 'length'] : context.shape === 'rect' ? ['width', 'height', 'thickness', 'length'] : [];
   return axes.length > 0 && axes.every(key => positive(context.dims?.[key]));
 }
@@ -60,19 +118,25 @@ const gradeKey = value => text(value.materialGrade) || 'Марка не указ
 export function workerWashCounterpart(target, items) {
   if (!target || target.washed !== true || !Array.isArray(items)) return null;
   const item = 'sectionProfile' in target;
-  const unit = item ? workerUnit(target) : text(target.unit);
   const grade = gradeKey(target);
   const length = item ? workerLength(target) : positive(target.dims?.length);
   const geometry = geometryKey(target);
-  if (!geometry || !length) return null;
-  return items.find(other => other !== target && other.washed === false && workerUnit(other) === unit
+  if (!geometry || !length || workerPieceFactor(target) == null) return null;
+  return items.find(other => other !== target && other.washed === false && other.countMode === 'single'
     && gradeKey(other) === grade && workerLength(other) === length && geometryKey(other) === geometry
-    && Number(other.quantity) > 0) || null;
+    && workerPieceFactor(other) != null && snapInteger(Number(other.quantity) / workerPieceFactor(other)) >= 1) || null;
 }
 
-const kindOf = item => /нержав|\baisi\b/i.test(text(item.materialGrade)) ? 'steel'
-  : ['rect', 'round'].includes(item.sectionProfile?.shape) ? item.sectionProfile.shape : 'unknown';
-const kindNames = { rect: 'Профильная труба', round: 'Круглая труба', steel: 'Нержавеющая труба', unknown: 'Вид трубы не указан' };
+const metalOrder = ['ordinary', 'unknown', 'stainless'];
+function metalOf(item) {
+  const grade = text(item.materialGrade);
+  if (/^(?:нерж|aisi\s*[234]\d{2}(?!\d))/i.test(grade)) return 'stainless';
+  if (/^(?:сталь(?:$|\s)|ст\s*\d|09г2с(?:$|\s)|оцинкованная сталь)/i.test(grade)) return 'ordinary';
+  return 'unknown';
+}
+const byMetal = (a, b) => metalOrder.indexOf(a.metal) - metalOrder.indexOf(b.metal);
+const kindOf = item => ['rect', 'round'].includes(item.sectionProfile?.shape) ? item.sectionProfile.shape : 'unknown';
+const kindNames = { rect: 'Профильная труба', round: 'Круглая труба', unknown: 'Вид трубы не указан' };
 const sectionKey = item => {
   const p = item.sectionProfile;
   return p?.state === 'complete' && !item.offcutOf ? JSON.stringify([p.shape, p.widthMm, p.heightMm, p.diameterMm, p.wallMm, p.label]) : workerMaterialId(item);
@@ -85,7 +149,7 @@ export function workerPipeBlocks(items) {
     const kind = kindOf(item), unit = workerUnit(item), grade = workerGrade(item);
     const blockKey = JSON.stringify([kind, grade, unit]);
     let block = blocks.get(blockKey);
-    if (!block) { block = { kind, grade, unit, title: kindNames[kind], columns: new Map(), groups: new Map() }; blocks.set(blockKey, block); }
+    if (!block) { block = { kind, grade, unit, metal: metalOf(item), title: kindNames[kind], columns: new Map(), groups: new Map() }; blocks.set(blockKey, block); }
     const column = workerColumnKey(item);
     if (!block.columns.has(column)) block.columns.set(column, { key: column, washed: item.washed === true ? true : item.washed === false ? false : null, length: workerLength(item), label: workerWash(item) });
     const rowKey = sectionKey(item);
@@ -94,7 +158,7 @@ export function workerPipeBlocks(items) {
     const same = row.cells.get(column) || [];
     same.push(item); row.cells.set(column, same);
   }
-  return [...blocks.values()].map(block => {
+  return [...blocks.values()].sort(byMetal).map(block => {
     const columns = [...block.columns.values()].sort((a, b) => ([true, false, null].indexOf(a.washed) - [true, false, null].indexOf(b.washed)) || (a.length ?? Infinity) - (b.length ?? Infinity));
     const rows = [...block.groups.values()].flatMap(group => {
       const depth = Math.max(...[...group.cells.values()].map(items => items.length));
@@ -110,16 +174,15 @@ export function workerSheetBlocks(items) {
     const grade = workerGrade(item), unit = workerUnit(item);
     const surface = text(item.surface) || (/рифл/i.test(item.assortment || '') ? 'Рифлёная' : 'Поверхность не указана');
     const key = JSON.stringify([grade, surface, unit]);
-    if (!blocks.has(key)) blocks.set(key, { grade, surface, unit, rows: [] });
+    if (!blocks.has(key)) blocks.set(key, { grade, surface, unit, metal: metalOf(item), rows: [] });
     blocks.get(key).rows.push(item);
   }
-  return [...blocks.values()];
+  return [...blocks.values()].sort(byMetal);
 }
 
-/** C242: фактическое количество в исходной единице, без умножения/деления на длину. */
-export function workerCountBody(item, input, note) {
+/** Каждая строка пересчёта хранит фактическое количество и expected в единице API. */
+export function workerCountBody(item, input, note, kind) {
   if (item.countMode !== 'single') throw new Error('Пересчёт общего остатка недоступен.');
-  const quantity = String(input).trim() === '' ? NaN : Number(String(input).replace(',', '.'));
-  if (!Number.isFinite(quantity) || quantity < 0) throw new Error('Введите неотрицательное количество в единице учёта.');
+  const quantity = workerInputQuantity(item, input, kind);
   return { type: 'count', note, lines: [{ materialId: workerMaterialId(item), qty: quantity, expected: item.quantity }] };
 }

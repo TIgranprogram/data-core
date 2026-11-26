@@ -10,7 +10,7 @@ const pipe = (id, width = 40, extra = {}) => ({ id, materialId: id, name: 'Тр�
   sectionProfile: { shape: 'rect', state: 'complete', label: width + '×20×2', widthMm: width, heightMm: 20, wallMm: 2 }, dims: { length: 6000 }, ...extra });
 const categories = [{ id: 'pipe-cat', name: 'Профильная труба' }, { id: 'sheet-cat', name: 'Листовой металл' }, { id: 'foreign-cat', name: 'Дерево' }];
 const source = [pipe('first'), pipe('long', 40, { washed: false, dims: { length: 12000 } }), pipe('small', 50), pipe('multiple', 60, { countMode: 'multiple' }),
-  pipe('raw40', 40, { washed: false, quantity: 5, dims: { length: 6000 } }), pipe('raw50', 50, { washed: false, quantity: 7, dims: { length: 12000 } }),
+  pipe('raw40', 40, { washed: false, unit: 'шт', quantity: 2, dims: { length: 6000 } }), pipe('raw50', 50, { washed: false, quantity: 24, dims: { length: 12000 } }),
   pipe('washedLong', 60, { washed: true, quantity: 2, dims: { length: 12000 } }),
   { id: 'sheet', materialId: 'sheet', name: 'Лист Ст3', metal: 'sheet', categoryId: 'sheet-cat', unit: 'лист', quantity: 3, countMode: 'single', materialGrade: 'Ст3', dims: { thickness: 3, width: 1250, length: 2500 }, notes: 'Лист' },
   pipe('foreign-zone', 70, { categoryId: 'foreign-cat' }), pipe('foreign-type', 80, { metal: 'sheet' })];
@@ -43,6 +43,7 @@ after(async () => { await browser?.close(); });
 async function fixture(t, { kind = 'pipe', readOnly = false, receive = false, materialId, draft, common = false, state = {} } = {}) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1050 }, serviceWorkers: 'block' }); t.after(() => page.close());
   const items = structuredClone(source), calls = [], errors = [];
+  if (state.fractional) items.find(item => item.id === 'first').quantity = 7;
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(({ draft, kind }) => {
     localStorage.setItem('dca_access', 'fixture'); localStorage.setItem('dca_user', JSON.stringify({ id: 'fixture', role: 'admin', sections: ['stock', 'requests'] }));
@@ -101,14 +102,38 @@ test('количество: blur/Отмена/Escape без POST; Enter подт
   const { page, calls, errors } = await fixture(t, { state: { delayCount: 120 } });
   const input = page.locator('[data-material-id="first"] input.pg-in');
   await input.fill('3'); await input.press('Tab'); await confirm(page).waitFor(); assert.equal(writes(calls).length, 0);
-  assert.ok((await confirm(page).textContent()).includes('12 → 3 м'));
-  await confirm(page).getByRole('button', { name: 'Отмена', exact: true }).click(); assert.equal(await input.inputValue(), '12');
-  await input.fill('7'); await input.press('Escape'); assert.equal(writes(calls).length, 0); assert.equal(await input.inputValue(), '12');
+  assert.ok((await confirm(page).textContent()).includes('2 шт (12 м) → 3 шт × 6 м = 18 м'));
+  await confirm(page).getByRole('button', { name: 'Отмена', exact: true }).click(); assert.equal(await input.inputValue(), '2');
+  await input.fill('7'); await input.press('Escape'); assert.equal(writes(calls).length, 0); assert.equal(await input.inputValue(), '2');
   await input.fill('3'); await input.press('Enter'); assert.equal(writes(calls).length, 0);
   await save(page).evaluate(node => { node.click(); node.click(); });
   await page.waitForFunction(() => document.querySelector('[data-material-id="first"] input[data-saved]'));
-  assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'first', qty: 3, expected: 12 });
+  assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'first', qty: 18, expected: 12 });
   assert.equal(writes(calls).length, 1); assert.deepEqual(errors, []);
+});
+
+test('дробный метраж остаётся видимым; подтверждение отправляет целые трубы с исходным expected', async t => {
+  const { page, calls, errors } = await fixture(t, { state: { fractional: true } });
+  const cell = page.locator('[data-material-id="first"]'), field = cell.locator('input.pg-in');
+  assert.equal(await field.inputValue(), ''); assert.equal(await field.getAttribute('placeholder'), 'шт');
+  await cell.getByText('7 м', { exact: true }).waitFor();
+  await field.fill('2,5'); await field.press('Enter');
+  assert.equal(await save(page).isDisabled(), true); assert.equal(writes(calls).length, 0);
+  await field.fill('2'); await field.press('Enter');
+  assert.match(await confirm(page).textContent(), /7 м → 2 шт × 6 м = 12 м/);
+  assert.equal(await confirm(page).getByRole('button', { name: /Списать/ }).count(), 0);
+  await save(page).click();
+  await cell.getByText('12 м', { exact: true }).waitFor();
+  const long = page.locator('[data-material-id="long"] input.pg-in');
+  await long.fill('2'); await long.press('Enter'); await save(page).click();
+  await page.locator('[data-material-id="long"]').getByText('24 м', { exact: true }).waitFor();
+  const pieces = page.locator('[data-material-id="raw40"] input.pg-in');
+  await pieces.fill('3'); await pieces.press('Enter'); await save(page).click();
+  await page.locator('[data-material-id="raw40"]').getByText('18 м', { exact: true }).waitFor();
+  assert.deepEqual(writes(calls).map(call => call.body.lines[0]), [
+    { materialId: 'first', qty: 12, expected: 7 }, { materialId: 'long', qty: 24, expected: 12 }, { materialId: 'raw40', qty: 3, expected: 2 },
+  ]);
+  assert.deepEqual(errors, []);
 });
 
 test('один pending на view; внешний reload сохраняет черновик/caret и frozen expected,409 не перезаписывает', async t => {
@@ -120,13 +145,13 @@ test('один pending на view; внешний reload сохраняет че�
   items.find(item => item.id === 'first').quantity = 40;
   await page.evaluate(() => window.grid.reload());
   assert.equal(await first.inputValue(), '8'); assert.equal(await first.evaluate(node => document.activeElement === node && node.selectionStart === 1), true);
-  assert.ok((await confirm(page).textContent()).includes('12 → 8 м'));
+  assert.ok((await confirm(page).textContent()).includes('2 шт (12 м) → 8 шт × 6 м = 48 м'));
   await save(page).click(); await confirm(page).getByText('Остаток изменился. Обновите данные.', { exact: true }).waitFor();
   assert.equal(calls.find(call => call.path === '/api/stock/batch').body.lines[0].expected, 12);
   assert.equal(items.find(item => item.id === 'first').quantity, 40); assert.equal(await first.inputValue(), '8');
   assert.equal(calls.some(call => call.body?.force), false);
   await confirm(page).getByRole('button', { name: 'Обновить остаток', exact: true }).click();
-  await page.waitForFunction(() => document.querySelector('[data-material-id="first"] input.pg-in')?.value === '40'); assert.deepEqual(errors, []);
+  await page.waitForFunction(() => document.querySelector('[data-material-id="first"] input.pg-in')?.value === ''); assert.deepEqual(errors, []);
 });
 
 test('пустая координата: только количество в ячейке, форма не открывается, reload сохраняет черновик', async t => {
@@ -144,9 +169,9 @@ test('пустая координата: только количество в я
   assert.equal(writes(calls).length, 0); assert.deepEqual(errors, []);
 });
 
-test('пустая координата: createOnly с zone,3м не превращаются в штуки; count failure повторяет только count', async t => {
+test('пустая координата: createOnly с zone, три трубы по 12 м; count failure повторяет только count', async t => {
   const state = { failCount: true }, { page, calls, errors } = await fixture(t, { state });
-  const cell = page.locator('[data-worker-create="cell"][title*="60×20×2"]').first();
+  const cell = page.locator('[data-worker-create="cell"][title*="60×20×2"][title$="12 м"]').first();
   await cell.fill('3'); await cell.press('Enter');
   await page.locator('[data-worker-entry-error]:visible').waitFor();
   assert.equal(writes(calls).length, 2);
@@ -154,8 +179,8 @@ test('пустая координата: createOnly с zone,3м не превр�
   await page.locator('[data-material-id="created"]').waitFor();
   const created = calls.filter(call => call.path === '/api/stock/items' && call.method === 'POST'); assert.equal(created.length, 1);
   assert.equal(created[0].query.zoneId, 'zone'); assert.equal(created[0].body.categoryId, 'pipe-cat'); assert.equal(created[0].body.unit, 'м');
-  assert.deepEqual(created[0].body.dims, { width: 60, height: 20, thickness: 2, length: 6000 });
-  assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines[0]), Array(2).fill({ materialId: 'created', qty: 3, expected: 0 }));
+  assert.deepEqual(created[0].body.dims, { width: 60, height: 20, thickness: 2, length: 12000 });
+  assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines[0]), Array(2).fill({ materialId: 'created', qty: 36, expected: 0 }));
   assert.deepEqual(errors, []);
 });
 
@@ -243,25 +268,25 @@ test('мытая ячейка предлагает списать остаток
   const cell = page.locator('[data-worker-create="cell"][title*="50×20×2"][title*="Мытая"]').first();
   await cell.fill('4'); await cell.press('Enter');
   const panel = page.locator('[data-worker-transfer]'); await panel.waitFor();
-  assert.ok((await panel.textContent()).includes('В «Не мытая» 7 м. Списать 4 м?'));
+  assert.ok((await panel.textContent()).includes('В «Не мытая» 24 м. Списать 2 шт?'));
   assert.equal(writes(calls).length, 0);
   await panel.getByRole('button', { name: 'Только добавить', exact: true }).click();
   await page.locator('[data-material-id="created"]').waitFor();
-  assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines), [[{ materialId: 'created', qty: 4, expected: 0 }]]);
-  assert.equal(items.find(item => item.id === 'raw50').quantity, 7); assert.deepEqual(errors, []);
+  assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines), [[{ materialId: 'created', qty: 48, expected: 0 }]]);
+  assert.equal(items.find(item => item.id === 'raw50').quantity, 24); assert.deepEqual(errors, []);
 });
 
 test('подтверждение и списание: одна пачка меняет мытую и немытую, отказ оставляет немытую', async t => {
   const { page, calls, errors, items } = await fixture(t);
   const input = page.locator('[data-material-id="first"] input.pg-in');
-  await input.fill('15'); await input.press('Enter');
+  await input.fill('3'); await input.press('Enter');
   const panel = confirm(page);
-  await panel.getByRole('button', { name: /Списать 3 м с «Не мытая»/ }).click();
-  await page.waitForFunction(() => document.querySelector('[data-material-id="raw40"] .pg-in')?.value === '2');
+  await panel.getByRole('button', { name: /Списать 1 шт с «Не мытая»/ }).click();
+  await page.waitForFunction(() => document.querySelector('[data-material-id="raw40"] .pg-in')?.value === '1');
   assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines,
-    [{ materialId: 'first', qty: 15, expected: 12 }, { materialId: 'raw40', qty: 2, expected: 5 }]);
-  assert.equal(items.find(item => item.id === 'first').quantity, 15);
-  assert.equal(items.find(item => item.id === 'raw40').quantity, 2);
+    [{ materialId: 'first', qty: 18, expected: 12 }, { materialId: 'raw40', qty: 1, expected: 2 }]);
+  assert.equal(items.find(item => item.id === 'first').quantity, 18);
+  assert.equal(items.find(item => item.id === 'raw40').quantity, 1);
   await page.locator('[data-material-id="small"] input.pg-in').fill('5');
   await page.locator('[data-material-id="small"] input.pg-in').press('Enter');
   assert.equal(await confirm(page).getByRole('button', { name: /с «Не мытая»/ }).count(), 0);

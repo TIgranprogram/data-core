@@ -53,6 +53,7 @@ async function build() {
   const workerScope = workerReceiveScope(P);
   const op = OPS[P.op] ? P.op : 'in';
   if (workerScope && op !== 'in') throw new Error('Контекст рабочего склада предназначен для приёмки.');
+  if (workerScope) await workerScope.validateZone();
   const cfg = OPS[op];
   if (op === 'fromres') return buildFromReserve(P.materialId);
   if (op === 'unreserve') return buildUnreserve(P.materialId);
@@ -242,7 +243,7 @@ async function build() {
   const toggleManual = arrivals ? button({ label: '+ Принять без счёта', kind: 'ghost', size: 'S', onClick: (e) => { manualSection.hidden = !manualSection.hidden; e.currentTarget.textContent = manualSection.hidden ? '+ Принять без счёта' : '− Скрыть'; } }) : null;
   const el = h('div', { class: 'sop' },
     workerScope ? h('p', { class: 'hint', 'data-worker-receive': workerScope.kind }, 'Приёмка: ' + (workerScope.kind === 'pipe' ? 'только трубы' : 'только листовой металл') + ' выбранной складской зоны.') : null,
-    h('p', { class: 'hint' }, cfg.hint),
+    workerScope ? null : h('p', { class: 'hint' }, cfg.hint),
     arrivals?.el,
     toggleManual,
     manualSection,

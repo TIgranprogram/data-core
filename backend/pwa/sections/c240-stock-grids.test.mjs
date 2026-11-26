@@ -7,18 +7,21 @@ import { findBrowser } from '../../../tools/browser-path.mjs';
 
 const root = new URL('../', import.meta.url), origin = 'http://c240.test';
 const samples = [
-  { id: 'pipe-one', name: 'Труба профильная 40×20×2', metal: 'pipe', unit: 'м', sectionProfile: { shape: 'rect', label: '40×20×2', state: 'complete' }, assortment: '40×20×2', categoryName: 'Профильная труба', materialGrade: 'Ст3', washed: true, quantity: 12, reservedQty: 6, dims: { length: 6000, thickness: 2 } },
-  { id: 'sheet-one', name: 'Лист Ст3 3 мм', metal: 'sheet', unit: 'лист', materialGrade: 'Ст3', quantity: 8, reservedQty: 2, notes: 'Проверено кладовщиком', dims: { thickness: 3, length: 2500, width: 1250 } },
+  { id: 'pipe-one', name: 'Труба профильная 40×20×2', metal: 'pipe', unit: 'м', sectionProfile: { shape: 'rect', label: '40×20×2', state: 'complete' }, assortment: '40×20×2', categoryId: 'pipe-cat', categoryName: 'Профильная труба', materialGrade: 'Ст3', washed: true, quantity: 12, reservedQty: 6, dims: { length: 6000, thickness: 2 } },
+  { id: 'sheet-one', name: 'Лист Ст3 3 мм', metal: 'sheet', unit: 'лист', categoryId: 'sheet-cat', materialGrade: 'Ст3', quantity: 8, reservedQty: 2, notes: 'Проверено кладовщиком', dims: { thickness: 3, length: 2500, width: 1250 } },
 ];
 let browser;
 before(async () => { browser = await chromium.launch({ executablePath: findBrowser(), headless: true }); });
 after(async () => { await browser?.close(); });
 
-async function fixture(t, { user = { role: 'director', sections: ['stock'] }, view = 'pipe', theme = 'light' } = {}) {
+async function fixture(t, { user = { role: 'director', sections: ['stock'] }, view = 'pipe', theme = 'light', quickFailure = false } = {}) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
   t.after(() => page.close());
   const person = { id: 'c240-user', username: 'c240', displayName: 'Проверка экрана', canMoney: false, ...user };
   const records = structuredClone(samples).map(item => ({ countMode: 'single', ...item })), calls = [], errors = [];
+  if (quickFailure) records.push({ ...records[0], id: 'other-size', washed: false, dims: { length: 12000 },
+    sectionProfile: { shape: 'rect', state: 'complete', label: '50×20×2', widthMm: 50, heightMm: 20, wallMm: 2 } });
+  let rejected = false;
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(({ person, theme }) => {
     localStorage.setItem('dc-theme', theme); localStorage.setItem('dca_user', JSON.stringify(person));
@@ -37,7 +40,7 @@ async function fixture(t, { user = { role: 'director', sections: ['stock'] }, vi
       const body = route.request().postDataJSON(); calls.push({ path: url.pathname, method, body });
       if (url.pathname === '/api/auth/me') return route.fulfill({ json: person });
       if (url.pathname === '/api/stock/zones') return route.fulfill({ json: { items: [{ id: 'pipe-zone', name: 'Трубы' }, { id: 'sheet-zone', name: 'Листовой материал' }] } });
-      if (url.pathname === '/api/stock/categories') return route.fulfill({ json: { items: [{ id: 'pipe-cat', name: 'Профильная труба' }] } });
+      if (url.pathname === '/api/stock/categories') return route.fulfill({ json: { items: url.searchParams.get('zoneId') === 'sheet-zone' ? [{ id: 'sheet-cat', name: 'Листовой материал' }] : [{ id: 'pipe-cat', name: 'Профильная труба' }] } });
       if (url.pathname === '/api/supply/lookups') return route.fulfill({ json: { categories: [{ name: 'Профильная труба' }], units: ['м', 'лист'] } });
       if (url.pathname === '/api/stock/items') {
         if (method === 'POST') { const created = { id: 'created-pipe', ...body, countMode: 'single', quantity: 0, metal: 'pipe', photos: [] }; records.push(created); return route.fulfill({ json: created }); }
@@ -45,7 +48,11 @@ async function fixture(t, { user = { role: 'director', sections: ['stock'] }, vi
         return route.fulfill({ json: { items: found, total: found.length, page: 1, limit: 100 } });
       }
       if (url.pathname === '/api/stock/items/created-pipe') return route.fulfill({ json: records.find(item => item.id === 'created-pipe') });
-      if (url.pathname === '/api/stock/batch') { const line = body.lines[0]; const item = records.find(row => row.id === line.materialId); if (item) item.quantity = line.qty; }
+      if (url.pathname === '/api/stock/batch') {
+        if (quickFailure && !rejected) { rejected = true; return route.fulfill({ status: 409, json: { message: 'Пересчёт не принят.' } }); }
+        const line = body.lines[0]; const item = records.find(row => row.id === line.materialId);
+        if (item) item.quantity = line.qty;
+      }
       return route.fulfill({ json: { items: [], counts: {}, metrics: {}, feed: [], week: [] } });
     }
     if (url.pathname === '/app/version.json') return route.fulfill({ json: { v: 'fixture' } });
@@ -84,13 +91,13 @@ for (const [view, theme] of [['pipe', 'light'], ['sheet', 'dark']]) {
   });
 }
 
-test('родной экран Трубореза: подтверждённый пересчёт в метрах и компактное создание', async t => {
+test('родной экран Трубореза: подтверждённый пересчёт труб с записью в метрах и компактное создание', async t => {
   const { page, calls, errors } = await fixture(t, { user: { role: 'r-pipe', baseRole: 'manager', roleLabel: 'Труборез', sections: ['stock'], stockViews: ['sheet'] } });
   const field = page.locator('table input.pg-in').first(); await field.waitFor();
   await field.fill('3'); await field.press('Enter');
   await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('table input.pg-in[data-saved]'));
-  assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'pipe-one', qty: 3, expected: 12 });
+  assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'pipe-one', qty: 18, expected: 12 });
   await page.getByRole('button', { name: 'Добавить материал', exact: true }).click();
   const entry = page.locator('[data-worker-entry]'); await entry.getByLabel('Единица учёта', { exact: true }).waitFor();
   assert.equal(await page.locator('aside.drawer').count(), 0);
@@ -106,6 +113,39 @@ test('родной экран Трубореза: подтверждённый �
   await entry.getByRole('button', { name: 'Сохранить', exact: true }).click(); await createdResponse;
   assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/stock/items').length, 1);
   assert.deepEqual(calls.find(call => call.method === 'POST' && call.path === '/api/stock/items').body.dims, { width: 25, height: 25, thickness: 2, length: 6000 });
+  assert.deepEqual(errors, []);
+});
+
+for (const [view, roleLabel] of [['pipe', 'Труборез'], ['sheet', 'Лазер лист']]) test(roleLabel + ': приёмка открывается через main/router, чужая зона не даёт форму', async t => {
+  const { page, calls, errors } = await fixture(t, { view, user: { role: 'r-' + view, baseRole: 'manager', roleLabel, sections: ['stock'] } });
+  await page.locator('[data-material-id]').first().waitFor();
+  await page.getByRole('button', { name: 'Принять на склад', exact: true }).click();
+  const search = page.locator('aside.drawer input[aria-label="Найти позицию"]');
+  await search.waitFor({ state: 'attached', timeout: 5000 });
+  await page.locator('aside.drawer').getByText(/Приёмка: только/).waitFor({ timeout: 5000 });
+  assert.match(await page.evaluate(() => location.hash), new RegExp('workerZone=' + view + '-zone'));
+  const foreign = view === 'pipe' ? 'sheet-zone' : 'pipe-zone';
+  await page.evaluate(zone => { location.hash = location.hash.replace(/workerZone=[^&]+/, 'workerZone=' + zone); }, foreign);
+  await page.locator('aside.drawer').getByText('Зона приёмки не относится к этому рабочему экрану.', { exact: true }).waitFor({ timeout: 5000 });
+  assert.equal(await search.count(), 0);
+  assert.deepEqual(calls.filter(call => call.method === 'POST' && call.path.startsWith('/api/stock')), []);
+  assert.deepEqual(errors, []);
+});
+
+test('main: событие create не убирает подсказку частичного успеха; Enter повторяет только count', async t => {
+  const { page, calls, errors } = await fixture(t, { quickFailure: true, user: { role: 'r-pipe', baseRole: 'manager', roleLabel: 'Труборез', sections: ['stock'] } });
+  const cell = page.locator('input[data-worker-create="cell"][title*="50×20×2"][title$="6 м"]').first();
+  await cell.fill('2'); await cell.press('Enter');
+  const partial = page.getByText('Материал создан, количество не сохранено. Enter — повторить остаток.', { exact: true });
+  await partial.waitFor();
+  await page.waitForTimeout(450); // больше окна debounce dc:changed
+  assert.equal(await partial.isVisible(), true);
+  assert.equal(await cell.inputValue(), '2');
+  await cell.press('Enter');
+  await page.locator('[data-material-id="created-pipe"]').waitFor();
+  assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/stock/items').length, 1);
+  assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines[0]),
+    Array(2).fill({ materialId: 'created-pipe', qty: 12, expected: 0 }));
   assert.deepEqual(errors, []);
 });
 

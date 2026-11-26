@@ -68,3 +68,15 @@ test('дополнительный readOnly экран не открывает w
   assert.equal(canFollow(director, '#stock?of=stockop&new=1'), true);
   assert.equal(canFollow(account('admin'), '#stock?view=pipe&of=stockop&new=1'), true);
 });
+
+test('native stock-only разрешает только приёмку в контексте своего рабочего экрана', () => {
+  const context = { baseRole: 'manager', roleLabel: 'Труборез', sections: ['stock'] };
+  const worker = account('r-pipe', context);
+  const receipt = '#stock?view=pipe&of=stockop&new=1&op=in&workerKind=pipe&workerZone=pipe-zone';
+  assert.equal(canFollow(worker, receipt), true);
+  for (const href of [receipt.replace('op=in', 'op=out'), receipt.replace('workerKind=pipe', 'workerKind=sheet'),
+    receipt.replace('view=pipe', 'view=sheet'), receipt.replace('&workerZone=pipe-zone', ''), receipt + '&open=material',
+    receipt.replace('new=1', 'new=0'), '#stock?of=stockop&new=1&op=in']) assert.equal(canFollow(worker, href), false, href);
+  assert.equal(canFollow(account('r-pipe', { ...context, baseRole: 'user' }), receipt), false);
+  assert.equal(canFollow(account('r-pipe', { ...context, sections: ['products'] }), receipt), false);
+});

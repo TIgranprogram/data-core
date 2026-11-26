@@ -1,0 +1,18 @@
+{
+  "base": "6a13c176",
+  "algorithm": "sha256-utf8-lf",
+  "sha256": {
+    "backend/pwa/main.js": "f852146c0b85d3ce6a414106d2ae270f6828e4a9914de93fedef86faf8fc32ef",
+    "backend/pwa/core/route-access.js": "5f87f37f28abecab657a0078659e5bda399a268cc2ed45a77b5d06212b0fc504",
+    "backend/pwa/sections/atlas-stock.js": "93dd34edde7f1a6f9e6e7f0b34629e61f2d31d5d732307e89c259edc62a0672d",
+    "backend/pwa/sections/help-guide-data.js": "3aa98ebaff6657000f66cb4a030c34c9e493e68cb42938322f1bf79c7598bfea",
+    "backend/pwa/sections/stock-ops.js": "de2a534b07e7714d4152d7c839d3ffa136db7828e5f97f025d47c34a065749d5",
+    "backend/pwa/sections/stock-worker-confirm.js": "100767ec462a94c57f0319000a7f757f175a1a8c1f9fb3a46cce19ebba1f537c",
+    "backend/pwa/sections/stock-worker-create.js": "b1ad80478d32c09e9c6a29b77e57003e1cf4e08c881eb563633c11ac745af02d",
+    "backend/pwa/sections/stock-worker-grid.js": "5e2ad88e889347b5a448153538bfd3af1b43d2e5c6fd119d45def5bedeee3aa1",
+    "backend/pwa/sections/stock-worker-model.js": "461ef80a4e5242a1125988716de3dce3c51e4d0a9a993194025a9c3fcf8e73ac",
+    "backend/pwa/sections/stock-worker-scope.js": "53899c7da6b2dfc4b334e1fa01b2c77e5be2b35407d034c545b19998cc4853dd",
+    "backend/pwa/sections/stock-worktable.js": "43d6d2bb57a1b9bc865e46d40acad18da7a0f0ce8572f18d842b7a111c25bd4d",
+    "backend/pwa/ui/kit/kit.css": "295b6b5e3fd5e76095ac3b49f01f16b4df8875b3512a8e15643154752e2c577e"
+  }
+}

@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { catalogueStockList } from '../core/stock-list.js';
-import { workerItemMatches, workerMaterialId } from './stock-worker-model.js';
+import { workerItemMatches, workerMaterialId, workerZoneName } from './stock-worker-model.js';
 
 /** Необязательное UI-сужение приёмки; серверные права остаются источником доступа. */
 export function workerReceiveScope(params) {
@@ -9,6 +9,12 @@ export function workerReceiveScope(params) {
   const zoneId = params.workerZone, kind = params.workerKind;
   let categories, items;
   const scope = { zoneId, kind,
+    async validateZone() {
+      const { items = [] } = await api('/stock/zones');
+      if (!items.some(zone => zone.id === zoneId && zone.name?.trim().toLowerCase() === workerZoneName(kind).toLowerCase())) {
+        throw new Error('Зона приёмки не относится к этому рабочему экрану.');
+      }
+    },
     categories() {
       if (!categories) categories = api('/stock/categories', { query: { zoneId } }).then(response => (response.items || [])
         .filter(category => category.id !== 'none' && (kind === 'pipe' ? /труб/i : /лист/i).test(category.name))).catch(error => { categories = null; throw error; });
