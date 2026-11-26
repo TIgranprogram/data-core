@@ -124,13 +124,13 @@ for (const kind of ['main', 'wood']) for (const theme of ['light', 'dark']) {
 
 test('native: серверная страница2, sort, поиск нуля и availability до страницы', async t => {
   const { page, calls, errors } = await fixture(t, { many: true });
-  await page.locator('table tbody tr').first().waitFor();
-  assert.equal(await page.locator('table tbody tr').count(), 100);
+  await page.locator('table tbody tr:not(.pg-worker-detail)').first().waitFor();
+  assert.equal(await page.locator('table tbody tr:not(.pg-worker-detail)').count(), 100);
   await page.getByRole('button', { name: 'Далее', exact: true }).click();
-  await page.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 3);
+  await page.waitForFunction(() => document.querySelectorAll('table tbody tr:not(.pg-worker-detail)').length === 3);
   assert.deepEqual(await page.locator('.pg-worker [data-material-id]').evaluateAll(rows => rows.map(row => row.dataset.materialId)), ['material-100', 'material-101', 'material-102']);
   await page.getByRole('tab', { name: 'Нет в наличии', exact: true }).click();
-  await page.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 1);
+  await page.waitForFunction(() => document.querySelectorAll('table tbody tr:not(.pg-worker-detail)').length === 1);
   assert.ok(calls.some(call => call.query.availability === 'none' && call.query.page === '1'));
   await page.getByRole('tab', { name: 'Все', exact: true }).click();
   await page.locator('select[aria-label="Сортировка"]').selectOption('-quantity', { force: true });
@@ -141,7 +141,7 @@ test('native: серверная страница2, sort, поиск нуля и
 
 test('пересчёт последних строк фильтра наличия возвращает к существующей странице, без ложных штук', async t => {
   const { page, calls, errors } = await fixture(t, { many: true });
-  await page.locator('table tbody tr').first().waitFor();
+  await page.locator('table tbody tr:not(.pg-worker-detail)').first().waitFor();
   await page.getByRole('tab', { name: 'В наличии', exact: true }).click();
   await page.getByRole('button', { name: 'Далее', exact: true }).click();
   await page.locator('[data-material-id="material-101"] input.pg-in').waitFor();
@@ -149,7 +149,7 @@ test('пересчёт последних строк фильтра наличи
     const amount = page.locator(`[data-material-id="${id}"] input.pg-in`); await amount.fill('0'); await amount.press('Enter');
     await page.locator(`[data-material-id="${id}"]`).waitFor({ state: 'detached' });
   }
-  await page.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 100);
+  await page.waitForFunction(() => document.querySelectorAll('table tbody tr:not(.pg-worker-detail)').length === 100);
   assert.ok(calls.some(call => call.query.availability === 'in' && call.query.page === '1'));
   assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines[0]), [
     { materialId: 'material-101', qty: 0, expected: 101 }, { materialId: 'material-102', qty: 0, expected: 102 },
@@ -171,12 +171,14 @@ for (const kind of ['pipe', 'sheet', 'wood']) test('P2 / ' + kind + ': сумм�
     for (const type of ['input', 'change', 'focus', 'blur']) element.dispatchEvent(new Event(type, { bubbles: true }));
     element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   });
-  if (kind === 'pipe') await row.locator('summary').click();
-  const note = row.locator('input.pg-note');
-  await note.fill('Примечание общего материала');
-  const saved = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().endsWith('/stock/items/' + item.id));
-  await note.press('Enter'); await saved;
-  assert.deepEqual(calls.find(call => call.method === 'PATCH').body, { notes: 'Примечание общего материала' });
+  if (kind === 'pipe') await row.locator('xpath=..').locator('button[data-worker-row]').click();
+  {
+    const note = kind === 'pipe' ? page.locator(`[data-detail-material-id="${item.id}"] input.pg-note`) : row.locator('input.pg-note');
+    await note.fill('Примечание общего материала');
+    const saved = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().endsWith('/stock/items/' + item.id));
+    await note.press('Enter'); await saved;
+    assert.deepEqual(calls.find(call => call.method === 'PATCH').body, { notes: 'Примечание общего материала' });
+  }
   assert.equal(calls.filter(call => call.path === '/api/stock/batch').length, 0);
   assert.equal(item.quantity, 5);
   if (process.env.C242_MULTIPLE_PROOF_DIR && kind === 'pipe') {
@@ -204,8 +206,8 @@ test('P2: отсутствующий или неизвестный countMode fai
 
 test('нулевая raw номенклатура видима, собственные PDM/профили не возвращаются в складской список', async t => {
   const { page, calls } = await fixture(t, { kind: 'main', excluded: true });
-  await page.locator('table tbody tr[data-i]').first().waitFor();
-  assert.equal(await page.locator('table tbody tr[data-i]').count(), 2);
+  await page.locator('table tbody tr:not(.pg-worker-detail)[data-i]').first().waitFor();
+  assert.equal(await page.locator('table tbody tr:not(.pg-worker-detail)[data-i]').count(), 2);
   const grid = page.locator('table').first();
   assert.equal(await grid.getByText('Сетка для площадки', { exact: true }).count(), 1);
   assert.equal(await grid.getByText('Собственная деталь PDM', { exact: true }).count(), 0);
@@ -228,7 +230,7 @@ test('полная подгрузка не обрезает 10123 позиций
 
 test('основные колонки выбираются по полному scope, стабильны при подгрузке; missing размеры не скрываются', async t => {
   const { page } = await fixture(t, { kind: 'main', mixedMain: true });
-  await page.locator('table tbody tr[data-i]').first().waitFor();
+  await page.locator('table tbody tr:not(.pg-worker-detail)[data-i]').first().waitFor();
   const first = await page.locator('table thead th').allTextContents();
   assert.ok(first.includes('Ширина, мм')); assert.ok(first.includes('Высота, мм'));
   assert.equal(await page.getByText('Я-брус', { exact: true }).count(), 0);
@@ -260,14 +262,14 @@ test('форма металла хранит W/H/D отдельно; части�
 
 for (const theme of ['light', 'dark']) test('основная таблица: четыре зоны, columnsFor и default sort после query / ' + theme, async t => {
   const { page, calls, errors } = await fixture(t, { kind: 'main', theme });
-  await page.locator('table tbody tr').first().waitFor();
+  await page.locator('table tbody tr:not(.pg-worker-detail)').first().waitFor();
   assert.equal(await page.getByRole('columnheader', { name: 'Ширина, мм', exact: true }).count(), 0);
   const original = await page.evaluate(async () => (await import('/app/sections/stock.js')).stock.list.columns.map(column => column.key));
   for (const kind of ['pipe', 'sheet', 'wood']) {
     await page.getByRole('button', { name: zones.find(zone => zone.id === kind).name, exact: true }).click();
     const expected = kind === 'pipe' ? 'Сортамент / сечение, мм' : kind === 'sheet' ? 'Толщина / стенка, мм' : 'Высота, мм';
     await page.waitForFunction(label => [...document.querySelectorAll('table thead th')].some(header => header.textContent.startsWith(label)), expected);
-    await page.waitForFunction(expected => document.querySelectorAll('table tbody tr[data-i]').length === expected, samples[kind].length);
+    await page.waitForFunction(expected => document.querySelectorAll('table tbody tr:not(.pg-worker-detail)[data-i]').length === expected, samples[kind].length);
     const headers = await page.locator('table thead th').allTextContents();
     assert.ok(headers.some(label => label.startsWith(expected)));
     assert.ok(calls.some(call => call.query.zoneId === kind && call.query.sort === ({ pipe: 'sectionSize', sheet: 'sheetSize', wood: 'woodSize' }[kind]) && Number(call.query.limit) < 1000));
@@ -288,13 +290,13 @@ for (const theme of ['light', 'dark']) test('основная таблица: ч
 
 test('поздний ответ прежней зоны не возвращает старые колонки/строки; явный sort=name сохраняется', async t => {
   const { page, calls, errors } = await fixture(t, { kind: 'main', delayedPipe: true });
-  await page.locator('table tbody tr').first().waitFor();
+  await page.locator('table tbody tr:not(.pg-worker-detail)').first().waitFor();
   await page.getByRole('button', { name: 'Трубы', exact: true }).click();
   for (let attempt = 0; attempt < 50 && !calls.some(call => call.query.zoneId === 'pipe' && Number(call.query.limit) < 1000); attempt++) await page.waitForTimeout(10);
   await page.getByRole('button', { name: 'Листовой материал', exact: true }).click();
   await page.waitForFunction(() => [...document.querySelectorAll('table thead th')].some(header => header.textContent.startsWith('Толщина / стенка, мм')));
   await page.waitForTimeout(900);
-  assert.equal(await page.locator('table tbody tr[data-i]').count(), 3);
+  assert.equal(await page.locator('table tbody tr:not(.pg-worker-detail)[data-i]').count(), 3);
   assert.equal(await page.getByRole('columnheader', { name: 'Сортамент / сечение, мм', exact: true }).count(), 0);
   await page.evaluate(async () => { const { patch } = await import('/app/core/router.js'); patch({ sort: 'name' }); });
   await page.waitForTimeout(100);

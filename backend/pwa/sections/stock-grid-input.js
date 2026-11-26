@@ -10,7 +10,9 @@ export function noDrag(input) {
   input.draggable = false; return input;
 }
 export function moveCell(input, dx, dy) {
-  const cell = input.closest('td'), row = cell.parentElement, rows = [...row.closest('table').querySelectorAll('tbody tr')];
+  const cell = input.closest('td'), row = cell.parentElement, table = row.closest('table');
+  const rows = [...table.querySelectorAll('tbody tr')].filter(node => node.closest('table') === table && !node.classList.contains('pg-worker-detail'));
+  if (row.classList.contains('pg-worker-detail')) return false;
   const index = rows.indexOf(row);
   for (let step = 1; step <= (dy ? rows.length : row.children.length); step++) {
     const next = rows[index + dy * step]?.children[cell.cellIndex + dx * step];

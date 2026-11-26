@@ -70,7 +70,7 @@ for (const [view, theme] of [['pipe', 'light'], ['sheet', 'dark']]) {
     assert.ok(await surfaces.evaluateAll(nodes => nodes.every(node => node.tagName === 'SPAN' && !(window.c240Events.get(node) || []).some(name => ['blur', 'keydown', 'change', 'input'].includes(name)))));
     if (view === 'sheet') assert.equal(await page.getByLabel('Примечание, Лист Ст3 3 мм', { exact: true }).textContent(), 'Проверено кладовщиком');
     await page.getByRole('textbox', { name: 'Найти материал', exact: true }).fill(view === 'pipe' ? '40×20×2' : 'Ст3 3');
-    assert.equal(await page.locator('table.list tbody tr').count(), 1);
+    assert.equal(await page.locator('table.list tbody tr:not(.pg-worker-detail)').count(), 1);
     if (process.env.C240_PROOF_DIR) { await mkdir(process.env.C240_PROOF_DIR, { recursive: true }); await page.screenshot({ path: path.join(process.env.C240_PROOF_DIR, view + '-director-' + theme + '.png'), fullPage: true }); }
     await surfaces.evaluateAll(nodes => nodes.forEach(node => {
       node.value = '999';
