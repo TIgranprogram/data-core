@@ -16,9 +16,9 @@ describe('C271 — намерение закупки', () => {
     const flags = { isEnabled: jest.fn(async () => true) };
     const service = new SupplyService({} as never, model as never, stock as never, {} as never, {} as never, {} as never, undefined, undefined, undefined, undefined, flags as never);
     jest.spyOn(service, 'assertNew').mockResolvedValue(undefined);
-    const create = jest.spyOn(service, 'create').mockImplementation(async (dto, _user, _scope, ownerId) => {
+    const create = jest.spyOn(service, 'create').mockImplementation(async (dto, _user, _scope, intent) => {
       if (saved) throw { code: 11000, keyPattern: { _id: 1 } };
-      saved = { ...dto, _id: ownerId, num: 12, status: 'requested', paid: false };
+      saved = { ...dto, _id: intent?.id, num: 12, status: 'requested', paid: false };
       return saved as never;
     });
     return { service, model, stock, flags, create, saved: () => saved! };
@@ -40,6 +40,8 @@ describe('C271 — намерение закупки', () => {
     expect(await x.service.createStockRequest(id, { qty: 7, clientUid: uid }, actor, null)).toMatchObject({ id: first.id, qty: 3 });
     await expect(x.service.createStockRequest(id, { qty: 8, clientUid: uid }, actor, null)).rejects.toMatchObject({ status: 409 });
     await expect(x.service.createStockRequest(String(new Types.ObjectId()), { qty: 7, clientUid: uid }, actor, null)).rejects.toMatchObject({ status: 409 });
+    x.saved().materialId = new Types.ObjectId();
+    await expect(x.service.createStockRequest(id, { qty: 7, clientUid: uid }, actor, null)).rejects.toMatchObject({ status: 409 });
     expect(x.create).toHaveBeenCalledTimes(1);
   });
 

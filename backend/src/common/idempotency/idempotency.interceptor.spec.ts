@@ -4,9 +4,17 @@ import type { AuthenticatedUser } from '../decorators/current-user.decorator';
 import type { Idempotency } from './idempotency-storage.schema';
 import { IdempotencyStorageService } from './idempotency-storage.service';
 import { IdempotencyInterceptor } from './idempotency.interceptor';
+import { OwnerIdempotency } from './owner-idempotency.decorator';
 
 const actor: AuthenticatedUser = { id: 'actor-one', role: 'manager', username: 'manager' };
 const defaultUrl = '/api/test?filter=one';
+
+class TestHandlers {
+  @OwnerIdempotency()
+  owned() {}
+
+  ordinary() {}
+}
 
 describe('IdempotencyInterceptor', () => {
   const records = new Map<string, Idempotency>();
@@ -31,6 +39,7 @@ describe('IdempotencyInterceptor', () => {
     response?: unknown;
     status?: number;
     multipart?: boolean;
+    ownerIdempotency?: boolean;
   } = {}) {
     const url = options.url ?? defaultUrl;
     const request = {
@@ -46,7 +55,10 @@ describe('IdempotencyInterceptor', () => {
       is: () => Boolean(options.multipart),
     };
     const res = { statusCode: options.status ?? 201, status(code: number) { this.statusCode = code; } };
-    const context = { switchToHttp: () => ({ getRequest: () => request, getResponse: () => res }) } as unknown as ExecutionContext;
+    const context = {
+      getHandler: () => options.ownerIdempotency ? TestHandlers.prototype.owned : TestHandlers.prototype.ordinary,
+      switchToHttp: () => ({ getRequest: () => request, getResponse: () => res }),
+    } as unknown as ExecutionContext;
     const handle = jest.fn(() => of(options.response ?? { id: 'new-row' }));
     const body = await lastValueFrom(await interceptor.intercept(context, { handle }));
     return { body, status: res.statusCode, handled: handle.mock.calls.length > 0 };
@@ -67,6 +79,16 @@ describe('IdempotencyInterceptor', () => {
     await send();
     const retry = await send({ status: 200, response: { id: 'duplicate' } });
     expect(retry).toEqual({ body: { id: 'new-row' }, status: 201, handled: false });
+  });
+
+  it('аннотированный метод всегда выполняется и не обращается к кешу', async () => {
+    await send();
+    jest.clearAllMocks();
+    const result = await send({ ownerIdempotency: true, body: { value: 'другой' }, response: { id: 'owner-row' } });
+    expect(result).toMatchObject({ handled: true, body: { id: 'owner-row' } });
+    expect(storage.findByKey).not.toHaveBeenCalled();
+    expect(storage.insertOrFetch).not.toHaveBeenCalled();
+    expect((await send()).handled).toBe(false);
   });
 
   it.each([

@@ -8,7 +8,7 @@ import { expenseArticleMatch } from './expense-article-filter';
 import { photoToFront } from '../../common/photo-main';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { CounterService } from '../counter/counter.service';
-import { AuditService } from '../audit/audit.service';
+import { AuditService, type LogEntry } from '../audit/audit.service';
 import { adminOverride, assertAdminActor, overrideConfirm, type OverridePlan, type OverrideActor } from '../../common/admin-override';
 import { DataVersionService } from '../../common/data-version/data-version.service';
 import { customerNames } from '../partners/customer-names';
@@ -498,9 +498,42 @@ export class SupplyService {
     return f;
   }
 
+  /** Ожидания склада: читаем только поля подстроки рабочего экрана. */
+  async listStockRequests(id: string, { page, limit }: { page: number; limit: number }, scope: StockScope | null) {
+    const materialId = oid(id, 'позиции');
+    await this.stock.activeItem(id, scope);
+    const filter = { materialId, deletedAt: null, status: { $in: ['requested', 'in_progress', 'ordered'] } };
+    const projection = { num: 1, qty: 1, unit: 1, status: 1, paid: 1, supplierId: 1, invoiceId: 1, invoiceNo: 1 };
+    const [docs, total] = await Promise.all([
+      this.model.find(filter, projection).sort({ requestDate: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean().exec(),
+      this.model.countDocuments(filter).exec(),
+    ]);
+    const db = this.connection.db!;
+    const suppliers = oids([...new Set(docs.map(doc => doc.supplierId && String(doc.supplierId)))].join(','));
+    const invoices = oids([...new Set(docs.map(doc => doc.invoiceId && String(doc.invoiceId)))].join(','));
+    const [supplierDocs, invoiceDocs] = await Promise.all([
+      suppliers.length ? db.collection<{ name?: string; shortName?: string }>('organizations')
+        .find({ _id: { $in: suppliers }, deletedAt: null }, { projection: { name: 1, shortName: 1 } }).toArray() : [],
+      invoices.length ? db.collection<{ deliveryDate?: Date }>('supplyinvoices')
+        .find({ _id: { $in: invoices }, deletedAt: null }, { projection: { deliveryDate: 1 } }).toArray() : [],
+    ]);
+    const names = new Map(supplierDocs.map(doc => [String(doc._id), doc.shortName || doc.name]));
+    const dates = new Map(invoiceDocs.map(doc => [String(doc._id), doc.deliveryDate]));
+    const items = docs.map(doc => ({
+      id: String(doc._id), num: doc.num ?? null, materialId: String(materialId), qty: doc.qty, unit: doc.unit ?? '',
+      status: doc.status === 'ordered' && doc.paid === true ? 'paid' : doc.status,
+      statusLabel: labelFromStatus(doc.status, doc.paid === true),
+      supplierName: names.get(String(doc.supplierId)) ?? null,
+      invoiceId: doc.invoiceId ? String(doc.invoiceId) : null, invoiceNo: doc.invoiceNo || null,
+      invoiceDeliveryDate: dates.get(String(doc.invoiceId)) ?? null,
+    }));
+    return { items, total, page, limit };
+  }
+
   /** C271: ключ намерения не зависит от изменяемого остатка уже созданной заявки. */
-  async createStockRequest(id: string, dto: { qty: number; clientUid: string }, userId: string | undefined, scope: StockScope | null) {
-    oid(id, 'позиции');
+  async createStockRequest(id: string, dto: { qty: number; clientUid: string }, userId: string | undefined, scope: StockScope | null,
+    auditActor: Pick<LogEntry, 'userName' | 'ipAddress'> = {}) {
+    const materialId = String(oid(id, 'позиции'));
     const actorId = String(oid(userId ?? '', 'автора'));
     const material = await this.stock.activeItem(id, scope);
     await this.assertRequestApi();
@@ -510,9 +543,11 @@ export class SupplyService {
     const uuid = dto.clientUid.toLowerCase();
     const hash = (value: string) => createHash('sha256').update(value).digest('hex');
     const _id = new Types.ObjectId(hash(`C271:${actorId}:${uuid}`).slice(0, 24));
-    const fingerprint = `c271:${hash(JSON.stringify({ actorId, uuid, materialId: String(oid(id, 'позиции')), qty: dto.qty, unit }))}`;
+    const fingerprint = `c271:${hash(JSON.stringify({ actorId, uuid, materialId, qty: dto.qty, unit }))}`;
     const present = (doc: Record<string, unknown>) => {
-      if (doc.clientUid !== fingerprint) throw new ConflictException('Этот ключ отправки уже использован для другой заявки');
+      if (doc.clientUid !== fingerprint || String(doc.materialId) !== materialId) {
+        throw new ConflictException('Этот ключ отправки уже использован для другой заявки');
+      }
       return { id: String(doc._id ?? doc.id), num: doc.num, materialId: String(doc.materialId), qty: doc.qty, unit: doc.unit, status: doc.status };
     };
     const previous = () => this.model.findOne({ _id }).setOptions({ includeSoftDeleted: true }).lean().exec();
@@ -521,7 +556,7 @@ export class SupplyService {
     const input = { materialId: id, title: material.name, unit, qty: dto.qty, clientUid: fingerprint, requestedBy: actorId };
     await this.assertNew(input, scope);
     try {
-      return present(await this.create(input, actorId, scope, _id));
+      return present(await this.create(input, actorId, scope, { id: _id, auditActor }));
     } catch (error) {
       const duplicate = error as { code?: number; keyPattern?: Record<string, number>; keyValue?: Record<string, unknown> };
       if (duplicate.code !== 11000 || !(duplicate.keyPattern?._id === 1 || String(duplicate.keyValue?._id ?? '') === String(_id))) throw error;
@@ -531,9 +566,10 @@ export class SupplyService {
     }
   }
 
-  async create(dto: SupplyInput, userId?: string, scope?: StockScope | null, ownerId?: Types.ObjectId) {
+  async create(dto: SupplyInput, userId?: string, scope?: StockScope | null,
+    stockRequest?: { id: Types.ObjectId; auditActor: Pick<LogEntry, 'userName' | 'ipAddress'> }) {
     await this.assertRequestApi();
-    if (dto.clientUid) {
+    if (dto.clientUid && !stockRequest) {
       const dup = await this.model.findOne({ clientUid: dto.clientUid }).lean().exec();
       if (dup) return this.get(String(dup._id), scope);
     }
@@ -553,7 +589,7 @@ export class SupplyService {
       fields.num = await this.counters.nextSeq('SupplyRequest', 'N');
     }
     const document = {
-      ...(ownerId ? { _id: ownerId } : {}),
+      ...(stockRequest ? { _id: stockRequest.id } : {}),
       status: 'requested', priority: 'normal', qty: 1, paid: false, requestDate: todayUtc(),
       ...Object.fromEntries(Object.entries(fields).filter(([k, v]) => v !== undefined && k !== 'sheetExtra.invoiceType')),
       ...(fields['sheetExtra.invoiceType'] ? { sheetExtra: { invoiceType: fields['sheetExtra.invoiceType'] } } : {}),
@@ -582,6 +618,12 @@ export class SupplyService {
         if (fields.articleId) await this.financialArticles!.assertSelectable(String(fields.articleId), 'expense', { session });
         return persist(session, materialId);
       });
+    if (stockRequest) {
+      await this.audit?.log({
+        ...stockRequest.auditActor, userId, action: 'supply.request.created', entityType: 'SupplyRequest', entityId: doc._id,
+        details: { after: { id: String(doc._id), num: doc.num, materialId: String(doc.materialId), qty: doc.qty, unit: doc.unit, status: doc.status } },
+      });
+    }
     await this.adoptArticle(doc as unknown as Record<string, unknown>);
     await this.afterCreate(doc as unknown as Record<string, unknown>, userId);
     return this.get(String(doc._id), scope);

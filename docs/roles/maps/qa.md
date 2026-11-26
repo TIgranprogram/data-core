@@ -1,5 +1,7 @@
 # Карта роли qa
 
+- C271/C272: критерии `docs/crew/C271-worker-stock-context/QA-PLAN.md:5`, backend full, SHA и нагрузочная проверка `docs/crew/C271-worker-stock-context/QA-REPORT-C271.md:5`. Backend e2e `backend/test/e2e/worker-stock-context.e2e-spec.ts:90`, `:127`, `:156`. Опорный коммит: `6a13c176`. Финальная UI-приёмка после freeze.
+
 коммит: f6b35fc5 · опорная ревизия для поиска, 23.11.2026; финальный staged backend определяется SHA C244/qa. Приёмка конкретного изменения фиксируется отдельно.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.

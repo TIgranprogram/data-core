@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { RequestMethod } from '@nestjs/common';
 import { SwaggerModule } from '@nestjs/swagger';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname, resolve } from 'path';
@@ -20,6 +21,7 @@ async function main(): Promise<void> {
   const outPath = resolve(outArg ?? process.env.OPENAPI_OUT ?? 'openapi.json');
 
   const app = await NestFactory.create(AppModule, { logger: false });
+  app.setGlobalPrefix('api', { exclude: [{ path: 'q/:code', method: RequestMethod.GET }] });
   const document = SwaggerModule.createDocument(app, buildSwaggerConfig());
 
   mkdirSync(dirname(outPath), { recursive: true });

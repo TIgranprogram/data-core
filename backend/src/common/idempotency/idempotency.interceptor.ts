@@ -15,6 +15,7 @@ import type { AuthenticatedUser } from '../decorators/current-user.decorator';
 import { canSeeMoney, effectiveRoles } from '../roles-hierarchy';
 import { scopeMatch, stockScopeFor } from '../stock-scope';
 import { IdempotencyStorageService } from './idempotency-storage.service';
+import { OWNER_IDEMPOTENCY } from './owner-idempotency.decorator';
 
 type AuthenticatedRequest = Request & { user?: AuthenticatedUser };
 
@@ -91,6 +92,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
   constructor(private readonly storage: IdempotencyStorageService) {}
 
   async intercept(context: ExecutionContext, next: CallHandler) {
+    if (Reflect.getOwnMetadata(OWNER_IDEMPOTENCY, context.getHandler())) return next.handle();
     const http = context.switchToHttp();
     const req = http.getRequest<AuthenticatedRequest>();
     const actor = req.user;
