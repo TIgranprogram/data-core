@@ -11,9 +11,15 @@ export function noDrag(input) {
 }
 export function moveCell(input, dx, dy) {
   const cell = input.closest('td'), row = cell.parentElement, rows = [...row.closest('table').querySelectorAll('tbody tr')];
-  const next = rows[rows.indexOf(row) + dy]?.children[cell.cellIndex + dx];
-  const field = next?.querySelector('input:not([readonly])');
-  if (field) { field.focus(); field.select(); }
+  const index = rows.indexOf(row);
+  for (let step = 1; step <= (dy ? rows.length : row.children.length); step++) {
+    const next = rows[index + dy * step]?.children[cell.cellIndex + dx * step];
+    if (!next) return false;
+    const fields = [...next.querySelectorAll('input:not([readonly]):not(:disabled)')].filter(node => node.getClientRects().length);
+    const field = fields.find(node => node.classList.contains(input.classList.contains('pg-note') ? 'pg-note' : 'pg-in')) || fields[0];
+    if (field) { field.focus(); field.select(); return true; }
+  }
+  return false;
 }
 export function gridField(cls, label, start, save, readOnly = false) {
   if (readOnly) return h('span', { 'aria-label': label }, start || '—');
@@ -21,21 +27,27 @@ export function gridField(cls, label, start, save, readOnly = false) {
   input.classList.add(cls); input.readOnly = readOnly; input.setAttribute('aria-label', label);
   input.size = cls === 'pg-in' ? 8 : 24;
   noDrag(input);
-  let was = start, saving = false;
+  let was = start, saving = false, returnFocus = false;
+  const restore = () => { if (input.isConnected && document.activeElement === document.body) { input.focus(); input.select(); } returnFocus = false; };
   input.addEventListener('focus', () => input.select());
   input.addEventListener('blur', async () => {
-    if (saving || input.value.trim() === was) return;
+    if (saving || input.dataset.gridReplacing || input.value.trim() === was) return;
     saving = true; input.disabled = true; input.classList.add('is-busy');
     try {
       await save(input.value.trim()); was = input.value = input.value.trim();
       input.dataset.saved = '1';
     } catch (error) { input.value = was; toastError(error, 'сохранить'); }
-    finally { saving = false; input.disabled = false; input.classList.remove('is-busy'); }
+    finally { saving = false; input.disabled = false; input.classList.remove('is-busy'); if (returnFocus) restore(); }
   });
+  const jump = (dx, dy) => { input.blur(); if (!moveCell(input, dx, dy)) { if (saving) returnFocus = true; else restore(); } };
   input.addEventListener('keydown', event => {
-    if (event.key === 'Enter') { event.preventDefault(); input.blur(); moveCell(input, 0, 1); }
+    if (event.key === 'Enter') { event.preventDefault(); jump(0, 1); }
     else if (event.key === 'Escape') { input.value = was; input.blur(); }
-    else if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); input.blur(); moveCell(input, 0, event.key === 'ArrowDown' ? 1 : -1); }
+    else if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); jump(0, event.key === 'ArrowDown' ? 1 : -1); }
+    else if (['ArrowRight', 'ArrowLeft'].includes(event.key) && input.selectionStart === input.selectionEnd
+      && input.selectionStart === (event.key === 'ArrowRight' ? input.value.length : 0)) {
+      event.preventDefault(); jump(event.key === 'ArrowRight' ? 1 : -1, 0);
+    }
   });
   return input;
 }

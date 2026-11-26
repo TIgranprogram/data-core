@@ -91,7 +91,8 @@ async function fixture(t, { kind = 'pipe', theme = 'light', many = false, width 
   return { page, calls, records, errors };
 }
 
-for (const kind of ['main', 'pipe', 'sheet', 'wood']) for (const theme of ['light', 'dark']) {
+// C269: native pipe/sheet проверяются как специализированные сетки в c269-worker-grids.test.mjs.
+for (const kind of ['main', 'wood']) for (const theme of ['light', 'dark']) {
   test(kind + ' / ' + theme + ': отдельные колонки, исходные unit и серый известный ноль', async t => {
     const { page, calls, errors } = await fixture(t, { kind, theme });
     const grid = page.locator('table.list').first(); await grid.locator('tbody tr').first().waitFor();
@@ -127,13 +128,13 @@ test('native: серверная страница2, sort, поиск нуля и
   assert.equal(await page.locator('table tbody tr').count(), 100);
   await page.getByRole('button', { name: 'Далее', exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 3);
-  assert.deepEqual(await page.locator('tbody tr').evaluateAll(rows => rows.map(row => row.dataset.id)), ['material-100', 'material-101', 'material-102']);
+  assert.deepEqual(await page.locator('.pg-worker [data-material-id]').evaluateAll(rows => rows.map(row => row.dataset.materialId)), ['material-100', 'material-101', 'material-102']);
   await page.getByRole('tab', { name: 'Нет в наличии', exact: true }).click();
   await page.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 1);
   assert.ok(calls.some(call => call.query.availability === 'none' && call.query.page === '1'));
   await page.getByRole('tab', { name: 'Все', exact: true }).click();
   await page.locator('select[aria-label="Сортировка"]').selectOption('-quantity', { force: true });
-  await page.waitForFunction(() => document.querySelector('tbody tr')?.dataset.id === 'material-102');
+  await page.waitForFunction(() => document.querySelector('.pg-worker [data-material-id]')?.dataset.materialId === 'material-102');
   assert.ok(calls.some(call => call.query.sort === '-quantity' && call.query.page === '1'));
   assert.deepEqual(errors, []);
 });
@@ -143,10 +144,10 @@ test('пересчёт последних строк фильтра наличи
   await page.locator('table tbody tr').first().waitFor();
   await page.getByRole('tab', { name: 'В наличии', exact: true }).click();
   await page.getByRole('button', { name: 'Далее', exact: true }).click();
-  await page.locator('tr[data-id="material-101"] input.pg-in').waitFor();
+  await page.locator('[data-material-id="material-101"] input.pg-in').waitFor();
   for (const id of ['material-101', 'material-102']) {
-    const amount = page.locator(`tr[data-id="${id}"] input.pg-in`); await amount.fill('0'); await amount.press('Enter');
-    await page.locator(`tr[data-id="${id}"]`).waitFor({ state: 'detached' });
+    const amount = page.locator(`[data-material-id="${id}"] input.pg-in`); await amount.fill('0'); await amount.press('Enter');
+    await page.locator(`[data-material-id="${id}"]`).waitFor({ state: 'detached' });
   }
   await page.waitForFunction(() => document.querySelectorAll('table tbody tr').length === 100);
   assert.ok(calls.some(call => call.query.availability === 'in' && call.query.page === '1'));
@@ -158,7 +159,7 @@ test('пересчёт последних строк фильтра наличи
 
 for (const kind of ['pipe', 'sheet', 'wood']) test('P2 / ' + kind + ': сумма5 multiple без inlinecount; material.notes остаётся отдельным свойством', async t => {
   const { page, calls, records, errors } = await fixture(t, { kind, theme: 'dark', countCase: 'multiple' });
-  const item = records[kind][0], row = page.locator(`tr[data-id="${item.id}"]`);
+  const item = records[kind][0], row = page.locator(kind === 'wood' ? `tr[data-id="${item.id}"]` : `[data-material-id="${item.id}"]`);
   await row.waitFor();
   const count = row.locator('[aria-label^="Фактически"]');
   assert.equal(await count.textContent(), '5');
@@ -170,6 +171,7 @@ for (const kind of ['pipe', 'sheet', 'wood']) test('P2 / ' + kind + ': сумм�
     for (const type of ['input', 'change', 'focus', 'blur']) element.dispatchEvent(new Event(type, { bubbles: true }));
     element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   });
+  if (kind === 'pipe') await row.locator('summary').click();
   const note = row.locator('input.pg-note');
   await note.fill('Примечание общего материала');
   const saved = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().endsWith('/stock/items/' + item.id));
@@ -187,13 +189,13 @@ for (const kind of ['pipe', 'sheet', 'wood']) test('P2 / ' + kind + ': сумм�
 test('P2: отсутствующий или неизвестный countMode failclosed, single без storageitem допускает первый пересчёт', async t => {
   for (const countCase of ['missing', 'unrecognized']) {
     const { page, calls } = await fixture(t, { countCase });
-    const row = page.locator('tr[data-id="fully-reserved"]'); await row.waitFor();
+    const row = page.locator('[data-material-id="fully-reserved"]'); await row.waitFor();
     assert.equal(await row.locator('input.pg-in').count(), 0);
     await row.getByText('Способ пересчёта не подтверждён — общий остаток доступен только для просмотра', { exact: true }).waitFor();
     assert.equal(calls.filter(call => call.path === '/api/stock/batch').length, 0);
   }
   const { page, calls } = await fixture(t);
-  const input = page.locator('tr[data-id="zero-80"] input.pg-in'); await input.waitFor();
+  const input = page.locator('[data-material-id="zero-80"] input.pg-in'); await input.waitFor();
   const counted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/api/stock/batch'));
   await input.fill('1'); await input.press('Enter'); await counted;
   assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'zero-80', qty: 1, expected: 0 });

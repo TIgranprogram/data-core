@@ -4,6 +4,7 @@
 
 | ID | Суть | Статус |
 |--|--|--|
+| C269 | Рабочие сетки Труборез / Лазер лист и меню узкого экрана | код+проверки+дизайнер PASS · выпуск отдельно · [REPORT](C269-worker-stock-grids/REPORT.md) |
 | C268 | Скролл колонок досок после C266 | done · v2.59 · PASS · [POSTRELEASE](C268-board-column-scroll/POSTRELEASE.md) |
 | C267 | Доска заявок: пауза429 и повтор колонки | код+проверки+дизайнер PASS · выпуск отдельно · [REPORT](C267-requests-rate-limit/REPORT.md) |
 | C266 | Плотность списков и завершённые фильтры | done · v2.54 · [RELEASE](C266-filter-compact/RELEASE.md) · [UI-REVIEW](C266-filter-compact/UI-REVIEW.md) |

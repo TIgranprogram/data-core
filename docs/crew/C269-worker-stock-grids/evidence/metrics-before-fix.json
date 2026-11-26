@@ -1,0 +1,952 @@
+{
+  "checks": [
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 91,
+        "cells": 91
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: количество 3 сохраняется без преобразования",
+      "data": {
+        "type": "count",
+        "note": "Трубы",
+        "lines": [
+          {
+            "materialId": "6ae45d39d29aaee2976a2697",
+            "qty": 3,
+            "expected": 0
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: ошибка сервера возвращает значение"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: примечание сохраняется отдельно"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 91,
+        "cells": 91
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: ни одна позиция не потеряна",
+      "data": {
+        "items": 91,
+        "cells": 91
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          }
+        ],
+        "minInputHeight": null
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: просмотр без полей записи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: просмотр не пишет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ни одна позиция не потеряна",
+      "data": {
+        "items": 8,
+        "cells": 8
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: закрыт пересчёт pipe-multiple"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: закрыт пересчёт pipe-unknown"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: нули подписаны"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: нестандартная длина не потеряна",
+      "data": [
+        "Сечение, мм\t\nМытая\n3 м\nОстаток, м\n\t\nМытая\n4 м\nОстаток, м\n\t\nМытая\n6 м\nОстаток, м\n\t\nНе мытая\n12 м\nОстаток, м\n\t\nМойка не указана\n7,5 м\nОстаток, м\n\n",
+        "Сечение, мм\t\nМытая\nДлина не указана\nОстаток, м\n\n",
+        "Сечение, мм\t\nМытая\n6 м\nОстаток, шт\n\n"
+      ]
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: количество 3 сохраняется без преобразования",
+      "data": {
+        "type": "count",
+        "note": "Трубы",
+        "lines": [
+          {
+            "materialId": "pipe-6a",
+            "qty": 3,
+            "expected": 12
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ошибка сервера возвращает значение"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: примечание сохраняется отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 46,
+        "cells": 46
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: количество 3 сохраняется без преобразования",
+      "data": {
+        "type": "count",
+        "note": "Листовой материал",
+        "lines": [
+          {
+            "materialId": "6ae44678cdc3f92ad170db86",
+            "qty": 3,
+            "expected": 1
+          }
+        ]
+      }
+    },
+    {
+      "ok": false,
+      "name": "sheet-light-1440-native: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "BODY",
+        "cls": ""
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: ошибка сервера возвращает значение"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: примечание сохраняется отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 46,
+        "cells": 46
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: ни одна позиция не потеряна",
+      "data": {
+        "items": 46,
+        "cells": 46
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          }
+        ],
+        "minInputHeight": null
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: просмотр без полей записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: просмотр не пишет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ни одна позиция не потеряна",
+      "data": {
+        "items": 7,
+        "cells": 7
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: закрыт пересчёт sheet-multiple"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: закрыт пересчёт sheet-unknown"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: нули подписаны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: обрезки явно показаны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: количество 3 сохраняется без преобразования",
+      "data": {
+        "type": "count",
+        "note": "Листовой материал",
+        "lines": [
+          {
+            "materialId": "sheet-3a",
+            "qty": 3,
+            "expected": 12
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ошибка сервера возвращает значение"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: примечание сохраняется отдельно"
+    }
+  ],
+  "screens": [
+    {
+      "kind": "pipe",
+      "theme": "light",
+      "width": 1440,
+      "readOnly": false,
+      "edge": false,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "6ae45d39d29aaee2976a2697",
+                "qty": 3,
+                "expected": 0
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "6ae45d39d29aaee2976a2697",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/items/6ae45d39d29aaee2976a2697",
+          "body": {
+            "notes": "C269 проверка примечания"
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors"
+      ],
+      "items": 91,
+      "errorNext": false
+    },
+    {
+      "kind": "pipe",
+      "theme": "dark",
+      "width": 1920,
+      "readOnly": false,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 91,
+      "errorNext": false
+    },
+    {
+      "kind": "pipe",
+      "theme": "soft",
+      "width": 2560,
+      "readOnly": true,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 91,
+      "errorNext": false
+    },
+    {
+      "kind": "pipe",
+      "theme": "light",
+      "width": 1024,
+      "readOnly": false,
+      "edge": true,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "pipe-6a",
+                "qty": 3,
+                "expected": 12
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "pipe-6a",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/items/pipe-6a",
+          "body": {
+            "notes": "C269 проверка примечания"
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors"
+      ],
+      "items": 8,
+      "errorNext": false
+    },
+    {
+      "kind": "sheet",
+      "theme": "light",
+      "width": 1440,
+      "readOnly": false,
+      "edge": false,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "6ae44678cdc3f92ad170db86",
+                "qty": 3,
+                "expected": 1
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "6ae44678cdc3f92ad170db86",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/items/6ae44678cdc3f92ad170db86",
+          "body": {
+            "notes": "C269 проверка примечания"
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors"
+      ],
+      "items": 46,
+      "errorNext": false
+    },
+    {
+      "kind": "sheet",
+      "theme": "dark",
+      "width": 1920,
+      "readOnly": false,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 46,
+      "errorNext": false
+    },
+    {
+      "kind": "sheet",
+      "theme": "soft",
+      "width": 2560,
+      "readOnly": true,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 46,
+      "errorNext": false
+    },
+    {
+      "kind": "sheet",
+      "theme": "light",
+      "width": 1024,
+      "readOnly": false,
+      "edge": true,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "sheet-3a",
+                "qty": 3,
+                "expected": 12
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "sheet-3a",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/items/sheet-3a",
+          "body": {
+            "notes": "C269 проверка примечания"
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors"
+      ],
+      "items": 7,
+      "errorNext": false
+    }
+  ],
+  "errors": [],
+  "shots": [
+    "pipe-light-1440-native-grid.png",
+    "pipe-light-1440-native-saved.png",
+    "pipe-dark-1920-native-grid.png",
+    "pipe-soft-2560-readonly-grid.png",
+    "pipe-light-1024-edges-grid.png",
+    "pipe-light-1024-edges-saved.png",
+    "sheet-light-1440-native-grid.png",
+    "sheet-light-1440-native-saved.png",
+    "sheet-dark-1920-native-grid.png",
+    "sheet-soft-2560-readonly-grid.png",
+    "sheet-light-1024-edges-grid.png",
+    "sheet-light-1024-edges-saved.png"
+  ]
+}
