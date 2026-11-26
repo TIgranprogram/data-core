@@ -1556,7 +1556,7 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
 .pg-worker .pg-worker-sheet { min-width: 800px; }
 .pg-worker .pg-table :is(th, td) { padding: 0; white-space: normal; text-align: center; border-bottom: 1px solid var(--border); border-inline-end: 1px solid var(--border); }
 .pg-worker .pg-table :is(th, td):last-child { border-inline-end: 0; }
-.pg-worker .pg-table thead th { position: sticky; top: 0; z-index: 2; padding: var(--s2); font-size: var(--fs); font-weight: 700; color: var(--heading); text-transform: none; letter-spacing: normal; background: var(--chip-soft, var(--surface-2)); border-bottom: 2px solid var(--border-strong); }
+.pg-worker .pg-table thead th { position: sticky; top: 0; z-index: 2; padding: var(--s2); font-size: var(--fs); font-weight: 700; color: var(--heading); text-transform: none; letter-spacing: normal; background: linear-gradient(var(--chip-soft, var(--surface-2)), var(--chip-soft, var(--surface-2))) var(--surface); border-bottom: 2px solid var(--border-strong); }
 .pg-worker .pg-table thead small { font-size: var(--fs-sm); font-weight: 500; }
 .pg-worker .pg-table .pg-name { min-width: 160px; width: 160px; padding: var(--s2); font-size: var(--fs-h2); color: var(--heading); background: var(--surface-2); text-align: left; }
 .pg-worker .pg-table .pg-for { min-width: 200px; padding: var(--s2); text-align: left; font-size: var(--fs); overflow: visible; }
