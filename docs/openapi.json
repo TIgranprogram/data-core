@@ -1643,6 +1643,9 @@
         "responses": {
           "200": {
             "description": ""
+          },
+          "403": {
+            "description": "Раздел закрыт или заявка недоступна в пределах складских прав"
           }
         },
         "tags": [
@@ -5767,6 +5770,40 @@
         "responses": {
           "200": {
             "description": ""
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/api/supply/requests/{id}/restore-note": {
+      "patch": {
+        "operationId": "SupplyController_restoreNote",
+        "summary": "Заменить примечание заявки, если оно совпадает с открытой карточкой",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreSupplyRequestNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "409": {
+            "description": "Примечание уже изменилось, операция не меняет его значение или флаг C262 выключен"
           }
         },
         "tags": [
@@ -23216,6 +23253,27 @@
         "type": "object",
         "properties": {}
       },
+      "RestoreSupplyRequestNoteDto": {
+        "type": "object",
+        "properties": {
+          "expected": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "description": "Текущее примечание в открытой карточке"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "description": "Примечание для записи, null очищает поле"
+          }
+        },
+        "required": [
+          "expected",
+          "value"
+        ]
+      },
       "SupplyPhotoDto": {
         "type": "object",
         "properties": {
@@ -23278,6 +23336,11 @@
           "requestDate": {
             "type": "string",
             "description": "Дата заявки, ISO"
+          },
+          "neededBy": {
+            "type": "string",
+            "description": "Плановая дата поставки, ISO. null очищает дату",
+            "nullable": true
           },
           "categoryId": {
             "type": "string"

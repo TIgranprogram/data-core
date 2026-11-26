@@ -262,6 +262,47 @@ describe('SupplyService', () => {
     });
   });
 
+  describe('restoreNote', () => {
+    it('условно заменяет одно примечание позиции оплаченного счёта', async () => {
+      current = reqDoc({ notes: '$старое', invoiceId: new Types.ObjectId(), status: 'received', paid: true, article: 'М10', materialId: new Types.ObjectId() });
+      await service.restoreNote(String(current._id), { expected: '$старое', value: ' новое ' }, null);
+      expect(model.updateOne).toHaveBeenCalledTimes(1);
+      const [filter, update] = model.updateOne.mock.calls[0];
+      expect(filter).toEqual({ _id: current._id, deletedAt: null, $expr: { $eq: [{ $ifNull: ['$notes', ''] }, { $literal: '$старое' }] } });
+      expect(update).toEqual({ $set: { notes: 'новое', editedInApp: true } });
+      expect(stock.adoptArticle).not.toHaveBeenCalled();
+      expect(stock.move).not.toHaveBeenCalled();
+    });
+
+    it('null очищает примечание', async () => {
+      current = reqDoc({ notes: 'Текущее' });
+      await service.restoreNote(String(current._id), { expected: 'Текущее', value: null }, null);
+      expect(model.updateOne.mock.calls[0][1]).toEqual({ $set: { editedInApp: true }, $unset: { notes: '' } });
+    });
+
+    it.each([undefined, null, ''])('пустое примечание %s принимается как expected: null', async notes => {
+      current = reqDoc({ notes });
+      await service.restoreNote(String(current._id), { expected: null, value: 'Заполнено' }, null);
+      expect(setOf()).toEqual({ notes: 'Заполнено', editedInApp: true });
+    });
+
+    it('устаревшее ожидание, повтор и несовпадение при записи не меняют заявку', async () => {
+      current = reqDoc({ notes: 'Новое' });
+      await expect(service.restoreNote(String(current._id), { expected: 'Старое', value: 'Новое' }, null)).rejects.toMatchObject({ status: 409 });
+      await expect(service.restoreNote(String(current._id), { expected: 'Новое', value: 'Новое' }, null)).rejects.toMatchObject({ status: 409 });
+      expect(model.updateOne).not.toHaveBeenCalled();
+
+      model.updateOne.mockReturnValue(chain({ matchedCount: 0 }));
+      await expect(service.restoreNote(String(current._id), { expected: 'Новое', value: 'Другое' }, null)).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('проверяет доступ к текущей категории перед записью', async () => {
+      current = reqDoc({ notes: 'Текущее', categoryId: new Types.ObjectId() });
+      await expect(service.restoreNote(String(current._id), { expected: 'Текущее', value: 'Новое' }, { zones: [], categoryIds: [], noCategory: false })).rejects.toMatchObject({ status: 403 });
+      expect(model.updateOne).not.toHaveBeenCalled();
+    });
+  });
+
   describe('update', () => {
     it('мусорный id → BadRequest', async () => {
       await expect(service.update('abc', { title: 'X' })).rejects.toThrow(BadRequestException);
@@ -282,6 +323,21 @@ describe('SupplyService', () => {
       current = reqDoc();
       await service.update(String(current._id), { notes: '' });
       expect(model.updateOne.mock.calls[0][1].$unset).toHaveProperty('notes');
+    });
+
+    it('переносит плановую дату поставки отдельно от оплаченного счёта и приёмки', async () => {
+      current = reqDoc({ invoiceId: new Types.ObjectId(), status: 'received', paid: true, article: 'М10', materialId: new Types.ObjectId() });
+      await service.update(String(current._id), { neededBy: '2026-11-27T00:00:00+03:00' }, 'manager');
+      expect(model.updateOne).toHaveBeenCalledTimes(1);
+      expect(model.updateOne.mock.calls[0][1]).toEqual({ $set: { neededBy: new Date('2026-11-27T00:00:00Z'), editedInApp: true } });
+      expect(stock.adoptArticle).not.toHaveBeenCalled();
+      expect(stock.move).not.toHaveBeenCalled();
+    });
+
+    it('null убирает плановую дату поставки', async () => {
+      current = reqDoc({ neededBy: new Date('2026-11-27T00:00:00Z') });
+      await service.update(String(current._id), { neededBy: null }, 'manager');
+      expect(model.updateOne.mock.calls[0][1]).toEqual({ $set: { editedInApp: true }, $unset: { neededBy: '' } });
     });
 
     it('priceHint: null — сумма стирается (null, а не 0)', async () => {

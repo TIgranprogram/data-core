@@ -6,7 +6,7 @@ import { authHeader, loginAsAdmin } from '../setup/admin.fixture';
 
 /** C271: только изолированная test-БД; прод и чужые БД не трогаем. */
 describe('C271 — адресный контекст материала: HTTP и Mongo', () => {
-  let ctx: TestContext, admin: string, manager: string, observer: string;
+  let ctx: TestContext, admin: string, manager: string, observer: string, requestEditor: string;
   let ownItem: string, foreignItem: string, ownCategory: string, foreignCategory: string, ownZone: string;
   const http = () => request(ctx.app.getHttpServer());
   const auth = (token = admin) => authHeader(token);
@@ -34,6 +34,9 @@ describe('C271 — адресный контекст материала: HTTP и
     const observerRole = (await http().post('/api/roles').set(auth()).send({ label: 'C271 наблюдатель', baseRole: 'user',
       appSections: ['stock'], warehouseIds: [ownZone], stockCategoryIds: [ownCategory] }).expect(201)).body;
     observer = (await account('observer', observerRole.name)).access;
+    const requestRole = (await http().post('/api/roles').set(auth()).send({ label: 'C275 редактор заявок', baseRole: 'manager',
+      appSections: ['requests'], warehouseIds: [ownZone], stockCategoryIds: [ownCategory] }).expect(201)).body;
+    requestEditor = (await account('request-editor', requestRole.name)).access;
   });
   afterAll(async () => { await ctx?.cleanup(); });
 
@@ -204,5 +207,78 @@ describe('C271 — адресный контекст материала: HTTP и
     await http().get(url).set(auth(manager)).query({ status: 'paid' }).expect(400);
     await http().get(`/api/stock/items/${foreignItem}/requests`).set(auth(observer)).expect(403);
     await http().get('/api/stock/items/invalid/requests').set(auth(manager)).expect(400);
+  });
+
+  it('C275 — примечание заявки: авторизация, параллельный возврат и единичный аудит', async () => {
+    const requests = db().collection('supplyrequests');
+    const invoiceId = new Types.ObjectId();
+    const id = new Types.ObjectId();
+    const foreignId = new Types.ObjectId();
+    const paidAt = new Date('2026-11-05T00:00:00Z');
+    const base = { notes: '$Текущее', title: 'Позиция принятого счёта', qty: 7, receivedQty: 3, priceHint: 175,
+      invoiceId, status: 'received', paid: true, paidAt, receivedAt: paidAt, deletedAt: null };
+    await db().collection('supplyinvoices').insertOne({ _id: invoiceId, status: 'paid', amount: 175, deletedAt: null });
+    await requests.insertMany([
+      { ...base, _id: id, materialId: new Types.ObjectId(ownItem), categoryId: new Types.ObjectId(ownCategory) },
+      { ...base, _id: foreignId, materialId: new Types.ObjectId(foreignItem), categoryId: new Types.ObjectId(foreignCategory) },
+    ]);
+    const projection = { notes: 0, updatedAt: 0, updatedBy: 0, editedInApp: 0 };
+    const before = await requests.findOne({ _id: id }, { projection });
+    const key = randomUUID();
+    const change = { expected: base.notes, value: 'Прежнее примечание' };
+    const send = (target = id, token = requestEditor) => http().patch(`/api/supply/requests/${target}/restore-note`)
+      .set(auth(token)).set('Idempotency-Key', key).send(change);
+    await send(foreignId).expect(403);
+    await send(id, observer).expect(403);
+
+    const flagUrl = '/api/feature-flags/c262.supply.requests.api';
+    try {
+      await http().put(flagUrl).set(auth()).send({ enabledByDefault: false }).expect(200);
+      await send().expect(409);
+      expect((await requests.findOne({ _id: id }))?.notes).toBe(base.notes);
+    } finally {
+      await http().put(flagUrl).set(auth()).send({ enabledByDefault: true }).expect(200);
+    }
+
+    const attempts = await Promise.all([send(), send()]);
+    expect(attempts.map(attempt => attempt.status).sort()).toEqual([200, 409]);
+    expect(attempts.find(attempt => attempt.status === 200)?.body).toMatchObject({ id: String(id), notes: change.value });
+    await send().expect(409);
+    expect((await requests.findOne({ _id: id }))?.notes).toBe(change.value);
+    expect((await requests.findOne({ _id: foreignId }))?.notes).toBe(base.notes);
+    expect(await requests.findOne({ _id: id }, { projection })).toEqual(before);
+    expect(await db().collection('supplyinvoices').findOne({ _id: invoiceId })).toEqual({ _id: invoiceId, status: 'paid', amount: 175, deletedAt: null });
+    expect(await db().collection('stockmovements').countDocuments({ documentRef: `SupplyRequest:${id}` })).toBe(0);
+    const events = await db().collection('auditlogs').find({ action: 'supply.request.updated', entityType: 'SupplyRequest', entityId: id }).toArray();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ userName: 'c271-request-editor', details: { after: { notes: change.value } } });
+  });
+
+  it('C275 — история заявки проверяет склад и доступна для своей записи в корзине', async () => {
+    const own = new Types.ObjectId();
+    const foreign = new Types.ObjectId();
+    const missing = new Types.ObjectId();
+    const requests = db().collection('supplyrequests');
+    await requests.insertMany([
+      { _id: own, categoryId: new Types.ObjectId(ownCategory), deletedAt: null },
+      { _id: foreign, materialId: new Types.ObjectId(foreignItem), deletedAt: null },
+    ]);
+    const log = { entityType: 'SupplyRequest', action: 'supply.request.updated', createdAt: new Date() };
+    await db().collection('auditlogs').insertMany([
+      { ...log, entityId: own, details: { after: { notes: 'Примечание заявки своего склада' } } },
+      { ...log, entityId: foreign, details: { after: { notes: 'Примечание заявки другого склада' } } },
+      { ...log, entityId: missing, details: { after: { notes: 'Примечание заявки без записи' } } },
+      { ...log, details: { id: 'c275-legacy', after: { notes: 'Примечание старой заявки' } } },
+    ]);
+    const history = (entityId: Types.ObjectId | string) => http().get('/api/audit-logs/record').set(auth(requestEditor))
+      .query({ entityType: 'SupplyRequest', entityId: String(entityId) });
+    const live = (await history(own).expect(200)).body;
+    expect(live.total).toBe(1);
+    expect(live.items[0].changes).toEqual([{ field: 'notes', from: null, to: 'Примечание заявки своего склада' }]);
+    await requests.updateOne({ _id: own }, { $set: { deletedAt: new Date() } });
+    expect((await history(own).expect(200)).body).toEqual(live);
+    await history(foreign).expect(403);
+    await history(missing).expect(403);
+    await history('c275-legacy').expect(403);
   });
 });

@@ -1,3 +1,5 @@
+import { MONEY_FIELDS, MONEY_FIELDS_NESTED } from '../../common/roles-hierarchy';
+
 /**
  * История записи «было → стало» (TASKS И.1). Журнал пишет снимок записи ПОСЛЕ каждого изменения (`details.after`),
  * поэтому изменения поля считаем сравнением соседних снимков одной записи по времени. Первый снимок — «создано»
@@ -10,7 +12,7 @@ const IGNORE = new Set(['_id', 'id', '__v', 'updatedAt', 'updatedBy', 'createdAt
   'photos', 'photoIds', 'photo', 'materialPhoto', 'lines', 'related', 'items', 'counts', 'stockMovements', 'supplyRequests', 'reservations', 'issues',
   'dictInfo', 'typeLabel', 'canCancel', 'deletedWithOrder', 'version', 'clientUid']);
 /** Денежные поля — только деньги-ролям (как MoneyMaskInterceptor). */
-export const MONEY_FIELDS = new Set(['priceHint', 'amount', 'amountManual', 'unitPrice', 'paidAmount', 'sum', 'salaryRate', 'price', 'total', 'paidDate', 'reportDate', 'payments']);
+const MONEY_FIELDS_IN_HISTORY = new Set([...MONEY_FIELDS, ...MONEY_FIELDS_NESTED]);
 /** Статусы позиций заказа, по которым видно оплату — в истории тоже только деньги-ролям (как MoneyMaskInterceptor). */
 const PAY_STATUS = new Set(['paid', 'awaiting', 'noamount']);
 
@@ -35,7 +37,7 @@ export function diffSnapshots(prev: Record<string, unknown> | null | undefined, 
   const labelled = 'statusLabel' in next;
   for (const k of keys) {
     if (k === 'status' && labelled) continue;
-    if (IGNORE.has(k) || k === 'salaryRate' || k === 'salaryKind' || (!canMoney && MONEY_FIELDS.has(k))) continue; // ставки ФОТ — только в разделе «ФОТ», в истории не показываем (менеджер видит деньги снабжения, но не зарплаты)
+    if (IGNORE.has(k) || k === 'salaryRate' || k === 'salaryKind' || (!canMoney && MONEY_FIELDS_IN_HISTORY.has(k))) continue; // ставки ФОТ — только в разделе «ФОТ», в истории не показываем (менеджер видит деньги снабжения, но не зарплаты)
     const a = prev ? simple(prev[k]) : null, b = simple(next[k]);
     if (a === undefined || b === undefined) continue;
     if (!canMoney && k === 'status' && (PAY_STATUS.has(String(a)) || PAY_STATUS.has(String(b)))) continue;

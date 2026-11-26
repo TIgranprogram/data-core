@@ -266,15 +266,15 @@ export const NODES = [
     code: ['backend/src/modules/supply', 'backend/src/modules/material', 'backend/pwa/sections/supplier-catalog.js'] },
   { id: 'requests', tpl: 'board', tplStatus: 'legacy', band: 'supply', col: 2, sec: 'requests', t: 'Заявки', l: ['заявка → заказал →', 'счёт → оплачено → получено'],
     seq: true, inside: [
-      { id: 'zayavka', t: 'Заявка', l: 'что купить и сколько', in: ['suppliercatalog', 'needs', 'shortage'], out: ['desk'] },
+      { id: 'zayavka', t: 'Заявка', l: 'что купить и сколько, дата и примечание', in: ['suppliercatalog', 'needs', 'shortage'], out: ['desk'] },
       { id: 'zakazal', t: '«Заказал»', l: 'у поставщика, по договору', in: ['partners', 'contracts'] },
       { id: 'schet', t: 'Счёт', l: 'валюта, НДС и неоплаченный остаток; полная оплата без даты попадает в очередь уточнения', out: ['money', 'fill'] },
       { id: 'oplacheno', t: 'Оплаты', l: 'каждый аванс и доплата — своей датой', out: ['money'] },
       { id: 'priemka', t: 'Приёмка', l: 'отмеченные позиции принимаются на склад, на заказ, в офис, в цех или на СМР', out: ['stock', 'salesorders'] },
     ],
     rules: ['Ссылка «ещё … — списком» под колонкой открывает таблицу со статусом колонки и сохраняет поиск и фильтры. Полученные и отменённые заявки в таблице группируются по месяцам.', 'При временном ограничении запросов колонка ждёт срок сервера и повторяет загрузку один раз; после отказа «Повторить» перечитывает только эту колонку. Уход с доски отменяет ожидание.', 'Оплата не подтверждает получение товара.', 'Прямая поставка сохраняет заказ или направление затрат. Остатки склада не меняются.', 'Подтверждённая полная рублёвая оплата без даты требует заполнения: до даты нет денежного факта, долга и повторного прогноза.', 'После первого платежа новой истории финансовая база фиксируется; ошибка исправляется с историей.', 'После первой приёмки действуют финансовые ограничения.'],
-    docs: ['docs/PRODUCT.md — «Заявки»', 'docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/crew/C158-supply-financial-fields/CONTRACT.md'], tech: 'supplyrequests (общая с CRM), supplyinvoices, supplyinvoicepayments (факты оплат)',
-    code: ['backend/src/modules/supply', 'backend/pwa/sections/requests.js', 'backend/pwa/sections/invoice-workspace.js'] },
+    docs: ['docs/PRODUCT.md — «Заявки»', 'docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/crew/C158-supply-financial-fields/CONTRACT.md', 'docs/crew/C275-manager-editing/TZ.md'], tech: 'supplyrequests (общая с CRM), supplyinvoices, supplyinvoicepayments (факты оплат)',
+    code: ['backend/src/modules/supply', 'backend/pwa/sections/requests.js', 'backend/pwa/sections/invoice-workspace.js', 'backend/pwa/sections/invoice-workspace-forms.js'] },
   { id: 'needs', tpl: 'card', tplStatus: 'legacy', band: 'supply', col: 3, sec: null, where: 'Продукция → карточка изделия → «Техописание» → «Что купить»', t: 'Расчёт закупки', l: ['считает сырьё, метизы и покупные позиции на заданное количество изделий', 'учитывает наличие и показывает, чего не хватает'],
     seq: true, inside: [
       { id: 'potrebnost', t: 'Сколько нужно', l: 'Общий расход на заданное количество изделий с учётом состава вложенных модулей.', in: ['products', 'modules'] },

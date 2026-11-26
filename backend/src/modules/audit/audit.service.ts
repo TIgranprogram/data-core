@@ -1,7 +1,10 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { getCurrentUser } from '../../common/context/user-context';
+import { sharedFind } from '../../common/shared-collections';
+import type { StockScope } from '../../common/stock-scope';
+import { assertDocInScope } from '../../common/supply-scope';
 import { AuditLog, AuditLogDocument } from './audit-log.schema';
 import { AuditQueryRaw, parseAuditQuery } from './audit-query';
 import { User, UserDocument } from '../user/user.schema';
@@ -97,6 +100,19 @@ export class AuditService {
       items: docs.map((d) => ({ ...(sanitizeValue(d) as object), actionRu: actionRu(d.action, d.entityType), actorName: this.actorOf(names, d) })),
       total, page, limit,
     };
+  }
+
+  async assertSupplyRequestHistoryScope(id: string, scope: StockScope | null): Promise<void> {
+    if (!scope) return;
+    const denied = 'История этой заявки недоступна в вашем складе';
+    if (!Types.ObjectId.isValid(id)) throw new ForbiddenException(denied);
+    const connection = this.model.db;
+    // Заявка в корзине сохраняет свою складскую принадлежность.
+    const [request] = await sharedFind(connection.db!.collection('supplyrequests'), 'supplyrequests', { _id: new Types.ObjectId(id) }, {
+      projection: { materialId: 1, categoryId: 1 }, includeDeleted: true,
+    }).limit(1).toArray();
+    if (!request || (request.materialId && !Types.ObjectId.isValid(String(request.materialId)))) throw new ForbiddenException(denied);
+    await assertDocInScope(connection, scope, request, denied);
   }
 
   /** История одной записи (И.1): по entityId (ObjectId) или details.id (строковые id), сначала новые. */

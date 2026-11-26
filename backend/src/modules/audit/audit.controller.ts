@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, ForbiddenException, Get, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiForbiddenResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from './audit.service';
@@ -7,6 +7,7 @@ import type { AuditQueryRaw } from './audit-query';
 import { withChanges } from './record-history';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { appSectionLabel, openSectionsFor } from '../../common/app-sections';
+import { stockScopeFor } from '../../common/stock-scope';
 
 /** Типы записей рабочего приложения, чью историю видят все роли. */
 export const RECORD_HISTORY_TYPES = ['SupplyRequest', 'Material', 'StockMovement', 'Counterparty', 'Order', 'Income', 'SalesOrder', 'Partner', 'DictItem', 'Product', 'WorkTask', 'CommercialOffer', 'DesignTask'];
@@ -58,14 +59,17 @@ export class AuditController {
   @Get('record')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiOperation({ summary: 'История одной записи (заявка, позиция склада, контрагент, заказ): кто, что, когда' })
+  @ApiForbiddenResponse({ description: 'Раздел закрыт или заявка недоступна в пределах складских прав' })
   @ApiQuery({ name: 'entityType', required: true, description: RECORD_HISTORY_TYPES.join(' | ') })
   @ApiQuery({ name: 'entityId', required: true })
   async record(@Query('entityType') entityType: string, @Query('entityId') entityId: string, @CurrentUser() user?: AuthenticatedUser) {
     if (!RECORD_HISTORY_TYPES.includes(entityType)) throw new BadRequestException('История для этого типа записей недоступна');
-    if (!entityId?.trim() || entityId.length > 300) throw new BadRequestException('Не указана запись');
+    if (typeof entityId !== 'string' || !entityId.trim() || entityId.length > 300) throw new BadRequestException('Не указана запись');
     if (!historyTypesFor(user).includes(entityType)) throw new ForbiddenException(`Раздел «${appSectionLabel(RECORD_TYPE_SECTIONS[entityType][0])}» для вашей роли закрыт`);
+    const id = entityId.trim();
+    if (entityType === 'SupplyRequest') await this.service.assertSupplyRequestHistoryScope(id, stockScopeFor(user));
     // «было → стало» по полям (И.1) — из соседних снимков; деньги — только деньги-ролям; сами снимки наружу не отдаём
-    const raw = await this.service.recordLogs(entityType, entityId.trim());
+    const raw = await this.service.recordLogs(entityType, id);
     const names = await this.service.actorNames(raw);
     const items = withChanges(raw as Array<Record<string, unknown>>, canSeeMoney(user));
     return {

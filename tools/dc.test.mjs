@@ -1,7 +1,7 @@
 // node --test tools/dc.test.mjs — разбор и форматирование dc, без сети.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseErrors, formatErrors, parseFill, parseGitStatus, parseAheadBehind, lastTestLog, parseJest, fmtTime, orderStats } from './dc.mjs';
+import { parseErrors, formatErrors, parseFill, parseGitStatus, parseAheadBehind, lastTestLog, parseJest, fmtTime, orderStats, listPwaTests } from './dc.mjs';
 
 const sample = JSON.stringify({ items: [
   { count: 8, lastAt: '2026-10-30T13:32:10.852Z', message: 'Медленно: products 7907 мс', name: 'SlowScreen', section: 'products', sampleStack: 'первая\nвторая' },
@@ -71,6 +71,13 @@ test('T23: dc status — отдельный live transport; в тесте тол
 test('T23: check и full не вызывают dc status неявно', () => {
   const source = fs.readFileSync(new URL('dc.mjs', import.meta.url), 'utf8');
   for (const [start, end] of [['function cmdCheck()', 'export function cmdStatus'], ['function cmdFull()', 'function cmdLogs']]) assert.doesNotMatch(source.slice(source.indexOf(start), source.indexOf(end)), /cmdStatus\s*\(|['"]status['"]|prodGet\s*\(/);
+});
+
+test('dc check: тест рисунка паспорта исключён из общего набора PWA', () => {
+  const tests = listPwaTests().map(file => file.replaceAll('\\', '/'));
+  assert.ok(fs.existsSync(new URL('../backend/pwa/sections/passports/modules.test.mjs', import.meta.url)));
+  assert.ok(!tests.includes('backend/pwa/sections/passports/modules.test.mjs'));
+  assert.ok(tests.includes('backend/pwa/sections/passports/funnel/pick-steps.test.mjs'));
 });
 
 test('orderStats: экран чист, если его файлов нет среди нарушений', () => {

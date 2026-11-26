@@ -13,6 +13,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cmdStand, cmdNight } from './night.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+export const CHECK_PULT_TESTS = ['pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs'];
+const PASSPORT_DRAWING_TEST = 'backend/pwa/sections/passports/modules.test.mjs';
 const LOGS = path.join(ROOT, 'tools', 'logs');
 const PROD_URL = process.env.DC_PROD_URL || 'https://kppdf-crm.ru/db';
 
@@ -222,6 +224,20 @@ async function cmdAtlas(argv) {
   process.exit(0);
 }
 
+export function listPwaTests(root = ROOT) {
+  const drawing = path.resolve(root, PASSPORT_DRAWING_TEST);
+  const tests = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(file);
+      else if (file !== drawing && entry.name.endsWith('.test.mjs')) tests.push(path.relative(root, file));
+    }
+  };
+  walk(path.resolve(root, 'backend/pwa'));
+  return tests.sort();
+}
+
 async function cmdCheck() {
   const be = path.join(ROOT, 'backend');
   let bad = 0;
@@ -236,14 +252,13 @@ async function cmdCheck() {
   const imp = step('импорты приложения', process.execPath, ['backend/scripts/pwa-import-check.mjs']);
   say(imp.code === 0 ? 'импорты pwa/admin: ок — ' + cut(imp.out.trim().split('\n').pop(), 80) : 'импорты pwa/admin: ОШИБКА — ' + cut(imp.out.trim().split('\n')[0], 110));
   if (imp.code) bad++;
-  // все тесты приложения — как шаг 5 ворот preflight (15.11: красные копились до выкладки)
-  const pwaTests = []; const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (e.name.endsWith('.test.mjs')) pwaTests.push(path.relative(ROOT, p)); } };
-  walk(path.join(be, 'pwa'));
-  const pt = step('тесты приложения', process.execPath, ['--experimental-vm-modules', '--test', ...pwaTests.sort()]);
+  // У теста рисунка отдельный результат PASS/SKIP ниже.
+  const pwaTests = listPwaTests();
+  const pt = step('тесты приложения', process.execPath, ['--experimental-vm-modules', '--test', ...pwaTests]);
   const ptFail = (pt.out.match(/ℹ fail (\d+)/) || [])[1];
   say(pt.code === 0 ? `тесты приложения: ок (${pwaTests.length} файлов)` : `тесты приложения: УПАЛИ ${ptFail || '?'} — tools/logs`);
   if (pt.code) bad++;
-  const modules = step('загрузка рисунка модуля', process.execPath, ['--test', 'backend/pwa/sections/passports/modules.test.mjs']);
+  const modules = step('загрузка рисунка модуля', process.execPath, ['--test', PASSPORT_DRAWING_TEST]);
   say(modules.code ? 'рисунок модуля: FAIL (tools/logs)' : /(?:# skip|skipped)\s+0\b/.test(modules.out) ? 'рисунок модуля: PASS' : 'рисунок модуля: SKIP (tools/logs)');
   if (modules.code) bad++;
   const dsg = step('дизайн', process.execPath, ['backend/scripts/design-lint.mjs']);
@@ -278,7 +293,7 @@ async function cmdCheck() {
   const sz = step('карточки', process.execPath, ['tools/starozhil/cards.mjs', '--check']);
   say('карточки Старожила: ' + cut(sz.out.trim().split('\n')[0].replace(/^карточки:\s*/, ''), 110) + (sz.code ? ' — ОШИБКИ (node tools/starozhil/cards.mjs --check)' : ''));
   if (sz.code) bad++;
-  const pult = step('пульт', process.execPath, ['--test', 'pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs']);
+  const pult = step('пульт', process.execPath, ['--test', ...CHECK_PULT_TESTS]);
   say(pult.code === 0 ? 'пульт: каталог совпадает с проектом' : 'пульт: ОТСТАЛ — ' + cut((pult.out.split('\n').find((l) => /Скрипт без кнопки|Команда dc без кнопки|gen-docs|✖ /.test(l)) || '').trim(), 110));
   if (pult.code) bad++;
   if (tsc.err || jest.err) { say('Сбой запуска локальных зависимостей: ' + (tsc.err || jest.err).message); return 2; }

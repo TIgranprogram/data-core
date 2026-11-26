@@ -25,6 +25,13 @@ describe('Снабжение: HTTP-контракт без Mongo', () => {
   };
   const fullRequest = { ...visibleRequest, invoiceAmount: 75, invoiceNote: 'Примечание к счёту' };
   const invoice = { _id: invId, status: 'issued', amount: 75, note: 'Доставка через проходную', fileIds: [] };
+  const supply = {
+    list: () => ({ items: [fullRequest], total: 1, page: 1, limit: 20 }),
+    assertRequest: async () => undefined,
+    dropUnchanged: async (_id: string, body: object) => body,
+    update: jest.fn(async (_id: string, body: object) => body),
+    restoreNote: jest.fn(async (_id: string, body: { value: string | null }) => ({ notes: body.value })),
+  };
 
   beforeAll(async () => {
     invoices = new SupplyInvoiceService(
@@ -38,7 +45,7 @@ describe('Снабжение: HTTP-контракт без Mongo', () => {
       controllers: [SupplyController],
       providers: [
         { provide: APP_GUARD, useClass: RolesGuard },
-        { provide: SupplyService, useValue: { list: () => ({ items: [fullRequest], total: 1, page: 1, limit: 20 }) } },
+        { provide: SupplyService, useValue: supply },
         { provide: SupplierExcelService, useValue: {} },
         { provide: SupplierCatalogService, useValue: {} },
         { provide: SupplyInvoiceService, useValue: invoices },
@@ -55,6 +62,8 @@ describe('Снабжение: HTTP-контракт без Mongo', () => {
 
   beforeEach(() => {
     lines = [{ _id: lineId, invoiceId: invId, qty: 3, priceHint: 75, status: 'ordered' }];
+    supply.update.mockClear();
+    supply.restoreNote.mockClear();
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -65,6 +74,35 @@ describe('Снабжение: HTTP-контракт без Mongo', () => {
     async (role, canSeeMoney) => {
       const { body } = await request(app.getHttpServer()).get('/supply/requests').set('x-test-role', role).expect(200);
       expect(body).toEqual({ items: [canSeeMoney ? fullRequest : visibleRequest], total: 1, page: 1, limit: 20 });
+    },
+  );
+
+  it.each(['2026-11-27', null])('PATCH заявки принимает плановую дату %s от менеджера', async neededBy => {
+    await request(app.getHttpServer()).patch(`/supply/requests/${lineId}`).set('x-test-role', 'manager')
+      .send({ neededBy }).expect(200);
+    expect(supply.update).toHaveBeenCalledWith(String(lineId), { neededBy }, 'manager', expect.any(String));
+  });
+
+  it('PATCH заявки отклоняет несуществующую дату', async () => {
+    await request(app.getHttpServer()).patch(`/supply/requests/${lineId}`).set('x-test-role', 'manager')
+      .send({ neededBy: '2026-02-30' }).expect(400);
+    expect(supply.update).not.toHaveBeenCalled();
+  });
+
+  it('возврат примечания доступен менеджеру с явным null и закрыт наблюдателю', async () => {
+    const path = `/supply/requests/${lineId}/restore-note`;
+    const change = { expected: 'Текущее', value: null };
+    await request(app.getHttpServer()).patch(path).set('x-test-role', 'user').send(change).expect(403);
+    await request(app.getHttpServer()).patch(path).set('x-test-role', 'manager').send(change).expect(200);
+    expect(supply.restoreNote).toHaveBeenCalledTimes(1);
+    expect(supply.restoreNote).toHaveBeenCalledWith(String(lineId), change, null);
+  });
+
+  it.each([{ value: null }, { expected: null }, { expected: null, value: null, qty: 7 }])(
+    'возврат примечания требует оба поля и отклоняет другие поля: %j', async change => {
+      await request(app.getHttpServer()).patch(`/supply/requests/${lineId}/restore-note`).set('x-test-role', 'manager')
+        .send(change).expect(400);
+      expect(supply.restoreNote).not.toHaveBeenCalled();
     },
   );
 

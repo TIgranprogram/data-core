@@ -15,6 +15,14 @@ describe('record-history (И.1): «было → стало» из соседни
     expect(diffSnapshots({ priceHint: 100, qty: 1 }, { priceHint: 200, qty: 2 }, false)).toEqual([{ field: 'qty', from: 1, to: 2 }]);
   });
 
+  it('история заявки применяет ту же денежную маску, что и карточка', () => {
+    const before = { invoiceAmount: 75, invoiceNote: 'Условия оплаты', lineAmount: 25, notes: 'Уточняем', total: 125 };
+    const after = { invoiceAmount: 90, invoiceNote: 'Условия договора', lineAmount: 30, notes: 'Доставка утром', total: 130 };
+    const events = [{ details: { after } }, { details: { after: before } }];
+    expect(withChanges(events, false)[0].changes).toEqual([{ field: 'notes', from: 'Уточняем', to: 'Доставка утром' }]);
+    expect(withChanges(events, true)[0].changes).toHaveLength(Object.keys(after).length);
+  });
+
   it('первый снимок — только заполненные поля без «было»', () => {
     expect(diffSnapshots(null, { title: 'Гайка', qty: 0, paid: false, notes: null })).toEqual([{ field: 'title', from: null, to: 'Гайка' }, { field: 'qty', from: null, to: 0 }]);
   });

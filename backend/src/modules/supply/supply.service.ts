@@ -52,6 +52,7 @@ export interface SupplyInput {
   unit?: string;
   num?: number;
   requestDate?: string;
+  neededBy?: string | null;
   categoryId?: string;
   categoryName?: string;
   /** Статья расхода (id подстатьи); null или '' — снять. */
@@ -420,6 +421,27 @@ export class SupplyService {
     return presented;
   }
 
+  async restoreNote(id: string, dto: { expected: string | null; value: string | null }, scope: StockScope | null) {
+    await this.assertRequestApi();
+    const _id = oid(id, 'заявки');
+    const expected = dto.expected ?? '';
+    const value = dto.value?.trim() ?? '';
+    await this.writeRequest(_id, async session => {
+      const row = await this.model.findOne({ _id, deletedAt: null }, { notes: 1, materialId: 1, categoryId: 1 }).session(session).lean().exec();
+      if (!row) throw new NotFoundException('Заявка не найдена');
+      await assertDocInScope(this.connection, scope, row);
+      if ((row.notes ?? '') !== expected) throw new ConflictException('Примечание изменилось. Откройте заявку заново');
+      if (value === expected) throw new ConflictException('Примечание уже имеет это значение');
+      const res = await this.model.updateOne(
+        { _id, deletedAt: null, $expr: { $eq: [{ $ifNull: ['$notes', ''] }, { $literal: expected }] } },
+        value ? { $set: { notes: value, editedInApp: true } } : { $set: { editedInApp: true }, $unset: { notes: '' } },
+        { session },
+      ).exec();
+      if (!res.matchedCount) throw new ConflictException('Примечание изменилось. Откройте заявку заново');
+    });
+    return this.get(id, scope);
+  }
+
   /** В корзину (мягко). Приход на склад по заявке, если был, остаётся — его отменяют на складе. */
   async remove(id: string) {
     await this.assertRequestApi();
@@ -470,6 +492,11 @@ export class SupplyService {
     if (dto.priceHint !== undefined) f.priceHint = dto.priceHint === null ? null : Number(dto.priceHint); // null — сумму стёрли (В.7)
     if (dto.num !== undefined) f.num = Number(dto.num);
     if (dto.requestDate) f.requestDate = new Date(dto.requestDate);
+    if (dto.neededBy !== undefined) {
+      const date = parseSheetDate(dto.neededBy);
+      if (dto.neededBy !== null && !date) throw new BadRequestException('Укажите плановую дату поставки');
+      f.neededBy = date;
+    }
     if (dto.invoiceDate !== undefined) {
       const d = parseSheetDate(dto.invoiceDate);
       if (dto.invoiceDate && !d) throw new BadRequestException('Дата счёта — в формате ДД.ММ.ГГГГ');
@@ -810,6 +837,7 @@ export class SupplyService {
       return this.model.updateOne({ _id: id, deletedAt: null }, { ...(Object.keys(set).length ? { $set: set } : {}), ...(Object.keys(unset).length ? { $unset: unset } : {}) }, { session, ...(photoIds ? { strict: false } : {}) }).exec();
     }, true);
     if (!res.matchedCount) throw new NotFoundException('Заявка не найдена');
+    if (dto.neededBy !== undefined && Object.keys(dto).length === 1) return this.get(id);
     await this.adoptArticle(await this.model.findById(id, { materialId: 1, article: 1, num: 1 }).lean().exec() as Record<string, unknown> | null);
     await this.afterStatus(prev, fields.status as string | undefined, actorId);
     if (dto.responsibleId !== undefined) await this.afterResponsible(id, prevResp, actorId);

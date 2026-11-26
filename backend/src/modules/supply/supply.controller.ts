@@ -6,14 +6,15 @@ import { BadRequestException, Body, Controller, ForbiddenException, Delete, Get,
 import type { Response } from 'express';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiConflictResponse, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
+import { OwnerIdempotency } from '../../common/idempotency/owner-idempotency.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
 import type { StockScope } from '../../common/stock-scope';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { SupplyBulkDto, SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
+import { RestoreSupplyRequestNoteDto, SupplyBulkDto, SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
@@ -433,6 +434,17 @@ export class SupplyController {
       if (!Object.keys(rest).some((k) => k !== 'reason')) return this.supply.get(id);
     }
     return this.supply.update(id, body, user?.role, user?.id);
+  }
+
+  @Patch('requests/:id/restore-note')
+  @Roles('admin', 'manager')
+  @OwnerIdempotency()
+  @AuditAction({ action: 'supply.request.updated', entityType: 'SupplyRequest', idParam: 'id' })
+  @ApiOperation({ summary: 'Заменить примечание заявки, если оно совпадает с открытой карточкой' })
+  @ApiConflictResponse({ description: 'Примечание уже изменилось, операция не меняет его значение или флаг C262 выключен' })
+  async restoreNote(@Param('id') id: string, @Body() dto: RestoreSupplyRequestNoteDto, @StockScoped() scope: StockScope | null) {
+    await this.supply.assertRequest(id, scope);
+    return this.supply.restoreNote(id, dto, scope);
   }
 
   /** C262: в корзину. Флаг выключен — 409, маршрут остаётся. */

@@ -5,13 +5,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { maskSecrets } from '../pult/dispatch.mjs';
+import { CHECK_PULT_TESTS } from './dc.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export function allSteps(root = ROOT) {
   const tests = fs.readdirSync(path.join(root, 'pult', 'test')).filter((name) => name.endsWith('.test.mjs')).sort().map((name) => `pult/test/${name}`);
   return [
-    { name: 'Проверка кода (типы, юнит, импорты, дизайн, пульт)', args: ['tools/dc.mjs', 'check'] },
-    { name: 'Все юнит-тесты инструментов', args: ['--test', 'tools/dc.test.mjs', 'tools/night.test.mjs', 'tools/night-uploads.test.mjs', 'tools/work-modes.test.mjs', ...tests] },
+    { name: 'Проверка кода (типы, юнит, импорты, дизайн, пульт)', args: ['tools/dc.mjs', 'check'], coversPult: true },
+    { name: 'Все юнит-тесты инструментов', args: ['--test', 'tools/dc.test.mjs', 'tools/night.test.mjs', 'tools/night-uploads.test.mjs', 'tools/work-modes.test.mjs', ...tests], skipCheckedPult: true },
   ];
 }
 export function runAll({ root = ROOT, logDir = path.join(root, 'tools', 'logs'), runFn = spawnSync, now = () => new Date(), steps = allSteps(root) } = {}) {
@@ -22,8 +23,11 @@ export function runAll({ root = ROOT, logDir = path.join(root, 'tools', 'logs'),
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(MONGO|COMPOSE|CONTROL_|DC_PROD)/i.test(key)));
   const rows = [], logs = [];
   let failed = 0, toolError = false;
+  let checkedPult = false;
   for (const step of steps) {
-    const r = runFn(process.execPath, step.args, { cwd: root, encoding: 'utf8', env, windowsHide: true, shell: false, timeout: 30 * 60000, maxBuffer: 64 * 1024 * 1024 });
+    const args = step.skipCheckedPult && checkedPult ? step.args.filter(arg => !CHECK_PULT_TESTS.includes(arg)) : step.args;
+    const r = runFn(process.execPath, args, { cwd: root, encoding: 'utf8', env, windowsHide: true, shell: false, timeout: 30 * 60000, maxBuffer: 64 * 1024 * 1024 });
+    if (step.coversPult) checkedPult = r.status === 0 && !r.error;
     const code = r.status ?? 2;
     const output = maskSecrets([r.stdout, r.stderr, r.error?.message].filter(Boolean).join('\n'));
     if (code !== 0) failed++;

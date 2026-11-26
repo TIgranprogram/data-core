@@ -268,6 +268,23 @@ test('run-all: явные файлы тестов, без повторного b
   assert.ok(steps[1].args.includes('pult/test/process.test.mjs'));
   assert.ok(steps.every((s) => !s.args.some((a) => /\*|status|docker|e2e|https?:/.test(a))));
 });
+test('run-all: только успешный dc check заменяет три теста пульта', (t) => {
+  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'all-run-pult-'));
+  t.after(() => fs.rmSync(logDir, { recursive: true, force: true }));
+  const completed = ['pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs'];
+  const steps = allSteps();
+  for (const file of completed) assert.ok(steps[1].args.includes(file));
+  for (const [first, code] of [[{ status: 0 }, 0], [{ status: 1 }, 1], [{ status: 2 }, 1], [{ status: null, error: new Error('таймаут') }, 2]]) {
+    const calls = [];
+    const result = runAll({ logDir, steps, runFn: (_file, args) => {
+      calls.push(args);
+      return calls.length === 1 ? first : { status: 0 };
+    } });
+    const expected = code === 0 ? steps[1].args.filter(arg => !completed.includes(arg)) : steps[1].args;
+    assert.deepEqual(calls, [steps[0].args, expected]);
+    assert.equal(result.code, code);
+  }
+});
 test('run-all: fake runner; пути с пробелами без shell, полный журнал и честный код сбоя', (t) => {
   const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'all run-')); t.after(() => fs.rmSync(logDir, { recursive: true, force: true }));
   const steps = [{ name: 'fake', args: ['fake script.mjs'] }];

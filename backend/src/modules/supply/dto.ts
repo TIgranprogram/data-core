@@ -1,6 +1,6 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, ValidateNested, IsDateString, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, IsIn, IsBoolean } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, ValidateIf, ValidateNested, IsDateString, IsDefined, IsMongoId, IsNumber, IsOptional, IsString, Length, Min, IsIn, IsBoolean } from 'class-validator';
 
 export class SupplyRequestDto {
   @ApiPropertyOptional({ description: 'Наименование' }) @IsOptional() @IsString() @Length(0, 500) title?: string;
@@ -8,6 +8,8 @@ export class SupplyRequestDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 30) unit?: string;
   @ApiPropertyOptional({ description: '№ заявки (пусто — следующий)' }) @IsOptional() @IsNumber() num?: number;
   @ApiPropertyOptional({ description: 'Дата заявки, ISO' }) @IsOptional() @IsDateString() requestDate?: string;
+  @ApiPropertyOptional({ type: String, description: 'Плановая дата поставки, ISO. null очищает дату', nullable: true })
+  @IsOptional() @IsDateString({ strict: true }) neededBy?: string | null;
   @ApiPropertyOptional() @IsOptional() @IsMongoId() categoryId?: string;
   @ApiPropertyOptional({ description: 'Статья расхода (id подстатьи из /expense-articles); null или "" — снять', nullable: true }) @IsOptional() @IsString() @Length(0, 30) articleId?: string | null;
   @ApiPropertyOptional({ description: 'Категория по названию (создаётся, если нет)' }) @IsOptional() @IsString() @Length(0, 100) categoryName?: string;
@@ -42,6 +44,16 @@ export class SupplyRequestDto {
 
 export class SupplyPhotoDto {
   @ApiPropertyOptional({ description: 'id из POST /api/photos/upload' }) @IsMongoId() photoId!: string;
+}
+
+export class RestoreSupplyRequestNoteDto {
+  @ApiProperty({ type: String, nullable: true, maxLength: 2000, description: 'Текущее примечание в открытой карточке' })
+  @ValidateIf((_, value) => value !== null) @IsDefined() @IsString() @Length(0, 2000)
+  expected!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, maxLength: 2000, description: 'Примечание для записи, null очищает поле' })
+  @ValidateIf((_, value) => value !== null) @IsDefined() @IsString() @Length(0, 2000)
+  value!: string | null;
 }
 
 export class SupplyReceiveDto {
