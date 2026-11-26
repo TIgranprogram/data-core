@@ -1661,7 +1661,7 @@
     "/api/audit-logs/app": {
       "get": {
         "operationId": "AuditController_appHistory",
-        "summary": "История изменений приложения: кто, что, когда (сначала новые)",
+        "summary": "История изменений приложения в пределах складских прав (сначала новые)",
         "parameters": [
           {
             "name": "limit",
@@ -1695,6 +1695,13 @@
             "schema": {}
           },
           {
+            "name": "id",
+            "required": false,
+            "in": "query",
+            "description": "Идентификатор события журнала. Недоступное событие даёт пустой результат.",
+            "schema": {}
+          },
+          {
             "name": "entityType",
             "required": false,
             "in": "query",
@@ -1720,6 +1727,7 @@
     "/api/audit-logs/app/users": {
       "get": {
         "operationId": "AuditController_appUsers",
+        "summary": "Авторы видимых событий истории приложения",
         "parameters": [],
         "responses": {
           "200": {

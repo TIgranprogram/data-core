@@ -80,22 +80,23 @@ export class AuditController {
     };
   }
 
-  /** Общая история приложения (И.2): все изменения записей приложения — кто / раздел / даты. Директор и администратор. */
+  /** Общая история приложения (И.2) в пределах разделов и складской области директора или администратора. */
   @Get('app')
   @Roles('admin', 'director')
-  @ApiOperation({ summary: 'История изменений приложения: кто, что, когда (сначала новые)' })
+  @ApiOperation({ summary: 'История изменений приложения в пределах складских прав (сначала новые)' })
   @ApiQuery({ name: 'entityType', required: false, description: RECORD_HISTORY_TYPES.join(' | ') })
+  @ApiQuery({ name: 'id', required: false, description: 'Идентификатор события журнала. Недоступное событие даёт пустой результат.' })
   @ApiQuery({ name: 'userId', required: false }) @ApiQuery({ name: 'from', required: false }) @ApiQuery({ name: 'to', required: false })
   @ApiQuery({ name: 'page', required: false }) @ApiQuery({ name: 'limit', required: false, description: '≤ 200, по умолчанию 50' })
   appHistory(@Query() raw: AuditQueryRaw, @CurrentUser() user?: AuthenticatedUser) {
-    // SK-8d: только записи открытых разделов роли (закрытый тип в фильтре — 400 «нет в истории»)
-    return this.service.appLogs({ ...raw, action: undefined, entityId: undefined }, historyTypesFor(user));
+    return this.service.appLogs({ ...raw, action: undefined, entityId: undefined }, historyTypesFor(user), stockScopeFor(user));
   }
 
   @Get('app/users')
   @Roles('admin', 'director')
+  @ApiOperation({ summary: 'Авторы видимых событий истории приложения' })
   appUsers(@CurrentUser() user?: AuthenticatedUser) {
-    return this.service.appUsers(historyTypesFor(user));
+    return this.service.appUsers(historyTypesFor(user), stockScopeFor(user));
   }
 
   @Get('facets')

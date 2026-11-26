@@ -7,9 +7,17 @@ import { inScope, type StockScope } from '../../common/stock-scope';
 import { assertDocInScope } from '../../common/supply-scope';
 import { AuditLog, AuditLogDocument } from './audit-log.schema';
 import { AuditQueryRaw, parseAuditQuery } from './audit-query';
+import { appJournalStockStages } from './app-journal-stock-scope';
 import { User, UserDocument } from '../user/user.schema';
 import { actionRu } from './action-ru';
 import { sanitizeValue } from '../admin/collection-docs';
+
+const APP_LOG_PROJECTION = {
+  action: 1, entityType: 1, entityId: 1, userId: 1, userName: 1, createdAt: 1, 'details.id': 1,
+  'details.after.title': 1, 'details.after.name': 1, 'details.after.num': 1, 'details.after.orderNo': 1, 'details.after.materialName': 1,
+} as const;
+
+type AppLog = Pick<AuditLogDocument, '_id' | 'action' | 'entityType' | 'entityId' | 'userId' | 'userName' | 'details'> & { createdAt?: Date };
 
 export interface LogEntry {
   action: string;
@@ -143,16 +151,20 @@ export class AuditService {
   }
 
   /** Общий журнал приложения (И.2): только типы записей приложения, фильтры кто / раздел / даты. */
-  async appLogs(raw: AuditQueryRaw, types: string[]) {
+  async appLogs(raw: AuditQueryRaw, types: string[], scope: StockScope | null = null) {
     const { filter, page, limit } = parseAuditQuery(raw);
     if (filter.entityType && !types.includes(String(filter.entityType))) throw new BadRequestException('Такого раздела нет в истории приложения');
     if (!filter.entityType) filter.entityType = { $in: types };
     if (raw.id && /^[0-9a-f]{24}$/i.test(String(raw.id))) filter._id = new Types.ObjectId(String(raw.id)); // одна запись журнала (карточка)
-    const [docs, total] = await Promise.all([
-      this.model.find(filter, { action: 1, entityType: 1, entityId: 1, userId: 1, userName: 1, createdAt: 1, 'details.id': 1, 'details.after.title': 1, 'details.after.name': 1, 'details.after.num': 1, 'details.after.orderNo': 1, 'details.after.materialName': 1 })
-        .sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean().exec(),
-      this.model.countDocuments(filter).exec(),
-    ]);
+    const skip = (page - 1) * limit;
+    const selectedTypes = typeof filter.entityType === 'string' ? [filter.entityType] : types;
+    const stockStages = appJournalStockStages(selectedTypes, scope, APP_LOG_PROJECTION);
+    const [docs, total] = stockStages.length
+      ? await this.scopedAppPage(filter, stockStages, skip, limit)
+      : await Promise.all([
+        this.model.find(filter, APP_LOG_PROJECTION).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec(),
+        this.model.countDocuments(filter).exec(),
+      ]);
     const names = await this.actorNames(docs);
     const items = docs.map((d) => {
       const det = (d.details ?? {}) as { id?: unknown; after?: Record<string, unknown> };
@@ -164,10 +176,25 @@ export class AuditService {
     return { items, total, page, limit };
   }
 
+  private async scopedAppPage(filter: Record<string, unknown>, stockStages: ReturnType<typeof appJournalStockStages>, skip: number, limit: number): Promise<[AppLog[], number]> {
+    const [result] = await this.model.aggregate<{ items: AppLog[]; count: Array<{ total: number }> }>([
+      { $match: filter },
+      ...stockStages,
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $facet: {
+        items: [...(skip ? [{ $skip: skip }] : []), { $limit: limit }],
+        count: [{ $count: 'total' }],
+      } },
+    ]).allowDiskUse(true).exec();
+    return [result?.items ?? [], result?.count[0]?.total ?? 0];
+  }
+
   /** Кто менял (для фильтра «кто» общего журнала приложения). */
-  async appUsers(types: string[]) {
+  async appUsers(types: string[], scope: StockScope | null = null) {
+    const stockStages = appJournalStockStages(types, scope, { entityType: 1, entityId: 1, userId: 1, userName: 1, 'details.id': 1 });
     const users = await this.model.aggregate<{ _id: Types.ObjectId; userName?: string }>([
       { $match: { entityType: { $in: types }, userId: { $ne: null } } },
+      ...stockStages,
       { $group: { _id: '$userId', userName: { $last: '$userName' } } },
       { $limit: 500 },
     ]).exec();
