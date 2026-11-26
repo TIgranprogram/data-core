@@ -56,6 +56,16 @@ export class RestoreSupplyRequestNoteDto {
   value!: string | null;
 }
 
+export class RestoreSupplyRequestDeliveryNoteDto {
+  @ApiProperty({ type: String, nullable: true, maxLength: 300, description: 'Текущий текст поля «Доставка» в открытой карточке' })
+  @ValidateIf((_, value) => value !== null) @IsDefined() @IsString() @Length(0, 300)
+  expected!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, maxLength: 300, description: 'Текст доставки для записи, null очищает поле' })
+  @ValidateIf((_, value) => value !== null) @IsDefined() @IsString() @Length(0, 300)
+  value!: string | null;
+}
+
 export class SupplyReceiveDto {
   @ApiPropertyOptional({ description: 'Поставить на склад (по умолчанию да); false — сразу в работу / офис / объект, без склада' }) @IsOptional() @IsBoolean() toStock?: boolean;
   @ApiPropertyOptional({ description: 'Куда пошло: workshop | office | smr | order' }) @IsOptional() @IsIn(['workshop', 'office', 'smr', 'order']) costCenter?: string;

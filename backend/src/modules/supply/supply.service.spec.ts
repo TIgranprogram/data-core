@@ -10,7 +10,7 @@ const flagsOn = { isEnabled: async () => true };
 /** Цепочка запросов Mongoose — любой метод возвращает её же, exec отдаёт результат. */
 const chain = (result: unknown) => {
   const c: Record<string, jest.Mock> = {};
-  for (const m of ['sort', 'skip', 'limit', 'lean', 'setOptions', 'allowDiskUse', 'session']) c[m] = jest.fn(() => c);
+  for (const m of ['sort', 'skip', 'limit', 'lean', 'select', 'setOptions', 'allowDiskUse', 'session']) c[m] = jest.fn(() => c);
   c.exec = jest.fn(async () => result);
   return c;
 };
@@ -87,9 +87,10 @@ describe('C262 — флаг заявки', () => {
 describe('SupplyService', () => {
   let colls: Record<string, Array<Record<string, unknown>>>;
   let model: { find: jest.Mock; findOne: jest.Mock; findById: jest.Mock; countDocuments: jest.Mock; aggregate: jest.Mock; create: jest.Mock; updateOne: jest.Mock; distinct: jest.Mock };
-  let stock: { withRequestMaterial: jest.Mock; adoptArticle: jest.Mock; move: jest.Mock; createItem: jest.Mock };
+  let stock: { withRequestMaterial: jest.Mock; adoptArticle: jest.Mock; move: jest.Mock; receiveWithItem: jest.Mock };
   let service: SupplyService;
   let counters: { setSeqAtLeast: jest.Mock; nextSeq: jest.Mock };
+  let insertAudit: jest.Mock;
   /** Текущая заявка (для findOne/findById по _id), последняя по номеру, дубль по clientUid. */
   let current: Record<string, unknown> | null;
   let last: Record<string, unknown> | null;
@@ -107,7 +108,9 @@ describe('SupplyService', () => {
     current = null;
     last = null;
     dup = null;
+    insertAudit = jest.fn(async () => ({ acknowledged: true }));
     const collection = (name: string) => ({
+      insertOne: name === 'auditlogs' ? insertAudit : undefined,
       updateOne: jest.fn(async () => ({ matchedCount: 1 })),
       find: jest.fn(() => ({ toArray: async () => colls[name] ?? [], sort: () => ({ toArray: async () => colls[name] ?? [] }) })),
       findOne: jest.fn(async () => (colls[name] ?? [])[0] ?? null),
@@ -128,7 +131,11 @@ describe('SupplyService', () => {
       withRequestMaterial: jest.fn(async (_input, _scope, write) => write(new Types.ObjectId(), {})),
       adoptArticle: jest.fn(async () => undefined),
       move: jest.fn(async (...args: unknown[]) => { const first = args[3] as ((session: unknown) => Promise<void>) | undefined; if (first) await first({}); return {}; }),
-      createItem: jest.fn(async () => ({ id: String(new Types.ObjectId()) })),
+      receiveWithItem: jest.fn(async (_input, _movement, _user, write) => {
+        const materialId = new Types.ObjectId();
+        await write({}, materialId);
+        return String(materialId);
+      }),
     };
     counters = { setSeqAtLeast: jest.fn(async () => undefined), nextSeq: jest.fn(async () => (Number(last?.num) || 0) + 1) };
     service = new SupplyService(connection as never, model as never, stock as never, { safe: async () => true } as never, { recheck: async () => undefined } as never, counters as never, undefined, undefined, undefined, undefined, flagsOn as never);
@@ -262,43 +269,50 @@ describe('SupplyService', () => {
     });
   });
 
-  describe('restoreNote', () => {
+  describe('restoreText', () => {
+    const restoreNote = (id: string, dto: { expected: string | null; value: string | null }, scope: Parameters<SupplyService['restoreText']>[3]) =>
+      service.restoreText(id, 'notes', dto, scope, {});
+
     it('условно заменяет одно примечание позиции оплаченного счёта', async () => {
       current = reqDoc({ notes: '$старое', invoiceId: new Types.ObjectId(), status: 'received', paid: true, article: 'М10', materialId: new Types.ObjectId() });
-      await service.restoreNote(String(current._id), { expected: '$старое', value: ' новое ' }, null);
+      await restoreNote(String(current._id), { expected: '$старое', value: ' новое ' }, null);
       expect(model.updateOne).toHaveBeenCalledTimes(1);
       const [filter, update] = model.updateOne.mock.calls[0];
       expect(filter).toEqual({ _id: current._id, deletedAt: null, $expr: { $eq: [{ $ifNull: ['$notes', ''] }, { $literal: '$старое' }] } });
       expect(update).toEqual({ $set: { notes: 'новое', editedInApp: true } });
+      expect(insertAudit).toHaveBeenCalledWith(expect.objectContaining({ details: expect.objectContaining({
+        partial: true, before: expect.objectContaining({ notes: '$старое' }), after: expect.objectContaining({ notes: 'новое' }),
+      }) }), model.updateOne.mock.calls[0][2]);
       expect(stock.adoptArticle).not.toHaveBeenCalled();
       expect(stock.move).not.toHaveBeenCalled();
     });
 
     it('null очищает примечание', async () => {
       current = reqDoc({ notes: 'Текущее' });
-      await service.restoreNote(String(current._id), { expected: 'Текущее', value: null }, null);
+      await restoreNote(String(current._id), { expected: 'Текущее', value: null }, null);
       expect(model.updateOne.mock.calls[0][1]).toEqual({ $set: { editedInApp: true }, $unset: { notes: '' } });
     });
 
     it.each([undefined, null, ''])('пустое примечание %s принимается как expected: null', async notes => {
       current = reqDoc({ notes });
-      await service.restoreNote(String(current._id), { expected: null, value: 'Заполнено' }, null);
+      await restoreNote(String(current._id), { expected: null, value: 'Заполнено' }, null);
       expect(setOf()).toEqual({ notes: 'Заполнено', editedInApp: true });
     });
 
     it('устаревшее ожидание, повтор и несовпадение при записи не меняют заявку', async () => {
       current = reqDoc({ notes: 'Новое' });
-      await expect(service.restoreNote(String(current._id), { expected: 'Старое', value: 'Новое' }, null)).rejects.toMatchObject({ status: 409 });
-      await expect(service.restoreNote(String(current._id), { expected: 'Новое', value: 'Новое' }, null)).rejects.toMatchObject({ status: 409 });
+      await expect(restoreNote(String(current._id), { expected: 'Старое', value: 'Новое' }, null)).rejects.toMatchObject({ status: 409 });
+      await expect(restoreNote(String(current._id), { expected: 'Новое', value: 'Новое' }, null)).rejects.toMatchObject({ status: 409 });
       expect(model.updateOne).not.toHaveBeenCalled();
 
       model.updateOne.mockReturnValue(chain({ matchedCount: 0 }));
-      await expect(service.restoreNote(String(current._id), { expected: 'Новое', value: 'Другое' }, null)).rejects.toMatchObject({ status: 409 });
+      await expect(restoreNote(String(current._id), { expected: 'Новое', value: 'Другое' }, null)).rejects.toMatchObject({ status: 409 });
+      expect(insertAudit).not.toHaveBeenCalled();
     });
 
     it('проверяет доступ к текущей категории перед записью', async () => {
       current = reqDoc({ notes: 'Текущее', categoryId: new Types.ObjectId() });
-      await expect(service.restoreNote(String(current._id), { expected: 'Текущее', value: 'Новое' }, { zones: [], categoryIds: [], noCategory: false })).rejects.toMatchObject({ status: 403 });
+      await expect(restoreNote(String(current._id), { expected: 'Текущее', value: 'Новое' }, { zones: [], categoryIds: [], noCategory: false })).rejects.toMatchObject({ status: 403 });
       expect(model.updateOne).not.toHaveBeenCalled();
     });
   });
@@ -731,19 +745,20 @@ describe('SupplyService', () => {
       const mid = new Types.ObjectId();
       current = reqDoc({ materialId: mid, num: 9 });
       await service.receive(String(current._id), { clientUid: 'r2' }, 'user1');
-      expect(stock.createItem).not.toHaveBeenCalled();
+      expect(stock.receiveWithItem).not.toHaveBeenCalled();
       expect(stock.move).toHaveBeenCalledWith(String(mid), expect.objectContaining({ type: 'in', qty: 10, documentRef: `SupplyRequest:${current._id}`, clientUid: 'r2' }), 'user1', expect.any(Function), 'receipt');
       expect(setOf()).toMatchObject({ status: 'received', receivedQty: 10, receivedTo: 'stock', costCenter: 'workshop', receiveUid: 'r2', editedInApp: true });
     });
 
     it('нет материала — заводит позицию склада по наименованию', async () => {
-      const newId = String(new Types.ObjectId());
-      stock.createItem.mockResolvedValue({ id: newId });
       current = reqDoc({ unit: 'шт', article: 'A-7' });
       await service.receive(String(current._id), { qty: 4 });
-      expect(stock.createItem).toHaveBeenCalledWith(expect.objectContaining({ name: 'Болт М10', unit: 'шт', article: 'A-7', invoiceName: 'Болт М10' }));
-      expect(stock.move).toHaveBeenCalledWith(newId, expect.objectContaining({ qty: 4 }), undefined, expect.any(Function), 'receipt');
-      expect(setOf().materialId).toEqual(new Types.ObjectId(newId));
+      expect(stock.receiveWithItem).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Болт М10', unit: 'шт', article: 'A-7' }),
+        expect.objectContaining({ qty: 4, type: 'in' }), undefined, expect.any(Function), null,
+      );
+      expect(stock.move).not.toHaveBeenCalled();
+      expect(setOf().materialId).toBeInstanceOf(Types.ObjectId);
       expect(stock.adoptArticle).toHaveBeenCalled();
     });
 
@@ -777,7 +792,7 @@ describe('SupplyService', () => {
       current = reqDoc();
       await service.receive(String(current._id), { toStock: false });
       expect(stock.move).not.toHaveBeenCalled();
-      expect(stock.createItem).not.toHaveBeenCalled();
+      expect(stock.receiveWithItem).not.toHaveBeenCalled();
       expect(setOf()).toMatchObject({ status: 'received', receivedTo: 'direct', receivedQty: 10 });
     });
 

@@ -1,6 +1,6 @@
 import { api } from '../core/api.js';
 import { catalogueStockList } from '../core/stock-list.js';
-import { workerItemMatches, workerMaterialId, workerZoneName } from './stock-worker-model.js';
+import { workerCategoryMatches, workerItemMatches, workerMaterialId, workerZoneName } from './stock-worker-model.js';
 
 /** Необязательное UI-сужение приёмки; серверные права остаются источником доступа. */
 export function workerReceiveScope(params) {
@@ -17,7 +17,7 @@ export function workerReceiveScope(params) {
     },
     categories() {
       if (!categories) categories = api('/stock/categories', { query: { zoneId } }).then(response => (response.items || [])
-        .filter(category => category.id !== 'none' && (kind === 'pipe' ? /труб/i : /лист/i).test(category.name))).catch(error => { categories = null; throw error; });
+        .filter(category => workerCategoryMatches(category, kind))).catch(error => { categories = null; throw error; });
       return categories;
     },
     items() {

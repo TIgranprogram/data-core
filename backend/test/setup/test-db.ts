@@ -33,13 +33,13 @@ export interface TestContext {
  * After clearing, `app.init()` triggers `OnApplicationBootstrap` seeds
  * (AdminSeed, SettingsSeed, UnitsSeed, OrgRolesSeed,
  * CounterpartyRolesSeed, FeatureFlagsSeed, StatusesSeed) on a truly
- * empty database — so the admin user is always created with the test
- * password.
+ * empty database by default. Use `preserveDatabase` for a restart within one
+ * suite that owns the same isolated database and fixtures.
  *
  * Must be run with `jest --runInBand` so that only one suite bootstraps
  * at a time (each suite clears + re-seeds the same `datacore-test` db).
  */
-export async function createTestApp(options: { strictValidation?: boolean; registerThrottler?: boolean; intakeUploads?: string } = {}): Promise<TestContext> {
+export async function createTestApp(options: { strictValidation?: boolean; registerThrottler?: boolean; intakeUploads?: string; preserveDatabase?: boolean } = {}): Promise<TestContext> {
   const testDb = process.env.MONGO_DB_TEST ?? 'datacore-test';
   process.env.MONGO_DB = testDb;
   process.env.NODE_ENV = 'test';
@@ -59,25 +59,26 @@ export async function createTestApp(options: { strictValidation?: boolean; regis
   // Replace the database name in the URI with the test database name.
   const testUri = mongoUri.replace(/\/[^/?]+(\?|$)/, `/${testDb}$1`);
   process.env.MONGO_URI = testUri;
-  const preMongoose: Mongoose = await connect(testUri);
-  try {
-    const db = preMongoose.connection.db;
-    if (db) {
-      const collections = await db
-        .listCollections()
-        .toArray();
-      for (const col of collections) {
-        try {
-          await preMongoose.connection.dropCollection(col.name);
-        } catch {
-          // Collection may already be gone — safe to ignore.
+  if (!options.preserveDatabase) {
+    const preMongoose: Mongoose = await connect(testUri);
+    try {
+      const db = preMongoose.connection.db;
+      if (db) {
+        const collections = await db.listCollections().toArray();
+        for (const col of collections) {
+          try {
+            await preMongoose.connection.dropCollection(col.name);
+          } catch {
+            // Collection may already be gone — safe to ignore.
+          }
         }
       }
+    } catch {
+      // Database may not exist yet — safe to ignore.
+    } finally {
+      await preMongoose.disconnect();
     }
-  } catch {
-    // Database may not exist yet — safe to ignore.
   }
-  await preMongoose.disconnect();
 
   // --- Bootstrap NestJS app (seeds run during init) ---
   const module = await Test.createTestingModule({

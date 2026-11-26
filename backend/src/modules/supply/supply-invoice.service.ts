@@ -12,6 +12,7 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import type { StockScope } from '../../common/stock-scope';
+import { canSeeMoney } from '../../common/roles-hierarchy';
 import { docScopeMatch } from '../../common/supply-scope';
 import { parseSheetDate } from '../../common/date-parse';
 import { escapeRe, oid } from '../../common/list-query';
@@ -191,10 +192,11 @@ export class SupplyInvoiceService {
   }
 
   /** Склады (WZ): менять счёт можно, только если все его заявки из своего склада, иначе 403. */
-  async assertWhole(id: string, scope: StockScope | null): Promise<void> {
+  async assertWhole(id: string, scope: StockScope | null, requireVisibleLine = false): Promise<void> {
     if (!scope) return;
     const ids = await this.requests.distinct('_id', { invoiceId: oid(id, 'счёта'), deletedAt: null }).exec() as Types.ObjectId[];
     const vis = await this.visibleRequests(ids, scope);
+    if (requireVisibleLine && !vis?.size) throw new ForbiddenException('Этот счёт не из вашего склада');
     if (vis && ids.some((x) => !vis.has(String(x)))) throw new ForbiddenException('В этом счёте есть заявки не из вашего склада');
   }
 
@@ -315,14 +317,14 @@ export class SupplyInvoiceService {
   }
 
   /** Обычный приход или прямая поставка выбранных строк с явным назначением. */
-  async receive(id: string, requestIds: string[] | undefined, userId?: string, target: ReceiveInvoiceDto = {}) {
+  async receive(id: string, requestIds: string[] | undefined, userId?: string, target: ReceiveInvoiceDto = {}, scope: StockScope | null = null) {
     const { directOrderId, directCostCenter, directCostObject } = target;
     if (directOrderId && directCostCenter) throw new BadRequestException("Укажите заказ или направление затрат");
     if (directCostObject != null && !directCostCenter) throw new BadRequestException("Укажите направление затрат для объекта");
     if (directOrderId || directCostCenter) {
       const destination = directOrderId ? { directOrderId } as const : { directCostCenter: directCostCenter!, directCostObject } as const;
-      const receivedCount = await this.supply.receiveInvoiceDirect(id, requestIds || [], destination, userId);
-      return { ...(await this.get(id)), receivedCount };
+      const receivedCount = await this.supply.receiveInvoiceDirect(id, requestIds || [], destination, userId, scope);
+      return { ...(await this.get(id, scope)), receivedCount };
     }
     const inv = await this.load(id);
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
@@ -342,9 +344,9 @@ export class SupplyInvoiceService {
     for (const d of todo) {
       // после отмены прихода ключ меняется (число отменённых), иначе новый приём принят бы за повтор старого
       const n = await this.connection.db!.collection('stockmovements').countDocuments({ documentRef: `SupplyRequest:${String(d._id)}`, cancelledAt: { $ne: null } });
-      await this.supply.receive(String(d._id), { clientUid: `inv-${id}-${String(d._id)}${n ? '-' + n : ''}` }, userId);
+      await this.supply.receive(String(d._id), { clientUid: `inv-${id}-${String(d._id)}${n ? '-' + n : ''}` }, userId, scope);
     }
-    return { ...(await this.get(id)), receivedCount: todo.length };
+    return { ...(await this.get(id, scope)), receivedCount: todo.length };
   }
 
   /** Заказать группой: заявки делятся по поставщику, на каждого — черновик счёта; заявки → «заказано». */
@@ -388,7 +390,7 @@ export class SupplyInvoiceService {
   }
 
   /** Правка счёта. Финансовые поля разрешены до первой приёмки, даже после оплаты. */
-  async update(id: string, dto: PatchInvoiceDto, actorId?: string) {
+  async update(id: string, dto: PatchInvoiceDto, actorId?: string, scope: StockScope | null = null) {
     const inv = await this.load(id);
     if (hasUndatedPayment(inv) && [...FINANCIAL_META, 'amount', 'payerCompanyId', 'supplierId', 'issue'].some(k => k in dto)) throw undatedLocked();
     if (inv.status === 'cancelled') throw new BadRequestException('Счёт отменён');
@@ -461,6 +463,8 @@ export class SupplyInvoiceService {
       const same = await this.model.find({ supplierId: supplierNow, deletedAt: null, status: { $ne: 'cancelled' }, _id: { $ne: inv._id } }).lean().exec() as Lean[];
       const dup = same.find((x) => normInvoiceNo(x.no) === key);
       if (dup) {
+        // Ссылка из конфликта открывает только полностью видимый счёт.
+        await this.assertWhole(String(dup._id), scope, true);
         // Автоматической склейки нет: дубль номера — конфликт, пользователь решает явно.
         if (dto.duplicateReason?.trim()) {
           // осознанно оставляем отдельный счёт с тем же номером — причина в карточке и в аудите
@@ -469,6 +473,7 @@ export class SupplyInvoiceService {
         } else {
           throw new ConflictException({
             message: `Счёт № ${String(dup.no)} у этого поставщика уже есть`,
+            code: 'INVOICE_NUMBER_EXISTS',
             existingInvoiceId: String(dup._id),
             existingNo: dup.no ?? null,
             existingStatus: dup.status,
@@ -575,9 +580,9 @@ export class SupplyInvoiceService {
   }
 
   /** Предпросмотр явного объединения: ничего не меняет, показывает строки, дубли и итоговые суммы. */
-  async mergePreview(id: string, targetId: string) {
+  async mergePreview(id: string, targetId: string, actor?: OverrideActor) {
     const [src, dst] = await Promise.all([this.load(id), this.load(targetId)]);
-    this.assertMergeable(src, dst);
+    await this.assertMergeable(src, dst, actor);
     const [a, b] = await Promise.all([this.linesOf(src), this.linesOf(dst)]);
     const sum = (ls: Lean[]) => Math.round(ls.reduce((t, l) => t + (Number(l.priceHint) || 0), 0) * 100) / 100;
     const dup = a.filter((l) => b.some((d) => this.sameLine(d, l)));
@@ -586,7 +591,7 @@ export class SupplyInvoiceService {
       source: { id: String(src._id), no: src.no ?? null, date: src.date ?? null, status: src.status, lines: a.length, amount: sum(a) },
       target: { id: String(dst._id), no: dst.no ?? null, date: dst.date ?? null, status: dst.status, lines: b.length, amount: sum(b) },
       duplicates: dup.length,
-      strategies: ['append', 'mergeSameRequest', 'replaceLines'],
+      strategies: dup.length && !isAdminActor(actor) ? ['append', 'replaceLines'] : ['append', 'mergeSameRequest', 'replaceLines'],
       resultAmount: {
         append: Math.round((sum(a) + sum(b)) * 100) / 100,
         mergeSameRequest: Math.round((sum(a) - dupSum + sum(b)) * 100) / 100,
@@ -596,22 +601,19 @@ export class SupplyInvoiceService {
   }
 
   /** Явное объединение двух счетов. Стратегия выбирается пользователем; пишется в журнал счёта и в аудит. */
-  async merge(id: string, targetId: string, strategy: 'append' | 'mergeSameRequest' | 'replaceLines', actorId?: string) {
+  async merge(id: string, targetId: string, strategy: 'append' | 'mergeSameRequest' | 'replaceLines', actor?: OverrideActor) {
     if (!['append', 'mergeSameRequest', 'replaceLines'].includes(strategy)) throw new BadRequestException('Стратегия объединения: append, mergeSameRequest или replaceLines');
     const [src, dst] = await Promise.all([this.load(id), this.load(targetId)]);
-    this.assertMergeable(src, dst);
-    const lockSrc = await this.lockReason(src);
-    if (lockSrc) throw new BadRequestException(`${lockSrc} — этот счёт нельзя объединить`);
-    const lockDst = await this.lockReason(dst);
-    if (lockDst) throw new BadRequestException(`${lockDst} — в этот счёт нельзя объединить`);
-    if (src.status === 'paid' || dst.status === 'paid') throw new BadRequestException('Оплаченные счета нельзя объединять — до приёмки можно отдельно добавить или исправить позиции');
-    const by = actorId && Types.ObjectId.isValid(actorId) ? new Types.ObjectId(actorId) : undefined;
+    await this.assertMergeable(src, dst, actor);
+    const by = actor?.id && Types.ObjectId.isValid(actor.id) ? new Types.ObjectId(actor.id) : undefined;
     const out = await this.tx(async (session) => {
       await this.claimRequests({ invoiceId: { $in: [src._id, dst._id] } }, session);
       await this.touchFinancialInvoice(src._id, session, src.version);
       await this.touchFinancialInvoice(dst._id, session, dst.version);
       const a = await this.linesOf(src, session);
       const b = strategy === 'mergeSameRequest' || strategy === 'replaceLines' ? await this.linesOf(dst, session) : [];
+      const duplicates = new Set(strategy === 'mergeSameRequest' ? a.filter((line) => b.some((other) => this.sameLine(other, line))) : []);
+      if (duplicates.size) assertAdminActor(actor, 'Удаление дублей заявок');
       let moved = 0, skipped = 0, replaced = 0;
       const files = new Map<string, Types.ObjectId>();
       for (const f of [...((dst.fileIds as Types.ObjectId[]) ?? []), ...((src.fileIds as Types.ObjectId[]) ?? [])]) files.set(String(f), f);
@@ -626,7 +628,7 @@ export class SupplyInvoiceService {
         }
       }
       for (const l of a) {
-        if (strategy === 'mergeSameRequest' && b.some((d) => this.sameLine(d, l))) {
+        if (duplicates.has(l)) {
           await this.requests.updateOne({ _id: l._id }, { $set: { deletedAt: new Date(), status: 'cancelled', editedInApp: true } }, { session }).exec();
           skipped++;
           continue;
@@ -645,13 +647,20 @@ export class SupplyInvoiceService {
     return { targetInvoiceId: String(dst._id), ...out, invoice: await this.get(String(dst._id)) };
   }
 
-  private assertMergeable(src: Lean, dst: Lean) {
-    if (hasUndatedPayment(src) || hasUndatedPayment(dst)) throw undatedLocked();
-    if ([src, dst].some((i) => i.paymentAccountingVersion === 1 && Number(i.paidAmount) > 0)) throw new ConflictException('Нельзя объединить счёт с фактическими платежами');
-    if ([src, dst].some((i) => i.currency && i.currency !== 'RUB')) throw new ConflictException('Валютные счета объединяются только после отдельной сверки');
+  private async assertMergeable(src: Lean, dst: Lean, actor?: OverrideActor) {
+    const showMoney = canSeeMoney(actor);
+    const unavailable = 'Эти счета нельзя объединить. Откройте существующий счёт или обратитесь к администратору.';
+    if (hasUndatedPayment(src) || hasUndatedPayment(dst)) throw showMoney ? undatedLocked() : new ConflictException(unavailable);
+    if ([src, dst].some((i) => i.paymentAccountingVersion === 1 && Number(i.paidAmount) > 0)) throw new ConflictException(showMoney ? 'Нельзя объединить счёт с фактическими платежами' : unavailable);
+    if ([src, dst].some((i) => i.currency && i.currency !== 'RUB')) throw new ConflictException(showMoney ? 'Валютные счета объединяются только после отдельной сверки' : unavailable);
     if (String(src._id) === String(dst._id)) throw new BadRequestException('Нельзя объединить счёт с самим собой');
     if (src.status === 'cancelled' || dst.status === 'cancelled') throw new BadRequestException('Отменённый счёт не объединяется');
     if (src.supplierId && dst.supplierId && String(src.supplierId) !== String(dst.supplierId)) throw new BadRequestException('Счета разных поставщиков не объединяются');
+    const lockSrc = await this.lockReason(src);
+    if (lockSrc) throw new BadRequestException(`${lockSrc} — этот счёт нельзя объединить`);
+    const lockDst = await this.lockReason(dst);
+    if (lockDst) throw new BadRequestException(`${lockDst} — в этот счёт нельзя объединить`);
+    if (src.status === 'paid' || dst.status === 'paid') throw new BadRequestException(showMoney ? 'Оплаченные счета нельзя объединять — до приёмки можно отдельно добавить или исправить позиции' : unavailable);
   }
 
   /** Одна и та же позиция: материал (или наименование) + количество + сумма строки. */

@@ -104,7 +104,7 @@ export type MergeStrategy = (typeof MERGE_STRATEGIES)[number];
 export class MergeInvoicesDto {
   @ApiPropertyOptional({ description: 'Счёт, в который объединяем (id)' })
   @IsMongoId() targetId!: string;
-  @ApiPropertyOptional({ description: 'append — добавить все строки; mergeSameRequest — пропустить одинаковые; replaceLines — заменить строки цели', enum: MERGE_STRATEGIES })
+  @ApiPropertyOptional({ description: 'append — добавить все строки; mergeSameRequest — убрать одинаковые заявки в корзину (при наличии дублей только администратор); replaceLines — заменить строки цели', enum: MERGE_STRATEGIES })
   @IsOptional() @IsIn(MERGE_STRATEGIES) strategy?: MergeStrategy;
 }
 

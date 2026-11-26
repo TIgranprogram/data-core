@@ -1,9 +1,19 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { qty } from '../core/format.js';
+import { isoDay, qty } from '../core/format.js';
 import { section, stack, link, hint } from '../ui/kit/index.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
 const SVGNS = 'http://www.w3.org/2000/svg';
+
+export const plural = (n, a, b, c) => { const m = n % 100, d = n % 10; return m > 10 && m < 15 ? c : d === 1 ? a : d > 1 && d < 5 ? b : c; };
+
+export function dueText(c) {
+  if (c.overdueDays > 0) return `просрочено ${c.overdueDays} ${plural(c.overdueDays, 'день', 'дня', 'дней')}`;
+  if (c.daysLeft === 0 || (c.due && c.due === isoDay())) return 'сегодня';
+  if (c.daysLeft > 0) return `ещё ${c.daysLeft} ${plural(c.daysLeft, 'день', 'дня', 'дней')}`;
+  return '';
+}
+
 /** C176: число и переход используют тот же серверный фильтр, что таблица изделий. */
 export function productIdentificationToday() {
   const body = h('div');

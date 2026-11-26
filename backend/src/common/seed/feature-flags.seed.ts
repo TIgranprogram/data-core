@@ -102,31 +102,14 @@ export class FeatureFlagsSeed implements OnApplicationBootstrap {
   constructor(private readonly flags: FeatureFlagService) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    /** C260–C265: владелец 24.11 — API хозяин shared; сид и обновление `enabledByDefault`. */
-    const forceOn = new Set([
-      WAREHOUSE_API_FLAG,
-      MATERIAL_CARD_API_FLAG,
-      SUPPLY_REQUEST_API_FLAG,
-      STOCK_MOVE_API_FLAG,
-      STOCK_RESERVE_API_FLAG,
-      SUPPLY_RECEIVE_API_FLAG,
-    ]);
-    for (const f of DEFAULT_FLAGS) {
-      const exists = await this.flags
-        .findAll()
-        .then((arr) => arr.find((d) => d.key === f.key));
-      if (exists && !forceOn.has(f.key)) continue;
+    // C260–C265: новая база начинает с API. Перезапуск сохраняет аварийные настройки.
+    for (const { key, ...settings } of DEFAULT_FLAGS) {
       try {
-        await this.flags.upsert(f.key, {
-          label: f.label,
-          description: f.description,
-          enabledByDefault: f.enabledByDefault,
-          category: f.category,
-          isActive: f.isActive,
-        });
-        this.logger.log(`FeatureFlag seeded: ${f.key}`);
+        if (await this.flags.seedDefault(key, settings)) {
+          this.logger.log(`FeatureFlag seeded: ${key}`);
+        }
       } catch (err) {
-        this.logger.warn(`Could not seed FeatureFlag ${f.key}: ${(err as Error).message}`);
+        this.logger.warn(`Could not seed FeatureFlag ${key}: ${(err as Error).message}`);
       }
     }
   }

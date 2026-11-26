@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { before, after } from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { chromium } from '../../../tools/design-checks/node_modules/playwright-core/index.mjs';
 import { findBrowser } from '../../../tools/browser-path.mjs';
 import { workerCreateBody, workerCreateContext, workerQuickReady } from './stock-worker-model.js';
@@ -38,28 +39,55 @@ after(async () => { await browser?.close(); });
 async function fixture(t, { kind = 'pipe', readOnly = false, receive = false, materialId, draft, common = false, state = {} } = {}) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1050 }, serviceWorkers: 'block' }); t.after(() => page.close());
   const items = structuredClone(source), calls = [], errors = [];
+  if (state.hidden) {
+    const bridge = pipe('bridge', 60, { name: 'Учебная Б', washed: false, quantity: 24, dims: { length: 12000 } });
+    const legacy = pipe('legacy', 40, { name: 'Историческое название', washed: false, quantity: 0, dims: { length: 12000 } });
+    const fillers = state.hidden === 'page' ? Array.from({ length: 98 }, (_, index) => pipe('filler-' + index, 100 + index)) : [];
+    items.splice(0, items.length, pipe('first', 40, { name: 'Учебная А' }), bridge, ...fillers, legacy);
+  }
   if (state.fractional) items.find(item => item.id === 'first').quantity = 7;
   if (state.duplicate) items.push(pipe('duplicate'));
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(({ draft, kind }) => {
-    localStorage.setItem('dca_access', 'fixture'); localStorage.setItem('dca_user', JSON.stringify({ id: 'fixture', role: 'admin', sections: ['stock', 'requests'] }));
+  const user = state.native ? { id: 'worker', role: 'worker-' + kind, baseRole: 'manager', roleLabel: kind === 'pipe' ? 'Труборез' : 'Лазер лист', sections: ['stock'] }
+    : { id: 'fixture', role: 'admin', sections: ['stock', 'requests'] };
+  await page.addInitScript(({ draft, kind, user, theme }) => {
+    localStorage.setItem('dca_access', 'fixture'); localStorage.setItem('dca_refresh', 'fixture'); localStorage.setItem('dca_user', JSON.stringify(user));
+    if (theme) localStorage.setItem('dc-theme', theme);
     localStorage.setItem('dc-stock-zone-fixture', 'unchanged');
     localStorage.setItem('dc-ops-recent-in', JSON.stringify([{ id: 'foreign-zone', name: 'Чужая зона' }, { id: 'foreign-type', name: 'Чужой тип' }, { id: 'first', name: 'Разрешённая труба' }]));
     if (draft) localStorage.setItem('dc-ops-in:' + kind + ':zone', JSON.stringify(draft));
-  }, { draft, kind });
+  }, { draft, kind, user, theme: state.theme });
   await page.route('**/*', async route => {
     const url = new URL(route.request().url()), method = route.request().method();
     if (url.origin !== origin) return route.abort();
     if (url.pathname.startsWith('/api/')) {
       const body = route.request().postDataJSON(), query = Object.fromEntries(url.searchParams); calls.push({ path: url.pathname, method, body, query });
+      if (url.pathname === '/api/auth/me') return route.fulfill({ json: user });
       if (url.pathname === '/api/stock/zones') return route.fulfill({ json: { items: [{ id: 'zone', name: kind === 'pipe' ? 'Трубы' : 'Листовой материал' }] } });
       if (url.pathname === '/api/stock/categories') return route.fulfill({ json: { items: categories } });
+      if (/^\/api\/stock\/items\/[^/]+\/(requests|reservations)$/.test(url.pathname)) {
+        return route.fulfill({ json: { items: [], total: 0, page: Number(query.page), limit: Number(query.limit) } });
+      }
       if (url.pathname.endsWith('/history')) return route.fulfill({ json: { items: [], total: 0 } });
       if (url.pathname === '/api/stock/items' && method === 'GET') {
-        const found = Number(query.limit) >= 1000 ? items : items.filter(item => item.metal === kind && item.categoryId === kind + '-cat');
-        return route.fulfill({ json: { items: found, total: found.length, page: 1, limit: Number(query.limit || 100) } });
+        let found = Number(query.limit) >= 1000 ? items : items.filter(item => item.metal === kind && item.categoryId === kind + '-cat');
+        if (query.ids) found = found.filter(item => query.ids.split(',').includes(item.id));
+        if (query.availability === 'in') found = found.filter(item => item.quantity > 0);
+        if (query.search) found = found.filter(item => item.name.toLowerCase().includes(query.search.toLowerCase()));
+        const page = Number(query.page || 1), limit = Number(query.limit || 100);
+        return route.fulfill({ json: { items: found.slice((page - 1) * limit, page * limit), total: found.length, page, limit } });
       }
-      if (url.pathname === '/api/stock/items' && method === 'POST') {
+      if (url.pathname === '/api/stock/items/from-coordinate' && method === 'POST') {
+        if (state.hidden || state.ambiguous) {
+          if (state.native && state.hidden) items.find(item => item.id === 'legacy').quantity = 36;
+          if (state.native && state.ambiguous) for (const [id, name] of [['sheet-one', 'Лист первый'], ['sheet-two', 'Лист второй']]) {
+            items.push({ ...items.find(it => it.id === 'sheet'), id, materialId: id, name });
+          }
+          const details = state.hidden ? [{ materialId: 'legacy', name: 'Историческое название' }] :
+            [{ materialId: 'sheet-one', name: 'Лист первый' }, { materialId: 'sheet-two', name: 'Лист второй' }];
+          return route.fulfill({ status: 409, json: { code: state.hidden ? 'STOCK_COORDINATE_EXISTS' : 'STOCK_COORDINATE_AMBIGUOUS',
+            message: state.hidden ? 'Материал с такими характеристиками уже есть.' : 'Есть возможные совпадения.', details } });
+        }
         if (state.delayCreate) await new Promise(resolve => setTimeout(resolve, state.delayCreate));
         if (state.failCreate) return route.fulfill({ status: 409, json: { message: 'Материал с таким названием уже есть' } });
         const created = { ...body, id: 'created', materialId: 'created', quantity: 0, countMode: 'single', metal: kind, sectionProfile: { shape: 'rect', state: 'complete', label: '50×20×2', widthMm: 50, heightMm: 20, wallMm: 2 } };
@@ -75,12 +103,21 @@ async function fixture(t, { kind = 'pipe', readOnly = false, receive = false, ma
       }
       return route.fulfill({ json: { items: [], counts: {} } });
     }
-    if (url.pathname === '/app/fixture.html') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><link rel="stylesheet" href="/app/ui/tokens.css"><link rel="stylesheet" href="/app/ui/base.css"><link rel="stylesheet" href="/app/ui/form.css"><link rel="stylesheet" href="/app/ui/kit/kit.css"></head><body></body></html>' });
-    const file = url.pathname.slice('/app/'.length), type = { js: 'text/javascript', css: 'text/css', woff2: 'font/woff2' }[file.split('.').at(-1)];
+    if (url.pathname === '/app/fixture.html') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><link rel="stylesheet" href="/app/ui/tokens.css"><link rel="stylesheet" href="/app/ui/base.css"><link rel="stylesheet" href="/app/ui/list.css"><link rel="stylesheet" href="/app/ui/form.css"><link rel="stylesheet" href="/app/ui/screens.css"><link rel="stylesheet" href="/app/ui/panels.css"><link rel="stylesheet" href="/app/ui/kit/kit.css"></head><body></body></html>' });
+    if (url.pathname === '/app/version.json') return route.fulfill({ json: { v: 'fixture' } });
+    const file = url.pathname.slice('/app/'.length) || 'index.html', type = { js: 'text/javascript', css: 'text/css', html: 'text/html', svg: 'image/svg+xml', woff2: 'font/woff2' }[file.split('.').at(-1)];
     if (!type || file.includes('..')) return route.fulfill({ status: 404 });
     try { return route.fulfill({ contentType: type, body: await readFile(new URL('../' + file, import.meta.url)) }); } catch { return route.fulfill({ status: 404 }); }
   });
+  if (state.native) {
+    await page.goto(origin + '/app/#stock');
+    await page.locator('[data-material-id]').first().waitFor({ timeout: 10000 }).catch(async error => {
+      throw new Error([error.message, await page.locator('body').innerText(), errors, calls.map(call => call.path)].join('\n'));
+    });
+    return { page, calls, errors, items };
+  }
   await page.goto(origin + '/app/fixture.html');
+  if (state.theme) await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, state.theme);
   await page.evaluate(async ({ kind, readOnly, receive, materialId, common }) => {
     if (receive) {
       location.hash = '#stock?of=stockop&new=1&op=in' + (common ? '' : '&workerZone=zone&workerKind=' + kind) + (materialId ? '&materialId=' + materialId : '');
@@ -92,6 +129,72 @@ async function fixture(t, { kind = 'pipe', readOnly = false, receive = false, ma
 }
 const writes = calls => calls.filter(call => call.method !== 'GET');
 const confirm = page => page.locator('[data-worker-count-confirm]');
+
+for (const hidden of ['availability', 'search', 'page']) test('C274: скрытая запись (' + hidden + ') открывается по ID без пересчёта', async t => {
+  const theme = hidden === 'search' ? 'dark' : 'light';
+  const { page, calls, errors } = await fixture(t, { state: { hidden, theme, native: hidden === 'availability' } });
+  if (hidden === 'availability') await page.getByRole('tab', { name: 'В наличии', exact: true }).click();
+  if (hidden === 'search') await page.getByLabel('Найти материал', { exact: true }).fill('Учебная');
+  const input = page.locator('[data-worker-create="cell"][title*="40×20×2"][title*="Не мытая"][title$="12 м"]').first();
+  await input.waitFor();
+  assert.equal(await page.locator('[data-material-id="legacy"]').count(), 0);
+  if (hidden === 'page') assert.match(await page.locator('.pg-worker').textContent(), /Страница 1 из 2/);
+  await input.fill('2'); await input.press('Enter');
+  const open = page.getByRole('button', { name: 'Открыть Историческое название', exact: true });
+  await open.waitFor();
+  if (process.env.C274_STOCK_PROOF) { await mkdir(process.env.C274_STOCK_PROOF, { recursive: true }); await page.screenshot({ path: join(process.env.C274_STOCK_PROOF, 'pipe-' + hidden + '-' + theme + '.png') }); }
+  await open.click();
+  const selected = page.locator('[data-material-id="legacy"] input.pg-in');
+  await selected.waitFor();
+  assert.ok(calls.some(call => call.query.ids === 'legacy' && call.query.zoneId === 'zone' && !call.query.search && !call.query.availability));
+  const stockWrites = () => writes(calls).filter(call => call.path.startsWith('/api/stock/'));
+  assert.deepEqual(stockWrites().map(call => call.path), ['/api/stock/items/from-coordinate']);
+  if (hidden === 'availability') {
+    const detail = page.locator('[data-detail-material-id="legacy"]');
+    await detail.getByText('36 м', { exact: true }).first().waitFor();
+    assert.equal(await detail.getByText('Сервер вернул неполную страницу.').count(), 0);
+    if (process.env.C274_STOCK_PROOF) await page.screenshot({ path: join(process.env.C274_STOCK_PROOF, 'pipe-selected-light.png') });
+    assert.equal(await selected.inputValue(), '3');
+    await selected.fill('2');
+    const saved = page.waitForResponse(response => response.url().endsWith('/api/stock/batch'));
+    await selected.press('Enter');
+    await saved;
+    assert.deepEqual(stockWrites().at(-1).body.lines[0], { materialId: 'legacy', qty: 24, expected: 36 });
+  }
+  await page.getByRole('button', { name: 'Вернуться к списку', exact: true }).click();
+  if (hidden === 'availability') await page.locator('[data-material-id="first"]').waitFor();
+  else await input.waitFor();
+  assert.deepEqual(stockWrites()[0].body.dims, { width: 40, height: 20, thickness: 2, length: 12000 });
+  assert.deepEqual(errors, []);
+});
+
+test('C274: неоднозначный формат листа открывает выбранную карточку без переноса количества', async t => {
+  const { page, calls, errors } = await fixture(t, { kind: 'sheet', state: { ambiguous: true, theme: 'dark', native: true } });
+  await page.locator('[data-worker-create="new"]').click();
+  const entry = page.locator('[data-worker-entry]');
+  await entry.getByLabel('Категория', { exact: true }).selectOption('sheet-cat');
+  for (const [label, value] of [['Единица учёта', 'лист'], ['Толщина, мм', '3'], ['Ширина, мм', '1250'], ['Длина, мм', '2500'], ['Начальный остаток', '5']]) {
+    await entry.getByLabel(label, { exact: true }).fill(value);
+  }
+  await entry.getByRole('button', { name: 'Проверить', exact: true }).click();
+  await entry.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await entry.getByRole('button', { name: 'Открыть Лист первый' }).waitFor();
+  if (process.env.C274_STOCK_PROOF) { await mkdir(process.env.C274_STOCK_PROOF, { recursive: true }); await page.screenshot({ path: join(process.env.C274_STOCK_PROOF, 'sheet-ambiguous-dark.png') }); }
+  await entry.getByRole('button', { name: 'Открыть Лист второй' }).click();
+  const selected = page.locator('[data-material-id="sheet-two"] input.pg-in');
+  await selected.waitFor();
+  assert.ok(calls.some(call => call.query.ids === 'sheet-two' && call.query.zoneId === 'zone'));
+  const stockWrites = () => writes(calls).filter(call => call.path.startsWith('/api/stock/'));
+  assert.deepEqual(stockWrites().map(call => call.path), ['/api/stock/items/from-coordinate']);
+  await selected.fill('4'); await selected.press('Enter');
+  assert.equal(stockWrites().length, 1);
+  if (process.env.C274_STOCK_PROOF) await page.screenshot({ path: join(process.env.C274_STOCK_PROOF, 'sheet-selected-dark.png') });
+  const saved = page.waitForResponse(response => response.url().endsWith('/api/stock/batch'));
+  await page.locator('[data-worker-count-confirm="sheet-two"]').getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await saved;
+  assert.deepEqual(stockWrites().at(-1).body.lines[0], { materialId: 'sheet-two', qty: 4, expected: 3 });
+  assert.deepEqual(errors, []);
+});
 test('количество: Escape отменяет; Enter и Tab сразу сохраняют целые штуки в исходной единице', async t => {
   const { page, calls, items, errors } = await fixture(t, { state: { delayCount: 120 } });
   const input = page.locator('[data-material-id="first"] input.pg-in');
@@ -197,7 +300,7 @@ test('пустая координата: createOnly с zone, три трубы �
   assert.equal(writes(calls).length, 2);
   state.failCount = false; await cell.press('Enter');
   await page.locator('[data-material-id="created"]').waitFor();
-  const created = calls.filter(call => call.path === '/api/stock/items' && call.method === 'POST'); assert.equal(created.length, 1);
+  const created = calls.filter(call => call.path === '/api/stock/items/from-coordinate' && call.method === 'POST'); assert.equal(created.length, 1);
   assert.equal(created[0].query.zoneId, 'zone'); assert.equal(created[0].body.categoryId, 'pipe-cat'); assert.equal(created[0].body.unit, 'м');
   assert.deepEqual(created[0].body.dims, { width: 60, height: 20, thickness: 2, length: 12000 });
   assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines[0]), Array(2).fill({ materialId: 'created', qty: 36, expected: 0 }));
@@ -216,7 +319,7 @@ test('пустая координата: после сбоя повтор с н�
   await cell.locator('..').getByText('Материал создан, количество не сохранено.', { exact: false }).waitFor();
   assert.equal(await cell.inputValue(), '0');
   assert.equal(await cell.getAttribute('data-saved'), null);
-  assert.deepEqual(writes(calls).map(call => call.path), ['/api/stock/items', '/api/stock/batch', '/api/stock/batch']);
+  assert.deepEqual(writes(calls).map(call => call.path), ['/api/stock/items/from-coordinate', '/api/stock/batch', '/api/stock/batch']);
   assert.deepEqual(writes(calls)[2].body.lines, [{ materialId: 'created', qty: 0, expected: 0 }]);
   assert.equal(created.quantity, 12);
   await cell.press('Escape');
@@ -301,7 +404,7 @@ test('уход во время create оставляет созданный0 б�
   const cell = page.locator('[data-worker-create="cell"][title*="60×20×2"]').first();
   await cell.fill('3'); await cell.press('Enter');
   await page.evaluate(() => { window.grid.destroy(); window.grid.el.remove(); }); await page.waitForTimeout(200);
-  assert.equal(calls.filter(call => call.path === '/api/stock/items' && call.method === 'POST').length, 1);
+  assert.equal(calls.filter(call => call.path === '/api/stock/items/from-coordinate' && call.method === 'POST').length, 1);
   assert.equal(calls.filter(call => call.path === '/api/stock/batch').length, 0); assert.deepEqual(errors, []);
 });
 

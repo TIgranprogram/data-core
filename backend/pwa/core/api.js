@@ -156,6 +156,9 @@ async function errorOf(res) {
   if (closed) err.sectionClosed = true;
   if (res.status === 400 && Array.isArray(data?.unmatched)) err.data = { unmatched: data.unmatched }; // КМ: договоры с несопоставленными позициями
   if (res.status === 400 && Array.isArray(data?.details)) err.data = { ...(err.data || {}), details: data.details }; // склад: таблица нехватки (need/have/free/lack)
+  if (res.status === 409 && ['STOCK_COORDINATE_EXISTS', 'STOCK_COORDINATE_AMBIGUOUS'].includes(data?.code) && Array.isArray(data.details)) {
+    err.data = { code: data.code, details: data.details.filter(item => typeof item?.materialId === 'string' && typeof item.name === 'string') };
+  }
   if (res.status === 409 && data?.existingInvoiceId) err.data = { ...(err.data || {}), existingInvoiceId: data.existingInvoiceId, existingNo: data.existingNo, existingStatus: data.existingStatus }; // счета: дубль № — выбор в диалоге
   if (res.status === 400 && Array.isArray(data?.failed)) err.data = { ...(err.data || {}), failed: data.failed }; // Р5: ни один паспорт не собрался
   if (data?.code === 'REASON_REQUIRED') err.data = { ...(err.data || {}), code: 'REASON_REQUIRED' }; // ЗЯ-1: админ обходит запрет — нужна причина

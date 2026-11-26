@@ -2,7 +2,7 @@ import { UndatedInvoicePaymentDto, RevokeUndatedInvoicePaymentDto } from './dto-
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { CreateInvoicePaymentDto, VoidInvoicePaymentDto, LegacyPayInvoiceDto } from './dto-invoice';
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
-import { BadRequestException, Body, Controller, ForbiddenException, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Delete, Get, HttpCode, Ip, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -14,7 +14,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
 import type { StockScope } from '../../common/stock-scope';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { RestoreSupplyRequestNoteDto, SupplyBulkDto, SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
+import { RestoreSupplyRequestDeliveryNoteDto, RestoreSupplyRequestNoteDto, SupplyBulkDto, SupplyPhotoDto, SupplyReceiveDto, SupplyRequestDto } from './dto';
 import { SupplyService } from './supply.service';
 import { SupplierExcelService } from './supplier-excel.service';
 import { SupplierCatalogService } from './supplier-catalog.service';
@@ -76,7 +76,7 @@ export class SupplyController {
   @AuditAction({ action: 'supply.invoice.updated', entityType: 'SupplyInvoice', idParam: 'id' })
   async updateInvoice(@Param('id') id: string, @Body() dto: PatchInvoiceDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
-    return this.invoices.update(id, dto, user?.id);
+    return this.invoices.update(id, dto, user?.id, scope);
   }
 
   /** Добавить заявки в готовый счёт (группа по одному счёту). */
@@ -111,11 +111,11 @@ export class SupplyController {
   /** Предпросмотр объединения двух счетов: ничего не меняет. */
   @Get('invoices/:id/merge-preview')
   @Roles('admin', 'manager')
-  async mergePreview(@Param('id') id: string, @Query('targetId') targetId: string, @StockScoped() scope: StockScope | null) {
+  async mergePreview(@Param('id') id: string, @Query('targetId') targetId: string, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     if (!targetId) throw new BadRequestException('Укажите targetId — счёт, с которым объединяем');
     await this.invoices.assertWhole(id, scope);
     await this.invoices.assertWhole(targetId, scope);
-    return this.invoices.mergePreview(id, targetId);
+    return this.invoices.mergePreview(id, targetId, this.actorOf(user));
   }
 
   /** Явное объединение двух счетов (append / mergeSameRequest / replaceLines) с журналом и аудитом. */
@@ -126,7 +126,7 @@ export class SupplyController {
   async mergeInvoices(@Param('id') id: string, @Body() dto: MergeInvoicesDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
     await this.invoices.assertWhole(dto.targetId, scope);
-    return this.invoices.merge(id, dto.targetId, dto.strategy ?? 'append', user?.id);
+    return this.invoices.merge(id, dto.targetId, dto.strategy ?? 'append', this.actorOf(user));
   }
 
   /** Принять счёт на склад или подтвердить прямую поставку отмеченных строк по выбранному назначению. */
@@ -136,7 +136,7 @@ export class SupplyController {
   @AuditAction({ action: 'supply.invoice.received', entityType: 'SupplyInvoice', idParam: 'id' })
   async receiveInvoice(@Param('id') id: string, @Body() dto: ReceiveInvoiceDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.invoices.assertWhole(id, scope);
-    return this.invoices.receive(id, dto.requestIds, user?.id, dto);
+    return this.invoices.receive(id, dto.requestIds, user?.id, dto, scope);
   }
 
   /** Оплата — денежные роли (и менеджер). */
@@ -439,18 +439,28 @@ export class SupplyController {
   @Patch('requests/:id/restore-note')
   @Roles('admin', 'manager')
   @OwnerIdempotency()
-  @AuditAction({ action: 'supply.request.updated', entityType: 'SupplyRequest', idParam: 'id' })
   @ApiOperation({ summary: 'Заменить примечание заявки, если оно совпадает с открытой карточкой' })
   @ApiConflictResponse({ description: 'Примечание уже изменилось, операция не меняет его значение или флаг C262 выключен' })
-  async restoreNote(@Param('id') id: string, @Body() dto: RestoreSupplyRequestNoteDto, @StockScoped() scope: StockScope | null) {
+  async restoreNote(@Param('id') id: string, @Body() dto: RestoreSupplyRequestNoteDto, @StockScoped() scope: StockScope | null, @CurrentUser() user: AuthenticatedUser, @Ip() ip: string) {
     await this.supply.assertRequest(id, scope);
-    return this.supply.restoreNote(id, dto, scope);
+    return this.supply.restoreText(id, 'notes', dto, scope, { userId: user.id, userName: user.username, ipAddress: ip });
+  }
+
+  @Patch('requests/:id/restore-delivery-note')
+  @Roles('admin', 'manager')
+  @OwnerIdempotency()
+  @ApiOperation({ summary: 'Заменить текст поля «Доставка», если он совпадает с открытой карточкой' })
+  @ApiConflictResponse({ description: 'Текст доставки уже изменился, операция не меняет его значение или флаг C262 выключен' })
+  async restoreDeliveryNote(@Param('id') id: string, @Body() dto: RestoreSupplyRequestDeliveryNoteDto, @StockScoped() scope: StockScope | null, @CurrentUser() user: AuthenticatedUser, @Ip() ip: string) {
+    await this.supply.assertRequest(id, scope);
+    return this.supply.restoreText(id, 'deliveryNote', dto, scope, { userId: user.id, userName: user.username, ipAddress: ip });
   }
 
   /** C262: в корзину. Флаг выключен — 409, маршрут остаётся. */
   @Delete('requests/:id')
   @UseGuards(ConfirmTokenGuard)
-  @Roles('admin', 'manager')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Перенести заявку в корзину (администратор)' })
   @AuditAction({ action: 'supply.request.deleted', entityType: 'SupplyRequest', idParam: 'id' })
   async remove(@Param('id') id: string, @StockScoped() scope: StockScope | null) {
     await this.supply.assertRequest(id, scope);
@@ -503,7 +513,7 @@ export class SupplyController {
   @AuditAction({ action: 'supply.request.received', entityType: 'SupplyRequest', idParam: 'id' })
   async receive(@Param('id') id: string, @Body() dto: SupplyReceiveDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     await this.supply.assertRequest(id, scope);
-    return this.supply.receive(id, dto, user?.id);
+    return this.supply.receive(id, dto, user?.id, scope);
   }
 
   /** ЗЯ-1: откатить приёмку. C265: флаг прихода выключен — 409, в том числе план без записи. `?dryRun=1` или без confirm — план; confirm + reason — выполнить. */

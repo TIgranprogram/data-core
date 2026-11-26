@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import type { Connection } from 'mongoose';
+import type { ClientSession, Connection } from 'mongoose';
 import { Types } from 'mongoose';
 import { sharedFind } from './shared-collections';
 import { inScope, scopeMatch, type StockScope } from './stock-scope';
@@ -22,18 +22,20 @@ export async function docScopeMatch(connection: Connection, scope: StockScope | 
 }
 
 /** Документ в доступе? Позицию читает из базы только при `materialId`. */
-export async function docInScope(connection: Connection, scope: StockScope | null | undefined, rawDoc: object): Promise<boolean> {
+export async function docInScope(connection: Connection, scope: StockScope | null | undefined, rawDoc: object, session?: ClientSession): Promise<boolean> {
   if (!scope) return true;
   const doc = rawDoc as { materialId?: unknown; categoryId?: unknown };
   if (doc.materialId) {
-    const m = (await sharedFind(connection.db!.collection('materials'), 'materials', { _id: new Types.ObjectId(String(doc.materialId)) }, { projection: { categoryId: 1 }, includeDeleted: true }).limit(1).toArray())[0];
+    const m = (await sharedFind(connection.db!.collection('materials'), 'materials', { _id: new Types.ObjectId(String(doc.materialId)) }, {
+      projection: { categoryId: 1 }, includeDeleted: true, ...(session ? { findOptions: { session } } : {}),
+    }).limit(1).toArray())[0];
     return !!m && inScope(scope, m);
   }
   return doc.categoryId ? scope.categoryIds.includes(String(doc.categoryId)) : scope.noCategory;
 }
 
-export async function assertDocInScope(connection: Connection, scope: StockScope | null | undefined, doc: object, text = 'Эта заявка не из вашего склада'): Promise<void> {
-  if (!(await docInScope(connection, scope, doc))) throw new ForbiddenException(text);
+export async function assertDocInScope(connection: Connection, scope: StockScope | null | undefined, doc: object, text = 'Эта заявка не из вашего склада', session?: ClientSession): Promise<void> {
+  if (!(await docInScope(connection, scope, doc, session))) throw new ForbiddenException(text);
 }
 
 /** Новая запись или смена позиции/категории: должна остаться в своём складе. Ничего не указано — только «Основному». */

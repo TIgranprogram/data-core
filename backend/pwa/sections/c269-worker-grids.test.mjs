@@ -28,7 +28,10 @@ test('пересчёт труб: 2×6→12м, 2×12→24м, шт без умно
   assert.equal(count(pipe('id'), '0').qty, 0);
   for (const extra of [{countMode: 'multiple'}, {countMode: 'unknown'}, {countMode: undefined}, {unit: 'кг'}, {dims: {}}]) assert.throws(() => count(pipe('id', extra), '3'));
   for (const value of ['', '-1', 'nan', '3,5', '3.5', 'Infinity']) assert.throws(() => count(pipe('id'), value));
-  assert.equal(workerCountBody({ ...pipe('sheet'), unit: 'лист' }, '3,5', 'Листы', 'sheet').lines[0].qty, 3.5);
+  const sheet = { ...pipe('sheet'), unit: 'лист' };
+  assert.equal(workerCountBody(sheet, '3,5', 'Листы', 'sheet').lines[0].qty, 3.5);
+  assert.equal(workerCountBody(sheet, ',5', 'Листы', 'sheet').lines[0].qty, 0.5);
+  for (const value of ['2e3', '0x10', '-1', '1 5']) assert.throws(() => workerCountBody(sheet, value, 'Листы', 'sheet'));
 });
 test('остаток с дробной трубой остаётся в метрах, учитывается только погрешность float', () => {
   assert.equal(workerPipePieces(pipe('id', { quantity: 7 })), null);

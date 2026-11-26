@@ -2,8 +2,8 @@ import { Types } from 'mongoose';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { AppSection } from '../../common/decorators/app-section.decorator';
 import { Throttle } from '@nestjs/throttler';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards, UseInterceptors } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import { ApiConflictResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { ConfirmTokenGuard } from '../../common/guards/confirm-token.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -13,6 +13,7 @@ import { CreateWarehouseDto, PatchWarehouseDto, StockCorrectDto, StockBatchDto, 
 import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
 import { narrowToZone, type StockScope } from '../../common/stock-scope';
 import { StockZonesService } from '../stock-zones/stock-zones.service';
+import { StockCoordinateDto } from './stock-coordinate.dto';
 import { StockService } from './stock.service';
 import { StockItemReservationsDto } from './stock-item-reservations.dto';
 
@@ -165,6 +166,19 @@ export class StockController {
   create(@Body() dto: StockItemDto, @StockScoped() scope: StockScope | null, @Query('zoneId') zoneId?: string) {
     const target = String(zoneId ?? '').trim();
     return this.stock.createItem(dto, narrowToZone(scope, target), Boolean(target));
+  }
+
+  @Post('items/from-coordinate')
+  @Roles('admin', 'manager')
+  @AuditAction({ action: 'stock.item.created', entityType: 'Material' })
+  @ApiOperation({ summary: 'Создать материал в пустой координате рабочей сетки и ячейку с нулевым остатком' })
+  @ApiQuery({ name: 'zoneId', required: true, description: 'ID доступной складской зоны' })
+  @ApiConflictResponse({ description: 'STOCK_COORDINATE_EXISTS или STOCK_COORDINATE_AMBIGUOUS; details содержит доступные {materialId,name}. Пересчёт — отдельное действие.' })
+  createFromCoordinate(@Body() dto: StockCoordinateDto, @StockScoped() own: StockScope | null, @Query('zoneId') zoneId?: string) {
+    if (typeof zoneId !== 'string' || !zoneId.trim()) throw new BadRequestException('Выберите складскую зону.');
+    const scope = narrowToZone(own, zoneId);
+    if (!scope) throw new BadRequestException('Выберите складскую зону.');
+    return this.stock.createFromCoordinate(dto, scope);
   }
 
   /**

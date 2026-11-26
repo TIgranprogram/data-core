@@ -2,14 +2,27 @@ import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
 import { button, section, fieldRow, textInput, toolbar, select, enhanceSelect, busyBlock, failBlock } from '../ui/kit/index.js';
-import { workerCreateBody, workerCountBody, workerInputQuantity, workerPipeMetres, workerUnit } from './stock-worker-model.js';
+import { workerCategoryMatches, workerCreateBody, workerCountBody, workerInputQuantity, workerPipeMetres, workerUnit } from './stock-worker-model.js';
+
+/** Переход открывает карточку по ID. Количество вводится отдельно после её загрузки. */
+function coordinateActions(error, open) {
+  if (!['STOCK_COORDINATE_EXISTS', 'STOCK_COORDINATE_AMBIGUOUS'].includes(error.data?.code)) return [];
+  const candidates = error.data.details;
+  return candidates.map(item => {
+    const sameName = candidates.some(other => other !== item && other.name === item.name);
+    const label = 'Открыть ' + (item.name || 'материал') + (sameName ? ' · ' + item.materialId : '');
+    return button({ label, kind: 'ghost', title: item.materialId, onClick: () => open(item.materialId) });
+  });
+}
 
 /** Компактное создание в явной зоне. Успешный create не повторяется при ошибке count. */
-export function workerCreate({ kind, getZone, host, changed }) {
+export function workerCreate({ kind, getZone, host, changed, openCandidate }) {
   let generation = 0, node = null, destroyed = false;
   const createdCells = new Map();
   const close = () => { generation++; node?.remove(); node = null; };
+  const actionsFor = error => coordinateActions(error, id => { close(); openCandidate(id); });
   return {
+    actionsFor,
     clear(input) {
       if (createdCells.delete(input.dataset.workerKey)) changed();
     },
@@ -27,7 +40,7 @@ export function workerCreate({ kind, getZone, host, changed }) {
         const zone = getZone(); if (!zone?.id) throw new Error('Складская зона ещё не загружена. Повторите.');
         const response = await api('/stock/categories', { query: { zoneId: zone.id } });
         if (own !== generation || destroyed) return;
-        const categories = (response.items || []).filter(item => item.id !== 'none' && (kind === 'pipe' ? /труб/i : /лист/i).test(item.name));
+        const categories = (response.items || []).filter(item => workerCategoryMatches(item, kind));
         let created = null, submitting = false, plan = null;
         const controls = {}, fields = [];
         const make = (key, label, value = '', fixed = false) => {
@@ -52,7 +65,7 @@ export function workerCreate({ kind, getZone, host, changed }) {
         amount.input.dataset.workerInitial = '1';
         const preview = h('p', { role: 'status' }), errorBox = h('div');
         const read = () => ({ categoryId: category.value, unit: controls.unit.value, materialGrade: controls.materialGrade.value, shape: shape?.value,
-          washed: wash?.value === '1' ? true : wash?.value === '0' ? false : null, assortment: context.assortment || '',
+          washed: wash?.value === '1' ? true : wash?.value === '0' ? false : null, assortment: context.assortment || '', typeName: context.typeName || '',
           dims: Object.fromEntries(Object.keys(axes).map(key => [key, controls[key].value])) });
         function reset() { if (created || submitting) return; plan = null; submit.textContent = 'Проверить'; preview.textContent = ''; errorBox.replaceChildren(); }
         function syncAxes() { for (const [key, field] of Object.entries(axes)) field.hidden = kind === 'pipe' && (shape.value === 'round' ? ['width', 'height'].includes(key) : key === 'diameter'); }
@@ -72,14 +85,18 @@ export function workerCreate({ kind, getZone, host, changed }) {
             }
             submitting = true; submit.disabled = cancel.disabled = true; body.classList.add('is-busy');
             for (const input of body.querySelectorAll('input,select')) input.disabled = true;
-            if (!created) created = await api('/stock/items', { method: 'POST', query: { zoneId: zone.id }, body: plan.dto });
+            if (!created) created = await api('/stock/items/from-coordinate', { method: 'POST', query: { zoneId: zone.id }, body: plan.dto });
             if (own !== generation || destroyed) return;
             if (plan.quantity !== 0) await api('/stock/batch', { method: 'POST', body: workerCountBody({ ...plan.dto, ...created }, plan.value, kind === 'pipe' ? 'Трубы' : 'Листовой материал', kind) });
             if (own === generation && !destroyed) { close(); changed(); }
           } catch (error) {
             if (own !== generation || destroyed) return;
             if (created) { preview.textContent = `Материал создан, остаток0 ${workerUnit(created)}. Повторите сохранение остатка.`; submit.textContent = 'Сохранить остаток'; }
-            errorBox.replaceChildren(failBlock(error, null));
+            const actions = actionsFor(error);
+            if (actions.length) {
+              plan = null; preview.textContent = ''; submit.textContent = 'Проверить';
+              errorBox.replaceChildren(h('p', { role: 'status' }, error.message), toolbar(...actions));
+            } else errorBox.replaceChildren(failBlock(error, null));
           } finally {
             submitting = false;
             if (own === generation && !destroyed) {
@@ -109,7 +126,7 @@ export function workerCreate({ kind, getZone, host, changed }) {
       const retry = Boolean(entry);
       if (!entry) {
         const dto = workerCreateBody(context, kind, [{ id: context.categoryId, name: context.categoryName }]);
-        const created = await api('/stock/items', { method: 'POST', query: { zoneId: zone.id }, body: dto });
+        const created = await api('/stock/items/from-coordinate', { method: 'POST', query: { zoneId: zone.id }, body: dto });
         if (destroyed) return;
         entry = { item: { ...dto, ...created, quantity: 0 }, input };
         createdCells.set(key, entry);

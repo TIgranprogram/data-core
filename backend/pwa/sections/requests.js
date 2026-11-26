@@ -420,8 +420,9 @@ export const requests = {
     },
     editTitle: (r) => 'Заявка — ' + name(r),
     historyRestore: {
-      fields: ['notes'],
-      update: (id, { expected, value }) => api(`/supply/requests/${id}/restore-note`, { method: 'PATCH', body: { expected, value } }),
+      fields: ['notes', 'deliveryNote'],
+      update: (id, { field, expected, value }) => api(`/supply/requests/${id}/${field === 'deliveryNote' ? 'restore-delivery-note' : 'restore-note'}`,
+        { method: 'PATCH', body: { expected, value } }),
     },
     ...screenCard({
       title: heading,
@@ -443,6 +444,7 @@ export const requests = {
         { label: 'Изменить', run: (row, ctx) => ctx.edit() }, // правка — в «⋯»: одна главная кнопка этапа
         !r.invoiceId && !['received', 'cancelled'].includes(supplyKey(r)) ? { label: 'Сменить статус…', run: changeStatus } : null, // в счёте статус ведёт счёт
         supplyKey(r) === 'received' && isAdmin() ? { label: 'Отменить приёмку', run: rollbackReceipt } : null,
+        !isAdmin() ? { label: 'Удаление через администратора', run: () => toast('Чтобы удалить заявку, обратитесь к администратору') } : null,
       ],
     }),
     editable: () => false,
@@ -478,7 +480,7 @@ export const requests = {
 
   remove: { password: true,
     text: (r) => `Удалить заявку ${heading(r)}?` + (r.status === 'received' ? ' Приход на склад по ней останется — при необходимости отмените его в «Движениях».' : ''),
-    run: (r) => api(`/supply/requests/${r.id}`, { method: 'DELETE' }),
+    get run() { return isAdmin() ? (r) => api(`/supply/requests/${r.id}`, { method: 'DELETE' }) : undefined; },
     restore: (r) => api(`/supply/requests/${r.id}/restore`, { method: 'POST' }),
   },
 

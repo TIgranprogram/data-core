@@ -5,14 +5,16 @@ import { normText } from '../../common/text/norm-text';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import { escapeRe, oid } from '../../common/list-query';
-import { inScope, type StockScope } from '../../common/stock-scope';
+import { inScope, scopeMatch, type StockScope } from '../../common/stock-scope';
 import { isUsedByCrm, isUsedInComposition } from '../../common/catalog/catalog-references';
 import { CounterService } from '../counter/counter.service';
 import { Material, MaterialDocument } from '../material/material.schema';
 import { type ArticleDecision, decideArticle, isAutoArticle } from './article';
 import { STOCK_VISIBLE } from '../../common/catalog/stock-visible';
 import { CategoryResolver } from '../../common/catalog/category-resolver';
-import { mergeDims } from './metal';
+import { assertCoordinateFree, coordinateGuard } from './stock-coordinate';
+import type { StockCoordinateDto } from './stock-coordinate.dto';
+import { metalKind, mergeDims } from './metal';
 import { QrService } from '../qr/qr.service';
 import { StockCoreService } from './stock-core.service';
 import { StockSearchService } from './stock-search.service';
@@ -125,45 +127,89 @@ export class StockCatalogService {
     return { ...dto, categoryId: String(hit._id) };
   }
 
-  async createItem(dto: StockItemInput, scope?: StockScope | null, createOnly = false) {
+  createFromCoordinate(dto: StockCoordinateDto, scope: StockScope) {
+    return this.saveItem(dto, scope, true, dto);
+  }
+
+  createItem(dto: StockItemInput, scope?: StockScope | null, createOnly = false) {
+    return this.saveItem(dto, scope, createOnly);
+  }
+
+  private async saveItem(dto: StockItemInput, scope?: StockScope | null, createOnly = false, coordinate?: StockCoordinateDto) {
     const name = String(dto.name ?? '').trim();
     if (!name) throw new BadRequestException('Укажите наименование');
     if (scope) dto = await this.scopeNewItem(dto, scope);
     // Подготовка справочника вне повторяемого callback; не основание для решения create/reuse.
-    const preliminary = await this.findMaterialByName(name);
+    const preliminary = coordinate ? null : await this.findMaterialByName(name);
     if (preliminary && !inScope(scope, preliminary)) throw new ForbiddenException('Эта позиция не из вашего склада');
     const categoryId = await this.resolveItemCategory(dto);
-    const result = await this.names.run([name], async (session) => {
-      if (createOnly && (!categoryId || !await this.connection.db!.collection('categories').findOne({ _id: categoryId, type: 'material', deletedAt: null }, { projection: { _id: 1 }, session }))) {
-        throw new BadRequestException('Выберите действующую категорию материалов этой зоны');
+    const locks = coordinate ? [name, coordinateGuard(coordinate)] : [name];
+    const result = await this.names.run(locks, async (session) => {
+      if (createOnly) {
+        const category = categoryId && await this.connection.db!.collection('categories').findOne({ _id: categoryId, type: 'material', deletedAt: null }, { projection: { name: 1 }, session });
+        if (!category) throw new BadRequestException('Выберите действующую категорию материалов этой зоны');
+        if (coordinate && categoryId && scope) {
+          if (metalKind(category.name) !== coordinate.kind) throw new BadRequestException('Вид материала не соответствует категории.');
+          await assertCoordinateFree(this.connection, coordinate, categoryId, scope, session);
+        }
       }
-      // Только этот повторный поиск после записи revision решает, создавать ли Material.
-      const existing = await this.findMaterialByName(name, session);
-      if (existing) {
-        if (!inScope(scope, existing)) throw new ForbiddenException('Эта позиция не из вашего склада');
-        if (createOnly) throw new ConflictException('Материал с таким названием уже есть. Найдите его в списке.');
-        // ТИ-8: уже заполненное «название в счёте» не затираем; имя сохраняем.
-        await this.patchMaterial(existing, { ...dto, name: undefined, ...(existing.invoiceName ? { invoiceName: undefined } : {}) }, categoryId, session);
-        return { id: existing._id as Types.ObjectId, reused: true };
-      }
-      if (dto.article?.trim()) await this.assertArticleFree(dto.article.trim(), undefined, session);
-      const [mat] = await this.materials.create([{
-        name, unit: dto.unit?.trim() || 'шт', article: dto.article?.trim() || (await this.autoArticle(session)),
-        sku: await this.skuFor(categoryId, session), categoryId, notes: dto.notes, weightKg: dto.weightKg,
-        ...(dto.fullName?.trim() ? { fullName: dto.fullName.trim() } : {}), ...(dto.invoiceName?.trim() ? { invoiceName: dto.invoiceName.trim() } : {}),
-        ...(dto.assortment?.trim() ? { assortment: dto.assortment.trim() } : {}), ...(dto.materialGrade?.trim() ? { materialGrade: dto.materialGrade.trim() } : {}),
-        ...(dto.typeName?.trim() ? { typeName: dto.typeName.trim() } : {}),
-        ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
-        ...(typeof dto.washed === 'boolean' ? { washed: dto.washed } : {}),
-      }], { session });
-      if (createOnly) await this.ensureStorage(mat._id as Types.ObjectId, dto, session);
-      return { id: mat._id as Types.ObjectId, reused: false };
+      const saved = await this.persistItem(name, dto, categoryId, session, { scope, createOnly });
+      if (createOnly) await this.ensureStorage(saved.id, dto, session);
+      return saved;
     });
     // У обычного POST повтор чинит оборванный шаг. При добавлении в зону дубль отклоняется, поэтому строка остатка создаётся вместе с материалом.
     if (!createOnly) await this.finishItem(result.id, dto, true, result.reused);
     else if (dto.weightG !== undefined) await this.core.setWeightG(result.id, dto.weightG);
-    await this.qr?.ensureCode('S', result.id).catch((e) => this.logger.warn(`QR не выдан: ${e?.message ?? e}`));
+    await this.ensureItemQr(result.id);
     return this.search.getItem(String(result.id), createOnly ? scope : undefined);
+  }
+
+  /** C165: карточка и запись прихода используют один снимок и складскую блокировку имени. */
+  async withReceiptItem(
+    { categoryId, name, ...input }: { name: string; unit?: string; article?: string; categoryId?: Types.ObjectId },
+    scope: StockScope | null,
+    receive: (materialId: Types.ObjectId, session: ClientSession) => Promise<void>,
+  ): Promise<string> {
+    const materialId = await this.names.run([name], async session => {
+      const category = categoryId && await this.connection.db!.collection('categories').findOne(
+        { _id: categoryId, type: 'material', deletedAt: null }, { projection: { _id: 1 }, session },
+      );
+      const { id } = await this.persistItem(name, { name, ...input, invoiceName: name }, category?._id, session, { scope });
+      await receive(id, session);
+      return id;
+    });
+    await this.ensureItemQr(materialId);
+    return String(materialId);
+  }
+
+  private async persistItem(
+    name: string, dto: StockItemInput, categoryId: Types.ObjectId | undefined, session: ClientSession,
+    { scope, createOnly }: { scope?: StockScope | null; createOnly?: boolean } = {},
+  ) {
+    // Поиск в транзакции после записи блокировки решает, создавать ли материал.
+    const existing = await this.findMaterialByName(name, session);
+    if (existing) {
+      if (!inScope(scope, existing)) throw new ForbiddenException('Эта позиция не из вашего склада');
+      if (createOnly) throw new ConflictException('Материал с таким названием уже есть. Найдите его в списке.');
+      await this.patchMaterial(existing, { ...dto, name: undefined, ...(existing.invoiceName ? { invoiceName: undefined } : {}) }, categoryId, session);
+      return { id: existing._id as Types.ObjectId, reused: true };
+    }
+    if (!inScope(scope, { categoryId })) throw new ForbiddenException('Эта позиция не из вашего склада');
+    if (dto.article?.trim()) await this.assertArticleFree(dto.article.trim(), undefined, session);
+    const [material] = await this.materials.create([{
+      name, unit: dto.unit?.trim() || 'шт', article: dto.article?.trim() || (await this.autoArticle(session)),
+      sku: await this.skuFor(categoryId, session), categoryId, notes: dto.notes, weightKg: dto.weightKg,
+      ...(dto.fullName?.trim() ? { fullName: dto.fullName.trim() } : {}), ...(dto.invoiceName?.trim() ? { invoiceName: dto.invoiceName.trim() } : {}),
+      ...(dto.assortment?.trim() ? { assortment: dto.assortment.trim() } : {}), ...(dto.materialGrade?.trim() ? { materialGrade: dto.materialGrade.trim() } : {}),
+      ...(dto.typeName?.trim() ? { typeName: dto.typeName.trim() } : {}),
+      ...(dto.dims ? { dimensions: mergeDims([], dto.dims) } : {}),
+      ...(typeof dto.washed === 'boolean' ? { washed: dto.washed } : {}),
+    }], { session });
+    return { id: material._id as Types.ObjectId, reused: false };
+  }
+
+  private async ensureItemQr(id: Types.ObjectId) {
+    await this.qr?.ensureCode('S', id).catch((error) => this.logger.warn(`QR не выдан: ${error?.message ?? error}`));
   }
 
   private async finishItem(_id: Types.ObjectId, dto: StockItemInput, ensureStorage: boolean, edited: boolean): Promise<void> {
@@ -173,7 +219,7 @@ export class StockCatalogService {
   }
 
   private async ensureStorage(_id: Types.ObjectId, dto: StockItemInput, session?: ClientSession): Promise<void> {
-    const wh = await this.core.defaultWarehouse();
+    const wh = await this.core.defaultWarehouse(session);
     const set = { ...(dto.minQuantity !== undefined ? { minQuantity: dto.minQuantity ?? 0 } : {}), ...(dto.weightKg !== undefined ? { weightKg: dto.weightKg } : {}) };
     const run = () => this.storage.updateOne(
       { warehouseId: wh._id, materialId: _id, zoneName: null },
@@ -271,20 +317,24 @@ export class StockCatalogService {
    * внутренним кодом); свой артикул позиции не перезаписывается (расхождение — в «Требуют заполнения», fill-audit).
    * source — откуда: «заявка №14», «Google-таблица, лист «Склад»».
    */
-  async adoptArticle(materialId: Types.ObjectId | string, incoming: unknown, source: string): Promise<ArticleDecision> {
+  async adoptArticle(materialId: Types.ObjectId | string, incoming: unknown, source: string, scope?: StockScope | null): Promise<ArticleDecision> {
     if (!materialId || !Types.ObjectId.isValid(String(materialId))) return 'skip';
     const _id = new Types.ObjectId(String(materialId));
     const db = this.connection.db!;
-    const mat = await db.collection('materials').findOne({ _id, deletedAt: null }, { projection: { article: 1 } });
+    const active = { _id, deletedAt: null };
+    const allowed = scope ? { $and: [active, scopeMatch(scope)] } : active;
+    const mat = await db.collection('materials').findOne(allowed, { projection: { article: 1 } });
     if (!mat) return 'skip';
     const inc = String(incoming ?? '').trim();
     const taken = inc && !isAutoArticle(inc) ? !!(await db.collection('materials').findOne({ _id: { $ne: _id }, deletedAt: null, article: new RegExp(`^\\s*${escapeRe(inc)}\\s*$`, 'i') }, { projection: { _id: 1 } })) : false;
     const d = decideArticle(mat.article, inc, taken);
     if (d !== 'set') return d;
     try {
-      await db.collection('materials').updateOne({ _id }, { $set: { article: inc, articleSource: source, articleSetAt: new Date(), ...(mat.article ? { internalArticle: mat.article } : {}) } });
+      const result = await db.collection('materials').updateOne({ ...allowed, article: mat.article ?? null }, {
+        $set: { article: inc, articleSource: source, articleSetAt: new Date(), ...(mat.article ? { internalArticle: mat.article } : {}) },
+      });
+      return result.matchedCount ? 'set' : 'skip';
     } catch { return 'duplicate'; } // уникальный индекс (другое написание того же артикула)
-    return 'set';
   }
 
   /**

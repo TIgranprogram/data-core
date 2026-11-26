@@ -3349,6 +3349,41 @@
         ]
       }
     },
+    "/api/stock/items/from-coordinate": {
+      "post": {
+        "operationId": "StockController_createFromCoordinate",
+        "summary": "Создать материал в пустой координате рабочей сетки и ячейку с нулевым остатком",
+        "parameters": [
+          {
+            "name": "zoneId",
+            "required": true,
+            "in": "query",
+            "description": "ID доступной складской зоны",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockCoordinateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "409": {
+            "description": "STOCK_COORDINATE_EXISTS или STOCK_COORDINATE_AMBIGUOUS; details содержит доступные {materialId,name}. Пересчёт — отдельное действие."
+          }
+        },
+        "tags": [
+          "Склад"
+        ]
+      }
+    },
     "/api/stock/items/bulk": {
       "patch": {
         "operationId": "StockController_bulkUpdate",
@@ -5765,6 +5800,7 @@
       },
       "delete": {
         "operationId": "SupplyController_remove",
+        "summary": "Перенести заявку в корзину (администратор)",
         "parameters": [
           {
             "name": "id",
@@ -5812,6 +5848,40 @@
         "responses": {
           "409": {
             "description": "Примечание уже изменилось, операция не меняет его значение или флаг C262 выключен"
+          }
+        },
+        "tags": [
+          "Снабжение"
+        ]
+      }
+    },
+    "/api/supply/requests/{id}/restore-delivery-note": {
+      "patch": {
+        "operationId": "SupplyController_restoreDeliveryNote",
+        "summary": "Заменить текст поля «Доставка», если он совпадает с открытой карточкой",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreSupplyRequestDeliveryNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "409": {
+            "description": "Текст доставки уже изменился, операция не меняет его значение или флаг C262 выключен"
           }
         },
         "tags": [
@@ -22001,6 +22071,54 @@
           }
         }
       },
+      "StockCoordinateDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pipe",
+              "sheet"
+            ]
+          },
+          "categoryId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "dims": {
+            "type": "object",
+            "description": "Размеры в мм до сотых: длина и толщина; для листа ширина, для трубы диаметр или ширина и высота"
+          },
+          "washed": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "materialGrade": {
+            "type": "string",
+            "nullable": true
+          },
+          "assortment": {
+            "type": "string",
+            "nullable": true
+          },
+          "typeName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "kind",
+          "categoryId",
+          "name",
+          "unit",
+          "dims"
+        ]
+      },
       "StockPhotoDto": {
         "type": "object",
         "properties": {
@@ -23087,7 +23205,7 @@
           },
           "strategy": {
             "type": "string",
-            "description": "append — добавить все строки; mergeSameRequest — пропустить одинаковые; replaceLines — заменить строки цели",
+            "description": "append — добавить все строки; mergeSameRequest — убрать одинаковые заявки в корзину (при наличии дублей только администратор); replaceLines — заменить строки цели",
             "enum": [
               "append",
               "mergeSameRequest",
@@ -23260,27 +23378,6 @@
       "CatalogItemPatchDto": {
         "type": "object",
         "properties": {}
-      },
-      "RestoreSupplyRequestNoteDto": {
-        "type": "object",
-        "properties": {
-          "expected": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 2000,
-            "description": "Текущее примечание в открытой карточке"
-          },
-          "value": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 2000,
-            "description": "Примечание для записи, null очищает поле"
-          }
-        },
-        "required": [
-          "expected",
-          "value"
-        ]
       },
       "SupplyPhotoDto": {
         "type": "object",
@@ -23459,6 +23556,48 @@
             "description": "Причина (от 3 символов) — нужна администратору, когда он правит то, что заблокировано остальным; уходит в журнал"
           }
         }
+      },
+      "RestoreSupplyRequestNoteDto": {
+        "type": "object",
+        "properties": {
+          "expected": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "description": "Текущее примечание в открытой карточке"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "description": "Примечание для записи, null очищает поле"
+          }
+        },
+        "required": [
+          "expected",
+          "value"
+        ]
+      },
+      "RestoreSupplyRequestDeliveryNoteDto": {
+        "type": "object",
+        "properties": {
+          "expected": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300,
+            "description": "Текущий текст поля «Доставка» в открытой карточке"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300,
+            "description": "Текст доставки для записи, null очищает поле"
+          }
+        },
+        "required": [
+          "expected",
+          "value"
+        ]
       },
       "SupplyReceiveDto": {
         "type": "object",

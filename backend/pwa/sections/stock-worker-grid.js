@@ -53,7 +53,9 @@ function pipeCell(item, options, context, label) {
         await options.create.quick(context, input, text);
         input.value = '';
       }, false, { onSaveError(failure) {
-        error.textContent = failure.message;
+        const actions = options.create.actionsFor(failure);
+        if (actions.length) input.value = '';
+        error.replaceChildren(h('div', null, failure.message), ...actions);
         error.hidden = false;
         queueMicrotask(() => {
           if (!error.hidden && document.activeElement === input) error.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -106,7 +108,8 @@ export function pipeWorkerGrid(items, options) {
     const rows = block.rows.flatMap(row => {
       const variants = [...row.cells.values()];
       const details = options.details.rowDetail({ ...options, key: 'pipe:' + variants.map(workerMaterialId).sort().join('|'), label: sectionValue(row.source), items: variants, columns: columns.length, kind: 'pipe', distinguish: row.collision });
-      const canCreate = !row.collision && !row.source.offcutOf && variants.every(item => item.categoryId === row.source.categoryId);
+      const canCreate = !row.collision && !row.source.offcutOf && row.source.sectionProfile?.state !== 'conflict'
+        && variants.every(item => item.categoryId === row.source.categoryId && item.typeName === row.source.typeName && item.assortment === row.source.assortment && !item.standardRef && !item.profileId && !item.coating && !item.surface);
       return [h('tr', null,
         h('th', { class: 'pg-name', scope: 'row' }, details.toggle, row.source.offcutOf || row.collision
           ? h('div', { class: 'pg-worker-source' }, row.source.offcutOf ? 'Обрезок' : 'Совпадает сечение') : null),

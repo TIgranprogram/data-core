@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cmdStand, cmdNight } from './night.mjs';
+import { atlasCodeHashes, atlasCodeWarnings, readAtlasCodeReviews, recordAtlasCodeReview } from './atlas-code.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const CHECK_PULT_TESTS = ['pult/test/catalog.test.mjs', 'pult/test/server.test.mjs', 'pult/test/advisor.test.mjs'];
@@ -174,14 +175,15 @@ function step(label, cmd, args, opts) {
 // ---------- «Карта сайта» (C097): сводка блока для ИИ и проверка карты ----------
 const atlasMod = () => import(pathToFileURL(path.join(ROOT, 'backend/pwa/sections/atlas-brief.js')).href);
 
-/** Проверка карты: структура (atlas-brief) + файлы кода, документы, адреса разделов, «код новее карты». */
+const atlasNodes = () => import(pathToFileURL(path.join(ROOT, 'backend/pwa/sections/atlas-data.js')).href);
+const activeAtlasNodes = nodes => nodes.filter(node => !node.plan && node.code?.length);
+
+/** Проверка карты: структура (atlas-brief) + файлы кода, документы, адреса разделов и сверка кода каждого блока. */
 export async function atlasCheck() {
   const m = await atlasMod();
-  const { NODES } = await import(pathToFileURL(path.join(ROOT, 'backend/pwa/sections/atlas-data.js')).href);
+  const { NODES } = await atlasNodes();
   const errors = m.atlasProblems(), warns = [];
   const mainJs = fs.readFileSync(path.join(ROOT, 'backend/pwa/main.js'), 'utf8');
-  const gitTime = (paths) => Number(run('git', ['log', '-1', '--format=%ct', '--', ...paths]).stdout.trim()) || 0;
-  const mapTime = gitTime(['backend/pwa/sections/atlas-data.js', 'backend/pwa/sections/atlas-links.js']);
   // Шаблоны экранов (C118, docs/DESIGN.md §3.1): tpl обязателен, legacy не растёт.
   const TPLS = ['list', 'board', 'card', 'queue', 'funnel', 'summary', 'dict'], STATUSES = ['ok', 'legacy', 'plan'];
   let legacy = 0;
@@ -200,7 +202,11 @@ export async function atlasCheck() {
     for (const d of n.docs || []) { const p = m.docRef(d).path; if (!fs.existsSync(path.join(ROOT, p))) warns.push(`${n.id}: документа ${p} нет в репо (архив — dc doc)`); }
     const key = (m.atlasJson(n.id).route || '').replace(/^#/, '').split('?')[0];
     if (key && !mainJs.includes(`['${key}',`) && !new RegExp(String.raw`(^|\n)\s*'?` + key + String.raw`'?\s*:\s*\[`).test(mainJs)) errors.push(`${n.id}: адрес #${key} не найден в main.js`);
-    if (!n.plan && (n.code || []).length && mapTime && gitTime(n.code) > mapTime) warns.push(`${n.id}: код менялся после последней правки карты — сверить блок`);
+  }
+  try {
+    warns.push(...atlasCodeWarnings(atlasCodeHashes(ROOT, activeAtlasNodes(NODES)), readAtlasCodeReviews(ROOT)));
+  } catch (error) {
+    errors.push(`проверка сверки карты: ${error.message}`);
   }
   return { errors, warns };
 }
@@ -215,6 +221,16 @@ async function cmdAtlas(argv) {
     console.log(r.errors.length ? 'Карта: ошибки' + NL + r.errors.map((e) => '- ' + e).join(NL) : 'Карта: структура в порядке');
     if (r.warns.length) console.log('Сверить:' + NL + r.warns.map((e) => '- ' + e).join(NL));
     process.exit(r.errors.length ? 1 : 0);
+  }
+  if (argv.includes('--review')) {
+    const { NODES } = await atlasNodes();
+    const node = activeAtlasNodes(NODES).find(n => n.id === q);
+    if (!node) { console.error('Укажите точный id действующего блока: dc atlas <id> --review'); process.exit(1); }
+    const missing = node.code.find(file => !fs.existsSync(path.join(ROOT, file)));
+    if (missing) { console.error(`${node.id}: нет файла кода ${missing}`); process.exit(1); }
+    recordAtlasCodeReview(ROOT, node);
+    console.log(`${node.id}: сверка кода блока отмечена`);
+    process.exit(0);
   }
   if (!q) { console.log(m.atlasList() + NL + 'Сводка блока: dc atlas <блок|слово> [--json]'); process.exit(0); }
   const found = m.findNodes(q);

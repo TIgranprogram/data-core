@@ -89,7 +89,10 @@ export class StockMovementsService {
         if (outer) reservationQuery.session(outer);
         done = await reservationQuery;
       }
-      if (done) return outer ? undefined : this.search.getItem(materialId);
+      if (done) {
+        if (via === 'receipt') throw new ConflictException('Ключ прихода уже использован. Обновите карточку заявки.');
+        return outer ? undefined : this.search.getItem(materialId);
+      }
     }
     const matId = new Types.ObjectId(materialId);
     const materialQuery = this.materials.exists({ _id: matId, deletedAt: null });
@@ -110,10 +113,16 @@ export class StockMovementsService {
       // повтор проверяется внутри транзакции первой строкой: параллельный двойной вызов не проведёт движение дважды (HARDEN-1 п.5)
       if (dto.clientUid) {
         const done = (await this.movements.findOne({ clientUid: dto.clientUid }, { _id: 1 }).session(session).lean().exec()) || (await this.reservations.findOne({ clientUid: dto.clientUid }, { _id: 1 }).session(session).lean().exec());
-        if (done) { repeat = true; return; }
+        if (done) {
+          if (via === 'receipt') throw new ConflictException('Ключ прихода уже использован. Обновите карточку заявки.');
+          repeat = true;
+          return;
+        }
       }
       if (dto.type === 'count') await this.assertSingleCountStorage(wh._id as Types.ObjectId, [matId], session);
       if (first) await first(session);
+      // Приёмка в той же транзакции проверяет склад и пишет позицию. Смена категории вызывает повтор проверки.
+      if (via === 'receipt') await this.core.markEdited(matId, session);
       const item = await this.core.loadStorage(wh._id as Types.ObjectId, matId, session);
       const before = item.quantity ?? 0;
       // «было → стало» у каждого движения (ФИ.5)
@@ -183,13 +192,13 @@ export class StockMovementsService {
     };
     if (outer) {
       await run(outer);
-      if (!repeat) await this.connection.db!.collection('materials').updateOne({ _id: matId }, { $set: { editedInApp: true } }, { session: outer });
+      if (!repeat && via !== 'receipt') await this.connection.db!.collection('materials').updateOne({ _id: matId }, { $set: { editedInApp: true } }, { session: outer });
       // Ответ читает владелец внешней транзакции после commit. Внешний read здесь может ждать её же lock.
       return;
     }
     const session = await this.connection.startSession();
     try { await session.withTransaction(() => run(session)); } finally { await session.endSession(); }
-    if (!repeat) await this.core.markEdited(matId);
+    if (!repeat && via !== 'receipt') await this.core.markEdited(matId);
     return this.search.getItem(materialId);
   }
 

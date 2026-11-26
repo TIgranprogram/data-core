@@ -174,9 +174,11 @@ describe('C165: подтверждение оплаты без даты и ис�
       { body: { toStock: false, costCenter: 'office' }, blocked: true, direct: true },
       { body: { toStock: false }, blocked: false, direct: true },
     ]) {
-      const x = await fixture(), material = new Types.ObjectId();
-      await db().collection('materials').insertOne({ _id: material, name: 'C165 late-attach material', unit: 'шт', deletedAt: null });
-      await db().collection('supplyrequests').updateOne({ _id: x.ids[0] }, { $unset: { invoiceId: '' }, $set: { qty: 2, unit: 'шт' } });
+      const x = await fixture();
+      const title = `Материал поздней привязки ${x.id}`;
+      await db().collection('supplyrequests').updateOne({ _id: x.ids[0] }, {
+        $unset: { invoiceId: '', materialId: '' }, $set: { title, qty: 2, unit: 'шт' },
+      }, { writeConcern: { w: 'majority' } });
       const attachAndConfirm = async () => {
         const attached = (await http().post(`/api/supply/invoices/${x.id}/requests`).set(auth()).send({ requestIds: [String(x.ids[0])] }).expect(200)).body;
         await confirm(x.id, { version: attached.version }).expect(200);
@@ -186,7 +188,11 @@ describe('C165: подтверждение оплаты без даты и ис�
         const start = ctx.connection.startSession.bind(ctx.connection);
         spy = jest.spyOn(ctx.connection, 'startSession').mockImplementationOnce(async (...args) => { await attachAndConfirm(); return start(...args); });
       } else {
-        spy = jest.spyOn(stock, 'createItem').mockImplementationOnce(async () => { await attachAndConfirm(); return { id: String(material) }; });
+        const receive = stock.receiveWithItem.bind(stock);
+        spy = jest.spyOn(stock, 'receiveWithItem').mockImplementationOnce(async (...args: unknown[]) => {
+          await attachAndConfirm();
+          return receive(...args);
+        });
       }
       try {
         const receiving = service.receive(String(x.ids[0]), { ...scenario.body, clientUid: 'late-receive-' + x.id });
@@ -197,6 +203,7 @@ describe('C165: подтверждение оплаты без даты и ис�
       expect(source!.qty).toBe(2); expect(source!.costCenter).toBeUndefined(); expect(source!.costObject).toBeUndefined(); expect(source!.paid).toBe(false);
       expect(source!.status).toBe(scenario.blocked ? 'ordered' : 'received');
       expect(await db().collection('stockmovements').countDocuments({ documentRef: 'SupplyRequest:' + x.ids[0] })).toBe(!scenario.blocked && !scenario.direct ? 1 : 0);
+      expect(await db().collection('materials').countDocuments({ name: title })).toBe(!scenario.blocked && !scenario.direct ? 1 : 0);
       expect((await card(x.id)).undatedPaymentEvidence.state).toBe('pending');
       await pay(x.id).expect(200);
       expect(await db().collection('supplyinvoicepayments').countDocuments({ invoiceId: new Types.ObjectId(x.id) })).toBe(1);

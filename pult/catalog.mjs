@@ -69,6 +69,8 @@ export const COMMANDS = [
     hint: 'Проверяет Node, Git, Docker, зависимости и браузер. Ничего не устанавливает.' },
   { id: 'local-checks-last', section: 'check', sub: 'Тесты кода', title: 'Итог локальной проверки', risk: 'read', time: '1 с', run: { node: ['tools/local-checks.mjs', '--last'], soft: true },
     hint: 'Показывает итог и путь к единому отчёту последнего запуска. Тесты повторно не выполняются.' },
+  { id: 'codex-handoff', section: 'check', sub: 'Тесты кода', title: 'Сводка ночных проверок для Codex', risk: 'read', time: '1 с', run: { node: ['tools/codex-handoff.mjs'], soft: true },
+    hint: 'Собирает проверяемые факты последнего прогона и сохраняет сводку на этом компьютере.' },
   // ---------- Каждый день ----------
   { id: 'day-start', section: 'day', extra: true, sub: 'Каждый день', title: 'Начало работы', risk: 'read', time: '20 с', needs: ['bash'], run: dc('start'), every: 1, why: 'Первая кнопка за день: ошибки сайта и состояние кода',
     hint: 'Первая кнопка за день. Ветка, отставание от GitHub, незакоммиченное и ошибки сайта за сутки.' },
@@ -365,7 +367,8 @@ export const NOT_ON_BUTTONS = {
   'tools/dc.mjs logs': 'список журналов; ИИ читает tools/logs',
   'tools/dc.mjs find': 'поиск по докам для ИИ',
   'tools/dc.mjs doc': 'чтение архива доков для ИИ',
-  'tools/dc.mjs atlas': 'сводка блока «Карты сайта» для ИИ (dc atlas <блок> [--json]); проверка карты — шаг dc check, кнопка «Проверки»',
+  'tools/dc.mjs atlas': 'сводка блока «Карты сайта» для ИИ (dc atlas <блок> [--json]); отметка после сверки кода и описания — dc atlas <id> --review; проверка карты — шаг dc check, кнопка «Проверки»',
+  'tools/atlas-code.mjs': 'внутренняя библиотека dc atlas для отпечатков кода карты',
   'tools/dc.mjs night': 'часть полной проверки (dc full); отдельной кнопки нет',
   'tools/hermes-data-core.ps1': 'локальная настройка и поручения аналитическому помощнику из CLI с явным файлом задачи',
   'tools/project-guard.mjs': 'статический прогон разработки и GitHub Actions; полный локальный прогон доступен в разделе «Тесты кода»',

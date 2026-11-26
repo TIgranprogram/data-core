@@ -4,6 +4,7 @@ import type { ClientSession } from 'mongoose';
 import type { ArticleDecision } from './article';
 import { normText } from '../../common/text/norm-text';
 import type { StockScope } from '../../common/stock-scope';
+import type { StockCoordinateDto } from './stock-coordinate.dto';
 import { StockCatalogService } from './stock-catalog.service';
 import { StockCompositionService } from './stock-composition.service';
 import { StockCoreService } from './stock-core.service';
@@ -82,6 +83,7 @@ export class StockService {
   ) { return this.catalog.withRequestMaterial(input, scope, write); }
   autoArticle() { return this.catalog.autoArticle(); }
   skuFor(categoryId?: Types.ObjectId) { return this.catalog.skuFor(categoryId); }
+  createFromCoordinate(dto: StockCoordinateDto, scope: StockScope) { return this.catalog.createFromCoordinate(dto, scope); }
   createItem(dto: StockItemInput, scope?: StockScope | null, createOnly = false) { return this.catalog.createItem(dto, scope, createOnly); }
   /** Запись по чужой позиции — 403 (null — доступ полный). */
   assertInScope(materialIds: string[], scope: StockScope | null) { return this.catalog.assertInScope(materialIds, scope); }
@@ -96,11 +98,21 @@ export class StockService {
   bulkUpdate(dto: Parameters<StockCatalogService['bulkUpdate']>[0]) { return this.catalog.bulkUpdate(dto); }
   /** C043: «Отменить» массовую правку позиций { items: [{ id, set }] } → { restored }. */
   bulkRestore(dto: Parameters<StockCatalogService['bulkRestore']>[0]) { return this.catalog.bulkRestore(dto); }
-  adoptArticle(materialId: Types.ObjectId | string, incoming: unknown, source: string): Promise<ArticleDecision> { return this.catalog.adoptArticle(materialId, incoming, source); }
+  adoptArticle(materialId: Types.ObjectId | string, incoming: unknown, source: string, scope?: StockScope | null): Promise<ArticleDecision> { return this.catalog.adoptArticle(materialId, incoming, source, scope); }
 
   // --- движения
   /** `via: 'receipt'` — приход C265 уже проверил свой флаг; флаг движения не спрашиваем. */
   move(materialId: string, dto: MoveInput, userId?: string, first?: (session: ClientSession) => Promise<void>, via?: 'receipt') { return this.moves.move(materialId, dto, userId, first, undefined, via); }
+  receiveWithItem(
+    input: Parameters<StockCatalogService['withReceiptItem']>[0],
+    movement: MoveInput & { type: 'in' }, userId: string | undefined,
+    writeRequest: (session: ClientSession, materialId: Types.ObjectId) => Promise<void>,
+    scope: StockScope | null,
+  ) {
+    return this.catalog.withReceiptItem(input, scope, (materialId, session) => this.moves.move(
+      String(materialId), movement, userId, currentSession => writeRequest(currentSession, materialId), session, 'receipt',
+    ));
+  }
   batch(dto: Parameters<StockMovementsService['batch']>[0], userId?: string) { return this.moves.batch(dto, userId); }
   cancelBatch(batchId: string, userId: string | undefined, scope: StockScope | null) { return this.moves.cancelBatch(batchId, userId, scope); }
   offcut(materialId: string, dto: Parameters<StockMovementsService['offcut']>[1], userId?: string) { return this.moves.offcut(materialId, dto, userId); }

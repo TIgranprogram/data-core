@@ -9,7 +9,9 @@ const origin = 'http://c275.test';
 const app = new URL('../', import.meta.url);
 const invoicePath = '/api/supply/invoices/c275-invoice';
 const requestPath = '/api/supply/requests';
-const restoreNotePath = requestPath + '/c275-request/restore-note';
+const requestCardPath = requestPath + '/c275-request';
+const restoreNotePath = requestCardPath + '/restore-note';
+const restoreDeliveryPath = requestCardPath + '/restore-delivery-note';
 const manager = { id: 'c275-manager', role: 'manager', displayName: 'Менеджер снабжения', sections: ['requests'], canMoney: false };
 const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -20,12 +22,12 @@ let browser;
 before(async () => { browser = await chromium.launch({ executablePath: findBrowser(), headless: true }); });
 after(async () => { await browser?.close(); });
 
-async function fixture(t, theme, { initialRequest, history = [], canMoney = false } = {}) {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
+async function fixture(t, theme, { initialRequest, history = [], canMoney = false, role = 'manager', width = 1440, otherDeliveries = [] } = {}) {
+  const page = await browser.newPage({ viewport: { width, height: 1000 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
   t.after(() => page.close());
   page.setDefaultTimeout(6000);
   const writes = [], errors = [], declined = [];
-  const user = { ...manager, canMoney };
+  const user = { ...manager, canMoney, role };
   const audit = [...history];
   let request = initialRequest && { id: 'c275-request', num: 275, status: 'requested', ...initialRequest };
   let invoice = {
@@ -55,19 +57,31 @@ async function fixture(t, theme, { initialRequest, history = [], canMoney = fals
       request = { ...body, id: 'c275-request', num: 275, status: 'requested' };
       return route.fulfill({ status: 201, json: request });
     }
-    if (method === 'PATCH' && path === requestPath + '/c275-request') {
+    if (method === 'PATCH' && path === requestCardPath) {
       const body = req.postDataJSON();
       writes.push({ method, path, body });
       request = { ...request, ...body };
       return route.fulfill({ json: request });
     }
-    if (method === 'PATCH' && path === restoreNotePath) {
+    if (method === 'PATCH' && [restoreNotePath, restoreDeliveryPath].includes(path)) {
       const body = req.postDataJSON();
+      const field = path === restoreNotePath ? 'notes' : 'deliveryNote';
       writes.push({ method, path, body });
-      if (body.expected !== request.notes) return route.fulfill({ status: 409, json: { message: 'Примечание изменилось. Откройте заявку заново' } });
+      if (body.expected !== (request[field] || null)) return route.fulfill({ status: 409, json: { message: 'Примечание изменилось. Откройте заявку заново' } });
       audit.unshift({ action: 'supply.request.updated', createdAt: '2026-11-26T13:00:00.000Z', userName: user.displayName,
-        changes: [{ field: 'notes', from: request.notes, to: body.value }] });
-      request = { ...request, notes: body.value };
+        changes: [{ field, from: request[field], to: body.value }] });
+      request = { ...request, [field]: body.value };
+      return route.fulfill({ json: request });
+    }
+    if (method === 'DELETE' && path === requestCardPath && role === 'admin') {
+      writes.push({ method, path });
+      request = { ...request, deletedAt: '2026-11-26T13:00:00.000Z' };
+      return route.fulfill({ json: { id: request.id, deleted: true } });
+    }
+    if (method === 'POST' && path === '/api/auth/confirm') return route.fulfill({ json: { token: 'fixture-confirmation' } });
+    if (method === 'POST' && path === requestCardPath + '/restore') {
+      writes.push({ method, path, confirmation: req.headers()['x-confirm-token'] });
+      request = { ...request, deletedAt: null };
       return route.fulfill({ json: request });
     }
     if (method === 'PATCH' && path === invoicePath) {
@@ -80,15 +94,24 @@ async function fixture(t, theme, { initialRequest, history = [], canMoney = fals
     if (method !== 'GET') { declined.push({ method, path }); return route.fulfill({ status: 403, json: {} }); }
     if (path === '/api/auth/me') return route.fulfill({ json: user });
     if (path === '/api/audit-logs/record') return route.fulfill({ json: { items: audit } });
+    if (path === '/api/today') {
+      const today = '2026-11-26';
+      const feed = [request, ...otherDeliveries].filter((item) => item?.neededBy).map((item) => {
+        const days = (Date.parse(item.neededBy) - Date.parse(today)) / 86_400_000;
+        return { kind: 'delivery', id: item.id, title: item.title, sub: `Заявка №${item.num}`, due: item.neededBy,
+          daysLeft: Math.max(0, days), overdueDays: Math.max(0, -days), actions: [{ id: 'receive', label: 'Принять' }, { id: 'move', label: 'Перенести дату' }] };
+      });
+      return route.fulfill({ json: { today, feed, feedTotal: feed.length, week: [], metrics: {} } });
+    }
     if (path === '/api/supply/lookups') return route.fulfill({ json: { suppliers: [], categories: [{ id: 'cat', name: 'Сырьё' }], requestedBy: [], companies: [] } });
     if (path === '/api/financial-articles') return route.fulfill({ json: { items: [
       { id: 'expenses', name: 'Расходы', children: [{ id: 'article', name: 'Закупка сырья', categoryIds: ['cat'] }] },
     ] } });
-    if (path === requestPath + '/c275-request') return route.fulfill({ json: request });
+    if (path === requestCardPath) return route.fulfill({ json: request });
     if (path === invoicePath) return route.fulfill({ json: invoice });
     const status = url.searchParams.get('status');
     const items = path === '/api/supply/invoices' ? [invoice]
-      : path === requestPath && request && (!status || status === request.status) ? [request] : [];
+      : path === requestPath && request && (url.searchParams.get('deleted') === '1') === !!request.deletedAt && (!status || status === request.status) ? [request] : [];
     return route.fulfill({ json: { items, total: items.length, page: 1, limit: 30, counts: {}, facets: {} } });
   });
   await page.goto(origin + '/app/#requests');
@@ -118,6 +141,9 @@ test('менеджер создаёт и редактирует заявку, с
   await first.getByLabel('Примечание', { exact: true }).fill('Привезти к воротам');
   await screenshot(page, 'request-create-light');
   await drawer.getByRole('button', { name: 'Создать', exact: true }).click();
+  await drawer.getByText('Привезти к воротам', { exact: true }).waitFor();
+  await drawer.getByText(/25\.11\.2026/).waitFor();
+  await screenshot(page, 'request-card-light');
   await drawer.getByRole('button', { name: 'Ещё действия', exact: true }).click();
   await drawer.getByRole('menuitem', { name: 'Изменить', exact: true }).click();
   const date = first.getByLabel('Дата заявки', { exact: true }), note = first.getByLabel('Примечание', { exact: true });
@@ -179,12 +205,12 @@ test('сравнение PATCH сохраняет ноль, очистку су�
   assert.deepEqual(result, { same: {}, zero: { priceHint: 0 }, cleared: { priceHint: null, photoIds: [] }, reordered: { photoIds: ['b', 'a'] } });
 });
 
-test('из истории можно вернуть только примечание, с подтверждением и защитой от чужой правки', async t => {
+test('из истории можно вернуть примечание и доставку с подтверждением и защитой от чужой правки', async t => {
   const currentNote = 'Привезти после обеда', previousNote = 'Привезти утром', concurrentNote = 'Позвонить перед выездом';
   const { page, writes, errors, declined, updateRequest, currentRequest } = await fixture(t, 'light', {
-    initialRequest: { title: 'Учебная поставка с историей', notes: currentNote, qty: 4, unit: 'шт' },
+    initialRequest: { title: 'Учебная поставка с историей', notes: currentNote, deliveryNote: 'Ко вторым воротам', qty: 4, unit: 'шт' },
     history: [{ action: 'supply.request.updated', createdAt: '2026-11-26T12:00:00.000Z', userName: 'Другой менеджер',
-      changes: [{ field: 'notes', from: previousNote, to: currentNote }, { field: 'qty', from: 1, to: 4 }] }],
+      changes: [{ field: 'notes', from: previousNote, to: currentNote }, { field: 'deliveryNote', from: null, to: 'Ко вторым воротам' }, { field: 'qty', from: 1, to: 4 }] }],
   });
   const drawer = page.locator('.drawer'), dialog = page.locator('.modal');
   const history = drawer.locator('details').filter({ hasText: 'История изменений' });
@@ -195,7 +221,7 @@ test('из истории можно вернуть только примеча�
     await restore.waitFor();
   };
   await open();
-  assert.equal(await history.getByRole('button', { name: /Вернуть/ }).count(), 1);
+  assert.equal(await history.getByRole('button', { name: /Вернуть/ }).count(), 2);
   assert.match(await history.innerText(), /Количество/);
   await restore.click();
   assert.match(await dialog.innerText(), /Сейчас: Привезти после обеда/);
@@ -225,6 +251,107 @@ test('из истории можно вернуть только примеча�
   assert.equal(currentRequest().notes, previousNote);
   assert.equal(currentRequest().qty, 4);
   await history.getByText(concurrentNote, { exact: true }).waitFor();
+  await history.getByRole('button', { name: 'Вернуть поле «Доставка»', exact: true }).click();
+  assert.match(await dialog.innerText(), /Сейчас: Ко вторым воротам/);
+  assert.match(await dialog.innerText(), /Будет: пусто/);
+  await screenshot(page, 'request-delivery-restore-light');
+  await dialog.getByRole('button', { name: 'Вернуть', exact: true }).click();
+  await dialog.waitFor({ state: 'detached' });
+  assert.deepEqual(writes[2], { method: 'PATCH', path: restoreDeliveryPath, body: { expected: 'Ко вторым воротам', value: null } });
+  assert.equal(currentRequest().deliveryNote, null);
+  assert.equal(currentRequest().notes, previousNote);
+  assert.deepEqual(errors, []); assert.deepEqual(declined, []);
+});
+
+test('менеджер видит подсказку об удалении и восстанавливает заявку из корзины', async t => {
+  const { page, writes, errors, declined, updateRequest } = await fixture(t, 'dark', { width: 1200, initialRequest: {
+    title: 'Учебная заявка для корзины', requestDate: '2026-11-26', notes: 'Пропустить машину через дальние ворота', qty: 4, unit: 'шт',
+  } });
+  await page.evaluate(() => { location.hash = '#requests?open=c275-request'; });
+  const drawer = page.locator('.drawer');
+  await drawer.getByText('Пропустить машину через дальние ворота', { exact: true }).waitFor();
+  await drawer.getByRole('button', { name: 'Ещё действия', exact: true }).click();
+  assert.equal(await drawer.getByRole('menuitem', { name: 'Удалить', exact: true }).count(), 0);
+  await screenshot(page, 'request-card-manager-dark');
+  await drawer.getByRole('menuitem', { name: 'Удаление через администратора', exact: true }).click();
+  await page.locator('.toast').filter({ hasText: 'Чтобы удалить заявку, обратитесь к администратору' }).waitFor();
+  assert.deepEqual(writes, []);
+
+  updateRequest({ deletedAt: '2026-11-26T13:00:00.000Z' });
+  await page.evaluate(() => { location.hash = '#trash'; });
+  await page.getByRole('button', { name: /Восстановить .*Учебная заявка для корзины/ }).click();
+  const modal = page.locator('.modal');
+  await modal.getByLabel('Пароль для входа в программу', { exact: true }).fill('fixture-password');
+  await modal.getByRole('button', { name: 'Подтвердить', exact: true }).click();
+  await page.locator('.toast').filter({ hasText: 'Восстановлено' }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Вернуть в корзину', exact: true }).count(), 0);
+  assert.deepEqual(writes, [{ method: 'POST', path: requestCardPath + '/restore', confirmation: 'fixture-confirmation' }]);
+  assert.deepEqual(errors, []); assert.deepEqual(declined, []);
+});
+
+test('на «Сегодня» менеджер видит поставки по срокам, переносит только срок и может вернуть его', async t => {
+  const { page, writes, errors, declined, currentRequest } = await fixture(t, 'dark', {
+    initialRequest: { title: 'Учебная поставка на сегодня', status: 'ordered', requestDate: '2026-11-18', invoiceDate: '2026-11-20',
+      neededBy: '2026-11-26', qty: 4, unit: 'шт' },
+    otherDeliveries: [
+      { id: 'overdue', num: 276, title: 'Просроченная учебная поставка', neededBy: '2026-11-24' },
+      { id: 'tomorrow', num: 277, title: 'Учебная поставка на завтра', neededBy: '2026-11-27' },
+    ],
+  });
+  await page.getByRole('link', { name: 'Сегодня', exact: true }).click();
+  const row = page.locator('.k-feed').filter({ hasText: 'Учебная поставка на сегодня' });
+  const urgent = page.locator('[data-b="urgent"]');
+  const upcoming = page.locator('[data-b="delivery"]');
+  const move = row.getByRole('button', { name: 'Перенести дату', exact: true });
+  const modal = page.locator('.modal');
+  const dateInput = modal.getByLabel('Новая дата', { exact: true });
+  await row.getByText(/26\.11\.2026/).waitFor();
+  await upcoming.getByText('Учебная поставка на сегодня', { exact: true }).waitFor();
+  await upcoming.getByText('Учебная поставка на завтра', { exact: true }).waitFor();
+  assert.equal(await urgent.locator('.k-feed').count(), 1);
+  assert.equal(await urgent.getByText('Просроченная учебная поставка', { exact: true }).count(), 1);
+  assert.equal(await upcoming.locator('.k-feed').count(), 2);
+  await row.focus();
+  await row.getByRole('button', { name: 'Принять', exact: true }).waitFor();
+  await screenshot(page, 'request-today-row-dark');
+  await move.focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await dateInput.evaluate(input => input === document.activeElement), true);
+  await page.keyboard.press('Escape');
+  await modal.waitFor({ state: 'detached' });
+  assert.equal(await move.evaluate(button => button === document.activeElement), true);
+  assert.deepEqual(writes, []);
+
+  await move.click();
+  await dateInput.fill('2026-11-28');
+  await screenshot(page, 'request-move-date-dark');
+  await modal.getByRole('button', { name: 'Перенести', exact: true }).click();
+  await row.getByText(/28\.11\.2026/).waitFor();
+  assert.deepEqual(writes, [{ method: 'PATCH', path: requestCardPath, body: { neededBy: '2026-11-28' } }]);
+  assert.equal(currentRequest().requestDate, '2026-11-18');
+  assert.equal(currentRequest().invoiceDate, '2026-11-20');
+  await page.getByRole('button', { name: 'Отменить', exact: true }).click();
+  await row.getByText(/26\.11\.2026/).waitFor();
+  assert.deepEqual(writes[1], { method: 'PATCH', path: requestCardPath, body: { neededBy: '2026-11-26' } });
+  assert.deepEqual(errors, []); assert.deepEqual(declined, []);
+});
+
+test('администратор удаляет заявку в корзину после подтверждения', async t => {
+  const { page, writes, errors, declined, currentRequest } = await fixture(t, 'light', { role: 'admin', initialRequest: {
+    title: 'Учебная заявка на удаление', qty: 4, unit: 'шт',
+  } });
+  await page.evaluate(() => { location.hash = '#requests?open=c275-request'; });
+  const drawer = page.locator('.drawer');
+  await drawer.getByRole('button', { name: 'Ещё действия', exact: true }).click();
+  await drawer.getByRole('menuitem', { name: 'Удалить', exact: true }).click();
+  const modal = page.locator('.modal');
+  await modal.getByText(/Можно восстановить из корзины/).waitFor();
+  await screenshot(page, 'request-delete-admin-light');
+  await modal.getByRole('button', { name: 'Удалить', exact: true }).click();
+  await page.locator('.toast').filter({ hasText: 'Удалено' }).waitFor();
+  await drawer.waitFor({ state: 'detached' });
+  assert.deepEqual(writes, [{ method: 'DELETE', path: requestCardPath }]);
+  assert.ok(currentRequest().deletedAt);
   assert.deepEqual(errors, []); assert.deepEqual(declined, []);
 });
 

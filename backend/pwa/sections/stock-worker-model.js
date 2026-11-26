@@ -1,6 +1,7 @@
 /** Модель рабочей сетки: координаты служат раскладке, запись всегда остаётся отдельным materialId. */
 export const workerMaterialId = item => String(item.materialId || item.id || '');
 const text = value => String(value ?? '').trim();
+const decimal = value => /^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(text(value)) ? Number(text(value).replace(',', '.')) : NaN;
 const positive = value => Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : null;
 export const workerUnit = item => text(item.unit) || 'Ед. не указана';
 export const workerGrade = item => text(item.materialGrade) || 'Марка не указана';
@@ -45,19 +46,20 @@ export function workerInputQuantity(item, input, kind) {
     if (!Number.isFinite(quantity)) throw new Error('Количество труб слишком большое.');
     return quantity;
   }
-  const quantity = value === '' ? NaN : Number(value.replace(',', '.'));
+  const quantity = decimal(value);
   if (!Number.isFinite(quantity) || quantity < 0) throw new Error('Введите неотрицательное количество в единице учёта.');
   return quantity;
 }
 
 export const workerColumnKey = item => JSON.stringify([item.washed === true ? true : item.washed === false ? false : null, workerLength(item)]);
 export const workerItemMatches = (item, context) => !context || item?.metal === context.kind;
+export const workerCategoryMatches = (category, kind) => category.id !== 'none' && (kind === 'pipe' ? /труб/i : /лист/i).test(category.name);
 export const workerZoneName = kind => ({ pipe: 'Трубы', sheet: 'Листовой материал' })[kind];
 
 /** Только явные оси профиля: название не является источником размеров для записи. */
 export function workerCreateContext(item, column) {
   const profile = item.sectionProfile;
-  return { categoryId: item.categoryId, categoryName: item.categoryName || '', unit: item.unit, materialGrade: item.materialGrade || '', assortment: item.assortment || '',
+  return { categoryId: item.categoryId, categoryName: item.categoryName || '', unit: item.unit, materialGrade: item.materialGrade || '', assortment: item.assortment || '', typeName: item.typeName || '',
     shape: ['rect', 'round'].includes(profile?.shape) ? profile.shape : '', washed: column.washed,
     dims: { length: column.length, width: profile?.widthMm, height: profile?.heightMm, diameter: profile?.diameterMm, thickness: profile?.wallMm } };
 }
@@ -78,14 +80,14 @@ export function workerCreateBody(value, kind, categories) {
   const axes = kind === 'sheet' ? ['thickness', 'width', 'length'] : value.shape === 'round' ? ['diameter', 'thickness', 'length'] : value.shape === 'rect' ? ['width', 'height', 'thickness', 'length'] : [];
   if (!axes.length) throw new Error('Выберите вид сечения трубы.');
   const dims = {};
-  for (const key of axes) { dims[key] = positive(String(value.dims[key] ?? '').replace(',', '.')); if (!dims[key]) throw new Error('Укажите положительные размеры в миллиметрах.'); }
+  for (const key of axes) { dims[key] = positive(decimal(value.dims[key])); if (!dims[key]) throw new Error('Укажите положительные размеры в миллиметрах.'); }
   const grade = text(value.materialGrade);
   if (grade.length > 100) throw new Error('Марка: не более100 символов.');
   const section = kind === 'sheet' ? `${dims.thickness} × ${dims.width} × ${dims.length}` : value.shape === 'round' ? `Ø${dims.diameter} × ${dims.thickness}` : `${dims.width} × ${dims.height} × ${dims.thickness}`;
   const washed = kind === 'pipe' ? value.washed === true ? true : value.washed === false ? false : null : null;
   const name = [category.name, section, kind === 'pipe' ? `${dims.length} мм` : '', kind === 'pipe' ? workerWash({ washed }) : '', grade].filter(Boolean).join(' · ');
   if (name.length > 300) throw new Error('Название длиннее300 символов: сократите марку.');
-  return { name, unit, categoryId: category.id, dims, materialGrade: grade || null, washed, assortment: text(value.assortment).slice(0, 200) || null };
+  return { kind, name, unit, categoryId: category.id, ...(text(value.typeName) ? { typeName: text(value.typeName) } : {}), dims, materialGrade: grade || null, washed, assortment: text(value.assortment).slice(0, 200) || null };
 }
 
 const metalOrder = ['ordinary', 'unknown', 'stainless'];

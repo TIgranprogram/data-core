@@ -22,8 +22,7 @@ function linkWidget(r, onLinked) {
     const linkedView = (m) => el.replaceChildren(
       h('div', null, `Связана с позицией «${m.name || r.title}»`),
       h('a', { class: 'btn btn-ghost btn-sm', href: '#stock?open=' + m.id }, 'Открыть карточку позиции'));
-    const short = String(r.title).length > 40 ? String(r.title).slice(0, 39).trimEnd() + '…' : String(r.title); // кнопка не переносится: длинное название режем
-    const create = button({ label: `Создать позицию склада «${short}»`, title: `Создать позицию склада «${r.title}»`, size: 'S', onClick: async () => {
+    const create = button({ label: 'Создать позицию склада', title: `Создать позицию склада «${r.title}»`, size: 'S', onClick: async () => {
       create.disabled = true;
       try {
         // такое же наименование уже есть — сервер вернёт существующую позицию, дубль не появится
@@ -34,7 +33,7 @@ function linkWidget(r, onLinked) {
         toast('Заявка связана с позицией склада');
       } catch (e) { create.disabled = false; toastError(e); }
     } });
-    el.append(h('div', { class: 'hint' }, 'Заявка не связана со складом: приход не попадёт в остатки позиции. Выберите позицию ниже или создайте новую.'), create);
+    el.append(h('div', { class: 'hint' }, 'Заявка пока без складской позиции. Выберите позицию ниже или создайте новую.'), create);
     return { el, get value() { return ''; }, set value(_) { /* только показ */ } };
   } };
 }

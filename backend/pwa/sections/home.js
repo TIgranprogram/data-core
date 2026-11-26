@@ -8,7 +8,7 @@ import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { unmatchedCount } from './matching-queue.js';
 import { fillToday } from './fill.js';
-import { productIdentificationToday, svg } from './home-ui.js';
+import { dueText, plural, productIdentificationToday, svg } from './home-ui.js';
 import { empty, card, row, button, segmented, section, stack, stat, tabs, link, toolbar, layout, hint, miniChart, tileGrid } from '../ui/kit/index.js';
 
 /**
@@ -23,7 +23,7 @@ const KIND_LABEL = { delivery: 'Поставка', shipment: 'Отгрузка',
 const DIRECTOR = [['urgent', 'Срочно: просрочено'], ['work', 'В работе'], ['shipment', 'Отгрузки'], ['questions', 'Вопросы проектирования'], ['fill', ''], ['money', 'Деньги']];
 const PLAN = {
   user: [['delivery', 'Поставки: ждут приёмки'], ['work', 'Мои задания в работе'], ['shipment', 'Выдать и отгрузить'], ['contracts', 'Договоры поставщиков: истекают']],
-  manager: [['urgent', 'Срочно: просрочено'], ['work', 'В работе: просроченные и без исполнителя'], ['questions', 'Вопросы проектирования'], ['shipment', 'Отгрузки'], ['passports', 'Паспорта к выдаче']],
+  manager: [['urgent', 'Срочно: просрочено'], ['delivery', 'Поставки на сегодня и ближайшие дни'], ['work', 'В работе: просроченные и без исполнителя'], ['questions', 'Вопросы проектирования'], ['shipment', 'Отгрузки'], ['passports', 'Паспорта к выдаче']],
   accountant: [['payment', 'К оплате'], ['fill', ''], ['money', 'Деньги'], ['unmatched', 'Не сопоставлено позиций']],
   director: DIRECTOR,
   admin: DIRECTOR,
@@ -36,7 +36,6 @@ const EMPTY = {
 
 const readSnooze = () => { try { return JSON.parse(localStorage.getItem(SNOOZE_KEY) || '{}') || {}; } catch { return {}; } };
 const writeSnooze = (m) => { try { localStorage.setItem(SNOOZE_KEY, JSON.stringify(m)); } catch { /* приватный режим — не страшно */ } };
-const plural = (n, a, b, c) => { const m = n % 100, d = n % 10; return m > 10 && m < 15 ? c : d === 1 ? a : d > 1 && d < 5 ? b : c; };
 const tomorrow = () => { const d = new Date(); d.setDate(d.getDate() + 1); return d; };
 
 export function mountHome(deps) {
@@ -51,6 +50,7 @@ export function mountHome(deps) {
   const plan = (PLAN[role] || DEFAULT_PLAN).filter(([k]) => seesTodayBlock(session, k));
   const has = (k) => plan.some(([key]) => key === k);
   const ownKinds = new Set(plan.map(([k]) => k).filter((k) => LISTED.includes(k)));
+  const inOwnList = (c) => ownKinds.has(c.kind) && !(role === 'manager' && c.kind === 'delivery' && c.overdueDays > 0);
   const showWeek = role !== 'user' && role !== 'accountant' && !has('plan');
 
   let pq = null; // очередь паспортов: строки для блока «Паспорта к выдаче» и счётчики для плитки
@@ -94,7 +94,7 @@ export function mountHome(deps) {
   }
   async function moveDate(c) {
     const input = h('input', { type: 'date', value: c.due && c.due > isoDay() ? c.due : isoDay(tomorrow()) });
-    const saved = await modal({
+    const dialog = modal({
       title: 'Перенести дату поставки: ' + c.title,
       body: h('label', { class: 'field' }, h('span', null, 'Новая дата'), input),
       okText: 'Перенести',
@@ -104,6 +104,8 @@ export function mountHome(deps) {
         return input.value;
       },
     });
+    input.focus();
+    const saved = await dialog;
     if (!saved) return false;
     toast('Дата поставки перенесена', { undo: async () => { await api(`/supply/requests/${c.id}`, { method: 'PATCH', body: { neededBy: c.due } }); load(true); } });
     return true;
@@ -134,26 +136,27 @@ export function mountHome(deps) {
   }
 
   // ---------- Лента: карточки и списки ----------
-  const dueText = (c) => {
-    if (c.overdueDays > 0) return `просрочено ${c.overdueDays} ${plural(c.overdueDays, 'день', 'дня', 'дней')}`;
-    if (c.daysLeft === 0 || (c.due && c.due === isoDay())) return 'сегодня';
-    if (c.daysLeft > 0) return `ещё ${c.daysLeft} ${plural(c.daysLeft, 'день', 'дня', 'дней')}`;
-    return '';
-  };
   function cardEl(c) {
     let li = null;
-    const btns = (c.actions || []).slice(0, 1).map((a) => button({
-      label: a.label, kind: 'primary', size: 'S',
+    const btns = (c.actions || []).filter((a, i) => a.id === 'move' ? c.kind === 'delivery' && session.canEdit : i === 0).map((a) => button({
+      label: a.label, kind: a.id === 'move' ? 'ghost' : 'primary', size: 'S',
       onClick: async (e) => {
         e.stopPropagation();
         const b = e.currentTarget; b.disabled = true; b.classList.add('is-busy');
+        let ok = false;
         try {
-          const ok = await (RUN[a.id] || RUN.open)(c);
+          ok = await (RUN[a.id] || RUN.open)(c);
           if (ok) { li.classList.add('leaving'); setTimeout(() => done(c), 180); }
-        } catch (ex) { toastError(ex); } finally { b.disabled = false; b.classList.remove('is-busy'); }
+        } catch (ex) { toastError(ex); } finally {
+          b.disabled = false; b.classList.remove('is-busy');
+          if (a.id === 'move' && !ok && b.isConnected) {
+            li.focus({ preventScroll: true }); // Строка показывает скрытые действия, когда внутри неё есть фокус.
+            b.focus({ preventScroll: true });
+          }
+        }
       },
     }));
-    li = row({ cls: 'k-feed', tone: c.tone || 'info', title: c.title, meta: [KIND_LABEL[c.kind], c.sub].filter(Boolean).join(' · '),
+    li = row({ cls: 'k-feed', tone: c.tone || 'info', title: c.title, meta: [KIND_LABEL[c.kind], c.sub, c.kind === 'delivery' && c.due ? date(c.due) : ''].filter(Boolean).join(' · '),
       side: h('span', { class: 'muted small nowrap' }, dueText(c)),
       action: [btns, button({ label: 'На завтра', kind: 'ghost', size: 'S', title: 'Спрятать карточку до завтра', onClick: (e) => { e.stopPropagation(); snooze(c); } })] });
     li.tabIndex = 0;
@@ -202,15 +205,16 @@ export function mountHome(deps) {
     list(key, title) { // delivery / work / shipment / payment
       const s = shell(key, title);
       return { el: s.el, counted: true, paint() {
-        const items = visibleFeed().filter((c) => c.kind === key);
+        const items = visibleFeed().filter((c) => c.kind === key && inOwnList(c));
         if (key === 'work') items.sort((a, b) => (b.overdueDays || 0) - (a.overdueDays || 0) || (a.personId ? 1 : 0) - (b.personId ? 1 : 0));
-        return s.set(items.length, items.length ? stack(...rowsOf(key, items)) : emptyLine(EMPTY[key]));
+        const emptyText = role === 'manager' && key === 'delivery' ? 'Нет поставок со сроком на сегодня и ближайшие дни' : EMPTY[key];
+        return s.set(items.length, items.length ? stack(...rowsOf(key, items)) : emptyLine(emptyText));
       } };
     },
     urgent(key, title) {
       const s = shell(key, title);
       return { el: s.el, counted: true, paint() {
-        const over = visibleFeed().filter((c) => c.overdueDays > 0 && !ownKinds.has(c.kind));
+        const over = visibleFeed().filter((c) => c.overdueDays > 0 && !inOwnList(c));
         const um = unmatchedRow();
         s.el.classList.toggle('urgent', over.length > 0); // красный только при просроченных делах; «не сопоставлено» — не тревога
         return s.set(over.length, over.length || um ? stack(...rowsOf('over', over), um) : emptyLine('Нет просроченных дел')) + (um ? 1 : 0);

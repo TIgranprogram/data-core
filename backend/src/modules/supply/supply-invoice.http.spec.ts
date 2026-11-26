@@ -30,7 +30,8 @@ describe('Снабжение: HTTP-контракт без Mongo', () => {
     assertRequest: async () => undefined,
     dropUnchanged: async (_id: string, body: object) => body,
     update: jest.fn(async (_id: string, body: object) => body),
-    restoreNote: jest.fn(async (_id: string, body: { value: string | null }) => ({ notes: body.value })),
+    restoreText: jest.fn(async (_id: string, field: string, body: { value: string | null }) => ({ [field]: body.value })),
+    remove: jest.fn(async (id: string) => ({ id, deleted: true })),
   };
 
   beforeAll(async () => {
@@ -63,7 +64,8 @@ describe('Снабжение: HTTP-контракт без Mongo', () => {
   beforeEach(() => {
     lines = [{ _id: lineId, invoiceId: invId, qty: 3, priceHint: 75, status: 'ordered' }];
     supply.update.mockClear();
-    supply.restoreNote.mockClear();
+    supply.restoreText.mockClear();
+    supply.remove.mockClear();
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -89,22 +91,39 @@ describe('Снабжение: HTTP-контракт без Mongo', () => {
     expect(supply.update).not.toHaveBeenCalled();
   });
 
-  it('возврат примечания доступен менеджеру с явным null и закрыт наблюдателю', async () => {
-    const path = `/supply/requests/${lineId}/restore-note`;
+  it.each([['restore-note', 'notes'], ['restore-delivery-note', 'deliveryNote']])('PATCH %s доступен менеджеру с явным null и закрыт наблюдателю', async (route, field) => {
+    const path = `/supply/requests/${lineId}/${route}`;
     const change = { expected: 'Текущее', value: null };
     await request(app.getHttpServer()).patch(path).set('x-test-role', 'user').send(change).expect(403);
     await request(app.getHttpServer()).patch(path).set('x-test-role', 'manager').send(change).expect(200);
-    expect(supply.restoreNote).toHaveBeenCalledTimes(1);
-    expect(supply.restoreNote).toHaveBeenCalledWith(String(lineId), change, null);
+    expect(supply.restoreText).toHaveBeenCalledTimes(1);
+    expect(supply.restoreText).toHaveBeenCalledWith(String(lineId), field, change, null, expect.objectContaining({ userId: expect.any(String) }));
   });
 
   it.each([{ value: null }, { expected: null }, { expected: null, value: null, qty: 7 }])(
     'возврат примечания требует оба поля и отклоняет другие поля: %j', async change => {
       await request(app.getHttpServer()).patch(`/supply/requests/${lineId}/restore-note`).set('x-test-role', 'manager')
         .send(change).expect(400);
-      expect(supply.restoreNote).not.toHaveBeenCalled();
+      expect(supply.restoreText).not.toHaveBeenCalled();
     },
   );
+
+  it.each([{ value: null }, { expected: null, value: 'x'.repeat(301) }, { expected: null, value: null, field: 'qty' }])(
+    'возврат поля «Доставка» валидирует значение и отклоняет другие поля: %j', async change => {
+      await request(app.getHttpServer()).patch(`/supply/requests/${lineId}/restore-delivery-note`).set('x-test-role', 'manager')
+        .send(change).expect(400);
+      expect(supply.restoreText).not.toHaveBeenCalled();
+    },
+  );
+
+  it('удаление заявки доступно администратору, даже подтверждённый менеджер не может удалить', async () => {
+    const path = `/supply/requests/${lineId}`;
+    for (const role of ['manager', 'user', 'director', 'accountant']) {
+      await request(app.getHttpServer()).delete(path).set('x-test-role', role).set('X-Confirm-Token', 'confirmed').expect(403);
+    }
+    await request(app.getHttpServer()).delete(path).set('x-test-role', 'admin').expect(200);
+    expect(supply.remove).toHaveBeenCalledTimes(1);
+  });
 
   it('GET /supply/invoices/:id возвращает unitPrice и lineAmount: unitPrice × qty = lineAmount', async () => {
     const { body } = await request(app.getHttpServer()).get(`/supply/invoices/${invId}`).expect(200);

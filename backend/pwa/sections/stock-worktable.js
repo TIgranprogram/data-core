@@ -18,11 +18,12 @@ const config = {
 export function mountStockWorktable(kind, { readOnly = false } = {}) {
   const cfg = config[kind];
   let params = { ...current().params }, page = 1, sequence = 0, destroyed = false, zone;
-  let reloadPending = false, reloadTimer;
+  let reloadPending = false, reloadTimer, selectedMaterial;
   const body = h('div');
   const entryHost = h('div');
   const details = workerDetails();
-  const create = workerCreate({ kind, getZone: () => zone, host: entryHost, changed: () => {
+  const selectMaterial = id => { selectedMaterial = id; load({ reveal: Boolean(id) }); };
+  const create = workerCreate({ kind, getZone: () => zone, host: entryHost, openCandidate: selectMaterial, changed: () => {
     if (kind === 'sheet') return load({ keep: true });
     reloadPending = true; resumeReload();
   } });
@@ -40,12 +41,12 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
     reloadTimer = setTimeout(() => { if (reloadPending) load({ keep: true }); }, 0);
   }
   body.addEventListener('focusout', resumeReload);
-  const search = searchBox({ value: params.q || '', label: 'Найти материал', placeholder: kind === 'pipe' ? '80×60×3' : 'Марка или размер', onSearch: value => { params.q = value; page = 1; load(); } });
+  const search = searchBox({ value: params.q || '', label: 'Найти материал', placeholder: kind === 'pipe' ? '80×60×3' : 'Марка или размер', onSearch: value => { params.q = value; page = 1; selectMaterial(null); } });
   const select = kitSelect({ label: 'Сортировка', value: params.sort || cfg.sort,
     options: cfg.sorts.flatMap(([key, label]) => [[key, label + ' ↑'], ['-' + key, label + ' ↓']]),
-    onChange: value => { params.sort = value; page = 1; load(); } });
+    onChange: value => { params.sort = value; page = 1; selectMaterial(null); } });
   enhanceSelect(select);
-  const availability = filter({ mode: 'chips', items: [{ key: '', label: 'Все' }, { key: 'in', label: 'В наличии' }, { key: 'none', label: 'Нет в наличии' }], value: params.availability || '', onChange: value => { params.held = undefined; params.availability = value || undefined; page = 1; load(); } }).el;
+  const availability = filter({ mode: 'chips', items: [{ key: '', label: 'Все' }, { key: 'in', label: 'В наличии' }, { key: 'none', label: 'Нет в наличии' }], value: params.availability || '', onChange: value => { params.held = undefined; params.availability = value || undefined; page = 1; selectMaterial(null); } }).el;
   const add = !readOnly ? button({ label: 'Добавить материал', onClick: () => create.open() }) : null;
   if (add) add.dataset.workerCreate = 'new';
   const receive = !readOnly ? button({ label: 'Принять на склад', kind: 'primary', disabled: true, onClick: () => { if (zone?.id) openStockOp('in', undefined, { zoneId: zone.id, kind }); } }) : null;
@@ -80,7 +81,7 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
       details.invalidate(workerMaterialId(item));
     },
   };
-  async function load({ keep = false } = {}) {
+  async function load({ keep = false, reveal = false } = {}) {
     // Фоновый GET не заменяет черновик и не меняет expected до окончания записи.
     if (destroyed || (keep && deferReload())) return;
     reloadPending = false;
@@ -94,9 +95,12 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
       if (own !== sequence || destroyed) return;
       if (!zone?.id) throw new Error('Зона «' + cfg.title + '» недоступна. Проверьте назначение складской зоны.');
       if (receive) receive.disabled = false;
-      const result = await api('/stock/items', { query: { zoneId: zone.id, withParts: '0', search: params.q || undefined, held: params.held, availability: params.availability, sort: params.sort || cfg.sort, limit: PAGE_SIZE, page } });
+      const query = selectedMaterial ? { ids: selectedMaterial, limit: 1, page: 1 }
+        : { search: params.q || undefined, held: params.held, availability: params.availability, sort: params.sort || cfg.sort, limit: PAGE_SIZE, page };
+      const result = await api('/stock/items', { query: { ...query, zoneId: zone.id, withParts: '0' } });
       if (own !== sequence || destroyed || (keep && deferReload())) return;
-      if (page > 1 && !result.items.length) { page = Math.max(1, Math.min(page - 1, Math.ceil(result.total / PAGE_SIZE))); return load(); }
+      if (selectedMaterial) result.items = result.items.filter(item => workerMaterialId(item) === selectedMaterial && item.metal === kind);
+      if (!selectedMaterial && page > 1 && !result.items.length) { page = Math.max(1, Math.min(page - 1, Math.ceil(result.total / PAGE_SIZE))); return load(); }
       // dc:changed перечитывает view после записи. Берём текущий фокус/черновик перед заменой, а не при старте запроса.
       const active = document.activeElement;
       const focus = keep && body.contains(active) && active.dataset.workerKey && /^(INPUT|BUTTON)$/.test(active.tagName)
@@ -106,11 +110,18 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
       const pages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
       create.preserve(); confirmation?.begin();
       details.begin();
-      body.replaceChildren(h('p', { class: 'hint', role: 'status' }, pages > 1
+      body.replaceChildren(selectedMaterial
+        ? toolbar(button({ label: 'Вернуться к списку', onClick: () => selectMaterial(null) }), h('strong', { role: 'status' }, result.items[0]?.name || 'Позиция больше недоступна в этой зоне'))
+        : h('p', { class: 'hint', role: 'status' }, pages > 1
         ? `Страница ${page} из ${pages} · показано ${result.items.length} из ${result.total} материалов. Сетка содержит только эту страницу.`
         : `Все материалы выбранного отбора · ${result.total}`),
         ...(kind === 'pipe' ? pipeWorkerGrid(result.items, gridOptions) : sheetWorkerGrid(result.items, gridOptions)));
-      if (!result.items.length) body.append(h('p', { class: 'hint' }, 'Материалы не найдены. Очистите поиск или проверьте выбранную зону.'));
+      if (reveal && selectedMaterial) {
+        const toggle = body.querySelector('[data-worker-row]');
+        if (toggle?.getAttribute('aria-expanded') === 'false') toggle.click();
+        (toggle || body.querySelector('button'))?.focus();
+      }
+      if (!selectedMaterial && !result.items.length) body.append(h('p', { class: 'hint' }, 'Материалы не найдены. Очистите поиск или проверьте выбранную зону.'));
       body.append(h('p', { class: 'hint' }, '0 — остатка нет. «—» — материала в ячейке нет.'));
       if (pages > 1) body.append(toolbar(button({ label: 'Назад', disabled: page === 1, onClick: () => { page--; load(); } }),
         h('span', { class: 'muted' }, `Страница ${page} из ${pages} · ${result.total} материалов`),

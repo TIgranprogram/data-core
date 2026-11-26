@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import type { INestApplication } from '@nestjs/common';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
+import { StockMovement } from '../../src/modules/stock/schemas/stock-movement.schema';
 
 /** Цепочка «заявка → счёт → оплата → Принять на склад»: остаток, цена, движение; повторный приём не удваивает приход. */
 describe('Цепочка: снабжение до склада', () => {
@@ -10,12 +11,19 @@ describe('Цепочка: снабжение до склада', () => {
   let app: INestApplication;
   let token: AuthTokens;
   let payerId: Types.ObjectId;
+  let legacySupplierId: Types.ObjectId;
   const db = () => ctx!.connection.db!;
   const http = () => request(app.getHttpServer());
   const auth = () => authHeader(token.access);
   const qtyOf = async (id: string) => (await http().get(`/api/stock/items/${id}`).set(auth()).expect(200)).body.quantity as number;
   const moves = (id: string) => db().collection('stockmovements').find({ materialId: new Types.ObjectId(id), type: 'in' }).toArray();
   const mkReq = async (b: object) => (await http().post('/api/supply/requests').set(auth()).send({ unit: 'шт', supplierName: 'Металл-Снаб', ...b }).expect(201)).body.id as string;
+  const mkLegacyReq = async (title: string, qty: number) => {
+    const row = await db().collection('supplyrequests').insertOne({
+      title, qty, unit: 'шт', supplierId: legacySupplierId, priority: 'normal', status: 'requested', paid: false, deletedAt: null,
+    }, { writeConcern: { w: 'majority' } });
+    return String(row.insertedId);
+  };
   const invoiceOf = async (reqId: string, amount: number, no: string) => {
     // цена строки — до счёта: у заявки priceHint — сумма строки (счёт считает amount сам)
     await http().patch(`/api/supply/requests/${reqId}`).set(auth()).send({ priceHint: amount }).expect(200);
@@ -31,6 +39,7 @@ describe('Цепочка: снабжение до склада', () => {
     for (const c of ['supplyrequests', 'supplyinvoices', 'organizations', 'materials', 'materialprices', 'storageitems', 'stockmovements', 'reservations', 'warehouses']) await db().collection(c).deleteMany({});
     payerId = new Types.ObjectId();
     await db().collection('organizations').insertOne({ _id: payerId, name: 'Наша компания цепочки', inn: '9900007158', isOurCompany: true, deletedAt: null });
+    legacySupplierId = (await db().collection('organizations').insertOne({ name: 'Поставщик цепочки C165', inn: '9900007166', type: ['supplier'], deletedAt: null })).insertedId;
   });
   afterAll(async () => { await ctx?.cleanup(); });
 
@@ -127,12 +136,19 @@ describe('Цепочка: снабжение до склада', () => {
     await http().post(`/api/supply/requests/${r}/receive`).set(auth()).send({ qty: 4, partial: true, clientUid: 'cs-p1' }).expect(200);
     expect(await qtyOf(m)).toBe(4);
     expect(await moves(m)).toHaveLength(1);
+    const acceptAnotherPart = await http().post(`/api/supply/requests/${r}/receive`).set(auth()).send({ qty: 2, partial: true, clientUid: 'cs-p2' }).expect(200);
+    expect(acceptAnotherPart.body).toMatchObject({ qty: 4, receivedQty: 6 });
+    // Старый ключ остаётся идемпотентным даже после записи новой части.
+    const previous = await http().post(`/api/supply/requests/${r}/receive`).set(auth()).send({ qty: 4, partial: true, clientUid: 'cs-p1' }).expect(200);
+    expect(previous.body).toMatchObject({ qty: 4, receivedQty: 6 });
+    expect(await qtyOf(m)).toBe(6);
+    expect(await moves(m)).toHaveLength(2);
     // остаток пришёл
-    const rest = (await http().post(`/api/supply/requests/${r}/receive`).set(auth()).send({ qty: 6 }).expect(200)).body;
+    const rest = (await http().post(`/api/supply/requests/${r}/receive`).set(auth()).send({ qty: 4 }).expect(200)).body;
     expect(rest.status).toBe('received');
     expect(await qtyOf(m)).toBe(10);
-    expect(await moves(m)).toHaveLength(2);
-    await http().post(`/api/supply/requests/${r}/receive`).set(auth()).send({ qty: 6 }).expect(409);
+    expect(await moves(m)).toHaveLength(3);
+    await http().post(`/api/supply/requests/${r}/receive`).set(auth()).send({ qty: 4 }).expect(409);
     expect(await qtyOf(m)).toBe(10);
   });
 
@@ -164,6 +180,75 @@ describe('Цепочка: снабжение до склада', () => {
     expect(items.items[0]).toMatchObject({ name: 'Новая позиция ЦС-6', quantity: 7 });
   });
 
+  it('приход новой позиции: отказ вставки движения откатывает материал, ячейку, заявку и границу счёта', async () => {
+    const name = 'Материал ЦС-C165 после отказа';
+    const req = await mkLegacyReq(name, 4);
+    const inv = await invoiceOf(req, 480, 'ЦС-C165');
+    const source = { _id: new Types.ObjectId(req) };
+    const header = { _id: new Types.ObjectId(inv) };
+    const query = { documentRef: `SupplyRequest:${req}` };
+    const requests = db().collection('supplyrequests');
+    const invoices = db().collection('supplyinvoices');
+    const materials = db().collection('materials');
+    const storage = db().collection('storageitems');
+    const movements = db().collection('stockmovements');
+    const before = await Promise.all([requests.findOne(source), invoices.findOne(header), storage.countDocuments()]);
+    expect(before[0]?.materialId).toBeUndefined();
+    expect(await materials.countDocuments({ name })).toBe(0);
+    const accept = () => http().post(`/api/supply/requests/${req}/receive`).set(auth()).send({ qty: 4, clientUid: 'chain-c165-retry' });
+    const insertion = jest.spyOn(ctx!.connection.model(StockMovement.name), 'create').mockRejectedValueOnce(new Error('Учебный отказ записи движения'));
+    try {
+      await accept().expect(500);
+      expect(insertion).toHaveBeenCalledTimes(1);
+    } finally { insertion.mockRestore(); }
+    expect(await materials.countDocuments({ name })).toBe(0);
+    expect(await movements.countDocuments(query)).toBe(0);
+    expect(await Promise.all([requests.findOne(source), invoices.findOne(header), storage.countDocuments()])).toEqual(before);
+
+    await accept().expect(200);
+    const replay = await accept().expect(200);
+    expect(replay.body).not.toHaveProperty('receiveUid');
+    const material = await materials.findOne({ name });
+    expect(material).not.toBeNull();
+    expect(await materials.countDocuments({ name })).toBe(1);
+    const cells = await storage.find({ materialId: material!._id }).toArray();
+    expect(cells).toHaveLength(1);
+    expect(cells[0].quantity).toBe(4);
+    expect(await movements.countDocuments(query)).toBe(1);
+    expect(await requests.findOne(source)).toMatchObject({ materialId: material!._id, status: 'received', receivedQty: 4 });
+  });
+
+  it('два одновременных приёма новой позиции оставляют один материал и одно движение', async () => {
+    const name = 'Новая позиция ЦС-C165 два входа';
+    const req = await mkLegacyReq(name, 7);
+    const responses = await Promise.all(['c165-concurrent-1', 'c165-concurrent-2'].map(clientUid =>
+      http().post(`/api/supply/requests/${req}/receive`).set(auth()).send({ qty: 7, clientUid }),
+    ));
+    expect(responses.map(response => response.status).sort()).toEqual([200, 409]);
+    const materials = await db().collection('materials').find({ name }).toArray();
+    expect(materials).toHaveLength(1);
+    expect(await moves(String(materials[0]._id))).toHaveLength(1);
+    expect(await qtyOf(String(materials[0]._id))).toBe(7);
+  });
+
+  it('ключ другого прихода отклоняется до изменения заявки или артикула материала', async () => {
+    const first = await mkReq({ title: 'ЦС-C165 занятый ключ', qty: 3 });
+    const second = await mkReq({ title: 'ЦС-C165 отдельный материал', qty: 2 });
+    const reqs = db().collection('supplyrequests');
+    const query = { _id: new Types.ObjectId(second) };
+    await reqs.updateOne(query, { $set: { article: 'ЦС-C165-артикул' } });
+    const before = await reqs.findOne(query);
+    const beforeMaterial = await db().collection('materials').findOne({ _id: before!.materialId });
+    const accept = (id: string, qty: number) => http().post(`/api/supply/requests/${id}/receive`).set(auth()).send({ qty, clientUid: 'chain-c165-one-operation' });
+    await accept(first, 3).expect(200);
+    await accept(second, 2).expect(409);
+    expect(await reqs.findOne(query)).toEqual(before);
+    expect(await db().collection('materials').findOne({ _id: before!.materialId })).toEqual(beforeMaterial);
+    expect(await qtyOf(String(before!.materialId))).toBe(0);
+    await accept(first, 3).expect(200);
+    expect(await db().collection('stockmovements').countDocuments({ clientUid: 'chain-c165-one-operation' })).toBe(1);
+  });
+
   it('прямая поставка связывает только выбранную позицию с заказом и сохраняет остатки при повторе', async () => {
     const orderId = new Types.ObjectId();
     await db().collection('salesorders').insertOne({ _id: orderId, orderNo: 'ЦС-Д1', productionNo: 'ЦС-О1', customer: 'Учебный заказчик', stage: 'production', deletedAt: null });
@@ -177,7 +262,23 @@ describe('Цепочка: снабжение до склада', () => {
     const materialCount = await db().collection('materials').countDocuments();
     const storageCount = await db().collection('storageitems').countDocuments();
     await accept({ directOrderId: String(orderId) }).expect(400);
-    const deliveries = await Promise.all([accept(body).expect(200), accept(body).expect(200)]);
+    const setFlag = (key: string, enabledByDefault: boolean) => http().put(`/api/feature-flags/${key}`).set(auth()).send({ enabledByDefault }).expect(200);
+    const receiveFlag = 'c265.supply.receive.api';
+    const requestFlag = 'c262.supply.requests.api';
+    const requests = db().collection('supplyrequests');
+    const firstRow = { _id: new Types.ObjectId(direct) };
+    const before = await requests.findOne(firstRow);
+    try {
+      await setFlag(receiveFlag, false);
+      const rejected = await accept(body).expect(409);
+      expect(rejected.body.message).toContain(receiveFlag);
+      expect(await requests.findOne(firstRow)).toEqual(before);
+    } finally { await setFlag(receiveFlag, true); }
+    const deliveries = await (async () => {
+      await setFlag(requestFlag, false);
+      try { return await Promise.all([accept(body).expect(200), accept(body).expect(200)]); }
+      finally { await setFlag(requestFlag, true); }
+    })();
     expect(deliveries.map(response => response.body.receivedCount).sort()).toEqual([0, 1]);
     const result = deliveries.find(response => response.body.receivedCount === 1)!.body;
     expect(result.requests.find((row: { id: string }) => row.id === direct)).toMatchObject({ receivedTo: 'direct', status: 'received', receivedQty: 3, costCenter: 'order', salesOrderId: String(orderId), orderLabel: 'Заказ № ЦС-О1 · Учебный заказчик' });

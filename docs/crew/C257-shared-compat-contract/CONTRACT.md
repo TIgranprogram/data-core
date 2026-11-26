@@ -119,10 +119,12 @@ Enum **G** `materialKind`: `raw` | `part` | `fastener` | `purchased` | `other`. 
 | Метка | Поля |
 |--|--|
 | S | `title`, `categoryId`, `materialId`, `article`, `color`, `productUrl`, `supplierId`, `organizationId`, `supplierContactId`, `companyId`, `requestedBy`, `orderId` (ObjectId `Order`), `orderLabel`, `qty`*, `unit`, `neededBy`, `status`*, `priority`*, `notes`, `priceHint`, `lineTotal`, `supplierOrderDate`, `responsible`, `invoiceNo`, `deliveryNote`, `paid`*, `paidAt`, `createdBy`, `linkedSupplyTaskId`, `num`, `requestDate`, `invoiceDate`, `sheetExtra`, `clientUid`, `sheetSource`, `sheetKey`, `syncHash`, `deletedAt` |
-| A | `articleId`, `responsibleId`, `salesOrderId`, `salesOrderLineId`, `costCenter`, `costObject`, `receivedTo`, `invoiceId`, `editedInApp` |
+| A | `articleId`, `responsibleId`, `salesOrderId`, `salesOrderLineId`, `costCenter`, `costObject`, `receivedTo`, `receiveUid`, `invoiceId`, `editedInApp` |
 | G | `receivedQty` |
 
 Текст `responsible` читает CRM. `responsibleId` его не заменяет. `organizationId` не делать `required`: старые заявки без него должны читаться. Свободное имя `title` нужно, когда нет `materialId` (правило сервиса, не `required` схемы на `title`).
+
+`receiveUid` — необязательный ключ повтора приёмки DataCore. Заполняется только при приёмке с `clientUid`, очищается при откате прихода. Существующие документы без него читаются штатно.
 
 ## Как проверить
 

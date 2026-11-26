@@ -6,6 +6,7 @@ import { chromium } from '../../../tools/design-checks/node_modules/playwright-c
 import { findBrowser } from '../../../tools/browser-path.mjs';
 
 const root = new URL('../', import.meta.url), origin = 'http://c240.test';
+const coordinatePath = '/api/stock/items/from-coordinate';
 const samples = [
   { id: 'pipe-one', name: 'Труба профильная 40×20×2', metal: 'pipe', unit: 'м', sectionProfile: { shape: 'rect', label: '40×20×2', state: 'complete' }, assortment: '40×20×2', categoryId: 'pipe-cat', categoryName: 'Профильная труба', materialGrade: 'Ст3', washed: true, quantity: 12, reservedQty: 6, dims: { length: 6000, thickness: 2 } },
   { id: 'sheet-one', name: 'Лист Ст3 3 мм', metal: 'sheet', unit: 'лист', categoryId: 'sheet-cat', materialGrade: 'Ст3', quantity: 8, reservedQty: 2, notes: 'Проверено кладовщиком', dims: { thickness: 3, length: 2500, width: 1250 } },
@@ -37,13 +38,17 @@ async function fixture(t, { user = { role: 'director', sections: ['stock'] }, vi
     const url = new URL(route.request().url()), method = route.request().method();
     if (url.origin !== origin) return route.abort();
     if (url.pathname.startsWith('/api/')) {
-      const body = route.request().postDataJSON(); calls.push({ path: url.pathname, method, body });
+      const body = route.request().postDataJSON(); calls.push({ path: url.pathname, zoneId: url.searchParams.get('zoneId'), method, body });
       if (url.pathname === '/api/auth/me') return route.fulfill({ json: person });
       if (url.pathname === '/api/stock/zones') return route.fulfill({ json: { items: [{ id: 'pipe-zone', name: 'Трубы' }, { id: 'sheet-zone', name: 'Листовой материал' }] } });
       if (url.pathname === '/api/stock/categories') return route.fulfill({ json: { items: url.searchParams.get('zoneId') === 'sheet-zone' ? [{ id: 'sheet-cat', name: 'Листовой материал' }] : [{ id: 'pipe-cat', name: 'Профильная труба' }] } });
       if (url.pathname === '/api/supply/lookups') return route.fulfill({ json: { categories: [{ name: 'Профильная труба' }], units: ['м', 'лист'] } });
+      if (url.pathname === coordinatePath && method === 'POST') {
+        const created = { id: 'created-pipe', ...body, countMode: 'single', quantity: 0, metal: 'pipe', photos: [] };
+        records.push(created);
+        return route.fulfill({ status: 201, json: created });
+      }
       if (url.pathname === '/api/stock/items') {
-        if (method === 'POST') { const created = { id: 'created-pipe', ...body, countMode: 'single', quantity: 0, metal: 'pipe', photos: [] }; records.push(created); return route.fulfill({ json: created }); }
         const found = records.filter(item => !url.searchParams.get('zoneId') || item.metal === (url.searchParams.get('zoneId') === 'pipe-zone' ? 'pipe' : 'sheet'));
         return route.fulfill({ json: { items: found, total: found.length, page: 1, limit: 100 } });
       }
@@ -109,10 +114,13 @@ test('родной экран Трубореза: пересчёт по Enter с
   await entry.getByLabel('Толщина, мм', { exact: true }).fill('2');
   await entry.getByLabel('Длина, мм', { exact: true }).fill('6000');
   await entry.getByRole('button', { name: 'Проверить', exact: true }).click();
-  const createdResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/api/stock/items?zoneId='));
+  const createdResponse = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === coordinatePath);
   await entry.getByRole('button', { name: 'Сохранить', exact: true }).click(); await createdResponse;
-  assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/stock/items').length, 1);
-  assert.deepEqual(calls.find(call => call.method === 'POST' && call.path === '/api/stock/items').body.dims, { width: 25, height: 25, thickness: 2, length: 6000 });
+  const createCalls = calls.filter(call => call.method === 'POST' && call.path === coordinatePath);
+  assert.equal(createCalls.length, 1);
+  assert.equal(createCalls[0].zoneId, 'pipe-zone');
+  assert.equal(createCalls[0].body.kind, 'pipe');
+  assert.deepEqual(createCalls[0].body.dims, { width: 25, height: 25, thickness: 2, length: 6000 });
   assert.deepEqual(errors, []);
 });
 
@@ -143,7 +151,7 @@ test('main: событие create не убирает подсказку час�
   assert.equal(await cell.inputValue(), '2');
   await cell.press('Enter');
   await page.locator('[data-material-id="created-pipe"]').waitFor();
-  assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/stock/items').length, 1);
+  assert.equal(calls.filter(call => call.method === 'POST' && call.path === coordinatePath).length, 1);
   assert.deepEqual(calls.filter(call => call.path === '/api/stock/batch').map(call => call.body.lines[0]),
     Array(2).fill({ materialId: 'created-pipe', qty: 12, expected: 0 }));
   assert.deepEqual(errors, []);

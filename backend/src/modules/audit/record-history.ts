@@ -54,14 +54,16 @@ export function withChanges<T extends { details?: unknown }>(itemsNewestFirst: T
   const asc = [...itemsNewestFirst].reverse();
   let prev: Record<string, unknown> | null = null;
   const res = asc.map((it, i) => {
-    const det = it.details as { after?: Record<string, unknown>; before?: Record<string, unknown>; partial?: boolean } | undefined;
+    const det = it.details as { after?: Record<string, unknown>; before?: Record<string, unknown>; partial?: boolean; meta?: { via?: string } } | undefined;
     const after = det?.after;
     const snap = after && typeof after === 'object' && !Array.isArray(after) ? after : null;
+    // Возврат поля фиксирует «было» и «стало» в транзакции, включая правки CRM без снимка в журнале.
+    const exact = det?.partial && det.meta?.via === 'supply.request.restore-text' && !!det.before;
     // partial — запись только изменённых полей (чистка артикулов и т. п.): сравниваем эти поля, остальное берём из прошлого снимка
-    const was = det?.partial ? Object.fromEntries(Object.keys(snap ?? {}).map((k) => [k, prev?.[k] ?? det.before?.[k] ?? null])) : prev;
+    const was = exact ? det.before : det?.partial ? Object.fromEntries(Object.keys(snap ?? {}).map((k) => [k, prev?.[k] ?? det.before?.[k] ?? null])) : prev;
     const changes = snap ? diffSnapshots(was, snap, canMoney) : [];
     if (snap) prev = det?.partial ? { ...(prev ?? {}), ...snap } : snap;
-    return { ...it, changes, first: i === 0 };
+    return { ...it, changes, first: i === 0 && !exact };
   });
   return res.reverse();
 }

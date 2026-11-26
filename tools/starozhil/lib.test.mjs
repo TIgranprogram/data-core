@@ -56,6 +56,13 @@ test('карточка: свежая, устарела, сломана', () => {
   assert.equal(cardState({}, h).state, 'broken');
 });
 
+test('отпечаток из цифр сохраняет ведущие нули и распознаётся как свежий', () => {
+  const hash = '000012345678';
+  const { meta } = parseFront(`---\nsources: [x]\nhash: ${hash}\n---\n`);
+  assert.equal(meta.hash, hash);
+  assert.equal(cardState(meta, hash).state, 'ok');
+});
+
 test('факты по пунктам: пути, имена, коды задач', async () => {
   const { taskItems, itemTokens, checkRefs } = await import('./lib.mjs');
   const md = '# x\n- [ ] **Скорость:** `/me/counters` в `backend/src/main.ts`, C049-1 и АБЗ-3\n- [x] сделано\n  - [~] вложенный `ui/list.js`\n';

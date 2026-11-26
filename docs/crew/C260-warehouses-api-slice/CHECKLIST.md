@@ -13,7 +13,7 @@
 - [x] **C264** бронь · [Отчёт](../C264-reservation-api-slice/REPORT.md) · L-264
 - [x] **C265** приход + откат · [Отчёт](../C265-receipt-api-slice/REPORT.md) · L-265
 - [x] **Выкладка** — v2.51 тег `release-v2.51-5ee80d93`, health 200, смоук 7/7 (24.11)
-- [x] **Флаги C260–C265** — на проде enabled true (forceOn сид + проверка API)
+- [x] **Флаги C260–C265** — на проде enabled true по проверке API 24.11. С C274 начальное `true` применяется только при первом создании флага. [Аварийная передача записи](../C274-agent-architecture-audit/WRITER-HANDOFF.md).
 - [x] **Гасить kppdf** — `kppdf-backend` Exited (24.11 после выкладки)
 - [x] **Mongo readWrite у kppdf** — снят 24.11 (`roles=[]`); контейнер CRM выключен
 - [ ] Мелочи сайта — S/M, без shared/kppdf

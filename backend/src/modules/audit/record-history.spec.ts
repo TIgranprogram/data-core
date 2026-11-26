@@ -54,4 +54,13 @@ describe('record-history (И.1): «было → стало» из соседни
     const r = withChanges([{ action: 'stock.item.article.cleaned', details: { partial: true, before: { article: 'СКЛ-2026-001' }, after: { article: '90664165', internalArticle: 'СКЛ-2026-001' } } }], true);
     expect(r[0].changes).toEqual([{ field: 'article', from: 'СКЛ-2026-001', to: '90664165' }, { field: 'internalArticle', from: null, to: 'СКЛ-2026-001' }]);
   });
+
+  it('возврат поля показывает точное предыдущее значение после неаудированной правки и без прошлых снимков', () => {
+    const exact = { action: 'supply.request.updated', details: { partial: true, before: { deliveryNote: null },
+      after: { deliveryNote: 'Утром' }, meta: { via: 'supply.request.restore-text' } } };
+    const old = { action: 'supply.request.updated', details: { after: { deliveryNote: 'Вечером', qty: 3 } } };
+    for (const events of [[exact, old], [exact]]) {
+      expect(withChanges(events, false)[0]).toMatchObject({ first: false, changes: [{ field: 'deliveryNote', from: null, to: 'Утром' }] });
+    }
+  });
 });

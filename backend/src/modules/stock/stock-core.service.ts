@@ -172,8 +172,19 @@ export class StockCoreService implements OnModuleInit {
   }
 
   /** Позиция изменена в приложении — синхронизация Google-таблицы её больше не перезаписывает (поле вне схемы CRM). */
-  async markEdited(_id: Types.ObjectId): Promise<void> {
-    await this.connection.db!.collection('materials').updateOne({ _id }, { $set: { editedInApp: true } });
+  async markEdited(_id: Types.ObjectId, session?: ClientSession): Promise<void> {
+    const materials = this.connection.db!.collection('materials');
+    if (!session) {
+      await materials.updateOne({ _id }, { $set: { editedInApp: true } });
+      return;
+    }
+    // Приёмка должна изменить позицию даже при уже выставленном editedInApp, чтобы заметить смену её категории.
+    const epoch = new Date(0);
+    const previous = { $convert: { input: '$updatedAt', to: 'date', onError: epoch, onNull: epoch } };
+    const result = await materials.updateOne({ _id, deletedAt: null }, [{
+      $set: { editedInApp: true, updatedAt: { $max: ['$$NOW', { $add: [previous, 1] }] } },
+    }], { session });
+    if (!result.matchedCount) throw new NotFoundException('Позиция не найдена');
   }
 
   /** C260: выкл — CRM снова может писать Mongo. Маршрут при этом остаётся и отвечает 409. */

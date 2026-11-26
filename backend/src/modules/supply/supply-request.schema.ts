@@ -197,6 +197,10 @@ export class SupplyRequest {
   @Prop()
   receivedTo?: string;
 
+  /** Ключ повтора приёмки DataCore. Заполняется только для операций с clientUid. */
+  @Prop({ type: String, default: undefined, select: false })
+  receiveUid?: string;
+
   /** Счёт поставщика (supplyinvoices) — поле только data-core; CRM его не знает. */
   @Prop({ type: Types.ObjectId, index: true, sparse: true })
   invoiceId?: Types.ObjectId;

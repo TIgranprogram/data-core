@@ -25,9 +25,8 @@ export const BANDS = [
  * inside — что внутри раздела (декомпозиция): { t — часть, l — пояснение }.
  * rules — что учитывать при изменении; docs — где описано (для ИИ и разработчика); tech — таблицы базы.
  * id шагов — постоянные (ссылки «блок.шаг» в задачах и сводке для ИИ): при переименовании шага id не менять.
- * code — файлы и папки кода блока; dc check предупреждает, если код новее карты. C270/C271: пустая координата трубы — только число с контекстом, заявки и брони адресные через API.
- * plan: '<код задачи>' — раздел или шаг ещё в разработке (серый, полупрозрачный); код — из docs/TASKS.md / crew/BOARD.md.
- * plan: 'идея' — предложение координатора, в очереди задач нет; нужно решение владельца (взять в работу или удалить).
+ * dc check сравнивает файлы и папки из code с последней сверкой этого блока.
+ * plan — код раздела или шага в разработке из docs/TASKS.md / crew/BOARD.md. Для идеи вне очереди используйте 'идея'.
  * Сделали — убрать plan и проверить связи; отменили — удалить блок.
  * tpl — шаблон экрана (docs/DESIGN.md §3.1): list | board | card | queue | funnel | summary | dict; обязателен у каждого блока.
  * tplStatus: ok — собран по шаблону; legacy — долг (число не растёт, tools/tpl-baseline.json); plan — экрана ещё нет.
@@ -98,13 +97,13 @@ export const NODES = [
     code: ['backend/src/modules/salesorders', 'backend/src/modules/incomes', 'backend/src/modules/shipments', 'backend/pwa/sections/salesorders.js', 'backend/pwa/sections/sales-legal.js', 'backend/pwa/sections/sales-legal-state.js', 'backend/pwa/sections/order-lines.js', 'backend/pwa/sections/order-product-picker.js', 'backend/pwa/sections/order-shipments.js'] },
   { id: 'contracts', tpl: 'list', tplStatus: 'legacy', band: 'supply', col: 1, sec: 'contracts', t: 'Договоры поставщиков', l: ['с поставщиками:', 'номер, срок, файлы'],
     inside: [
-      { id: 'dogovor-postavki', t: 'Договор поставки', l: 'поставщик, номер, дата; выбирается в счёте', out: ['requests'] },
+      { id: 'dogovor-postavki', t: 'Договор поставки', l: 'Поставщик, номер и дата. При заполнении счёта выберите или создайте договор.', out: ['requests'] },
       { id: 'srok-i-status', t: 'Срок и статус', l: 'действует до; закрытые не предлагаются' },
       { id: 'faily', t: 'Файлы', l: 'скан и приложения' },
     ],
     rules: ['Здесь — только договоры с поставщиками. Договоры заказчика ведутся внутри заказа («+ Договор» в «⋯» шапки).'],
-    docs: ['docs/PRODUCT.md — «Договоры»'], tech: 'contracts',
-    code: ['backend/src/modules/supply', 'backend/pwa/sections/contracts.js'] },
+    docs: ['docs/PRODUCT.md — «Договоры»'], tech: 'suppliercontracts, связь со счётом через supplyinvoices.contractId',
+    code: ['backend/src/modules/supply/supplier-contract.controller.ts', 'backend/src/modules/supply/supplier-contract.schema.ts', 'backend/src/modules/supply/supplier-contract.service.ts', 'backend/src/modules/supply/dto-contract.ts', 'backend/pwa/sections/contracts.js'] },
 
   { id: 'matching', tpl: 'queue', tplStatus: 'legacy', band: 'quality', col: 1, sec: null, href: '#salesorders?view=table', where: 'Заказы → «Несопоставленные» в шапке', t: 'Сопоставление', l: ['позиция заказа ↔', 'изделие из каталога'],
     seq: true, inside: [
@@ -257,24 +256,25 @@ export const NODES = [
     inside: [
       { id: 'poziciya', t: 'Позиция', l: 'артикул, название, единица', out: ['requests'] },
       { id: 'detali-i-syre', t: 'Детали и сырьё', l: 'те же позиции — в составе изделий и деталей', out: ['products', 'parts'] },
-      { id: 'predlozheniya-postavschikov', t: 'Предложения поставщиков', l: 'цена и срок у каждого' },
+      { id: 'predlozheniya-postavschikov', t: 'Предложения поставщиков', l: 'Цена и срок каждого предложения, история цен и позиции склада без действующих предложений.' },
       { id: 'svyaz-so-skladom', t: 'Связь со складом', l: '«Связать с позицией»' },
       { id: 'sravnenie', t: 'Сравнение позиций', l: 'Отметьте две карточки → «Сравнить…» → «Показать только различия»' },
     ],
     rules: ['Название позиции меняют здесь, количество — только складской операцией.', 'Одна позиция — во всех изделиях, заявках и остатках.'],
-    docs: ['docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/MAP.md — supply, material'], tech: 'materials (общая с CRM)',
+    docs: ['docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/MAP.md — supply, material'], tech: 'supplieritems, materials (материалы общие с CRM)',
     code: ['backend/src/modules/supply', 'backend/src/modules/material', 'backend/pwa/sections/supplier-catalog.js'] },
   { id: 'requests', tpl: 'board', tplStatus: 'legacy', band: 'supply', col: 2, sec: 'requests', t: 'Заявки', l: ['заявка → заказал →', 'счёт → оплачено → получено'],
     seq: true, inside: [
-      { id: 'zayavka', t: 'Заявка', l: 'что купить и сколько, дата и примечание', in: ['suppliercatalog', 'needs', 'shortage'], out: ['desk'] },
-      { id: 'zakazal', t: '«Заказал»', l: 'у поставщика, по договору', in: ['partners', 'contracts'] },
-      { id: 'schet', t: 'Счёт', l: 'валюта, НДС и неоплаченный остаток; полная оплата без даты попадает в очередь уточнения', out: ['money', 'fill'] },
+      { id: 'zayavka', t: 'Заявка', l: 'Что купить и сколько. Дата видна в шапке карточки, примечание — в сводке.', in: ['suppliercatalog', 'needs', 'shortage'], out: ['desk'] },
+      { id: 'zakazal', t: '«Заказал»', l: 'У поставщика по договору. Дату ожидания заявки можно перенести из поставки на экране «Сегодня».', in: ['partners', 'contracts'] },
+      { id: 'schet', t: 'Счёт', l: 'Валюта, НДС и неоплаченный остаток. Полная оплата без даты попадает в очередь уточнения. Если при объединении найдены дубли, «Добавить без дублей» может администратор: лишние заявки уйдут в корзину.', out: ['money', 'fill'] },
       { id: 'oplacheno', t: 'Оплаты', l: 'каждый аванс и доплата — своей датой', out: ['money'] },
       { id: 'priemka', t: 'Приёмка', l: 'отмеченные позиции принимаются на склад, на заказ, в офис, в цех или на СМР', out: ['stock', 'salesorders'] },
+      { id: 'istoriya-zayavki', t: 'История и корзина', l: 'В истории можно вернуть поле «Примечание» или «Доставка». В корзину отправляет администратор. Восстановление доступно и менеджеру с подтверждением пароля.', alt: true },
     ],
     rules: ['Ссылка «ещё … — списком» под колонкой открывает таблицу со статусом колонки и сохраняет поиск и фильтры. Полученные и отменённые заявки в таблице группируются по месяцам.', 'При временном ограничении запросов колонка ждёт срок сервера и повторяет загрузку один раз; после отказа «Повторить» перечитывает только эту колонку. Уход с доски отменяет ожидание.', 'Оплата не подтверждает получение товара.', 'Прямая поставка сохраняет заказ или направление затрат. Остатки склада не меняются.', 'Подтверждённая полная рублёвая оплата без даты требует заполнения: до даты нет денежного факта, долга и повторного прогноза.', 'После первого платежа новой истории финансовая база фиксируется; ошибка исправляется с историей.', 'После первой приёмки действуют финансовые ограничения.'],
     docs: ['docs/PRODUCT.md — «Заявки»', 'docs/UNIFY-SUPPLY-WAREHOUSE.md', 'docs/crew/C158-supply-financial-fields/CONTRACT.md', 'docs/crew/C275-manager-editing/TZ.md'], tech: 'supplyrequests (общая с CRM), supplyinvoices, supplyinvoicepayments (факты оплат)',
-    code: ['backend/src/modules/supply', 'backend/pwa/sections/requests.js', 'backend/pwa/sections/invoice-workspace.js', 'backend/pwa/sections/invoice-workspace-forms.js'] },
+    code: ['backend/src/modules/supply', 'backend/pwa/sections/requests.js', 'backend/pwa/sections/request-link.js', 'backend/pwa/sections/home.js', 'backend/pwa/sections/home-ui.js', 'backend/pwa/sections/invoice-workspace.js', 'backend/pwa/sections/invoice-workspace-forms.js', 'backend/pwa/sections/invoice-merge-preview.js'] },
   { id: 'needs', tpl: 'card', tplStatus: 'legacy', band: 'supply', col: 3, sec: null, where: 'Продукция → карточка изделия → «Техописание» → «Что купить»', t: 'Расчёт закупки', l: ['считает сырьё, метизы и покупные позиции на заданное количество изделий', 'учитывает наличие и показывает, чего не хватает'],
     seq: true, inside: [
       { id: 'potrebnost', t: 'Сколько нужно', l: 'Общий расход на заданное количество изделий с учётом состава вложенных модулей.', in: ['products', 'modules'] },
@@ -301,8 +301,8 @@ export const NODES = [
       { id: 'zapis-operacii', t: 'Запись операции', l: 'кто, что, сколько, когда', in: ['stock'] },
       { id: 'ispravit', t: '«Исправить»', l: 'старая запись отменяется, новая проходит' },
     ],
-    rules: ['Записи не удаляются — только исправляются.'],
-    docs: ['docs/MAP.md — stock'], tech: 'stockmovements (общая с CRM)',
+    rules: ['Записи не удаляются — только исправляются.', 'В списке движений и истории карточки учитывается доступная пользователю складская область.'],
+    docs: ['docs/MAP.md — stock', 'docs/crew/C277-stock-read-scope/REPORT.md', 'docs/crew/C278-audit-journal-scope/REPORT.md'], tech: 'stockmovements (общая с CRM)',
     code: ['backend/src/modules/stock', 'backend/pwa/sections/movements.js'] },
   { id: 'shortage', tpl: 'queue', tplStatus: 'plan', band: 'stock', col: 1, sec: null, plan: 'C048-8', t: 'Не хватает под заказы', l: ['состав заказов в работе', '− свободный остаток'],
     seq: true, inside: [

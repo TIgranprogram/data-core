@@ -1,5 +1,5 @@
 import { BadRequestException, Controller, ForbiddenException, Get, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiForbiddenResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiForbiddenResponse, ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from './audit.service';
@@ -59,6 +59,7 @@ export class AuditController {
   @Get('record')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiOperation({ summary: 'История одной записи (заявка, позиция склада, контрагент, заказ): кто, что, когда' })
+  @ApiOkResponse({ description: '' })
   @ApiForbiddenResponse({ description: 'Раздел закрыт или запись недоступна в пределах складских прав' })
   @ApiQuery({ name: 'entityType', required: true, description: RECORD_HISTORY_TYPES.join(' | ') })
   @ApiQuery({ name: 'entityId', required: true })

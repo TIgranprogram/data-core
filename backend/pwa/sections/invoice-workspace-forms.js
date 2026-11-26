@@ -1,8 +1,10 @@
 import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { money, date } from '../core/format.js';
-import { buildForm, section, table, button, actions, link, autoMore, photoField, badge, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { buildForm, section, table, button, actions, link, toast, toastError, autoMore, photoField, badge, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { permissions, assertOperation, lineDraft, changeLine, lineBody, addBody, metaBody, foreignInvoice, invoiceCurrency, businessToday, paymentBody, financialMetaBody, needsPaymentDate } from './invoice-workspace-state.js';
+
+import { previewInvoiceMerge } from './invoice-merge-preview.js';
 
 const field = (key, label, input) => ({ key, label, type: 'widget', wide: true, widget: () => ({ el: input, get value() { return JSON.stringify(input.value); }, set value(_) { /* начальное значение уже установлено */ } }) });
 const number = (name, value, step = 'any') => h('input', { name, type: 'number', min: '0', step, inputmode: 'decimal', value });
@@ -195,7 +197,7 @@ export async function buildWorkspaceForm(invoice, options, services) {
   const form = operation === 'line' ? buildLineForm(invoice, invoice.requests.find((x) => x.id === lineId))
     : ['undated', 'revokeUndated'].includes(operation) ? buildUndatedForm(invoice, operation === 'revokeUndated') : operation === 'payment' ? await buildPaymentForm(invoice, services) : operation === 'add' ? buildAddForm(invoice, services) : await buildMetaForm(invoice, services);
   const conflict = h('div', { class: 'form-error', hidden: true });
-  let bindSave, conflicted = false, duplicate = false;
+  let bindSave, conflicted = false, duplicate = false, previewing = false, merged = false;
   const duplicateInput = form.el.querySelector('[name="duplicateReason"]');
   duplicateInput?.addEventListener('input', () => {
     if (!duplicate) return;
@@ -208,7 +210,19 @@ export async function buildWorkspaceForm(invoice, options, services) {
     p.add ? button({ label: 'Добавить заявки', disabled: operation === 'add', onClick: () => services.edit?.({ _operation: 'add' }) }) : null,
     p.add ? button({ label: 'Создать заявку', onClick: () => { location.hash = createHref; } }) : null), form.el, conflict,
     section({ title: 'Позиции этого счёта', count: (invoice.requests || []).length, open: true, body: services.overview(invoice) }));
-  return { el, busy: form.busy, dirty: form.dirty,
+  const previewDuplicate = async (targetId) => {
+    if (previewing || merged) return;
+    previewing = true;
+    try {
+      const result = await previewInvoiceMerge(invoice.id, targetId);
+      if (!result) return;
+      merged = true;
+      toast('Позиции объединены с существующим счётом');
+      if (el.isConnected) location.hash = services.href({ of: 'invoicecard', open: result.targetInvoiceId || targetId, new: undefined, fill: undefined });
+    } catch (error) { toastError(error, 'объединить счета'); }
+    finally { previewing = false; }
+  };
+  return { el, busy: form.busy, dirty: () => !merged && form.dirty(),
     focus: form.focus,
     bindSave: (fn) => { bindSave = fn; if (['payment', 'undated', 'revokeUndated'].includes(operation)) fn(true, operation === 'undated' ? 'Подтвердить без даты' : operation === 'revokeUndated' ? 'Отозвать подтверждение' : 'Сохранить оплату'); },
     read: () => { const read = form.read(); return read.errors ? read : { values: { invoice, operation, lineId, body: form.payload() } }; },
@@ -218,9 +232,11 @@ export async function buildWorkspaceForm(invoice, options, services) {
       duplicate = operation === 'meta' && !!e?.data?.existingInvoiceId;
       conflicted = true; bindSave?.(false);
       conflict.hidden = false;
-      conflict.replaceChildren(h('p', null, duplicate ? 'Такой номер уже существует. Откройте существующий счёт или укажите причину отдельного счёта и сохраните явно. Ввод сохранён.' : 'Счёт изменился. Ввод сохранён; повторной записи не будет. Сначала обновите счёт.'),
-        button({ label: 'Обновить счёт', onClick: services.refresh }),
-        e?.data?.existingInvoiceId ? link({ label: 'Открыть существующий счёт →', href: services.href({ of: 'invoicecard', open: e.data.existingInvoiceId, new: undefined }) }) : null);
+      conflict.replaceChildren(h('p', null, duplicate ? 'Такой номер уже существует. Откройте существующий счёт или укажите причину отдельного счёта. Введённые реквизиты сохранены в форме.' : 'Счёт изменился. Ввод сохранён; повторной записи не будет. Сначала обновите счёт.'),
+        actions(button({ label: 'Обновить счёт', onClick: services.refresh }),
+          duplicate ? link({ label: 'Открыть существующий счёт →', href: services.href({ of: 'invoicecard', open: e.data.existingInvoiceId, new: undefined }) }) : null,
+          duplicate && p.meta && !p.paid && !p.ledgerLocked && !p.boundary && !foreignInvoice(invoice) && !['paid', 'cancelled'].includes(e.data.existingStatus)
+            ? button({ label: 'Посмотреть, что добавится', onClick: () => previewDuplicate(e.data.existingInvoiceId) }) : null));
     },
     get conflicted() { return conflicted; },
   };

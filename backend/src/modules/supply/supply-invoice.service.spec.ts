@@ -126,7 +126,7 @@ describe('SupplyInvoiceService: приход по счёту', () => {
   it('приход берёт текущую цену строки и не меняет её', async () => {
     const line = lines[0];
     await svc.receive(String(invId), [String(line._id)], 'u1');
-    expect(supply.receive).toHaveBeenCalledWith(String(line._id), expect.objectContaining({ clientUid: expect.stringContaining(String(line._id)) }), 'u1');
+    expect(supply.receive).toHaveBeenCalledWith(String(line._id), expect.objectContaining({ clientUid: expect.stringContaining(String(line._id)) }), 'u1', null);
     expect(line.priceHint).toBeUndefined();
   });
 });
@@ -209,11 +209,12 @@ describe('Счета: явное объединение', () => {
     const srcLines = [...mkLines(src._id, [10, 20]), { ...mkLines(src._id, [7])[0], materialId: same, qty: 2 }];
     const dstLines = [{ ...mkLines(dst._id, [7])[0], materialId: same, qty: 2 }];
     const { svc, model } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines: [...srcLines, ...dstLines] });
-    const p = await svc.mergePreview(String(src._id), String(dst._id));
+    const p = await svc.mergePreview(String(src._id), String(dst._id), { role: 'admin' });
     expect(p.duplicates).toBe(1);
     expect(p.strategies).toEqual(['append', 'mergeSameRequest', 'replaceLines']);
     expect(p.resultAmount.append).toBe(44);
     expect(p.resultAmount.replaceLines).toBe(37);
+    expect((await svc.mergePreview(String(src._id), String(dst._id), { role: 'manager' })).strategies).toEqual(['append', 'replaceLines']);
     expect(model.updates).toHaveLength(0);
   });
 
@@ -223,7 +224,7 @@ describe('Счета: явное объединение', () => {
     const srcLines = mkLines(src._id, [10, 20]);
     const dstLines = mkLines(dst._id, [5]);
     const { svc, model, requests } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines: [...srcLines, ...dstLines] });
-    const r = await svc.merge(String(src._id), String(dst._id), 'append', String(new Types.ObjectId()));
+    const r = await svc.merge(String(src._id), String(dst._id), 'append', { id: String(new Types.ObjectId()), role: 'manager' });
     expect(r).toMatchObject({ targetInvoiceId: String(dst._id), moved: 2, skipped: 0, amount: 35 });
     expect(srcLines.every((l) => String(l.invoiceId) === String(dst._id))).toBe(true);
     const log = model.updates.find(([, u]) => Boolean((u as Doc).$push));
@@ -240,7 +241,7 @@ describe('Счета: явное объединение', () => {
     const srcLines = [{ ...mkLines(src._id, [10])[0], materialId: mat, qty: 2 }, mkLines(src._id, [20])[0]];
     const dstLines = [{ ...mkLines(dst._id, [10])[0], materialId: mat, qty: 2 }];
     const { svc, requests } = makeSvc({ invoices: { [String(src._id)]: src, [String(dst._id)]: dst }, lines: [...srcLines, ...dstLines] });
-    const r = await svc.merge(String(src._id), String(dst._id), 'mergeSameRequest');
+    const r = await svc.merge(String(src._id), String(dst._id), 'mergeSameRequest', { role: 'admin' });
     expect(r).toMatchObject({ moved: 1, skipped: 1 });
     const skipped = requests.updates.find(([f, u]) => String((f as Doc)._id) === String(srcLines[0]._id) && Boolean(((u as Doc).$set as Doc).deletedAt));
     expect((skipped![1] as Doc).$set).toMatchObject({ status: 'cancelled' });

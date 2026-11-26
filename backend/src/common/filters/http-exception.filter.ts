@@ -9,6 +9,8 @@ import {
 import { Request, Response } from 'express';
 import type { ValidationError } from 'class-validator';
 import { randomBytes } from 'crypto';
+import type { AuthenticatedUser } from '../decorators/current-user.decorator';
+import { canSeeMoney } from '../roles-hierarchy';
 import { fieldRu, hasCyrillic, localizeFieldPrefix, russianFallback, translateMessage } from './error-messages-ru';
 
 const VALIDATION_MESSAGES: Record<string, string> = {
@@ -236,7 +238,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<Request & { user?: AuthenticatedUser }>();
 
     // Mongoose CastError (e.g. GET /admin/users/undefined) is a CLIENT mistake,
     // not a server fault. Before this it escaped as HTTP 500 + full stack in the
@@ -320,6 +322,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     // Версия и план сверки — часть контракта конфликтов, без раскрытия произвольных полей исключения.
     if (status === HttpStatus.CONFLICT && typeof payload === 'object' && payload !== null) {
       const conflict = payload as Record<string, unknown>;
+      if (conflict.code === 'INVOICE_NUMBER_EXISTS' && typeof conflict.existingInvoiceId === 'string' && /^[a-f\d]{24}$/i.test(conflict.existingInvoiceId)) {
+        errorResponse.existingInvoiceId = conflict.existingInvoiceId;
+        if (typeof conflict.existingNo === 'string' || conflict.existingNo === null) errorResponse.existingNo = conflict.existingNo;
+        if (canSeeMoney(request.user) && typeof conflict.existingStatus === 'string' && ['draft', 'issued', 'paid', 'cancelled'].includes(conflict.existingStatus)) errorResponse.existingStatus = conflict.existingStatus;
+      }
       for (const key of ['currentVersion', 'currentTreeRevision']) {
         const value = conflict[key];
         if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) errorResponse[key] = value;

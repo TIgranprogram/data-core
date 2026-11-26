@@ -421,23 +421,34 @@ export class SupplyService {
     return presented;
   }
 
-  async restoreNote(id: string, dto: { expected: string | null; value: string | null }, scope: StockScope | null) {
+  async restoreText(id: string, field: 'notes' | 'deliveryNote', dto: { expected: string | null; value: string | null }, scope: StockScope | null,
+    actor: Pick<LogEntry, 'userId' | 'userName' | 'ipAddress'>) {
     await this.assertRequestApi();
     const _id = oid(id, 'заявки');
     const expected = dto.expected ?? '';
     const value = dto.value?.trim() ?? '';
+    const changedMessage = field === 'notes' ? 'Примечание изменилось. Откройте заявку заново' : 'Текст доставки изменился. Откройте заявку заново';
     await this.writeRequest(_id, async session => {
-      const row = await this.model.findOne({ _id, deletedAt: null }, { notes: 1, materialId: 1, categoryId: 1 }).session(session).lean().exec();
+      const row = await this.model.findOne({ _id, deletedAt: null }, { [field]: 1, materialId: 1, categoryId: 1, title: 1, num: 1 }).session(session).lean().exec();
       if (!row) throw new NotFoundException('Заявка не найдена');
       await assertDocInScope(this.connection, scope, row);
-      if ((row.notes ?? '') !== expected) throw new ConflictException('Примечание изменилось. Откройте заявку заново');
-      if (value === expected) throw new ConflictException('Примечание уже имеет это значение');
+      if ((row[field] ?? '') !== expected) throw new ConflictException(changedMessage);
+      if (value === expected) throw new ConflictException(field === 'notes' ? 'Примечание уже имеет это значение' : 'Поле «Доставка» уже имеет это значение');
       const res = await this.model.updateOne(
-        { _id, deletedAt: null, $expr: { $eq: [{ $ifNull: ['$notes', ''] }, { $literal: expected }] } },
-        value ? { $set: { notes: value, editedInApp: true } } : { $set: { editedInApp: true }, $unset: { notes: '' } },
+        { _id, deletedAt: null, $expr: { $eq: [{ $ifNull: [`$${field}`, ''] }, { $literal: expected }] } },
+        value ? { $set: { [field]: value, editedInApp: true } } : { $set: { editedInApp: true }, $unset: { [field]: '' } },
         { session },
       ).exec();
-      if (!res.matchedCount) throw new ConflictException('Примечание изменилось. Откройте заявку заново');
+      if (!res.matchedCount) throw new ConflictException(changedMessage);
+      const label = { title: row.title, num: row.num };
+      await this.connection.db!.collection('auditlogs').insertOne({
+        action: 'supply.request.updated', entityType: 'SupplyRequest', entityId: _id, createdAt: new Date(),
+        userId: actor.userId ? new Types.ObjectId(actor.userId) : undefined, userName: actor.userName, ipAddress: actor.ipAddress,
+        details: {
+          partial: true, before: { ...label, [field]: expected || null }, after: { ...label, [field]: value || null },
+          meta: { via: 'supply.request.restore-text' },
+        },
+      }, { session });
     });
     return this.get(id, scope);
   }
@@ -849,9 +860,9 @@ export class SupplyService {
    * Нет привязанного материала — находим по наименованию или заводим новую позицию склада.
    * Флаг C262 не смотрит: приход — срез C265.
    */
-  async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId?: string) {
+  async receive(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId?: string, scope: StockScope | null = null) {
     await this.assertReceiveApi();
-    const out = await this.receiveRaw(id, dto, userId);
+    const out = await this.receiveRaw(id, dto, userId, scope);
     try {
       const so = await this.model.findById(id, { salesOrderId: 1 }).lean().exec() as { salesOrderId?: unknown } | null;
       if (so?.salesOrderId) await this.orders.recheck(so.salesOrderId, userId);
@@ -860,7 +871,8 @@ export class SupplyService {
   }
 
   /** Прямая поставка отмеченных строк. Назначение и факт получения фиксируются одной транзакцией. */
-  async receiveInvoiceDirect(invoiceId: string, requestIds: string[], target: DirectReceiptTarget, userId?: string) {
+  async receiveInvoiceDirect(invoiceId: string, requestIds: string[], target: DirectReceiptTarget, userId?: string, scope: StockScope | null = null) {
+    await this.assertReceiveApi();
     if (!requestIds.length) throw new BadRequestException('Отметьте позиции, которые получил объект');
     const invoiceKey = oid(invoiceId, 'счёта');
     const orderKey = target.directOrderId ? oid(target.directOrderId, 'заказа') : undefined;
@@ -874,6 +886,9 @@ export class SupplyService {
       if (invoice.status === 'cancelled') throw new BadRequestException('Счёт отменён');
       const rows = await this.model.find({ _id: { $in: ids }, invoiceId: invoiceKey, deletedAt: null, status: { $ne: 'cancelled' } }).session(session).lean().exec();
       if (rows.length !== ids.length) throw new BadRequestException('Часть позиций уже убрана из счёта или отменена. Обновите карточку');
+      if (scope) {
+        for (const row of rows) await assertDocInScope(this.connection, scope, row, undefined, session);
+      }
 
       const pending = rows.filter(row => {
         const label = row.num == null ? row.title : `Заявка №${row.num}`;
@@ -973,40 +988,48 @@ export class SupplyService {
     return this.get(id);
   }
 
-  private async receiveRaw(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId?: string) {
+  private async receiveRaw(id: string, dto: { qty?: number; clientUid?: string; toStock?: boolean; costCenter?: string; costObject?: string; partial?: boolean; materialId?: string }, userId: string | undefined, scope: StockScope | null) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Некорректный id заявки');
-    const doc = await this.model.findOne({ _id: id, deletedAt: null }).exec();
+    const doc = await this.model.findOne({ _id: id, deletedAt: null }).select('+receiveUid').exec();
     if (!doc) throw new NotFoundException('Заявка не найдена');
-    const prevUid = (doc as unknown as { receiveUid?: string }).receiveUid;
+    await assertDocInScope(this.connection, scope, doc);
+    const prevUid = doc.receiveUid;
     if (doc.status === 'received') {
-      if (dto.clientUid && (doc as unknown as { receiveUid?: string }).receiveUid === dto.clientUid) return this.get(id);
+      if (dto.clientUid && prevUid === dto.clientUid) return this.get(id, scope);
       throw new ConflictException('Заявка уже отмечена как полученная');
     }
     if (doc.status === 'cancelled') throw new BadRequestException('Заявка отменена — принять её нельзя. Верните статус «Заказать» или создайте новую заявку');
     const qty = Number(dto.qty ?? doc.qty);
     if (!(qty > 0)) throw new BadRequestException('Укажите количество');
 
-    if (dto.partial && dto.clientUid && prevUid === dto.clientUid) return this.get(id);
+    if (dto.partial && dto.clientUid && prevUid === dto.clientUid) return this.get(id, scope);
     const initial = doc as unknown as { invoiceId?: Types.ObjectId; costCenter?: string; costObject?: string };
     const assertPendingBasis = (invoice: Record<string, unknown>, source: { qty?: number; costCenter?: string; costObject?: string }) => {
       if (!hasUndatedPayment(invoice)) return;
       if ((dto.partial && qty < Number(source.qty)) || (dto.costCenter !== undefined && dto.costCenter !== (source.costCenter || '')) || (dto.costObject !== undefined && dto.costObject.trim() !== (source.costObject || ''))) throw undatedLocked();
     };
-    // Ранний отказ до создания каталога; гарантия от late-attach ниже, внутри транзакции.
+    // Ранний отказ по счёту и повторная проверка связи внутри транзакции.
     if (initial.invoiceId) {
       const header = await this.connection.db!.collection('supplyinvoices').findOne({ _id: initial.invoiceId, deletedAt: null });
       if (header) assertPendingBasis(header, doc);
     }
-    const receiptMaterial: { id?: Types.ObjectId } = {};
-    const writeReceipt = async (session: ClientSession) => {
-      const fresh = await this.model.findOne({ _id: doc._id, deletedAt: null }).session(session).lean().exec() as (SupplyRequest & { _id: Types.ObjectId; receiveUid?: string }) | null;
+    const linkedMaterialId = dto.materialId && Types.ObjectId.isValid(dto.materialId) ? dto.materialId : String(doc.materialId ?? '');
+    const writeReceipt = async (session: ClientSession, materialId?: Types.ObjectId) => {
+      const fresh = await this.model.findOne({ _id: doc._id, deletedAt: null }).select('+receiveUid').session(session).lean().exec();
       if (!fresh) throw new NotFoundException('Заявка не найдена');
+      await assertDocInScope(this.connection, scope, fresh, undefined, session);
+      if (linkedMaterialId && materialId && String(fresh.materialId ?? '') !== String(materialId)) {
+        await assertDocInScope(this.connection, scope, { materialId }, 'Эта позиция не из вашего склада', session);
+      }
       await claimStockLinks(this.connection.db!, session, [fresh]);
       if (fresh.status === 'received') {
         if (dto.toStock === false && dto.clientUid && fresh.receiveUid === dto.clientUid) return;
         throw new ConflictException('Заявка уже отмечена как полученная');
       }
       if (fresh.status === 'cancelled' || Number(fresh.qty) !== Number(doc.qty)) throw new ConflictException('Заявка изменилась во время приёмки — обновите карточку');
+      if (materialId && (String(fresh.materialId ?? '') !== String(doc.materialId ?? '') || (!linkedMaterialId && (
+        fresh.title !== doc.title || fresh.unit !== doc.unit || fresh.article !== doc.article || String(fresh.categoryId ?? '') !== String(doc.categoryId ?? '')
+      )))) throw new ConflictException('Материал заявки изменился во время приёмки — обновите карточку');
       if (dto.partial && dto.clientUid && fresh.receiveUid === dto.clientUid) throw new ConflictException('Эта часть уже принята — обновите карточку');
       const header = fresh.invoiceId ? await this.connection.db!.collection('supplyinvoices').findOne({ _id: fresh.invoiceId, deletedAt: null }, { session }) : null;
       if (fresh.invoiceId && !header) throw new BadRequestException('Связанный счёт не найден — приёмка отменена');
@@ -1019,7 +1042,7 @@ export class SupplyService {
       const costObject = dto.costObject?.trim() || fresh.costObject;
       const set = {
         ...(!header || !hasUndatedPayment(header) ? { costCenter, ...(costObject ? { costObject } : {}) } : {}),
-        ...(receiptMaterial.id ? { materialId: receiptMaterial.id } : {}),
+        ...(materialId ? { materialId } : {}),
         ...(partial ? { qty: Math.round((Number(fresh.qty) - qty) * 1000) / 1000, receivedQty: Math.round(((Number(fresh.receivedQty) || 0) + qty) * 1000) / 1000 } : { status: 'received', receivedQty: qty, receivedAt: new Date(), receivedTo: dto.toStock === false ? 'direct' : 'stock' }),
         editedInApp: true, ...(dto.clientUid ? { receiveUid: dto.clientUid } : {}),
       };
@@ -1030,24 +1053,33 @@ export class SupplyService {
     if (dto.toStock === false) {
       const session = await this.connection.startSession();
       try { await session.withTransaction(() => writeReceipt(session)); } finally { await session.endSession(); }
-      return this.get(id);
+      return this.get(id, scope);
     }
-    let materialId = (dto.materialId && Types.ObjectId.isValid(dto.materialId)) ? dto.materialId : (doc.materialId ? String(doc.materialId) : '');
-    if (!materialId) {
-      const name = doc.title?.trim();
-      if (!name) throw new BadRequestException('У заявки нет наименования');
-      const cat = doc.categoryId ? await this.connection.db!.collection('categories').findOne({ _id: doc.categoryId }) : null;
-      const item = await this.stock.createItem({ name, unit: doc.unit, article: doc.article, categoryName: cat?.name as string | undefined, invoiceName: name });
-      materialId = item.id;
-    }
-    receiptMaterial.id = new Types.ObjectId(materialId);
     const partial = !!dto.partial && qty < Number(doc.qty);
     const cancelled = dto.clientUid || partial ? 0 : await this.connection.db!.collection('stockmovements').countDocuments({ documentRef: `SupplyRequest:${id}`, cancelledAt: { $ne: null } });
     const movement = { type: 'in' as const, qty, note: `Приход по заявке${doc.num ? ' №' + doc.num : ''}${partial ? ' (часть)' : ''}`, documentRef: `SupplyRequest:${id}`, clientUid: dto.clientUid ?? (partial ? undefined : `receive:${id}:${doc.receivedQty ?? 0}:${cancelled}`) };
-    // Callback обязателен даже для первоначально отдельной заявки: счёт мог появиться во время createItem/move.
-    await this.stock.move(materialId, movement, userId, writeReceipt, 'receipt');
-    if (!partial && doc.article) await this.stock.adoptArticle(materialId, doc.article, `заявка${doc.num ? ' №' + doc.num : ''}`).catch(() => undefined);
-    return this.get(id);
+    let materialId = linkedMaterialId;
+    try {
+      if (linkedMaterialId) {
+        const materialKey = new Types.ObjectId(linkedMaterialId);
+        await this.stock.move(linkedMaterialId, movement, userId, session => writeReceipt(session, materialKey), 'receipt');
+      } else {
+        const name = doc.title?.trim();
+        if (!name) throw new BadRequestException('У заявки нет наименования');
+        materialId = await this.stock.receiveWithItem({ name, unit: doc.unit, article: doc.article, categoryId: doc.categoryId }, movement, userId, writeReceipt, scope);
+      }
+    } catch (error) {
+      if (!(error instanceof ConflictException) || !dto.clientUid) throw error;
+      const ownReceipt = await this.model.exists({ _id: doc._id, deletedAt: null, receiveUid: dto.clientUid });
+      // У более ранней части в заявке уже новый ключ. Годится только её живое движение по этой же заявке и позиции.
+      const ownPartial = !ownReceipt && dto.partial && doc.materialId && await this.connection.db!.collection('stockmovements').findOne({
+        documentRef: movement.documentRef, materialId: doc.materialId, type: 'in', clientUid: dto.clientUid, cancelledAt: null, deletedAt: null,
+      }, { projection: { _id: 1 } });
+      if (ownReceipt || ownPartial) return this.get(id, scope);
+      throw error;
+    }
+    if (!partial && doc.article) await this.stock.adoptArticle(materialId, doc.article, `заявка${doc.num ? ' №' + doc.num : ''}`, scope).catch(() => undefined);
+    return this.get(id, scope);
   }
 
   aliases() { return new SupplierAliases(this.connection); }

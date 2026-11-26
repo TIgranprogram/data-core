@@ -6,7 +6,7 @@ import { badge, COST_CENTER, PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/ki
 import { stageStrip } from './request-step.js';
 import { orderTag } from './requests.js';
 
-export const FACTS = ['Количество', 'Куда', 'Заказ / заказчик', 'Поставщик', 'Сумма с НДС', 'Ответственный'];
+export const FACTS = ['Количество', 'Примечание', 'Куда', 'Заказ / заказчик', 'Поставщик', 'Сумма с НДС', 'Ответственный'];
 /** Все сведения заявки парами (группы — заголовки grp) для infoCard. */
 export const requestPairs = (r) => [
   grp('Заявка'),

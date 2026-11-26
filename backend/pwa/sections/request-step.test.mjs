@@ -15,8 +15,9 @@ const text = (node) => node == null ? '' : typeof node !== 'object' ? String(nod
 const find = (node, predicate) => { if (!node || typeof node !== 'object') return null; if (predicate(node)) return node; for (const x of node.children) { const got = find(x, predicate); if (got) return got; } return null; };
 const tick = () => new Promise((r) => setImmediate(r));
 
-async function component({ failPost = false, canMoney = true, paid = false, received = false, failLoad = false, normalSave = false } = {}) {
+async function component({ failPost = false, canMoney = true, paid = false, received = false, failLoad = false, normalSave = false, adminOnlyDuplicates = false } = {}) {
   const data = invoiceMergeData(), calls = [], dialogs = [], routes = [], failures = [];
+  if (adminOnlyDuplicates) data.preview.strategies = ['append', 'replaceLines'];
   if (paid) { data.source.status = 'paid'; data.source.paymentSnapshot = { amount: 250, paidAt: '2026-10-30' }; data.source.paymentAdjustments = [{ at: '2026-11-01', reason: 'Уточнение цены', delta: 50 }]; }
   if (received) data.source.requests[0].status = 'received';
   const api = async (path, opts = {}) => {
@@ -37,6 +38,7 @@ async function component({ failPost = false, canMoney = true, paid = false, rece
     attachCombo() {}, modal: (cfg) => new Promise((resolve) => dialogs.push({ cfg, resolve })), toast() {}, toastError(e) { failures.push(e); },
     button: ({ label, onClick }) => h('button', { onclick: onClick }, label), actions: (...kids) => h('actions', {}, ...kids),
     row: ({ title, meta, side }) => h('row', {}, title, meta, side), section: ({ title, count, body }) => h('section', {}, title, count, body), stack: (...kids) => h('stack', {}, ...kids),
+    select: ({ label, value, options }) => h('select', { 'aria-label': label, value }, options.map(([key, text]) => h('option', { value: key }, text))),
     badge: (_map, key) => h('badge', {}, key), enhanceSelect: (el) => el, INVOICE_STATUS: {}, busyBlock: (what) => h('busy', {}, what), failBlock: (e, retry) => h('fail', { retry }, e.message),
   };
   const mocks = {
@@ -49,7 +51,7 @@ async function component({ failPost = false, canMoney = true, paid = false, rece
   };
   const root = new SourceTextModule(readFileSync(new URL('./request-step.js', import.meta.url), 'utf8'));
   await root.link(async (specifier) => {
-    if (specifier === '../core/invoice-merge.js') return new SourceTextModule(readFileSync(new URL('../core/invoice-merge.js', import.meta.url), 'utf8'));
+    if (['../core/invoice-merge.js', './invoice-merge-preview.js'].includes(specifier)) return new SourceTextModule(readFileSync(new URL(specifier, import.meta.url), 'utf8'));
     const exports = mocks[specifier]; assert.ok(exports, `Неизвестный импорт: ${specifier}`);
     return new SyntheticModule(Object.keys(exports), function () { for (const [key, value] of Object.entries(exports)) this.setExport(key, value); });
   });
@@ -73,6 +75,18 @@ test('409 сам не мутирует: выбор → GET → видимый pr
   assert.equal(await run, null); assert.equal(c.posts().length, 1);
   assert.deepEqual(JSON.parse(JSON.stringify(c.posts()[0].body)), { targetId: 'target', strategy: 'replaceLines' });
   assert.equal(c.posts()[0].noWait, true); assert.equal(c.routes[0].open, 'target');
+});
+
+test('предпросмотр объясняет, что удалить дубли может администратор, и оставляет другие способы', async () => {
+  const c = await component({ adminOnlyDuplicates: true });
+  const run = c.ui.previewInvoiceMerge('source', 'target');
+  const preview = await c.nextDialog();
+  const strategy = find(preview.cfg.body, (x) => x.tag === 'select');
+  assert.deepEqual(strategy.children.map((option) => option.value), ['append', 'replaceLines']);
+  assert.match(text(preview.cfg.body), /переносит одинаковые заявки в корзину.*может выбрать администратор/);
+  preview.resolve(null);
+  assert.equal(await run, null);
+  assert.deepEqual(c.posts(), []);
 });
 
 for (const phase of ['choice', 'preview']) test(`отмена ${phase}: ни merge, ни duplicateReason`, async () => {

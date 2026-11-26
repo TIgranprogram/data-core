@@ -11,7 +11,7 @@ export function parseFront(text) {
     const kv = /^([\w-]+):\s*(.*)$/.exec(line.trim()); if (!kv) continue;
     let v = kv[2].trim();
     if (/^\[.*\]$/.test(v)) v = v.slice(1, -1).split(',').map((x) => x.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
-    else if (/^\d+$/.test(v)) v = Number(v);
+    else if (kv[1] !== 'hash' && /^\d+$/.test(v)) v = Number(v);
     else if (v === 'true' || v === 'false') v = v === 'true';
     meta[kv[1]] = v;
   }

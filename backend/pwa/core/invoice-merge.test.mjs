@@ -77,6 +77,32 @@ test('разошедшиеся или частично видимые строк
   await assert.rejects(loadInvoiceMerge(partial.request, 'source', 'target'), /Обновите предпросмотр/);
 });
 
+test('скрытые цены: сервер разрешает перенос всех строк, включая похожие по материалу и количеству', async () => {
+  const h = harness();
+  for (const key of ['source', 'target']) {
+    delete h.data.preview[key].amount;
+    for (const line of h.data[key].requests) delete line.priceHint;
+  }
+  delete h.data.preview.resultAmount;
+  h.data.preview.duplicates = 0;
+  const p = await loadInvoiceMerge(h.request, 'source', 'target', false);
+  assert.deepEqual(p.plans.mergeSameRequest.moved.map(x => x.id), ['a', 'b']);
+  assert.equal(p.resultAmount, undefined);
+  h.data.target.partial = true;
+  await assert.rejects(loadInvoiceMerge(h.request, 'source', 'target', false), /Обновите предпросмотр/);
+});
+
+test('скрытые цены: неподтверждённые дубли и запрещённый выбор не создают POST', async () => {
+  const h = harness();
+  h.data.preview.strategies = ['append', 'replaceLines'];
+  await assert.rejects(mergeInvoiceWithPreview(h.request, 'source', 'target', {
+    canMoney: false, confirm: () => 'mergeSameRequest', retry: () => false,
+  }), /Выберите способ/);
+  h.data.preview.duplicates = 2;
+  await assert.rejects(loadInvoiceMerge(h.request, 'source', 'target', false), /Обновите предпросмотр/);
+  assert.equal(h.posts().length, 0);
+});
+
 test('правило дублей — materialId, количество и итог строки; без материала — точное название', () => {
   assert.equal(sameInvoiceLine({ materialId: 'x', title: 'а', qty: 3, priceHint: 100 }, { materialId: 'x', title: 'б', qty: 3, priceHint: 100 }), true);
   assert.equal(sameInvoiceLine({ materialId: 'x', qty: 3, priceHint: 100 }, { materialId: 'x', qty: 3, priceHint: 99.99 }), false);
