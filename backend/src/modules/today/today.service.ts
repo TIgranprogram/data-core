@@ -5,7 +5,8 @@ import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { ACTIVE_STAGES } from '../../common/text/order-key';
 import { canSeeMoney } from '../../common/roles-hierarchy';
 import { sharedCount, sharedFind } from '../../common/shared-collections';
-import { stockScopeFor } from '../../common/stock-scope';
+import { stockScopeFor, type StockScope } from '../../common/stock-scope';
+import { docScopeMatch } from '../../common/supply-scope';
 import { FinanceService } from '../finance/finance.service';
 import { presentWork } from '../work/work-present';
 import { StockService } from '../stock/stock.service';
@@ -48,7 +49,7 @@ export class TodayService {
     const none = Promise.resolve(null);
 
     const [supply, orders, design, work, questions, stock, forecast] = await Promise.all([
-      see('requests') ? this.supply(db, upto) : none,
+      see('requests') ? this.supply(db, upto, stockScopeFor(user)) : none,
       see('salesorders') ? this.orders(db, upto, today) : none,
       see('design') ? this.design(db, upto, today) : none,
       see('work') ? this.work(db, upto) : none,
@@ -88,14 +89,14 @@ export class TodayService {
     const see = (id: string) => sectionOpen(open, id);
     const db = this.connection.db!;
     const live = { deletedAt: null };
-    const count = (coll: string, filter: Record<string, unknown>) => {
-      const q = { ...live, ...filter };
-      if (coll === 'supplyrequests') return sharedCount(db.collection(coll), 'supplyrequests', q) as Promise<number>;
-      return db.collection(coll).countDocuments(q);
-    };
+    const count = (coll: string, filter: Record<string, unknown>) => db.collection(coll).countDocuments({ ...live, ...filter });
     const out: Record<string, number> = {};
     await Promise.all([
-      see('requests') && count('supplyrequests', { status: { $in: ['requested', 'in_progress', 'ordered', null] } }).then((n) => { out.requests = n; }),
+      see('requests') && this.supplyFilter(stockScopeFor(user)).then(async (filter) => {
+        out.requests = await sharedCount(db.collection('supplyrequests'), 'supplyrequests', {
+          ...filter, status: { $in: ['requested', 'in_progress', 'ordered', null] },
+        }) as number;
+      }),
       see('stock') && this.stockCounts(user).then((c) => { out.stockLow = c.low; }),
       see('money') && canSeeMoney(user) && count('incomes', { cancelledAt: null, paidDate: null, paidAmount: { $not: { $gt: 0 } }, shipDate: { $ne: null }, amount: { $gt: 0 } }).then((n) => { out.awaiting = n; }),
       // как чип «В работе» на доске заказов: число заказов производства (группы), не договоров
@@ -125,8 +126,13 @@ export class TodayService {
     return n;
   }
 
-  private async supply(db: NonNullable<Connection['db']>, upto: Date) {
+  private async supplyFilter(scope: StockScope | null): Promise<Record<string, unknown>> {
     const base = { deletedAt: null };
+    return scope ? { ...base, $and: [await docScopeMatch(this.connection, scope)] } : base;
+  }
+
+  private async supply(db: NonNullable<Connection['db']>, upto: Date, scope: StockScope | null) {
+    const base = await this.supplyFilter(scope);
     const [by, rows] = await Promise.all([
       db.collection('supplyrequests').aggregate<{ _id: string; n: number }>([{ $match: base }, { $group: { _id: '$status', n: { $sum: 1 } } }]).toArray(),
       sharedFind(db.collection('supplyrequests'), 'supplyrequests', { ...base, status: 'ordered', neededBy: { $lte: upto } }, {

@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { getCurrentUser } from '../../common/context/user-context';
 import { sharedFind } from '../../common/shared-collections';
-import type { StockScope } from '../../common/stock-scope';
+import { inScope, type StockScope } from '../../common/stock-scope';
 import { assertDocInScope } from '../../common/supply-scope';
 import { AuditLog, AuditLogDocument } from './audit-log.schema';
 import { AuditQueryRaw, parseAuditQuery } from './audit-query';
@@ -113,6 +113,26 @@ export class AuditService {
     }).limit(1).toArray();
     if (!request || (request.materialId && !Types.ObjectId.isValid(String(request.materialId)))) throw new ForbiddenException(denied);
     await assertDocInScope(connection, scope, request, denied);
+  }
+
+  async assertStockHistoryScope(entityType: 'Material' | 'StockMovement', id: string, scope: StockScope | null): Promise<void> {
+    if (!scope) return;
+    const denied = 'История этой записи недоступна в вашем складе';
+    if (!Types.ObjectId.isValid(id)) throw new ForbiddenException(denied);
+    const db = this.model.db.db!;
+    let materialId = new Types.ObjectId(id);
+    if (entityType === 'StockMovement') {
+      const [movement] = await sharedFind(db.collection('stockmovements'), 'stockmovements', { _id: materialId }, {
+        projection: { materialId: 1 }, includeDeleted: true,
+      }).limit(1).toArray();
+      const sourceId = String(movement?.materialId ?? '');
+      if (!Types.ObjectId.isValid(sourceId)) throw new ForbiddenException(denied);
+      materialId = new Types.ObjectId(sourceId);
+    }
+    const [material] = await sharedFind(db.collection('materials'), 'materials', { _id: materialId }, {
+      projection: { categoryId: 1 }, includeDeleted: true,
+    }).limit(1).toArray();
+    if (!material || !inScope(scope, material)) throw new ForbiddenException(denied);
   }
 
   /** История одной записи (И.1): по entityId (ObjectId) или details.id (строковые id), сначала новые. */

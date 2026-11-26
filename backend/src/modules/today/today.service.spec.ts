@@ -1,4 +1,6 @@
 import { Types } from 'mongoose';
+import { setRoleSections } from '../../common/app-sections';
+import { setRoleStockScope } from '../../common/stock-scope';
 import { TodayService } from './today.service';
 
 /** Поддельная база: каждая коллекция отдаёт заданные строки, любой запрос — как есть. */
@@ -51,6 +53,49 @@ describe('TodayService', () => {
     expect(await svc.counters({ role: 'admin' })).toEqual({ requests: 0, stockLow: 2, awaiting: 0, salesorders: 1, design: 0, work: 0 });
     expect(stock.listItems).toHaveBeenCalledWith({ limit: 1, held: '1' }, null);
     expect(await svc.counters({ role: 'user' })).not.toHaveProperty('awaiting');
+  });
+
+  it('одна складская область применяется к поставкам, группировке статусов и счётчику заявок', async () => {
+    const role = 'r-today-stock';
+    const categoryId = new Types.ObjectId();
+    const materialId = new Types.ObjectId();
+    const asCursor = (rows: object[]) => ({ toArray: async () => rows });
+    const materials = { find: jest.fn(() => asCursor([{ _id: materialId }])) };
+    const supplyrequests = {
+      aggregate: jest.fn(() => asCursor([{ _id: 'ordered', n: 1 }])),
+      find: jest.fn(() => asCursor(data.supplyrequests)),
+      countDocuments: jest.fn().mockResolvedValue(1),
+    };
+    const collection = jest.fn((name: string) => ({ materials, supplyrequests })[name as 'materials' | 'supplyrequests']);
+    const service = new TodayService({ db: { collection } } as never, {} as never, {} as never);
+    setRoleStockScope(role, { stockCategoryIds: [String(categoryId)] });
+    setRoleSections(role, ['requests']);
+    try {
+      const filter = { deletedAt: null, $and: [{ $or: [
+        { materialId: { $in: [materialId] } },
+        { materialId: null, categoryId: { $in: [categoryId, String(categoryId)] } },
+      ] }] };
+      const today = await service.get({ role }, { scope: 'all' }, NOW);
+      expect(today.feed).toHaveLength(1);
+      expect(today.metrics.supply).toEqual({ counts: { requested: 0, in_progress: 0, ordered: 1, received: 0 } });
+      expect(supplyrequests.aggregate).toHaveBeenCalledWith([
+        { $match: filter }, { $group: { _id: '$status', n: { $sum: 1 } } },
+      ]);
+      expect(supplyrequests.find).toHaveBeenCalledWith({ ...filter, status: 'ordered', neededBy: { $lte: expect.any(Date) } }, expect.objectContaining({
+        sort: { neededBy: 1 }, limit: 300,
+      }));
+      expect(await service.counters({ role })).toEqual({ requests: 1 });
+      expect(supplyrequests.countDocuments).toHaveBeenCalledWith({ ...filter, status: { $in: ['requested', 'in_progress', 'ordered', null] } }, undefined);
+
+      collection.mockClear();
+      setRoleSections(role, ['home']);
+      expect((await service.get({ role }, {}, NOW)).metrics).not.toHaveProperty('supply');
+      expect(await service.counters({ role })).not.toHaveProperty('requests');
+      expect(collection).not.toHaveBeenCalled();
+    } finally {
+      setRoleSections(role, null);
+      setRoleStockScope(role, null);
+    }
   });
 
   it('счётчик Заказов — группы производства в active, не число договоров', async () => {

@@ -2,6 +2,7 @@ import request from 'supertest';
 import { DiscoveryService } from '@nestjs/core';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { RequestMethod, type INestApplication } from '@nestjs/common';
+import { Types } from 'mongoose';
 import { createTestApp, type TestContext } from '../setup/test-db';
 import { authHeader, loginAsAdmin, type AuthTokens } from '../setup/admin.fixture';
 import { STOCK_SCOPED_KEY } from '../../src/common/decorators/stock-scoped.decorator';
@@ -179,6 +180,65 @@ describe('Склады-зоны (WZ)', () => {
       if (body.includes(FOREIGN_ITEM) || body.includes(FOREIGN_CAT) || (ok2xx && (body.includes(itemB) || body.includes(catB) || body.includes(reqB)))) leaks.push(`${res.status} ${url}`);
     }
     expect(leaks).toEqual([]);
+  });
+
+  it('история материала и движения проверяет склад текущего материала, включая корзину', async () => {
+    const t = as(admin.access);
+    const db = ctx!.connection.db!;
+    const { items } = (await http().get('/api/stock/movements').query({ materialId: `${itemA},${itemB}` }).set(t).expect(200)).body;
+    const movementId = (materialId: string) => items.find((row: { materialId: string }) => row.materialId === materialId).id as string;
+    const deleted = new Types.ObjectId();
+    const orphan = new Types.ObjectId();
+    const now = new Date();
+    await db.collection('materials').insertOne({ _id: deleted, name: 'Позиция в корзине', categoryId: new Types.ObjectId(catA), deletedAt: now });
+    await db.collection('stockmovements').insertOne({ _id: orphan, materialId: new Types.ObjectId() });
+    const legacy = 'wz-legacy-material';
+    await db.collection('auditlogs').insertMany([
+      { entityType: 'Material', entityId: deleted, action: 'delete', createdAt: now },
+      ...[movementId(itemA), movementId(itemB), String(orphan)].map((id) => ({ entityType: 'StockMovement', entityId: new Types.ObjectId(id), action: 'update', createdAt: now })),
+      { entityType: 'Material', details: { id: legacy }, action: 'create', createdAt: now },
+    ]);
+
+    const history = (entityType: string, entityId: string, token = tokMain) => http().get('/api/audit-logs/record').query({ entityType, entityId }).set(as(token));
+    expect((await history('Material', itemA).expect(200)).body.total).toBeGreaterThan(0);
+    expect((await history('Material', String(deleted)).expect(200)).body.total).toBe(1);
+    expect((await history('StockMovement', movementId(itemA)).expect(200)).body.total).toBe(1);
+    await history('Material', itemB).expect(403);
+    await history('StockMovement', movementId(itemB)).expect(403);
+    await history('StockMovement', String(orphan)).expect(403);
+    await history('Material', legacy).expect(403);
+    expect((await history('Material', legacy, admin.access).expect(200)).body.total).toBe(1);
+    expect((await history('StockMovement', movementId(itemB), tokBoth).expect(200)).body.total).toBe(1);
+  });
+
+  it('«Сегодня» выбирает поставки своего склада до лимита и так же считает заявки', async () => {
+    const m = as(tokMain);
+    const db = ctx!.connection.db!;
+    const tomorrow = new Date(Date.now() + 27 * 3_600_000).toISOString().slice(0, 10);
+    const due = new Date(`${tomorrow}T00:00:00Z`);
+    const earlier = (days: number) => new Date(due.getTime() - days * 86_400_000);
+    const materialA = new Types.ObjectId(itemA);
+    const materialB = new Types.ObjectId(itemB);
+    const categoryA = new Types.ObjectId(catA);
+    const categoryB = new Types.ObjectId(catB);
+    const own = new Types.ObjectId();
+    const ownCategory = new Types.ObjectId();
+    await db.collection('supplyrequests').insertMany([
+      ...Array.from({ length: 300 }, () => ({ title: 'Чужая поставка', status: 'ordered', neededBy: earlier(2), materialId: materialB, categoryId: categoryA })),
+      { _id: own, title: 'Своя поставка', status: 'ordered', neededBy: earlier(1), materialId: materialA, categoryId: categoryB },
+      { _id: ownCategory, title: 'Поставка своей категории', status: 'ordered', neededBy: due, categoryId: categoryA },
+      { title: 'Без категории', status: 'in_progress' },
+      { title: 'Старая заявка без статуса', materialId: materialA },
+      { title: 'Снятая заявка', status: 'ordered', neededBy: due, materialId: materialA, deletedAt: new Date() },
+    ]);
+
+    const summary = (await http().get('/api/today').query({ scope: 'all' }).set(m).expect(200)).body;
+    expect(summary.feed.filter((row: { kind: string }) => row.kind === 'delivery').map((row: { id: string }) => row.id)).toEqual([String(own), String(ownCategory)]);
+    expect(summary.week.find((day: { date: string }) => day.date === tomorrow).events)
+      .toContainEqual(expect.objectContaining({ kind: 'delivery', id: String(ownCategory) }));
+    expect(summary.metrics.supply.counts).toEqual({ requested: 1, in_progress: 1, ordered: 2, received: 0 });
+    const counters = (await http().get('/api/me/counters').set(m).expect(200)).body;
+    expect(counters.requests).toBe(5);
   });
 
   /** Все GET-обработчики наблюдаемых контроллеров из реестра Nest: путь + метка @StockScoped(). */

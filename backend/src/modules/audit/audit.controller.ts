@@ -59,7 +59,7 @@ export class AuditController {
   @Get('record')
   @Roles('admin', 'director', 'manager', 'user')
   @ApiOperation({ summary: 'История одной записи (заявка, позиция склада, контрагент, заказ): кто, что, когда' })
-  @ApiForbiddenResponse({ description: 'Раздел закрыт или заявка недоступна в пределах складских прав' })
+  @ApiForbiddenResponse({ description: 'Раздел закрыт или запись недоступна в пределах складских прав' })
   @ApiQuery({ name: 'entityType', required: true, description: RECORD_HISTORY_TYPES.join(' | ') })
   @ApiQuery({ name: 'entityId', required: true })
   async record(@Query('entityType') entityType: string, @Query('entityId') entityId: string, @CurrentUser() user?: AuthenticatedUser) {
@@ -67,7 +67,9 @@ export class AuditController {
     if (typeof entityId !== 'string' || !entityId.trim() || entityId.length > 300) throw new BadRequestException('Не указана запись');
     if (!historyTypesFor(user).includes(entityType)) throw new ForbiddenException(`Раздел «${appSectionLabel(RECORD_TYPE_SECTIONS[entityType][0])}» для вашей роли закрыт`);
     const id = entityId.trim();
-    if (entityType === 'SupplyRequest') await this.service.assertSupplyRequestHistoryScope(id, stockScopeFor(user));
+    const scope = stockScopeFor(user);
+    if (entityType === 'SupplyRequest') await this.service.assertSupplyRequestHistoryScope(id, scope);
+    if (entityType === 'Material' || entityType === 'StockMovement') await this.service.assertStockHistoryScope(entityType, id, scope);
     // «было → стало» по полям (И.1) — из соседних снимков; деньги — только деньги-ролям; сами снимки наружу не отдаём
     const raw = await this.service.recordLogs(entityType, id);
     const names = await this.service.actorNames(raw);
