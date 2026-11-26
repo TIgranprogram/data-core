@@ -1545,3 +1545,57 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
   .ff-num, .ff-step, .ff-pipe-q input { min-height: var(--tap); }
 }
 .bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); padding: var(--s2) var(--s3); background: var(--gold-soft, var(--surface-2)); border-bottom: 1px solid var(--border); }
+
+/* C269: рабочие pg-сетки только native pipe/sheet, остальные таблицы прежние. */
+.pg-worker { min-width: 0; }
+.pg-worker .pg-block { margin-block-start: var(--s4); }
+.pg-worker .pg-title { margin: 0; font-size: var(--fs-h2); }
+.pg-worker .table-wrap { max-height: calc(100vh - var(--topbar-h) - 6 * var(--s6)); overflow: auto; }
+.pg-worker .pg-table { border-collapse: separate; border-spacing: 0; table-layout: auto; }
+.pg-worker .pg-worker-pipe { min-width: 640px; }
+.pg-worker .pg-worker-sheet { min-width: 800px; }
+.pg-worker .pg-table :is(th, td) { padding: 0; white-space: normal; text-align: center; border-bottom: 1px solid var(--border); border-inline-end: 1px solid var(--border); }
+.pg-worker .pg-table :is(th, td):last-child { border-inline-end: 0; }
+.pg-worker .pg-table thead th { position: sticky; top: 0; z-index: 2; padding: var(--s2); font-size: var(--fs); font-weight: 700; color: var(--heading); text-transform: none; letter-spacing: normal; background: var(--chip-soft, var(--surface-2)); border-bottom: 2px solid var(--border-strong); }
+.pg-worker .pg-table thead small { font-size: var(--fs-sm); font-weight: 500; }
+.pg-worker .pg-table .pg-name { min-width: 160px; width: 160px; padding: var(--s2); font-size: var(--fs-h2); color: var(--heading); background: var(--surface-2); text-align: left; }
+.pg-worker .pg-table .pg-for { min-width: 200px; padding: var(--s2); text-align: left; font-size: var(--fs); overflow: visible; }
+.pg-worker .pg-table .pg-c { min-width: 160px; padding: 0; }
+.pg-worker .pg-table .pg-sum { min-width: 120px; padding: var(--s2); font-size: var(--fs-h2); }
+.pg-worker .pg-table tbody tr:nth-child(even) :is(th, td) { background: var(--surface-2); }
+.pg-worker .pg-table tbody tr:hover :is(th, td) { background: var(--row-hover); }
+.pg-worker .pg-worker-quantity { min-width: 0; }
+.pg-worker .pg-in, .pg-worker .pg-note { height: 48px; min-height: 48px; width: 100%; max-width: 100%; border-radius: 0; background: transparent; }
+.pg-worker .pg-in { font-size: var(--fs-h2); font-weight: 650; }
+.pg-worker .pg-note { min-width: 200px; padding: 0 var(--s2); font-size: var(--fs); }
+.pg-worker .pg-in:focus-visible, .pg-worker .pg-note:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--surface); }
+.pg-worker .pg-worker-value { display: block; min-height: 48px; align-content: center; font-size: var(--fs-h2); font-weight: 650; }
+.pg-worker .pg-worker-meta, .pg-worker .pg-worker-state { padding: var(--s1) var(--s2); font-size: var(--fs-sm); color: var(--text); font-weight: 400; }
+.pg-worker .pg-worker-source { display: block; min-width: 0; max-width: 320px; margin-inline: auto; padding: var(--s1) var(--s2); font-size: var(--fs-sm); font-weight: 400; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere; }
+.pg-worker .pg-worker-more { margin: 0; padding: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; }
+.pg-worker .pg-worker-more > summary { min-height: var(--control-compact); padding: var(--s1) var(--s2); font-size: var(--fs-sm); font-weight: 400; color: var(--link); }
+.pg-worker .pg-worker-more > .k-sec-body { padding: var(--s1); }
+
+/* C269: рабочая сетка на узком мониторе занимает ширину окна; меню открывается поверх. */
+@media (max-width: 1500px) {
+  .shell:has(.pg-worker) { grid-template-columns: minmax(0, 1fr); }
+  .shell:has(.pg-worker) > .sidebar {
+    position: fixed; inset: 0 auto 0 0; width: var(--sidebar-w); height: 100dvh;
+    padding: var(--s4) var(--s3); transform: translateX(-100%); visibility: hidden;
+    transition: transform .2s ease, visibility .2s;
+  }
+  .shell:has(.pg-worker).nav-open > .sidebar { transform: none; visibility: visible; box-shadow: var(--shadow-lg); }
+  .shell:has(.pg-worker) > .sidebar .resizer { display: none; }
+  .shell:has(.pg-worker) .topbar .burger { display: inline-flex; }
+  .shell:has(.pg-worker).nav-open > .side-back {
+    display: block; position: fixed; inset: 0; z-index: 25;
+    background: color-mix(in srgb, var(--text) 40%, transparent);
+  }
+  .shell:has(.pg-worker) > .sidebar .brand span,
+  .shell:has(.pg-worker) > .sidebar .side-link .lbl,
+  .shell:has(.pg-worker) > .sidebar .side-link .cnt { display: block; }
+  .shell:has(.pg-worker) > .sidebar .side-group { display: flex; }
+  .shell:has(.pg-worker) > .sidebar .brand,
+  .shell:has(.pg-worker) > .sidebar .side-link { justify-content: flex-start; }
+  .shell:has(.pg-worker) > .sidebar .side-link { padding-inline: var(--s3); }
+}
