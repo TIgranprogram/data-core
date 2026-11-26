@@ -1,5 +1,8 @@
 import { h } from '../core/dom.js';
-import { date } from '../core/format.js';
+import { date, dateTime } from '../core/format.js';
+import { canEditSection } from '../core/api.js';
+import { confirmDlg } from './kit/dialog.js';
+import { toast, toastError } from './kit/toast.js';
 
 /*
  * История изменений (TASKS И.1, И.2): подписи действий и список «Поле: было → стало».
@@ -64,4 +67,39 @@ export function changeList(changes, names = {}, first = false) {
   return h('ul', { class: 'changes' }, ...list.slice(0, max).map((c) => h('li', null, h('span', { class: 'muted' }, (names[c.field] || FIELD[c.field]) + ': '),
     h('s', { class: 'muted' }, show(c.from, c.field)), ' → ', h('b', null, show(c.to, c.field)))),
     list.length > max ? h('li', { class: 'muted' }, `…и ещё ${list.length - max}`) : null);
+}
+
+export function cardHistoryActions(section, record, fields, names, { openForm, canRestore, setSaving, onRestored }) {
+  const byKey = new Map(fields.map((field) => [field.key, field]));
+  const restore = section.card.historyRestore;
+  const restoreField = async (change, name) => {
+    if (!canRestore() || !canEditSection(section)) return;
+    const expected = record[change.field] || null;
+    setSaving(true);
+    try {
+      if (!await confirmDlg('Вернуть прежнее значение?', `${name}\nСейчас: ${expected || 'пусто'}\nБудет: ${change.from || 'пусто'}`, { okText: 'Вернуть' })) return;
+      const saved = await restore.update(record.id, { field: change.field, expected, value: change.from });
+      await onRestored(saved);
+      toast('Значение восстановлено');
+    } catch (error) { toastError(error, 'вернуть значение'); }
+    finally { setSaving(false); }
+  };
+  return (entry) => {
+    if (entry.first || !canEditSection(section)) return null;
+    const changes = entry.changes || [];
+    if (restore) {
+      return changes.filter((change) => restore.fields.includes(change.field) && names[change.field]
+        && (change.from === null || typeof change.from === 'string') && (record[change.field] ?? '') !== (change.from ?? ''))
+        .map((change) => h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: () => restoreField(change, names[change.field]) },
+          `Вернуть поле «${names[change.field]}»`));
+    }
+    if (section.form?.build) return null;
+    const back = changes.filter((change) => byKey.has(change.field) && !['widget', 'photos'].includes(byKey.get(change.field).type));
+    if (!back.length) return null;
+    return h('button', { type: 'button', class: 'btn btn-ghost btn-sm', title: 'Открыть правку с прежними значениями этих полей — проверьте и сохраните', onclick: () => {
+      const values = Object.fromEntries(back.map((change) => [change.field, byKey.get(change.field).type === 'date' && change.from ? String(change.from).slice(0, 10) : change.from ?? '']));
+      const labels = back.map((change) => names[change.field] || change.field).join(', ');
+      openForm({ values, note: `Как было до изменения от ${dateTime(entry.createdAt)}: ${labels}. Проверьте и нажмите «Сохранить».` });
+    } }, 'Вернуть как было');
+  };
 }

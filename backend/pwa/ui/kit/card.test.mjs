@@ -57,7 +57,7 @@ class Element {
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-async function fixture({ pending = true, commit, solo = false, viewed, popout, id, dirty = () => false } = {}) {
+async function fixture({ pending = true, commit, solo = false, viewed, popout, id, dirty = () => false, history, confirm } = {}) {
   const body = new Element('body');
   const reports = [];
   const returns = [];
@@ -76,14 +76,13 @@ async function fixture({ pending = true, commit, solo = false, viewed, popout, i
   const noop = () => {};
   const deps = {
     './garbage.js': { scrubText: (text) => text },
-    '../../core/api.js': { api: noop, canEditSection: () => true, PREFIX: '', session: {} },
+    '../../core/api.js': { api: () => ({ items: history || [] }), canEditSection: (section) => section.canEdit?.() ?? true, PREFIX: '', session: {} },
     '../../core/errors.js': { reportError: (error, meta) => reports.push({ error, action: meta.action }) },
     './mark.js': { mark: (el) => el },
     './readonly.js': { readonlyGroups: () => null },
     '../../core/router.js': { go: noop },
     '../../core/format.js': { dateTime: noop },
-    '../history.js': { actionLabel: noop, changeList: noop, usefulEntry: noop },
-    './dialog.js': { confirmDlg: () => assert.fail('Шаблон не должен спрашивать об отмене изменений') },
+    './dialog.js': { confirmDlg: confirm || (() => assert.fail('Шаблон не должен спрашивать об отмене изменений')) },
     '../confirm-password.js': { withConfirm: noop },
     './photos.js': { photoDrop: noop },
     './card-gallery.js': { gallery: noop },
@@ -98,8 +97,13 @@ async function fixture({ pending = true, commit, solo = false, viewed, popout, i
     '../notices.js': { addNotice: noop },
   };
   const sources = new Map(Object.entries({
-    './card.js': './card.js', './card-menu.js': './card-menu.js', './card-parent.js': './card-parent.js', './toast.js': './toast.js', '../../core/dom.js': '../../core/dom.js',
+    './card.js': './card.js', '../history.js': '../history.js', './card-menu.js': './card-menu.js', './card-parent.js': './card-parent.js', './toast.js': './toast.js', '../../core/dom.js': '../../core/dom.js',
   }).map(([key, url]) => [key, new SourceTextModule(readFileSync(new URL(url, import.meta.url), 'utf8'), { context })]));
+  sources.set('../core/dom.js', sources.get('../../core/dom.js'));
+  sources.set('./kit/toast.js', sources.get('./toast.js'));
+  deps['../core/api.js'] = deps['../../core/api.js'];
+  deps['../core/format.js'] = { ...deps['../../core/format.js'], date: noop };
+  deps['./kit/dialog.js'] = deps['./dialog.js'];
   const mocks = new Map();
   const module = sources.get('./card.js');
   await module.link((key) => {
@@ -137,6 +141,40 @@ async function fixture({ pending = true, commit, solo = false, viewed, popout, i
   assert.equal(calls.view, 1);
   return { card, calls, done, reports, returns, body, edit, document, openCard: module.namespace.openCard, get windowCloses() { return windowCloses; }, get geometryCalls() { return geometryCalls; } };
 }
+
+test('История заявки возвращает только разрешённое поле, с текущим значением и подтверждением', async () => {
+  const history = [{ action: 'supply.request.updated', changes: [
+    { field: 'notes', from: 'Было', to: 'После правки' }, { field: 'qty', from: 1, to: 2 },
+  ] }];
+  const requests = [], confirms = [];
+  let allow = false, changed = 0;
+  const f = await fixture({ history, confirm: (_title, content) => { confirms.push(content); return allow; } });
+  const row = { id: 'r1', notes: 'Последняя правка', qty: 2 };
+  const section = {
+    title: 'Заявка', entityType: 'SupplyRequest', get: async () => row,
+    card: { heading: () => 'Заявка', view: (record) => [new Text(record.notes)], historyRestore: {
+      fields: ['notes'], update: async (id, body) => { requests.push({ id, ...body }); return { ...row, notes: body.value }; },
+    } },
+    form: { fields: () => [null, { key: 'notes', label: 'Примечание' }, { key: 'qty', label: 'Количество' }] },
+  };
+  f.openCard(section, { id: row.id }, { changed: () => { changed++; } });
+  await tick();
+  const restore = f.body.find((el) => el.localName === 'button' && el.textContent === 'Вернуть поле «Примечание»');
+  assert.ok(restore);
+  assert.equal(f.body.find((el) => el.localName === 'button' && /Вернуть.*Количество|Вернуть как было/.test(el.textContent)), undefined);
+  await restore.click();
+  assert.equal(requests.length, 0);
+  assert.match(confirms[0], /Сейчас: Последняя правка[\s\S]*Будет: Было/);
+  allow = true;
+  await restore.click();
+  await tick();
+  assert.deepEqual(requests, [{ id: 'r1', field: 'notes', expected: 'Последняя правка', value: 'Было' }]);
+  assert.equal(changed, 1);
+  assert.equal(f.body.find((el) => el.localName === 'button' && el.textContent === 'Вернуть поле «Примечание»'), undefined);
+  f.openCard({ ...section, canEdit: () => false }, { id: row.id }, {});
+  await tick();
+  assert.equal(f.body.find((el) => el.localName === 'button' && el.textContent === 'Вернуть поле «Примечание»'), undefined);
+});
 
 test('Готово ждёт запись и переключает просмотр после одного коммита', async () => {
   const write = Promise.withResolvers();
