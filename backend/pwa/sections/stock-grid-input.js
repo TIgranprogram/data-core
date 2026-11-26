@@ -23,7 +23,7 @@ export function moveCell(input, dx, dy) {
   }
   return false;
 }
-export function gridField(cls, label, start, save, readOnly = false) {
+export function gridField(cls, label, start, save, readOnly = false, confirm = null) {
   if (readOnly) return h('span', { 'aria-label': label }, start || '—');
   const { input } = textInput({ value: start, ...(cls === 'pg-in' ? { inputmode: 'decimal' } : {}) });
   input.classList.add(cls); input.readOnly = readOnly; input.setAttribute('aria-label', label);
@@ -32,6 +32,18 @@ export function gridField(cls, label, start, save, readOnly = false) {
   let was = start, saving = false, returnFocus = false;
   const restore = () => { if (input.isConnected && document.activeElement === document.body) { input.focus(); input.select(); } returnFocus = false; };
   input.addEventListener('focus', () => input.select());
+  if (confirm) {
+    input.addEventListener('input', () => confirm.input(input));
+    input.addEventListener('blur', () => { if (!input.dataset.gridReplacing) confirm.review(input); });
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); confirm.cancel(input); }
+      else if (event.key === 'Enter') { event.preventDefault(); if (confirm.review(input) === false) moveCell(input, 0, 1); }
+      else if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); moveCell(input, 0, event.key === 'ArrowDown' ? 1 : -1); }
+      else if (['ArrowRight', 'ArrowLeft'].includes(event.key) && input.selectionStart === input.selectionEnd
+        && input.selectionStart === (event.key === 'ArrowRight' ? input.value.length : 0)) { event.preventDefault(); moveCell(input, event.key === 'ArrowRight' ? 1 : -1, 0); }
+    });
+    return input;
+  }
   input.addEventListener('blur', async () => {
     if (saving || input.dataset.gridReplacing || input.value.trim() === was) return;
     saving = true; input.disabled = true; input.classList.add('is-busy');

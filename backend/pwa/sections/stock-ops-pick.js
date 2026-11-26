@@ -21,7 +21,7 @@ export function rememberPick(op, it) {
 }
 
 /** Шаги выбора: «Недавно → Категория → Позиция». Поле поиска (input) создаёт панель и передаёт сюда. add(it) — в пачку; onCat() — категория выбрана. */
-export function stockPick({ op, input: pickIn, add, onCat }) {
+export function stockPick({ op, input: pickIn, add, onCat, workerScope = null }) {
   let all = null; let loading = false; let cats = []; let cat = ''; let type = ''; // type: '' не выбран, '*' — «Все типы'
   const fun = funnel({ steps: [], onChange: (k, v) => { if (k === 'category') { cat = v || ''; type = ''; } else type = v || ''; onCat?.(); paintCats(); if (!all) { listBox.replaceChildren(hint('Загружаю склад…')); ensureAll(); } else paintList(); } });
   const listBox = h('div');
@@ -29,14 +29,14 @@ export function stockPick({ op, input: pickIn, add, onCat }) {
     options: () => (all || []).map((i) => ({ value: i.id, label: i.name, sub: `${qty(i.quantity)} ${i.unit || ''}`.trim() })),
     empty: () => (loading ? 'Загружаю склад…' : ''),
     onPick: (o) => { pickIn.value = ''; const it = (all || []).find((x) => x.id === o.value); if (it) add(it); },
-    extra: (text) => (op === 'in' && all && text.length > 2 && !all.some((x) => x.name.toLowerCase() === text.toLowerCase()) ? [{ label: `Создать «${text}»`, run: () => createNew(text) }] : []),
+    extra: (text) => (!workerScope && op === 'in' && all && text.length > 2 && !all.some((x) => x.name.toLowerCase() === text.toLowerCase()) ? [{ label: `Создать «${text}»`, run: () => createNew(text) }] : []),
   });
   pickIn.addEventListener('focus', async () => { await ensureAll(); if (document.activeElement === pickIn) combo.refresh(); });
 
   async function ensureAll() {
     if (all || loading) return all;
     loading = true;
-    try { all = await stockList(); } catch (e) { toastError(e); } finally { loading = false; }
+    try { all = await (workerScope ? workerScope.items() : stockList()); } catch (e) { toastError(e); } finally { loading = false; }
     paintRecent(); paintCats(); paintList();
     return all;
   }
@@ -52,7 +52,7 @@ export function stockPick({ op, input: pickIn, add, onCat }) {
 
   // «Недавно» (П-1 п. 5–6): последние позиции этой операции — добавление в один клик
   function paintRecent() {
-    const rec = readRecent(op);
+    const rec = readRecent(op).filter(item => !workerScope || all?.some(allowed => allowed.id === item.id));
     fun.setRecent(rec.map((x) => ({ title: x.name, meta: `на складе ${qty(x.quantity)} ${x.unit || ''}`.trim(),
       onClick: async () => { await ensureAll(); const it = (all || []).find((i) => i.id === x.id); if (it) add(it); else toast('Этой позиции уже нет на складе'); } })));
   }
@@ -85,7 +85,7 @@ export function stockPick({ op, input: pickIn, add, onCat }) {
   }
 
   // категории — при открытии панели (как было); одна — сразу список позиций (П-1 п. 3)
-  api('/stock/categories', { query: zoneQuery() }).then((r) => {
+  (workerScope ? workerScope.categories().then(items => ({ items })) : api('/stock/categories', { query: zoneQuery() })).then((r) => {
     cats = (r.items || []).filter((c) => c.id !== 'none');
     paintCats();
     if (cats.length < 2) { listBox.replaceChildren(hint('Загружаю склад…')); ensureAll(); }

@@ -1,11 +1,13 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
-import { current, patch, go } from '../core/router.js';
+import { current, go } from '../core/router.js';
 import { button, table, toolbar, searchBox, filter, busyBlock, failBlock, enhanceSelect, select as kitSelect, section } from '../ui/kit/index.js';
 import { pipeWorkerGrid, sheetWorkerGrid } from './stock-worker-grid.js';
-import { workerCountBody, workerMaterialId } from './stock-worker-model.js';
+import { workerCountBody, workerMaterialId, workerWashCounterpart } from './stock-worker-model.js';
 import { workerDetails } from './stock-worker-details.js';
+import { workerConfirmation } from './stock-worker-confirm.js';
+import { workerCreate } from './stock-worker-create.js';
 import { openStockOp } from './stock-ops.js';
 
 const PAGE_SIZE = 100;
@@ -16,21 +18,26 @@ const config = {
 /** Рабочие сетки используют те же scope/сортировку/страницы C242; каждый ввод относится к materialId. */
 export function mountStockWorktable(kind, { readOnly = false } = {}) {
   const cfg = config[kind];
-  let params = { ...current().params }, page = 1, sequence = 0, destroyed = false, zone, createDefaults = {};
+  let params = { ...current().params }, page = 1, sequence = 0, destroyed = false, zone, currentItems = [];
   const body = h('div');
+  const entryHost = h('div');
   const details = workerDetails();
+  const counterpart = target => workerWashCounterpart(target, currentItems);
+  const create = workerCreate({ kind, getZone: () => zone, host: entryHost, changed: () => load({ keep: true }), counterpart });
+  const confirmation = workerConfirmation((item, text, transfer) => gridOptions.saveCount(item, text, transfer), () => load(), counterpart);
   const search = searchBox({ value: params.q || '', label: 'Найти материал', placeholder: kind === 'pipe' ? '80×60×3' : 'Марка или размер', onSearch: value => { params.q = value; page = 1; load(); } });
   const select = kitSelect({ label: 'Сортировка', value: params.sort || cfg.sort,
     options: cfg.sorts.flatMap(([key, label]) => [[key, label + ' ↑'], ['-' + key, label + ' ↓']]),
     onChange: value => { params.sort = value; page = 1; load(); } });
   enhanceSelect(select);
   const availability = filter({ mode: 'chips', items: [{ key: '', label: 'Все' }, { key: 'in', label: 'В наличии' }, { key: 'none', label: 'Нет в наличии' }], value: params.availability || '', onChange: value => { params.held = undefined; params.availability = value || undefined; page = 1; load(); } }).el;
-  const add = !readOnly ? button({ label: 'Добавить материал', onClick: () => patch({ of: undefined, new: '1', open: undefined, ...createDefaults }, { kind: 'card' }) }) : null;
-  const receive = !readOnly ? button({ label: 'Принять на склад', kind: 'primary', onClick: () => openStockOp('in') }) : null;
+  const add = !readOnly ? button({ label: 'Добавить материал', onClick: () => create.open() }) : null;
+  if (add) add.dataset.workerCreate = 'new';
+  const receive = !readOnly ? button({ label: 'Принять на склад', kind: 'primary', onClick: () => { if (zone?.id) openStockOp('in', undefined, { zoneId: zone.id, kind }); } }) : null;
   const el = h('div', { class: 'pg-worker' }, h('div', { class: 'page-head' }, h('h1', null, cfg.title), receive, add),
     toolbar(search.el, availability, select, button({ label: 'Журнал движений', kind: 'ghost', onClick: () => go('movements') })),
     h('p', { class: 'hint' }, readOnly ? 'Только просмотр. Количества указаны в единице учёта материала.' : kind === 'pipe'
-      ? 'Количество в ячейках — в единице учёта. Длина трубы указана в шапке.' : 'Количество листов и обрезков — в единице учёта материала.'), body);
+      ? 'Количество в ячейках — в единице учёта. Длина трубы указана в шапке.' : 'Количество листов и обрезков — в единице учёта материала.'), entryHost, body);
   const closeMenu = event => {
     if (event.key !== 'Escape' || !el.isConnected || !matchMedia('(max-width: 1500px)').matches) return;
     const shell = el.closest('.shell');
@@ -40,12 +47,14 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
   };
   document.addEventListener('keydown', closeMenu);
 
-  const gridOptions = { readOnly, details,
-    async saveCount(item, text) {
+  const gridOptions = { readOnly, details, confirmation, create,
+    async saveCount(item, text, transfer = null) {
       const body = workerCountBody(item, text, cfg.title);
+      if (transfer) body.lines.push({ materialId: transfer.materialId, qty: transfer.expected - transfer.qty, expected: transfer.expected });
       await api('/stock/batch', { method: 'POST', body });
       item.quantity = body.lines[0].qty;
       item.free = item.quantity - Number(item.reservedQty || 0);
+      if (transfer) { const other = currentItems.find(value => workerMaterialId(value) === transfer.materialId); if (other) { other.quantity = transfer.expected - transfer.qty; other.free = other.quantity - Number(other.reservedQty || 0); } }
       details.invalidate(workerMaterialId(item));
     },
     async saveNote(item, value) {
@@ -70,7 +79,7 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
       ]);
       if (own !== sequence || destroyed) return;
       if (page > 1 && !result.items.length) { page = Math.max(1, Math.min(page - 1, Math.ceil(result.total / PAGE_SIZE))); return load(); }
-      if (result.items[0]) createDefaults = { categoryName: result.items[0].categoryName, unit: result.items[0].unit };
+      currentItems = result.items;
       // dc:changed перечитывает view после записи. Берём текущий фокус/черновик перед заменой, а не при старте запроса.
       const active = document.activeElement;
       const focus = keep && body.contains(active) && active.dataset.workerKey && /^(INPUT|BUTTON)$/.test(active.tagName)
@@ -78,6 +87,7 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
       if (focus) active.dataset.gridReplacing = '1';
       const scroll = keep ? [...body.querySelectorAll('.table-wrap')].map(node => ({ top: node.scrollTop, left: node.scrollLeft })) : [];
       const pages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+      create.preserve(); confirmation.begin();
       details.begin();
       body.replaceChildren(h('p', { class: 'hint', role: 'status' }, pages > 1
         ? `Страница ${page} из ${pages} · показано ${result.items.length} из ${result.total} материалов. Сетка содержит только эту страницу.`
@@ -101,5 +111,5 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
     } catch (error) { if (own === sequence && !destroyed) body.replaceChildren(failBlock(error, load)); }
   }
   load();
-  return { el, reload: () => load({ keep: true }), update(next) { if (JSON.stringify(params) !== JSON.stringify(next)) { params = { ...next }; page = 1; select.value = params.sort || cfg.sort; load(); } }, destroy() { destroyed = true; sequence++; details.destroy(); document.removeEventListener('keydown', closeMenu); } };
+  return { el, reload: () => load({ keep: true }), update(next) { if (JSON.stringify(params) !== JSON.stringify(next)) { params = { ...next }; page = 1; select.value = params.sort || cfg.sort; load(); } }, destroy() { destroyed = true; sequence++; details.destroy(); confirmation.destroy(); create.destroy(); document.removeEventListener('keydown', closeMenu); } };
 }

@@ -90,6 +90,7 @@ test('пересчёт и внешний reload сохраняют фокус, �
   const { page, calls, errors } = await fixture(t);
   const field = page.locator('[data-material-id="six"] input.pg-in');
   await field.fill('3'); await field.press('Enter');
+  await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('input[data-saved]'));
   const next = page.locator('input[data-worker-key="duplicate:count"]'); await next.focus(); await next.fill('17'); await next.evaluate(node => node.setSelectionRange(1, 1));
   await page.evaluate(() => window.grid.reload());
@@ -126,6 +127,7 @@ test('последняя ячейка листов после Enter остаёт
   const { page } = await fixture(t, { kind: 'sheet' });
   const input = page.locator('[data-material-id="sheet"] input.pg-in');
   await input.fill('3'); await input.press('Enter');
+  await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('input.pg-in[data-saved]'));
   assert.equal(await input.evaluate(node => document.activeElement === node), true);
   await page.evaluate(() => window.grid.reload());
@@ -140,11 +142,13 @@ test('внешний reload сохраняет примечание sheet, че�
   assert.equal(await note.evaluate(node => document.activeElement === node && node.selectionStart === 2), true);
   assert.equal(calls.filter(call => call.method === 'PATCH').length, 0);
 });
-test('ошибка пересчёта возвращает исходное значение ячейки и не меняет данные', async t => {
+test('ошибка пересчёта сохраняет черновик у материала и не меняет данные', async t => {
   const { page, items } = await fixture(t, { fail: true });
   const input = page.locator('[data-material-id="six"] input.pg-in');
   await input.fill('99'); await input.press('Enter');
-  await page.waitForFunction(() => { const node = document.querySelector('[data-material-id="six"] input.pg-in'); return node && !node.disabled && node.value === '12'; });
+  await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.getByText('Остаток изменился', { exact: true }).waitFor();
+  assert.equal(await input.inputValue(), '99');
   assert.equal(items.find(item => item.materialId === 'six').quantity, 12);
 });
 test('103 материала: явная текущая страница, серверная page2 без cap10000', async t => {
@@ -207,6 +211,7 @@ test('пересчёт открытой строки инвалидирует т
   await cell.locator('xpath=..').locator('button[data-worker-row]').click();
   await page.waitForFunction(() => document.querySelectorAll('.pg-worker-operation-matrix tbody tr').length === 3);
   await cell.locator('input.pg-in').fill('3'); await cell.locator('input.pg-in').press('Enter');
+  await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('[data-material-id="six"] input[data-saved]'));
   await page.evaluate(() => window.grid.reload()); await page.waitForTimeout(100);
   assert.equal(historyAttempts.get('six'), 2); assert.equal(historyAttempts.get('twelve'), 1);

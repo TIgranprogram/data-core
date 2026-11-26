@@ -1,35 +1,59 @@
 import { h } from '../core/dom.js';
-import { table } from '../ui/kit/index.js';
+import { table, button, textInput } from '../ui/kit/index.js';
 import { qty } from '../core/format.js';
 import { stockPositionName, stockPositionCode } from '../core/stock-display.js';
 import { inlineCountAllowed, stockCountCell, sectionValue } from './stock-dimension-columns.js';
 import { gridField } from './stock-grid-input.js';
-import { workerMaterialId, workerUnit, workerPipeBlocks, workerSheetBlocks } from './stock-worker-model.js';
+import { workerMaterialId, workerUnit, workerPipeBlocks, workerSheetBlocks, workerCreateContext, workerQuickReady } from './stock-worker-model.js';
 
 const dimension = value => Number(value) > 0 ? qty(value) : 'Не указана';
 const source = item => [stockPositionName(item), stockPositionCode(item) || item.article].filter(Boolean).join(' · ');
 const stateText = item => Number(item.quantity) === 0 ? 'Нет в наличии' : Number(item.reservedQty) >= Number(item.quantity) ? 'Всё в брони' : 'В наличии';
 const metadata = item => h('div', { class: 'pg-worker-meta' }, `Бронь ${qty(item.reservedQty || 0)} · свободно ${qty(item.free ?? Number(item.quantity || 0) - Number(item.reservedQty || 0))}`);
 
-function quantity(item, { readOnly, saveCount }, meta) {
+function quantity(item, { readOnly, saveCount, confirmation }, meta) {
   const unit = workerUnit(item), allowed = inlineCountAllowed(item);
   const status = h('div', { class: 'pg-worker-state', hidden: stateText(item) !== 'Всё в брони' }, stateText(item));
-  const field = gridField('pg-in', `Фактически, ${item.name}, ${unit}`, String(item.quantity ?? 0), async text => {
-    await saveCount(item, text);
+  const afterSave = () => {
     status.textContent = stateText(item);
     status.hidden = stateText(item) !== 'Всё в брони';
     node.classList.toggle('pg-worker-zero', Number(item.quantity) === 0);
     meta?.replaceChildren(metadata(item));
-  }, readOnly || !allowed);
+  };
+  const confirmed = !readOnly && allowed && confirmation ? confirmation.quantityField(item, afterSave) : null;
+  const field = confirmed?.input || gridField('pg-in', `Фактически, ${item.name}, ${unit}`, String(item.quantity ?? 0), async text => { await saveCount(item, text); afterSave(); }, readOnly || !allowed);
   field.dataset.workerKey = workerMaterialId(item) + ':count';
-  const node = h('div', { class: 'pg-worker-quantity', title: source(item) }, allowed ? field : stockCountCell(item, field), status);
+  const node = h('div', { class: 'pg-worker-quantity', title: source(item) }, allowed ? field : stockCountCell(item, field), status, confirmed?.box);
   node.classList.toggle('pg-worker-zero', Number(item.quantity) === 0);
   if (!(field instanceof HTMLInputElement)) field.classList.add('pg-worker-value');
   return node;
 }
 
-function pipeCell(item, options, collision) {
-  if (!item) return h('td', { class: 'pg-c', 'aria-label': 'Материала нет' }, '—');
+function pipeCell(item, options, collision, context, label) {
+  if (!item) {
+    if (options.readOnly) return h('td', { class: 'pg-c', 'aria-label': 'Материала нет' }, '—');
+    // Контекст строки/столбца известен полностью: просим только количество, без формы.
+    if (context && options.create?.quick && workerQuickReady(context, 'pipe')) {
+      const error = h('div', { class: 'pg-worker-new-error', 'data-worker-entry-error': '1', role: 'status', hidden: true });
+      const key = context.workerKey || 'new:' + label;
+      const field = textInput({ value: options.create.draft(key).value, placeholder: '—', inputmode: 'decimal',
+        onInput: () => options.create.remember(field.input),
+        onEnter: () => options.create.quick(context, field.input) });
+      const input = field.input;
+      input.classList.add('pg-in', 'pg-worker-new');
+      input.setAttribute('aria-label', 'Добавить трубу: ' + label);
+      input.title = label;
+      input.dataset.workerCreate = 'cell';
+      input.dataset.workerKey = key;
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Escape') { event.preventDefault(); options.create.clear(input); error.hidden = true; input.blur(); }
+      });
+      return h('td', { class: 'pg-c', 'aria-label': 'Материала нет' }, input, error);
+    }
+    const create = button({ label: '—', kind: 'ghost', title: 'Добавить трубу: ' + label, onClick: event => options.create.open(context, event.currentTarget) });
+    create.dataset.workerCreate = 'cell'; create.setAttribute('aria-label', 'Добавить трубу: ' + label);
+    return h('td', { class: 'pg-c', 'aria-label': 'Материала нет' }, create);
+  }
   const meta = h('div', null, metadata(item));
   meta.hidden = !Number(item.reservedQty);
   return h('td', { class: 'pg-c', 'data-material-id': workerMaterialId(item), title: source(item) },
@@ -55,7 +79,11 @@ export function pipeWorkerGrid(items, options) {
       const details = options.details.rowDetail({ ...options, key: 'pipe:' + variants.map(workerMaterialId).sort().join('|'), label: sectionValue(row.source), items: variants, columns: columns.length, kind: 'pipe' });
       return [h('tr', null,
         h('th', { class: 'pg-name', scope: 'row' }, details.toggle, row.collision ? h('div', { class: 'pg-worker-source' }, 'Отдельные материалы') : null),
-        ...block.columns.map(column => pipeCell(row.cells.get(column.key), options, row.collision))), details.detail];
+        ...block.columns.map(column => {
+          const context = { ...workerCreateContext(row.source, column), workerKey: 'new:' + workerMaterialId(row.source) + ':' + column.key };
+          const label = `${row.source.sectionProfile?.label || row.source.name} · ${column.label} · ${column.length ? qty(column.length / 1000) + ' м' : 'длина не указана'}`;
+          return pipeCell(row.cells.get(column.key), options, row.collision, context, label);
+        })), details.detail];
     });
     return blockTable(title, columns, rows, 'pg-worker-pipe', { rect: 'k-rect', round: 'k-round', steel: 'k-steel', unknown: 'k-round' }[block.kind]);
   });

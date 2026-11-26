@@ -147,6 +147,7 @@ test('пересчёт последних строк фильтра наличи
   await page.locator('[data-material-id="material-101"] input.pg-in').waitFor();
   for (const id of ['material-101', 'material-102']) {
     const amount = page.locator(`[data-material-id="${id}"] input.pg-in`); await amount.fill('0'); await amount.press('Enter');
+    await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
     await page.locator(`[data-material-id="${id}"]`).waitFor({ state: 'detached' });
   }
   await page.waitForFunction(() => document.querySelectorAll('table tbody tr:not(.pg-worker-detail)').length === 100);
@@ -199,7 +200,7 @@ test('P2: отсутствующий или неизвестный countMode fai
   const { page, calls } = await fixture(t);
   const input = page.locator('[data-material-id="zero-80"] input.pg-in'); await input.waitFor();
   const counted = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/api/stock/batch'));
-  await input.fill('1'); await input.press('Enter'); await counted;
+  await input.fill('1'); await input.press('Enter'); await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click(); await counted;
   assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'zero-80', qty: 1, expected: 0 });
   assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/stock/items').length, 0);
 });

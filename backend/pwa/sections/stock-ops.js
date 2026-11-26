@@ -18,6 +18,7 @@ import { weighButton } from './ops-weight.js';
 import { buildFromReserve, buildUnreserve } from './stock-ops-res.js';
 import { rememberPick, stockPick } from './stock-ops-pick.js';
 import { reservationsPanel } from './reservations.js';
+import { workerReceiveScope } from './stock-worker-scope.js';
 
 /*
  * Действия склада в правой панели (SK-4b, SK-9): «Принять», «Выдать», «Забронировать», «Списать», «Пересчитать»; по одной позиции из её карточки — ещё
@@ -41,14 +42,17 @@ export const opTitle = (op) => OPS[op]?.title || 'Действие со скла
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
 
 /** Открыть панель действия: op — in | out | reserve | writeoff | count, materialId — сразу с этой позицией. */
-export function openStockOp(op, materialId) {
+export function openStockOp(op, materialId, workerContext) {
   // из карточки / строки позиции — шагом: закрыли панель, вернулись к позиции
-  patch({ of: 'stockop', new: '1', op: OPS[op] ? op : 'in', materialId: materialId || undefined, open: undefined }, { replace: !materialId });
+  patch({ of: 'stockop', new: '1', op: OPS[op] ? op : 'in', materialId: materialId || undefined, open: undefined,
+    workerZone: workerContext?.zoneId, workerKind: workerContext?.kind }, { replace: !materialId });
 }
 
 async function build() {
   const P = current().params;
+  const workerScope = workerReceiveScope(P);
   const op = OPS[P.op] ? P.op : 'in';
+  if (workerScope && op !== 'in') throw new Error('Контекст рабочего склада предназначен для приёмки.');
   const cfg = OPS[op];
   if (op === 'fromres') return buildFromReserve(P.materialId);
   if (op === 'unreserve') return buildUnreserve(P.materialId);
@@ -56,7 +60,7 @@ async function build() {
   let lines = []; // [{ it, qty, note }]
   let touched = false;
   // черновик набранных строк переживает перезагрузку страницы (как было в «Операциях»)
-  const KEY = 'dc-ops-' + op;
+  const KEY = 'dc-ops-' + op + (workerScope ? ':' + workerScope.kind + ':' + workerScope.zoneId : '');
   const readDraft = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null') || []; } catch { return []; } };
   const saveDraft = () => { try { localStorage.setItem(KEY, JSON.stringify(lines.map((l) => ({ id: l.it.id, qty: l.qty, ...(l.note ? { note: l.note } : {}) })))); } catch { /* приватный режим */ } };
   const clearDraft = () => { try { localStorage.removeItem(KEY); } catch { /* приватный режим */ } };
@@ -85,7 +89,7 @@ async function build() {
   // ---------- Выбор позиции: шаги «Недавно → Категория → Позиция» + поиск по всему складу (C032, П-1) ----------
   // «Дальше: …» — внутри kit.funnel (pick.setNext), единый вид П-1
   const pickIn = h('input', { placeholder: 'Название или размер', 'aria-label': 'Найти позицию' }); // ищет по всему складу, шаги его не сужают
-  const pick = stockPick({ op, input: pickIn, add: (it) => add(it), onCat: () => updNext() });
+  const pick = stockPick({ op, input: pickIn, add: (it) => add(it), onCat: () => updNext(), workerScope });
   const pickLabel = h('span', null, 'Добавить позицию');
   const pickBox = h('div', { class: 'field wide' }, pickLabel, pick.el, h('div', { class: 'sop-pick-in' }, pickIn));
   /** П-1 п. 7: «Дальше: …» — что сделать сейчас, по состоянию пачки и шагов. */
@@ -99,7 +103,8 @@ async function build() {
   // ---------- Строки ----------
   const linesBox = h('div', { class: 'ops-lines sop-lines' });
   const count = h('span', { class: 'muted small' });
-  function add(it) {
+  async function add(it) {
+    if (workerScope && !await workerScope.accepts(it)) { toastError(new Error('Материал не относится к этому рабочему складу.')); return; }
     touched = true;
     const ex = lines.find((l) => l.it.id === it.id);
     if (ex) { if (op !== 'count') ex.qty = String((parseNum(ex.qty) || 0) + 1); } else lines.push(newLine(it));
@@ -192,7 +197,7 @@ async function build() {
   syncReserveWhy();
 
   // из строки позиции — только она: блок счетов и старый черновик здесь не нужны, иначе позиция скрыта под ними
-  const arrivals = op === 'in' && !P.materialId ? arrivalsBlock(() => { window.dispatchEvent(new CustomEvent('data-changed')); }) : null;
+  const arrivals = op === 'in' && !P.materialId && !workerScope ? arrivalsBlock(() => { window.dispatchEvent(new CustomEvent('data-changed')); }) : null;
   arrivals?.load();
   const resPanel = op === 'reserve' ? reservationsPanel({ onChange: () => {} }) : null;
   resPanel?.load();
@@ -236,6 +241,7 @@ async function build() {
   // кнопка разворота — только для «Принять» с блоком счетов
   const toggleManual = arrivals ? button({ label: '+ Принять без счёта', kind: 'ghost', size: 'S', onClick: (e) => { manualSection.hidden = !manualSection.hidden; e.currentTarget.textContent = manualSection.hidden ? '+ Принять без счёта' : '− Скрыть'; } }) : null;
   const el = h('div', { class: 'sop' },
+    workerScope ? h('p', { class: 'hint', 'data-worker-receive': workerScope.kind }, 'Приёмка: ' + (workerScope.kind === 'pipe' ? 'только трубы' : 'только листовой металл') + ' выбранной складской зоны.') : null,
     h('p', { class: 'hint' }, cfg.hint),
     arrivals?.el,
     toggleManual,
@@ -243,10 +249,13 @@ async function build() {
     resPanel?.el);
 
   // позиция из карточки / строки списка: сразу в списке
-  if (P.materialId) api('/stock/items/' + P.materialId).then((it) => { if (it?.id) { lines = [newLine(it)]; render(); } }).catch((e) => toastError(e, 'открыть позицию'));
+  if (P.materialId) api('/stock/items/' + P.materialId).then(async (it) => {
+    if (workerScope && !await workerScope.accepts(it)) throw new Error('Материал не относится к этому рабочему складу.');
+    if (it?.id) { lines = [newLine(it)]; render(); }
+  }).catch((e) => toastError(e, 'открыть позицию'));
   render();
   const draft = P.materialId ? [] : readDraft();
-  if (draft.length) stockList().then((all2) => { for (const d of draft) { const it = all2.find((x) => x.id === d.id); if (it && !lines.some((l) => l.it.id === it.id)) lines.push(newLine(it, d.qty, d.note)); } render(); }).catch(() => {});
+  if (draft.length) (workerScope ? workerScope.items() : stockList()).then((all2) => { for (const d of draft) { const it = all2.find((x) => x.id === d.id); if (it && !lines.some((l) => l.it.id === it.id)) lines.push(newLine(it, d.qty, d.note)); } render(); }).catch(() => {});
 
   // пересчёт: expected — остаток, который видел человек (изменился на сервере — 409, не перетираем чужое)
   const ready = () => lines.map((l) => ({ materialId: l.it.id, qty: parseNum(l.qty), ...(l.note ? { note: l.note } : {}), ...(op === 'count' && Number.isFinite(l.it.quantity) ? { expected: l.it.quantity } : {}) }))
@@ -273,6 +282,7 @@ async function build() {
   }
 
   async function save() {
+    if (workerScope) for (const line of lines) if (!await workerScope.accepts(line.it)) throw new Error('Материал не относится к этому рабочему складу. Обновите список.');
     if (op === 'in' && arrivals && manualSection.hidden) throw new Error('Счёт принимается кнопкой «Принять…» в его строке. Без счёта — откройте «+ Принять без счёта»');
     const ls = ready();
     if (!ls.length) throw new Error(op === 'count' ? 'Впишите, сколько лежит, хотя бы у одной позиции' : 'Добавьте позицию и впишите количество больше нуля');

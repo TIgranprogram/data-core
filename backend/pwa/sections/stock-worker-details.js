@@ -1,10 +1,9 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { dateTime, qty } from '../core/format.js';
-import { stockPositionName, stockPositionCode } from '../core/stock-display.js';
 import { button, section, stack, stats, table, busyBlock, failBlock } from '../ui/kit/index.js';
 import { gridField } from './stock-grid-input.js';
-import { workerMaterialId, workerUnit, workerGrade, workerWash, workerLength } from './stock-worker-model.js';
+import { workerMaterialId, workerUnit, workerWash, workerLength } from './stock-worker-model.js';
 import { workerHistory, workerOperationGroups } from './stock-worker-history.js';
 
 let nextId = 0;
@@ -98,11 +97,6 @@ export function workerDetails() {
           const panel = section({ fixed: true, title: variant(kind, item), tone: 'neutral', body: [
             figures,
             h('div', { class: 'pg-worker-secondary' }, Number(item.quantity) === 0 ? 'Нет в наличии' : Number(item.reservedQty) >= Number(item.quantity) ? 'Всё в брони' : 'В наличии'),
-            h('div', { class: 'pg-worker-characteristics' }, h('h3', { class: 'pg-worker-category' }, 'Характеристики'),
-              h('strong', null, value(stockPositionName(item))), h('div', null, 'Марка: ' + workerGrade(item)),
-              h('small', { class: 'pg-worker-secondary' }, 'Код: ' + value(stockPositionCode(item) || item.article))),
-            h('div', { class: 'pg-worker-secondary' }, 'Последнее изменение: ', item.updatedAt ? dateTime(item.updatedAt) : 'Не указано',
-              h('br'), 'Последний пересчёт: ', item.lastCountAt ? dateTime(item.lastCountAt) : 'Не указано'),
             h('div', { class: 'pg-worker-detail-note' }, h('h3', { class: 'pg-worker-category' }, 'Примечание'), note),
             h('h3', { class: 'pg-worker-category' }, 'Последние операции'), list,
           ] });

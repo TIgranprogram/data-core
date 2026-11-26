@@ -37,6 +37,7 @@ async function fixture(t, { user = { role: 'director', sections: ['stock'] }, vi
       const body = route.request().postDataJSON(); calls.push({ path: url.pathname, method, body });
       if (url.pathname === '/api/auth/me') return route.fulfill({ json: person });
       if (url.pathname === '/api/stock/zones') return route.fulfill({ json: { items: [{ id: 'pipe-zone', name: 'Трубы' }, { id: 'sheet-zone', name: 'Листовой материал' }] } });
+      if (url.pathname === '/api/stock/categories') return route.fulfill({ json: { items: [{ id: 'pipe-cat', name: 'Профильная труба' }] } });
       if (url.pathname === '/api/supply/lookups') return route.fulfill({ json: { categories: [{ name: 'Профильная труба' }], units: ['м', 'лист'] } });
       if (url.pathname === '/api/stock/items') {
         if (method === 'POST') { const created = { id: 'created-pipe', ...body, countMode: 'single', quantity: 0, metal: 'pipe', photos: [] }; records.push(created); return route.fulfill({ json: created }); }
@@ -83,42 +84,28 @@ for (const [view, theme] of [['pipe', 'light'], ['sheet', 'dark']]) {
   });
 }
 
-test('родной экран Трубореза: пересчёт в метрах и явное добавление через правую панель', async t => {
+test('родной экран Трубореза: подтверждённый пересчёт в метрах и компактное создание', async t => {
   const { page, calls, errors } = await fixture(t, { user: { role: 'r-pipe', baseRole: 'manager', roleLabel: 'Труборез', sections: ['stock'], stockViews: ['sheet'] } });
-  await page.locator('table input.pg-in').first().waitFor();
-  const field = page.locator('table input.pg-in').filter({ visible: true }).first();
-  assert.equal(await field.evaluate(node => node.readOnly), false);
+  const field = page.locator('table input.pg-in').first(); await field.waitFor();
   await field.fill('3'); await field.press('Enter');
-  await page.waitForFunction(() => document.querySelector('table input.pg-in')?.value === '3');
+  await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('table input.pg-in[data-saved]'));
   assert.deepEqual(calls.find(call => call.path === '/api/stock/batch').body.lines[0], { materialId: 'pipe-one', qty: 3, expected: 12 });
   await page.getByRole('button', { name: 'Добавить материал', exact: true }).click();
-  const drawer = page.locator('aside.drawer');
-  await drawer.getByRole('heading', { name: 'Новая позиция склада' }).waitFor();
-  assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/stock/items').length, 0);
-  assert.equal(await drawer.getByLabel(/^Категория/).inputValue(), 'Профильная труба');
-  assert.equal(await drawer.getByLabel(/^Ед. изм/).inputValue(), 'м');
-  await drawer.getByLabel('Ширина профиля, мм').fill('25');
-  await drawer.getByLabel('Высота профиля, мм').fill('25');
-  await drawer.getByLabel('Толщина, мм').fill('2');
-  await drawer.getByLabel('Длина, м').fill('6');
-  await drawer.getByLabel('Сортамент / сечение').fill('25×25×2');
-  await drawer.getByLabel(/^Короткое название/).fill('Труба тестовая новая');
-  if (process.env.C242_PROOF_DIR) {
-    await mkdir(process.env.C242_PROOF_DIR, { recursive: true });
-    await page.screenshot({ path: path.join(process.env.C242_PROOF_DIR, 'pipe-form-fields.png'), fullPage: true });
-    await drawer.getByLabel('Диаметр, мм').scrollIntoViewIfNeeded();
-    const field = await drawer.getByLabel('Диаметр, мм').boundingBox();
-    const save = await drawer.getByRole('button', { name: 'Создать', exact: true }).boundingBox();
-    assert.ok(field.y + field.height <= save.y);
-    await page.screenshot({ path: path.join(process.env.C242_PROOF_DIR, 'pipe-form-fields-bottom.png'), fullPage: true });
-    await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
-    await page.screenshot({ path: path.join(process.env.C242_PROOF_DIR, 'pipe-form-fields-bottom-dark.png'), fullPage: true });
-  }
-  const createdResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/api/stock/items'));
-  await drawer.getByRole('button', { name: 'Создать', exact: true }).click();
-  assert.equal((await createdResponse).status(), 200);
+  const entry = page.locator('[data-worker-entry]'); await entry.getByLabel('Единица учёта', { exact: true }).waitFor();
+  assert.equal(await page.locator('aside.drawer').count(), 0);
+  await entry.getByLabel('Категория', { exact: true }).selectOption('pipe-cat');
+  await entry.getByLabel('Вид сечения', { exact: true }).selectOption('rect');
+  await entry.getByLabel('Единица учёта', { exact: true }).fill('м');
+  await entry.getByLabel('Ширина, мм', { exact: true }).fill('25');
+  await entry.getByLabel('Высота, мм', { exact: true }).fill('25');
+  await entry.getByLabel('Толщина, мм', { exact: true }).fill('2');
+  await entry.getByLabel('Длина, мм', { exact: true }).fill('6000');
+  await entry.getByRole('button', { name: 'Проверить', exact: true }).click();
+  const createdResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/api/stock/items?zoneId='));
+  await entry.getByRole('button', { name: 'Сохранить', exact: true }).click(); await createdResponse;
   assert.equal(calls.filter(call => call.method === 'POST' && call.path === '/api/stock/items').length, 1);
-  assert.deepEqual(calls.find(call => call.method === 'POST' && call.path === '/api/stock/items').body.dims, { thickness: 2, length: 6000, width: 25, height: 25, diameter: null });
+  assert.deepEqual(calls.find(call => call.method === 'POST' && call.path === '/api/stock/items').body.dims, { width: 25, height: 25, thickness: 2, length: 6000 });
   assert.deepEqual(errors, []);
 });
 
@@ -128,7 +115,8 @@ test('родной Лазер лист сохраняет количество �
     const amount = page.getByLabel('Фактически, Лист Ст3 3 мм, лист', { exact: true }); await amount.waitFor();
     assert.equal(await amount.evaluate(node => node.readOnly), false);
     await amount.fill('9'); await amount.press('Enter');
-    await page.waitForFunction(() => document.querySelector('table input.pg-in')?.value === '9');
+    await page.locator('[data-worker-count-confirm]').getByRole('button', { name: 'Сохранить', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('table input.pg-in[data-saved]'));
     const note = page.getByLabel('Примечание, Лист Ст3 3 мм', { exact: true });
     await note.fill('Сверено'); await note.press('Enter');
     await page.waitForFunction(() => document.querySelector('input.pg-note[data-saved]'));
