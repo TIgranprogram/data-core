@@ -53,7 +53,7 @@
 | Зачем проект, принципы | [VISION.md](VISION.md) | — |
 | Данные на проде (правит только пользователь) | [docs/DATA-FIX-USER.md](docs/DATA-FIX-USER.md) — дополнять, не исполнять | — |
 | Что уже сделано, старые ТЗ и аудиты | архив на сервере: `tools/dc.cmd find <слово>` → `tools/dc.cmd doc <путь> [слово]`; последние выкладки — [docs/HISTORY.md](docs/HISTORY.md) | `docs/archive/` |
-| Локальный ИИ: модели, параметры загрузки под ПК, итоги сравнений | [docs/LOCAL-AI.md](docs/LOCAL-AI.md) | — |
+| Hermes для независимого анализа, локальные модели и параметры загрузки | [docs/LOCAL-AI.md](docs/LOCAL-AI.md) | — |
 | Деплой на VM | skill `datacore-deploy`, [deploy/synology/README.md](deploy/synology/README.md) | — |
 
 ## Структура (только значимое)
