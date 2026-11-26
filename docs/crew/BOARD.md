@@ -5,7 +5,7 @@
 | ID | Суть | Статус |
 |--|--|--|
 | C272 | Трубы в штуках, перевод в метры и цвета металла | код/стенд246/246/дизайнер PASS · общий выпуск с C271 · [REPORT](C272-worker-pipe-pieces/REPORT.md) |
-| C271 | Ожидания, брони и заказ материала из рабочей сетки | backend выложен v2.66 · frontend не начат · [REPORT-BACKEND](C271-worker-stock-context/REPORT-BACKEND.md) |
+| C271 | Ожидания, брони и заказ материала из рабочей сетки | код/fullQA/стенд340/дизайнер PASS · общий выпуск поручен · [REPORT](C271-worker-stock-context/REPORT.md) |
 | C270 | Ввод металла в сетке, подтверждение количества и приём своей зоны | выложено v2.66 · [REPORT](C270-worker-grid-entry/REPORT-FRONTEND.md) |
 | C269 | Рабочие сетки Труборез / Лазер лист и меню узкого экрана | код+проверки+дизайнер PASS · выпуск отдельно · [REPORT](C269-worker-stock-grids/REPORT.md) |
 | C268 | Скролл колонок досок после C266 | v2.60 откат сломанной вёрстки · только min-height у col-body · [REPORT](C268-board-column-scroll/REPORT.md) |

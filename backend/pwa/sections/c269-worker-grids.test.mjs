@@ -64,6 +64,9 @@ async function fixture(t, { kind = 'pipe', readOnly = false, many = false, fail 
     if (url.origin !== 'http://c269.test') return route.abort();
     if (url.pathname.startsWith('/api/')) {
       const body = route.request().postDataJSON(); calls.push({ path: url.pathname, method, query, body });
+      if (/^\/api\/stock\/items\/[^/]+\/(requests|reservations)$/.test(url.pathname)) {
+        return route.fulfill({ json: { items: [], total: 0, page: Number(query.page), limit: Number(query.limit) } });
+      }
       if (url.pathname.endsWith('/history')) {
         const id = decodeURIComponent(url.pathname.split('/').at(-2)); historyAttempts.set(id, (historyAttempts.get(id) || 0) + 1);
         activeHistory++; maxHistory = Math.max(maxHistory, activeHistory);

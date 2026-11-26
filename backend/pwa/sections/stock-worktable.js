@@ -1,8 +1,7 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { qty } from '../core/format.js';
 import { current, go } from '../core/router.js';
-import { button, table, toolbar, searchBox, filter, busyBlock, failBlock, enhanceSelect, select as kitSelect, section } from '../ui/kit/index.js';
+import { button, toolbar, searchBox, filter, busyBlock, failBlock, enhanceSelect, select as kitSelect } from '../ui/kit/index.js';
 import { pipeWorkerGrid, sheetWorkerGrid } from './stock-worker-grid.js';
 import { workerCountBody, workerMaterialId, workerWashCounterpart, workerZoneName } from './stock-worker-model.js';
 import { workerDetails } from './stock-worker-details.js';
@@ -77,10 +76,7 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
       if (own !== sequence || destroyed) return;
       if (!zone?.id) throw new Error('Зона «' + cfg.title + '» недоступна. Проверьте назначение складской зоны.');
       if (receive) receive.disabled = false;
-      const [result, reserved] = await Promise.all([
-        api('/stock/items', { query: { zoneId: zone.id, withParts: '0', search: params.q || undefined, held: params.held, availability: params.availability, sort: params.sort || cfg.sort, limit: PAGE_SIZE, page } }),
-        api('/stock/reservations', { query: { zoneId: zone.id } }).catch(() => ({ items: [] })),
-      ]);
+      const result = await api('/stock/items', { query: { zoneId: zone.id, withParts: '0', search: params.q || undefined, held: params.held, availability: params.availability, sort: params.sort || cfg.sort, limit: PAGE_SIZE, page } });
       if (own !== sequence || destroyed || (keep && create.quickPending())) return;
       if (page > 1 && !result.items.length) { page = Math.max(1, Math.min(page - 1, Math.ceil(result.total / PAGE_SIZE))); return load(); }
       currentItems = result.items;
@@ -99,11 +95,6 @@ export function mountStockWorktable(kind, { readOnly = false } = {}) {
         ...(kind === 'pipe' ? pipeWorkerGrid(result.items, gridOptions) : sheetWorkerGrid(result.items, gridOptions)));
       if (!result.items.length) body.append(h('p', { class: 'hint' }, 'Материалы не найдены. Очистите поиск или проверьте выбранную зону.'));
       body.append(h('p', { class: 'hint' }, '0 — остатка нет. «—» — материала в ячейке нет.'));
-      const byId = new Map(result.items.map(item => [item.materialId || item.id, item]));
-      const reservations = (reserved.items || []).flatMap(group => (group.lines || []).filter(line => byId.has(line.materialId) && Number(line.qty) > Number(line.issued || 0))
-        .map(line => ({ cells: [byId.get(line.materialId).name, qty(line.qty - (line.issued || 0)), byId.get(line.materialId).unit || '—', group.salesOrder || group.name || '—', group.createdBy || '—'] })));
-      if (reservations.length) body.append(section({ title: 'Брони позиций на этой странице', count: reservations.length,
-        body: table({ columns: [{ label: 'Материал', wrap: true }, { label: 'Количество', num: true }, { label: 'Ед.' }, { label: 'Для чего' }, { label: 'Поставил' }], rows: reservations }) }));
       if (pages > 1) body.append(toolbar(button({ label: 'Назад', disabled: page === 1, onClick: () => { page--; load(); } }),
         h('span', { class: 'muted' }, `Страница ${page} из ${pages} · ${result.total} материалов`),
         button({ label: 'Далее', disabled: page * PAGE_SIZE >= result.total, onClick: () => { page++; load(); } })));

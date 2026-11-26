@@ -1,10 +1,13 @@
-import { api } from '../core/api.js';
+import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { dateTime, qty } from '../core/format.js';
+import { viewAsActive } from '../core/view-as.js';
 import { button, section, stack, stats, table, busyBlock, failBlock } from '../ui/kit/index.js';
 import { gridField } from './stock-grid-input.js';
 import { workerMaterialId, workerUnit, workerWash, workerLength } from './stock-worker-model.js';
 import { workerHistory, workerOperationGroups } from './stock-worker-history.js';
+import { workerStockContext } from './stock-worker-context.js';
+import { workerContextView } from './stock-worker-context-view.js';
 
 let nextId = 0;
 const operationNames = { in: 'Приход', out: 'Списание', adjust: 'Корректировка', count: 'Пересчёт', transfer: 'Перемещение', reserve: 'Бронь', unreserve: 'Снятие брони' };
@@ -39,6 +42,9 @@ function operations(response, unit) {
 export function workerDetails() {
   const rows = new Map(), drafts = new Map();
   const history = workerHistory(id => api('/stock/items/' + encodeURIComponent(id) + '/history', { query: { limit: 5 } }));
+  let storage;
+  try { storage = window.sessionStorage; } catch { /* Хранилище может быть запрещено браузером. */ }
+  const context = workerStockContext(api, { storage, actorId: session.realUser?.id });
   let epoch = 0, destroyed = false, openKey = null;
   function preserveActiveNote() {
     const active = document.activeElement;
@@ -54,11 +60,12 @@ export function workerDetails() {
     const previous = rows.get(openKey);
     if (previous) { previous.detail.hidden = true; previous.toggle.setAttribute('aria-expanded', 'false'); }
     openKey = null;
+    context.cancelQueued();
   }
   return {
-    begin() { rows.forEach(entry => entry.capture()); epoch++; rows.clear(); },
-    invalidate: id => history.invalidate(id),
-    destroy() { destroyed = true; epoch++; rows.clear(); drafts.clear(); openKey = null; history.destroy(); },
+    begin() { rows.forEach(entry => entry.capture()); epoch++; rows.clear(); context.begin(); },
+    invalidate(id) { history.invalidate(id); context.invalidate(id); },
+    destroy() { destroyed = true; epoch++; rows.clear(); drafts.clear(); openKey = null; history.destroy(); context.destroy(); },
     rowDetail({ key, label, items, columns, kind, readOnly, saveNote }) {
       const own = epoch, id = 'pg-worker-detail-' + ++nextId;
       const content = h('div', { class: 'pg-worker-detail-content' });
@@ -90,6 +97,11 @@ export function workerDetails() {
             }).catch(error => { if (current()) list.replaceChildren(failBlock(error, () => paint(true), { text: 'Операции не загрузились' })); });
           };
           paints.push(paint);
+          const extra = workerContextView(context.material(item), item, {
+            readOnly: readOnly || !session.canEdit || viewAsActive(session.realUser),
+            current,
+          });
+          paints.push(extra.paint);
           const figures = stats([{ value: `${qty(item.quantity ?? 0)} ${unit}`, label: 'Фактически' },
             { value: `${qty(item.reservedQty || 0)} ${unit}`, label: 'В брони' },
             { value: `${qty(item.free ?? Number(item.quantity || 0) - Number(item.reservedQty || 0))} ${unit}`, label: 'Свободно' }]);
@@ -98,7 +110,7 @@ export function workerDetails() {
             figures,
             h('div', { class: 'pg-worker-secondary' }, Number(item.quantity) === 0 ? 'Нет в наличии' : Number(item.reservedQty) >= Number(item.quantity) ? 'Всё в брони' : 'В наличии'),
             h('div', { class: 'pg-worker-detail-note' }, h('h3', { class: 'pg-worker-category' }, 'Примечание'), note),
-            h('h3', { class: 'pg-worker-category' }, 'Последние операции'), list,
+            h('h3', { class: 'pg-worker-category' }, 'Последние операции'), list, extra.el,
           ] });
           // Вложенный вариант — третий уровень заголовка внутри рабочей подстроки.
           panel.querySelector('.k-sec-fhead h2').replaceWith(h('h3', null, variant(kind, item)));

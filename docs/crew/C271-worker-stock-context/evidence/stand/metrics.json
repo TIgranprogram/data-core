@@ -1,0 +1,3103 @@
+{
+  "checks": [
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 91,
+        "cells": 91
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: ожидания и брони не грузятся при входе"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: кнопка без стрелки",
+      "data": "20×20×2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: повтор Остаток убран из колонок"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(226, 243, 234)",
+        "main": "rgb(227, 237, 231)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: ленивая история максимум2",
+      "data": {
+        "calls": 2,
+        "max": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: адресный контекст грузится лениво максимум2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: отмена заказа без записи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: потерянный ответ не объявляется успехом"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: повтор сохраняет подтверждённое количество"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: retry сохраняет UUID и создаёт одну заявку с правильной единицей"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: создание заявки узким DTO"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: после заявки обновляется только адресный материал"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: Enter сначала требует подтверждение, запросов нет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: количество3 в штуках переводится в исходную единицу с raw expected",
+      "data": {
+        "type": "count",
+        "note": "Трубы",
+        "lines": [
+          {
+            "materialId": "6ae45d39d29aaee2976a2697",
+            "qty": 18,
+            "expected": 0
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: уход с изменённого количества не пишет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: ошибка сервера не вызывает автоматический повтор"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: добавление отменяется без записи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: приёмка ограничена своим типом"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: приёмка сохраняет явный контекст зоны"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: нет универсального создания шт в приёмке"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: ни одна позиция не потеряна",
+      "data": {
+        "items": 8,
+        "cells": 8
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: ожидания и брони не грузятся при входе"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: кнопка без стрелки",
+      "data": "40×20×2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: повтор Остаток убран из колонок"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgba(63, 207, 142, 0.15)",
+        "main": "rgb(29, 36, 48)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: ленивая история максимум2",
+      "data": {
+        "calls": 5,
+        "max": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: ошибка истории исправляется повтором"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: адресный контекст грузится лениво максимум2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: ожидания показывают статус и реальные/неизвестные сроки"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: бронь показывает остаток7 без второго вычитания3 и предупреждение"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: отмена заказа без записи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: потерянный ответ не объявляется успехом"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: повтор сохраняет подтверждённое количество"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: ошибка ожиданий блокирует новую заявку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: retry сохраняет UUID и создаёт одну заявку с правильной единицей"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: создание заявки узким DTO"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: после заявки обновляется только адресный материал"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: нержавейка после остальных таблиц",
+      "data": [
+        "Обычная сталь · Профильная труба · Ст3 · остаток, шт",
+        "Обычная сталь · Вид трубы не указан · Ст3 · остаток, шт",
+        "Нержавеющая сталь · Круглая труба · AISI 304 · остаток, шт"
+      ]
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: цвета стали и нержавейки различимы",
+      "data": {
+        "steel": "rgba(127, 188, 198, 0.16)",
+        "stainless": "rgba(181, 160, 220, 0.16)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: закрыт пересчёт pipe-multiple"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: закрыт пересчёт pipe-unknown"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: ноль слегка красный"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: у нуля нет дублирующей подписи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: пустые координаты не красные"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: дробный метраж не выдаётся за количество труб"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: видимые названия и коды убраны из ячеек"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: нестандартная длина не потеряна",
+      "data": [
+        "Сечение, мм\t\nМытая\n3 м\n\t\nМытая\n4 м\n\t\nМытая\n6 м\n\t\nНе мытая\n12 м\n\t\nМойка не указана\n7,5 м\n\n",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Сечение, мм\t\nМытая\nДлина не указана\n\n",
+        "Сечение, мм\t\nМытая\n6 м\n\n",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки"
+      ]
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: добавление отменяется без записи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: повтор quick остатка не повторяет создание"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: quick создание в явной зоне с узким DTO",
+      "data": {
+        "path": "/stock/items",
+        "zoneId": "6ae722517cfafdae6c36721e",
+        "body": {
+          "name": "Профильная труба · 40 × 20 × 2 · 3000 мм · Мытая · Ст3",
+          "unit": "м",
+          "categoryId": "c270000000000000000000c1",
+          "dims": {
+            "width": 40,
+            "height": 20,
+            "thickness": 2,
+            "length": 3000
+          },
+          "materialGrade": "Ст3",
+          "washed": true,
+          "assortment": "40×20×2"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: quick2шт переводится в метры без потери expected",
+      "data": {
+        "materialId": "c27000000000000000000001",
+        "qty": 6,
+        "expected": 0
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: приёмка ограничена своим типом"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: приёмка сохраняет явный контекст зоны"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-edges: нет универсального создания шт в приёмке"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: ни одна позиция не потеряна",
+      "data": {
+        "items": 91,
+        "cells": 91
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          }
+        ],
+        "minInputHeight": null
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: ожидания и брони не грузятся при входе"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: кнопка без стрелки",
+      "data": "20×20×2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: повтор Остаток убран из колонок"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(220, 231, 222)",
+        "main": "rgb(190, 199, 207)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: ленивая история максимум2",
+      "data": {
+        "calls": 2,
+        "max": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: адресный контекст грузится лениво максимум2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: readonly не заказывает"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: просмотр без полей записи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: просмотр не пишет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: просмотр не создаёт материалы"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ни одна позиция не потеряна",
+      "data": {
+        "items": 8,
+        "cells": 8
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ожидания и брони не грузятся при входе"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: кнопка без стрелки",
+      "data": "40×20×2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: повтор Остаток убран из колонок"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(226, 243, 234)",
+        "main": "rgb(227, 237, 231)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ленивая история максимум2",
+      "data": {
+        "calls": 5,
+        "max": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ошибка истории исправляется повтором"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: адресный контекст грузится лениво максимум2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ожидания показывают статус и реальные/неизвестные сроки"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: бронь показывает остаток7 без второго вычитания3 и предупреждение"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: отмена заказа без записи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: потерянный ответ не объявляется успехом"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: повтор сохраняет подтверждённое количество"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ошибка ожиданий блокирует новую заявку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: retry сохраняет UUID и создаёт одну заявку с правильной единицей"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: создание заявки узким DTO"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: после заявки обновляется только адресный материал"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: нержавейка после остальных таблиц",
+      "data": [
+        "Обычная сталь · Профильная труба · Ст3 · остаток, шт",
+        "Обычная сталь · Вид трубы не указан · Ст3 · остаток, шт",
+        "Нержавеющая сталь · Круглая труба · AISI 304 · остаток, шт"
+      ]
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: цвета стали и нержавейки различимы",
+      "data": {
+        "steel": "rgb(224, 240, 243)",
+        "stainless": "rgb(238, 233, 247)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: закрыт пересчёт pipe-multiple"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: закрыт пересчёт pipe-unknown"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ноль слегка красный"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: у нуля нет дублирующей подписи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: пустые координаты не красные"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: дробный метраж не выдаётся за количество труб"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: видимые названия и коды убраны из ячеек"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: нестандартная длина не потеряна",
+      "data": [
+        "Сечение, мм\t\nМытая\n3 м\n\t\nМытая\n4 м\n\t\nМытая\n6 м\n\t\nНе мытая\n12 м\n\t\nМойка не указана\n7,5 м\n\n",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки",
+        "Сечение, мм\t\nМытая\nДлина не указана\n\n",
+        "Сечение, мм\t\nМытая\n6 м\n\n",
+        "Дата / времяКоличествоПримечание",
+        "Заявка и поставщикОстатокСрок поставки"
+      ]
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: Enter сначала требует подтверждение, запросов нет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: количество3 в штуках переводится в исходную единицу с raw expected",
+      "data": {
+        "type": "count",
+        "note": "Трубы",
+        "lines": [
+          {
+            "materialId": "pipe-6a",
+            "qty": 18,
+            "expected": 12
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: уход с изменённого количества не пишет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ошибка сервера не вызывает автоматический повтор"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: добавление отменяется без записи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: повтор quick остатка не повторяет создание"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: quick создание в явной зоне с узким DTO",
+      "data": {
+        "path": "/stock/items",
+        "zoneId": "6ae722517cfafdae6c36721e",
+        "body": {
+          "name": "Профильная труба · 40 × 20 × 2 · 3000 мм · Мытая · Ст3",
+          "unit": "м",
+          "categoryId": "c270000000000000000000c1",
+          "dims": {
+            "width": 40,
+            "height": 20,
+            "thickness": 2,
+            "length": 3000
+          },
+          "materialGrade": "Ст3",
+          "washed": true,
+          "assortment": "40×20×2"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: quick2шт переводится в метры без потери expected",
+      "data": {
+        "materialId": "c27000000000000000000001",
+        "qty": 6,
+        "expected": 0
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: приёмка ограничена своим типом"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: приёмка сохраняет явный контекст зоны"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: нет универсального создания шт в приёмке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 46,
+        "cells": 46
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: ожидания и брони не грузятся при входе"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: кнопка без стрелки",
+      "data": "1"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(226, 243, 234)",
+        "main": "rgb(227, 237, 231)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: ленивая история максимум2",
+      "data": {
+        "calls": 1,
+        "max": 1
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: адресный контекст грузится лениво максимум2"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: отмена заказа без записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: потерянный ответ не объявляется успехом"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: повтор сохраняет подтверждённое количество"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: retry сохраняет UUID и создаёт одну заявку с правильной единицей"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: создание заявки узким DTO"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: после заявки обновляется только адресный материал"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: Enter сначала требует подтверждение, запросов нет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: количество3 в штуках переводится в исходную единицу с raw expected",
+      "data": {
+        "type": "count",
+        "note": "Листовой материал",
+        "lines": [
+          {
+            "materialId": "6ae44678cdc3f92ad170db86",
+            "qty": 3,
+            "expected": 1
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: уход с изменённого количества не пишет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: ошибка сервера не вызывает автоматический повтор"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: примечание сохраняется отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: добавление отменяется без записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: приёмка ограничена своим типом"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: приёмка сохраняет явный контекст зоны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: нет универсального создания шт в приёмке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: ни одна позиция не потеряна",
+      "data": {
+        "items": 7,
+        "cells": 7
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: ожидания и брони не грузятся при входе"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: кнопка без стрелки",
+      "data": "3"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgba(63, 207, 142, 0.15)",
+        "main": "rgb(29, 36, 48)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: ленивая история максимум2",
+      "data": {
+        "calls": 1,
+        "max": 1
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: ошибка истории исправляется повтором"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: адресный контекст грузится лениво максимум2"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: ожидания показывают статус и реальные/неизвестные сроки"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: бронь показывает остаток7 без второго вычитания3 и предупреждение"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: отмена заказа без записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: потерянный ответ не объявляется успехом"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: повтор сохраняет подтверждённое количество"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: ошибка ожиданий блокирует новую заявку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: retry сохраняет UUID и создаёт одну заявку с правильной единицей"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: создание заявки узким DTO"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: после заявки обновляется только адресный материал"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: нержавейка после остальных таблиц",
+      "data": [
+        "Обычная сталь · Ст3 · Поверхность не указана · остаток, шт",
+        "Обычная сталь · Ст3 · Поверхность не указана · остаток, м²",
+        "Нержавеющая сталь · AISI 304 · Поверхность не указана · остаток, шт"
+      ]
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: цвета стали и нержавейки различимы",
+      "data": {
+        "steel": "rgba(127, 188, 198, 0.16)",
+        "stainless": "rgba(181, 160, 220, 0.16)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: закрыт пересчёт sheet-multiple"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: закрыт пересчёт sheet-unknown"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: ноль слегка красный"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: у нуля нет дублирующей подписи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: пустые координаты не красные"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: обрезки явно показаны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: добавление отменяется без записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: проверка создания ничего не записывает"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: частичный сбой явно сохраняет созданный материал с нулём"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: повтор остатка не повторяет создание"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: создание в явной зоне без чужих DTO-полей",
+      "data": {
+        "path": "/stock/items",
+        "zoneId": "6ae722517cfafdae6c36721f",
+        "body": {
+          "name": "Листовой металл · 3 × 1250 × 2500 · Ст3",
+          "unit": "шт",
+          "categoryId": "c270000000000000000000c2",
+          "dims": {
+            "thickness": 3,
+            "width": 1250,
+            "length": 2500
+          },
+          "materialGrade": "Ст3",
+          "washed": null,
+          "assortment": null
+        }
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: начальный остаток6 в исходной единице без преобразования",
+      "data": {
+        "materialId": "c27000000000000000000001",
+        "qty": 6,
+        "expected": 0
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: приёмка ограничена своим типом"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: приёмка сохраняет явный контекст зоны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-edges: нет универсального создания шт в приёмке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: ни одна позиция не потеряна",
+      "data": {
+        "items": 46,
+        "cells": 46
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          }
+        ],
+        "minInputHeight": null
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: ожидания и брони не грузятся при входе"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: кнопка без стрелки",
+      "data": "1"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(220, 231, 222)",
+        "main": "rgb(190, 199, 207)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: ленивая история максимум2",
+      "data": {
+        "calls": 1,
+        "max": 1
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: адресный контекст грузится лениво максимум2"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: readonly не заказывает"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: просмотр без полей записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: просмотр не пишет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: просмотр не создаёт материалы"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ни одна позиция не потеряна",
+      "data": {
+        "items": 7,
+        "cells": 7
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ожидания и брони не грузятся при входе"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: кнопка без стрелки",
+      "data": "3"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(226, 243, 234)",
+        "main": "rgb(227, 237, 231)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ленивая история максимум2",
+      "data": {
+        "calls": 1,
+        "max": 1
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ошибка истории исправляется повтором"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: адресный контекст грузится лениво максимум2"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ожидания показывают статус и реальные/неизвестные сроки"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: бронь показывает остаток7 без второго вычитания3 и предупреждение"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: отмена заказа без записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: потерянный ответ не объявляется успехом"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: повтор сохраняет подтверждённое количество"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ошибка ожиданий блокирует новую заявку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: retry сохраняет UUID и создаёт одну заявку с правильной единицей"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: создание заявки узким DTO"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: после заявки обновляется только адресный материал"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: нержавейка после остальных таблиц",
+      "data": [
+        "Обычная сталь · Ст3 · Поверхность не указана · остаток, шт",
+        "Обычная сталь · Ст3 · Поверхность не указана · остаток, м²",
+        "Нержавеющая сталь · AISI 304 · Поверхность не указана · остаток, шт"
+      ]
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: цвета стали и нержавейки различимы",
+      "data": {
+        "steel": "rgb(224, 240, 243)",
+        "stainless": "rgb(238, 233, 247)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: закрыт пересчёт sheet-multiple"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: закрыт пересчёт sheet-unknown"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ноль слегка красный"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: у нуля нет дублирующей подписи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: пустые координаты не красные"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: обрезки явно показаны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: Enter сначала требует подтверждение, запросов нет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: количество3 в штуках переводится в исходную единицу с raw expected",
+      "data": {
+        "type": "count",
+        "note": "Листовой материал",
+        "lines": [
+          {
+            "materialId": "sheet-3a",
+            "qty": 3,
+            "expected": 12
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: уход с изменённого количества не пишет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ошибка сервера не вызывает автоматический повтор"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: примечание сохраняется отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: добавление отменяется без записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: проверка создания ничего не записывает"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: частичный сбой явно сохраняет созданный материал с нулём"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: повтор остатка не повторяет создание"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: создание в явной зоне без чужих DTO-полей",
+      "data": {
+        "path": "/stock/items",
+        "zoneId": "6ae722517cfafdae6c36721f",
+        "body": {
+          "name": "Листовой металл · 3 × 1250 × 2500 · Ст3",
+          "unit": "шт",
+          "categoryId": "c270000000000000000000c2",
+          "dims": {
+            "thickness": 3,
+            "width": 1250,
+            "length": 2500
+          },
+          "materialGrade": "Ст3",
+          "washed": null,
+          "assortment": null
+        }
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: начальный остаток6 в исходной единице без преобразования",
+      "data": {
+        "materialId": "c27000000000000000000001",
+        "qty": 6,
+        "expected": 0
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: приёмка ограничена своим типом"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: приёмка сохраняет явный контекст зоны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: нет универсального создания шт в приёмке"
+    }
+  ],
+  "screens": [
+    {
+      "kind": "pipe",
+      "theme": "light",
+      "width": 1440,
+      "readOnly": false,
+      "edge": false,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "6ae45d39d29aaee2976a2697",
+                "qty": 18,
+                "expected": 0
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "6ae45d39d29aaee2976a2697",
+                "qty": 42,
+                "expected": 18
+              }
+            ]
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors",
+        "/api/client-errors"
+      ],
+      "items": 91,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae44619cdc3f92ad170d7a9",
+        "6ae4461bcdc3f92ad170d7b7",
+        "6ae45d66d29aaee2976a2805"
+      ],
+      "historyActive": 0,
+      "historyMax": 2,
+      "contextGets": [
+        {
+          "materialId": "6ae44619cdc3f92ad170d7a9",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae44619cdc3f92ad170d7a9",
+          "type": "reservations"
+        },
+        {
+          "materialId": "6ae4461bcdc3f92ad170d7b7",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae4461bcdc3f92ad170d7b7",
+          "type": "reservations"
+        },
+        {
+          "materialId": "6ae44619cdc3f92ad170d7a9",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae45d66d29aaee2976a2805",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae45d66d29aaee2976a2805",
+          "type": "reservations"
+        }
+      ],
+      "contextActive": 0,
+      "contextMax": 2,
+      "itemReads": 3,
+      "legacyReservationGets": 0,
+      "orderWrites": [
+        {
+          "materialId": "6ae44619cdc3f92ad170d7a9",
+          "body": {
+            "qty": 30,
+            "clientUid": "84e6c844-42de-4b06-88df-a18783299f36"
+          }
+        },
+        {
+          "materialId": "6ae44619cdc3f92ad170d7a9",
+          "body": {
+            "qty": 30,
+            "clientUid": "84e6c844-42de-4b06-88df-a18783299f36"
+          }
+        }
+      ],
+      "orders": [
+        {
+          "id": "c27100000000000000000001",
+          "num": "C271-1",
+          "materialId": "6ae44619cdc3f92ad170d7a9",
+          "qty": 30,
+          "unit": "м",
+          "status": "requested",
+          "clientUid": "84e6c844-42de-4b06-88df-a18783299f36"
+        }
+      ],
+      "orderErrorNext": false,
+      "requestErrorNext": false
+    },
+    {
+      "kind": "pipe",
+      "theme": "dark",
+      "width": 1920,
+      "readOnly": false,
+      "edge": true,
+      "writes": [
+        {
+          "path": "/stock/items",
+          "zoneId": "6ae722517cfafdae6c36721e",
+          "body": {
+            "name": "Профильная труба · 40 × 20 × 2 · 3000 мм · Мытая · Ст3",
+            "unit": "м",
+            "categoryId": "c270000000000000000000c1",
+            "dims": {
+              "width": 40,
+              "height": 20,
+              "thickness": 2,
+              "length": 3000
+            },
+            "materialGrade": "Ст3",
+            "washed": true,
+            "assortment": "40×20×2"
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors",
+        "/api/client-errors",
+        "/api/client-errors",
+        "/api/client-errors"
+      ],
+      "items": 9,
+      "created": [
+        {
+          "name": "Профильная труба · 40 × 20 × 2 · 3000 мм · Мытая · Ст3",
+          "unit": "м",
+          "categoryId": "c270000000000000000000c1",
+          "dims": {
+            "width": 40,
+            "height": 20,
+            "thickness": 2,
+            "length": 3000
+          },
+          "materialGrade": "Ст3",
+          "washed": true,
+          "assortment": "40×20×2",
+          "id": "c27000000000000000000001",
+          "materialId": "c27000000000000000000001",
+          "quantity": 0,
+          "reservedQty": 0,
+          "free": 0,
+          "metal": "pipe",
+          "countMode": "single",
+          "categoryName": "Профильная труба",
+          "sectionProfile": {
+            "state": "complete",
+            "shape": "rect",
+            "label": "40×20×2",
+            "widthMm": 40,
+            "heightMm": 20,
+            "wallMm": 2
+          }
+        }
+      ],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "pipe-6a",
+        "pipe-12",
+        "pipe-odd",
+        "pipe-zero",
+        "pipe-multiple",
+        "pipe-6a",
+        "pipe-pieces"
+      ],
+      "historyActive": 0,
+      "historyMax": 2,
+      "contextGets": [
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-12",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-12",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-odd",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-odd",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-zero",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-zero",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-multiple",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-multiple",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-pieces",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-pieces",
+          "type": "reservations"
+        }
+      ],
+      "contextActive": 0,
+      "contextMax": 2,
+      "itemReads": 5,
+      "legacyReservationGets": 0,
+      "orderWrites": [
+        {
+          "materialId": "pipe-6a",
+          "body": {
+            "qty": 30,
+            "clientUid": "167e5113-9da9-49e0-bfd2-ea36ee8151d9"
+          }
+        },
+        {
+          "materialId": "pipe-6a",
+          "body": {
+            "qty": 30,
+            "clientUid": "167e5113-9da9-49e0-bfd2-ea36ee8151d9"
+          }
+        }
+      ],
+      "orders": [
+        {
+          "id": "c27100000000000000000001",
+          "num": "C271-1",
+          "materialId": "pipe-6a",
+          "qty": 30,
+          "unit": "м",
+          "status": "requested",
+          "clientUid": "167e5113-9da9-49e0-bfd2-ea36ee8151d9"
+        }
+      ],
+      "orderErrorNext": false,
+      "requestErrorNext": false,
+      "failedHistory": true
+    },
+    {
+      "kind": "pipe",
+      "theme": "soft",
+      "width": 2560,
+      "readOnly": true,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 91,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae44619cdc3f92ad170d7a9",
+        "6ae4461bcdc3f92ad170d7b7",
+        "6ae45d66d29aaee2976a2805"
+      ],
+      "historyActive": 0,
+      "historyMax": 2,
+      "contextGets": [
+        {
+          "materialId": "6ae44619cdc3f92ad170d7a9",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae44619cdc3f92ad170d7a9",
+          "type": "reservations"
+        },
+        {
+          "materialId": "6ae4461bcdc3f92ad170d7b7",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae4461bcdc3f92ad170d7b7",
+          "type": "reservations"
+        },
+        {
+          "materialId": "6ae45d66d29aaee2976a2805",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae45d66d29aaee2976a2805",
+          "type": "reservations"
+        }
+      ],
+      "contextActive": 0,
+      "contextMax": 2,
+      "itemReads": 1,
+      "legacyReservationGets": 0,
+      "orderWrites": [],
+      "orders": [],
+      "orderErrorNext": false,
+      "requestErrorNext": false
+    },
+    {
+      "kind": "pipe",
+      "theme": "light",
+      "width": 1024,
+      "readOnly": false,
+      "edge": true,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "pipe-6a",
+                "qty": 18,
+                "expected": 12
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "pipe-6a",
+                "qty": 42,
+                "expected": 18
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/items",
+          "zoneId": "6ae722517cfafdae6c36721e",
+          "body": {
+            "name": "Профильная труба · 40 × 20 × 2 · 3000 мм · Мытая · Ст3",
+            "unit": "м",
+            "categoryId": "c270000000000000000000c1",
+            "dims": {
+              "width": 40,
+              "height": 20,
+              "thickness": 2,
+              "length": 3000
+            },
+            "materialGrade": "Ст3",
+            "washed": true,
+            "assortment": "40×20×2"
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors",
+        "/api/client-errors",
+        "/api/client-errors",
+        "/api/client-errors"
+      ],
+      "items": 9,
+      "created": [
+        {
+          "name": "Профильная труба · 40 × 20 × 2 · 3000 мм · Мытая · Ст3",
+          "unit": "м",
+          "categoryId": "c270000000000000000000c1",
+          "dims": {
+            "width": 40,
+            "height": 20,
+            "thickness": 2,
+            "length": 3000
+          },
+          "materialGrade": "Ст3",
+          "washed": true,
+          "assortment": "40×20×2",
+          "id": "c27000000000000000000001",
+          "materialId": "c27000000000000000000001",
+          "quantity": 0,
+          "reservedQty": 0,
+          "free": 0,
+          "metal": "pipe",
+          "countMode": "single",
+          "categoryName": "Профильная труба",
+          "sectionProfile": {
+            "state": "complete",
+            "shape": "rect",
+            "label": "40×20×2",
+            "widthMm": 40,
+            "heightMm": 20,
+            "wallMm": 2
+          }
+        }
+      ],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "pipe-6a",
+        "pipe-12",
+        "pipe-odd",
+        "pipe-zero",
+        "pipe-multiple",
+        "pipe-6a",
+        "pipe-pieces"
+      ],
+      "historyActive": 0,
+      "historyMax": 2,
+      "contextGets": [
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-12",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-12",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-odd",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-odd",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-zero",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-zero",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-multiple",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-multiple",
+          "type": "reservations"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-6a",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-pieces",
+          "type": "requests"
+        },
+        {
+          "materialId": "pipe-pieces",
+          "type": "reservations"
+        }
+      ],
+      "contextActive": 0,
+      "contextMax": 2,
+      "itemReads": 6,
+      "legacyReservationGets": 0,
+      "orderWrites": [
+        {
+          "materialId": "pipe-6a",
+          "body": {
+            "qty": 30,
+            "clientUid": "974fe4d2-2d2b-4736-9a42-9c66a4e2797c"
+          }
+        },
+        {
+          "materialId": "pipe-6a",
+          "body": {
+            "qty": 30,
+            "clientUid": "974fe4d2-2d2b-4736-9a42-9c66a4e2797c"
+          }
+        }
+      ],
+      "orders": [
+        {
+          "id": "c27100000000000000000001",
+          "num": "C271-1",
+          "materialId": "pipe-6a",
+          "qty": 30,
+          "unit": "м",
+          "status": "requested",
+          "clientUid": "974fe4d2-2d2b-4736-9a42-9c66a4e2797c"
+        }
+      ],
+      "orderErrorNext": false,
+      "requestErrorNext": false,
+      "failedHistory": true
+    },
+    {
+      "kind": "sheet",
+      "theme": "light",
+      "width": 1440,
+      "readOnly": false,
+      "edge": false,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "6ae44678cdc3f92ad170db86",
+                "qty": 3,
+                "expected": 1
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "6ae44678cdc3f92ad170db86",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/items/6ae44678cdc3f92ad170db86",
+          "body": {
+            "notes": "C269 проверка примечания"
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors",
+        "/api/client-errors"
+      ],
+      "items": 46,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae445f7cdc3f92ad170d6a7",
+        "6ae45d34d29aaee2976a266d"
+      ],
+      "historyActive": 0,
+      "historyMax": 1,
+      "contextGets": [
+        {
+          "materialId": "6ae445f7cdc3f92ad170d6a7",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae445f7cdc3f92ad170d6a7",
+          "type": "reservations"
+        },
+        {
+          "materialId": "6ae445f7cdc3f92ad170d6a7",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae45d34d29aaee2976a266d",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae45d34d29aaee2976a266d",
+          "type": "reservations"
+        }
+      ],
+      "contextActive": 0,
+      "contextMax": 2,
+      "itemReads": 5,
+      "legacyReservationGets": 0,
+      "orderWrites": [
+        {
+          "materialId": "6ae445f7cdc3f92ad170d6a7",
+          "body": {
+            "qty": 5,
+            "clientUid": "4ec81800-5a64-4a09-9a53-be9d237ec1de"
+          }
+        },
+        {
+          "materialId": "6ae445f7cdc3f92ad170d6a7",
+          "body": {
+            "qty": 5,
+            "clientUid": "4ec81800-5a64-4a09-9a53-be9d237ec1de"
+          }
+        }
+      ],
+      "orders": [
+        {
+          "id": "c27100000000000000000001",
+          "num": "C271-1",
+          "materialId": "6ae445f7cdc3f92ad170d6a7",
+          "qty": 5,
+          "unit": "лист",
+          "status": "requested",
+          "clientUid": "4ec81800-5a64-4a09-9a53-be9d237ec1de"
+        }
+      ],
+      "orderErrorNext": false,
+      "requestErrorNext": false
+    },
+    {
+      "kind": "sheet",
+      "theme": "dark",
+      "width": 1920,
+      "readOnly": false,
+      "edge": true,
+      "writes": [
+        {
+          "path": "/stock/items",
+          "zoneId": "6ae722517cfafdae6c36721f",
+          "body": {
+            "name": "Листовой металл · 3 × 1250 × 2500 · Ст3",
+            "unit": "шт",
+            "categoryId": "c270000000000000000000c2",
+            "dims": {
+              "thickness": 3,
+              "width": 1250,
+              "length": 2500
+            },
+            "materialGrade": "Ст3",
+            "washed": null,
+            "assortment": null
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors",
+        "/api/client-errors",
+        "/api/client-errors",
+        "/api/client-errors"
+      ],
+      "items": 8,
+      "created": [
+        {
+          "name": "Листовой металл · 3 × 1250 × 2500 · Ст3",
+          "unit": "шт",
+          "categoryId": "c270000000000000000000c2",
+          "dims": {
+            "thickness": 3,
+            "width": 1250,
+            "length": 2500
+          },
+          "materialGrade": "Ст3",
+          "washed": null,
+          "assortment": null,
+          "id": "c27000000000000000000001",
+          "materialId": "c27000000000000000000001",
+          "quantity": 0,
+          "reservedQty": 0,
+          "free": 0,
+          "metal": "sheet",
+          "countMode": "single",
+          "categoryName": "Листовой металл"
+        }
+      ],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "sheet-3a",
+        "sheet-3a",
+        "sheet-4"
+      ],
+      "historyActive": 0,
+      "historyMax": 1,
+      "contextGets": [
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "reservations"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-4",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-4",
+          "type": "reservations"
+        }
+      ],
+      "contextActive": 0,
+      "contextMax": 2,
+      "itemReads": 6,
+      "legacyReservationGets": 0,
+      "orderWrites": [
+        {
+          "materialId": "sheet-3a",
+          "body": {
+            "qty": 5,
+            "clientUid": "d2ee6bd8-48da-4c2c-b1e3-60259f44b7b4"
+          }
+        },
+        {
+          "materialId": "sheet-3a",
+          "body": {
+            "qty": 5,
+            "clientUid": "d2ee6bd8-48da-4c2c-b1e3-60259f44b7b4"
+          }
+        }
+      ],
+      "orders": [
+        {
+          "id": "c27100000000000000000001",
+          "num": "C271-1",
+          "materialId": "sheet-3a",
+          "qty": 5,
+          "unit": "шт",
+          "status": "requested",
+          "clientUid": "d2ee6bd8-48da-4c2c-b1e3-60259f44b7b4"
+        }
+      ],
+      "orderErrorNext": false,
+      "requestErrorNext": false,
+      "failedHistory": true
+    },
+    {
+      "kind": "sheet",
+      "theme": "soft",
+      "width": 2560,
+      "readOnly": true,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 46,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae445f7cdc3f92ad170d6a7",
+        "6ae45d34d29aaee2976a266d"
+      ],
+      "historyActive": 0,
+      "historyMax": 1,
+      "contextGets": [
+        {
+          "materialId": "6ae445f7cdc3f92ad170d6a7",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae445f7cdc3f92ad170d6a7",
+          "type": "reservations"
+        },
+        {
+          "materialId": "6ae45d34d29aaee2976a266d",
+          "type": "requests"
+        },
+        {
+          "materialId": "6ae45d34d29aaee2976a266d",
+          "type": "reservations"
+        }
+      ],
+      "contextActive": 0,
+      "contextMax": 2,
+      "itemReads": 1,
+      "legacyReservationGets": 0,
+      "orderWrites": [],
+      "orders": [],
+      "orderErrorNext": false,
+      "requestErrorNext": false
+    },
+    {
+      "kind": "sheet",
+      "theme": "light",
+      "width": 1024,
+      "readOnly": false,
+      "edge": true,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "sheet-3a",
+                "qty": 3,
+                "expected": 12
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "sheet-3a",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/items/sheet-3a",
+          "body": {
+            "notes": "C269 проверка примечания"
+          }
+        },
+        {
+          "path": "/stock/items",
+          "zoneId": "6ae722517cfafdae6c36721f",
+          "body": {
+            "name": "Листовой металл · 3 × 1250 × 2500 · Ст3",
+            "unit": "шт",
+            "categoryId": "c270000000000000000000c2",
+            "dims": {
+              "thickness": 3,
+              "width": 1250,
+              "length": 2500
+            },
+            "materialGrade": "Ст3",
+            "washed": null,
+            "assortment": null
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors",
+        "/api/client-errors",
+        "/api/client-errors",
+        "/api/client-errors"
+      ],
+      "items": 8,
+      "created": [
+        {
+          "name": "Листовой металл · 3 × 1250 × 2500 · Ст3",
+          "unit": "шт",
+          "categoryId": "c270000000000000000000c2",
+          "dims": {
+            "thickness": 3,
+            "width": 1250,
+            "length": 2500
+          },
+          "materialGrade": "Ст3",
+          "washed": null,
+          "assortment": null,
+          "id": "c27000000000000000000001",
+          "materialId": "c27000000000000000000001",
+          "quantity": 0,
+          "reservedQty": 0,
+          "free": 0,
+          "metal": "sheet",
+          "countMode": "single",
+          "categoryName": "Листовой металл"
+        }
+      ],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "sheet-3a",
+        "sheet-3a",
+        "sheet-4"
+      ],
+      "historyActive": 0,
+      "historyMax": 1,
+      "contextGets": [
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "reservations"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-3a",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-4",
+          "type": "requests"
+        },
+        {
+          "materialId": "sheet-4",
+          "type": "reservations"
+        }
+      ],
+      "contextActive": 0,
+      "contextMax": 2,
+      "itemReads": 8,
+      "legacyReservationGets": 0,
+      "orderWrites": [
+        {
+          "materialId": "sheet-3a",
+          "body": {
+            "qty": 5,
+            "clientUid": "05e1eacd-1f2f-4aca-aa2f-97be03cff5d7"
+          }
+        },
+        {
+          "materialId": "sheet-3a",
+          "body": {
+            "qty": 5,
+            "clientUid": "05e1eacd-1f2f-4aca-aa2f-97be03cff5d7"
+          }
+        }
+      ],
+      "orders": [
+        {
+          "id": "c27100000000000000000001",
+          "num": "C271-1",
+          "materialId": "sheet-3a",
+          "qty": 5,
+          "unit": "шт",
+          "status": "requested",
+          "clientUid": "05e1eacd-1f2f-4aca-aa2f-97be03cff5d7"
+        }
+      ],
+      "orderErrorNext": false,
+      "requestErrorNext": false,
+      "failedHistory": true
+    }
+  ],
+  "errors": [],
+  "shots": [
+    "pipe-light-1440-native-grid.png",
+    "pipe-light-1440-native-context.png",
+    "pipe-light-1440-native-reservations.png",
+    "pipe-light-1440-native-order-confirm.png",
+    "pipe-light-1440-native-order-uncertain.png",
+    "pipe-light-1440-native-order-created.png",
+    "pipe-light-1440-native-expanded.png",
+    "pipe-light-1440-native-confirm.png",
+    "pipe-light-1440-native-saved.png",
+    "pipe-light-1440-native-stainless.png",
+    "pipe-light-1440-native-receive.png",
+    "pipe-dark-1920-edges-grid.png",
+    "pipe-dark-1920-edges-context.png",
+    "pipe-dark-1920-edges-reservations.png",
+    "pipe-dark-1920-edges-order-confirm.png",
+    "pipe-dark-1920-edges-order-uncertain.png",
+    "pipe-dark-1920-edges-order-created.png",
+    "pipe-dark-1920-edges-expanded.png",
+    "pipe-dark-1920-edges-quick-after-error.png",
+    "pipe-dark-1920-edges-quick-partial.png",
+    "pipe-dark-1920-edges-quick-created.png",
+    "pipe-dark-1920-edges-stainless.png",
+    "pipe-dark-1920-edges-receive.png",
+    "pipe-soft-2560-readonly-grid.png",
+    "pipe-soft-2560-readonly-context.png",
+    "pipe-soft-2560-readonly-reservations.png",
+    "pipe-soft-2560-readonly-expanded.png",
+    "pipe-light-1024-edges-grid.png",
+    "pipe-light-1024-edges-context.png",
+    "pipe-light-1024-edges-reservations.png",
+    "pipe-light-1024-edges-order-confirm.png",
+    "pipe-light-1024-edges-order-uncertain.png",
+    "pipe-light-1024-edges-order-created.png",
+    "pipe-light-1024-edges-expanded.png",
+    "pipe-light-1024-edges-confirm.png",
+    "pipe-light-1024-edges-saved.png",
+    "pipe-light-1024-edges-quick-after-error.png",
+    "pipe-light-1024-edges-quick-partial.png",
+    "pipe-light-1024-edges-quick-created.png",
+    "pipe-light-1024-edges-stainless.png",
+    "pipe-light-1024-edges-receive.png",
+    "sheet-light-1440-native-grid.png",
+    "sheet-light-1440-native-context.png",
+    "sheet-light-1440-native-reservations.png",
+    "sheet-light-1440-native-order-confirm.png",
+    "sheet-light-1440-native-order-uncertain.png",
+    "sheet-light-1440-native-order-created.png",
+    "sheet-light-1440-native-expanded.png",
+    "sheet-light-1440-native-confirm.png",
+    "sheet-light-1440-native-saved.png",
+    "sheet-light-1440-native-stainless.png",
+    "sheet-light-1440-native-receive.png",
+    "sheet-dark-1920-edges-grid.png",
+    "sheet-dark-1920-edges-context.png",
+    "sheet-dark-1920-edges-reservations.png",
+    "sheet-dark-1920-edges-order-confirm.png",
+    "sheet-dark-1920-edges-order-uncertain.png",
+    "sheet-dark-1920-edges-order-created.png",
+    "sheet-dark-1920-edges-expanded.png",
+    "sheet-dark-1920-edges-create-confirm.png",
+    "sheet-dark-1920-edges-created.png",
+    "sheet-dark-1920-edges-stainless.png",
+    "sheet-dark-1920-edges-receive.png",
+    "sheet-soft-2560-readonly-grid.png",
+    "sheet-soft-2560-readonly-context.png",
+    "sheet-soft-2560-readonly-reservations.png",
+    "sheet-soft-2560-readonly-expanded.png",
+    "sheet-light-1024-edges-grid.png",
+    "sheet-light-1024-edges-context.png",
+    "sheet-light-1024-edges-reservations.png",
+    "sheet-light-1024-edges-order-confirm.png",
+    "sheet-light-1024-edges-order-uncertain.png",
+    "sheet-light-1024-edges-order-created.png",
+    "sheet-light-1024-edges-expanded.png",
+    "sheet-light-1024-edges-confirm.png",
+    "sheet-light-1024-edges-saved.png",
+    "sheet-light-1024-edges-create-confirm.png",
+    "sheet-light-1024-edges-created.png",
+    "sheet-light-1024-edges-stainless.png",
+    "sheet-light-1024-edges-receive.png"
+  ]
+}

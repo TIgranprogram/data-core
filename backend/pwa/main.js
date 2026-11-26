@@ -711,11 +711,14 @@ const COUNT_SECTION = [[/^\/supply\/(requests|invoices)/, 'requests'], [/^\/stoc
 function onDataChanged(e) {
   const d = e?.detail;
   const path = d?.path || '';
+  const workerRequest = d?.method === 'POST' && /^\/stock\/items\/[^/]+\/request$/.test(path);
   if (!path || LOOKUP_PATH.test(path)) lookups.reset(); // справочники сбрасываем только при записи в них
   // счётчики меню — только затронутых разделов и не чаще раза в 2 с
-  const hit = path ? COUNT_SECTION.filter(([re]) => re.test(path)).map(([, id]) => id) : [];
+  const hit = workerRequest ? (d.result?.id && !d.result.queued && session.sees('requests') ? ['requests'] : [])
+    : path ? COUNT_SECTION.filter(([re]) => re.test(path)).map(([, id]) => id) : [];
   if (!path) ['requests', 'stock', 'money', 'salesorders', 'design', 'work'].forEach((id) => countsOf.add(id)); else hit.forEach((id) => countsOf.add(id));
   if (countsOf.size && !countsTimer) countsTimer = setTimeout(() => { countsTimer = 0; const ids = new Set(countsOf); countsOf.clear(); refreshCounts(ids); }, 2000);
+  if (workerRequest && mounted?.section === 'stock') return; // Адресные ожидания уже обновляет рабочая подстрока.
   const one = d?.method === 'PATCH' && d.result && d.result.id && !d.result.items ? d.result : null;
   if (changedTimer) rowsMixed = true;
   lastRow = one;
@@ -736,8 +739,9 @@ function onVersions(keys) {
   quietLoadFor(); // чужая правка обновляет экран фоном, без полоски загрузки
   if (keys.has('stock')) resetHeldStock();
   if (keys.has('users')) { refreshMe(); keys.delete('users'); if (!keys.size) return; }
-  const shows = SHOWS[current().section];
-  if (!shows || shows.some((k) => keys.has(k))) { onDataChanged(); return; }
+  const section = current().section, shows = SHOWS[section];
+  const workerRequests = section === 'stock' && keys.has('requests') && mounted?.list?.el?.classList.contains('pg-worker');
+  if (workerRequests || !shows || shows.some((k) => keys.has(k))) { onDataChanged(); return; }
   refreshCounts(new Set([...keys].filter((k) => k !== 'passports' && k !== 'products')));
 }
 document.addEventListener('dc:view-as', () => rebuildShell());

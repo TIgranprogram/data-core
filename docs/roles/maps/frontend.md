@@ -1,6 +1,6 @@
 # Карта роли frontend
 
-коммит: 36bdd4dc · опорная ревизия для поиска, 23.11.2026. Приёмка конкретного изменения фиксируется отдельно.
+коммит: f70cfc09 · C272 от 26.11.2026, опора C271. Коммит C271 фиксирует координатор после приёмки.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
 Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
@@ -14,6 +14,9 @@
 - Изменения kit и разделов разделяет координатор при коммите; допускаемый перенос импортов описан в `.githooks/commit-msg`. Изменение API или общего поведения соседних клиентов — стык для архитектора.
 
 История карты до сокращения: `git show 3929ea33:docs/roles/maps/frontend.md | rg -n 'слово|Cxxx'`. Подробные результаты остаются в отчётах задач.
+
+- C272: трубы в штуках и пересчёт в исходную unit — `backend/pwa/sections/stock-worker-model.js:22,38,54`; подпись в метрах и очистка ячеек — `stock-worker-grid.js:16,44`; порядок металлов — `stock-worker-model.js:146,171`; приёмка native stock-only — `backend/pwa/core/route-access.js:47`, `backend/pwa/sections/stock-worker-scope.js:12`. [Отчёт](../../crew/C272-worker-pipe-pieces/REPORT-FRONTEND.md).
+- C271: адресное раскрытие — `backend/pwa/sections/stock-worker-details.js:42,100`; пагинация и сброс кэша при обновлении — `stock-worker-context.js:66,127`; UUID до подтверждённого ответа — `:97`; форма заказа и поздний ответ — `stock-worker-context-view.js:65,115`; адресное обновление и внешние версии заявок — `backend/pwa/main.js:714,738`. [Отчёт](../../crew/C271-worker-stock-context/REPORT-FRONTEND.md).
 
 - C237: различение договора и производственного заказа — `backend/pwa/sections/salesorders.js:50` (тип/заголовок), `:532` (крошка), `:708` (поиск); резервное имя PDF — `backend/pwa/sections/order-attachments-zip.js:94`. Подвал — `backend/pwa/sections/order-footer.js:64`. Регрессии — `backend/pwa/sections/c237-contract-labels.test.mjs:18`.
 - C238: переход из ограниченной колонки к списку — `backend/pwa/ui/kit/board.js:276`; регрессия настоящего paint.onClick → viewStore — `backend/pwa/ui/kit/board-more.test.mjs:35`. Месяцы определяет раздел; board их не обещает и paid-периоды не создаёт.

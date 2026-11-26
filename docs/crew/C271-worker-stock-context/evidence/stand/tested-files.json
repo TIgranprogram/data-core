@@ -1,0 +1,20 @@
+{
+  "base": "6026b9fe",
+  "algorithm": "sha256-utf8-lf",
+  "sha256": {
+    "backend/pwa/index.html": "279e4d99dc82f04ea9010fd425ef907bd51963025e36f353a56f5c6e42d4ac95",
+    "backend/pwa/main.js": "eae5237bd43626bd24ec1f5838b2b1b78f47fafdddc700416f6bd64a405c1122",
+    "backend/pwa/core/route-access.js": "5f87f37f28abecab657a0078659e5bda399a268cc2ed45a77b5d06212b0fc504",
+    "backend/pwa/sections/atlas-stock.js": "e43df7d8c2fa2ba4a84473cdbeae1c2b8ffff2ad346467abe820749699df88fb",
+    "backend/pwa/sections/help-guide-data.js": "4ee41bb1f4a13ac0051a8a38f9fe035a3570d6a5457254c57cd62560fd2f04d3",
+    "backend/pwa/sections/stock-worker-model.js": "461ef80a4e5242a1125988716de3dce3c51e4d0a9a993194025a9c3fcf8e73ac",
+    "backend/pwa/sections/stock-worker-grid.js": "5e2ad88e889347b5a448153538bfd3af1b43d2e5c6fd119d45def5bedeee3aa1",
+    "backend/pwa/sections/stock-worker-create.js": "b1ad80478d32c09e9c6a29b77e57003e1cf4e08c881eb563633c11ac745af02d",
+    "backend/pwa/sections/stock-worker-confirm.js": "100767ec462a94c57f0319000a7f757f175a1a8c1f9fb3a46cce19ebba1f537c",
+    "backend/pwa/sections/stock-worker-details.js": "eabc32afa7cbe61f00b25cf4cfef7c218d1ebeb8018f6e88c01ad02738887b71",
+    "backend/pwa/sections/stock-worktable.js": "5c317d144692fe7bbb657a4bfafd8356cf25b9624ae594bc2393c858aaf9980d",
+    "backend/pwa/sections/stock-worker-context.js": "7538c39d499d68bda5c985b4aa391bdd8165771881a993384ff70b2c440b128f",
+    "backend/pwa/sections/stock-worker-context-view.js": "eddfa390c9077a1fc6b566f3650f8c5554e40ddc5fb77d53c74406c1610d3c55",
+    "backend/pwa/ui/kit/kit.css": "5a3c198222a1d0ec065cde59a3085c1981b29ef4571fd0887c03802152b0c9ee"
+  }
+}

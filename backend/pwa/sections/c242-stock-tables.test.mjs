@@ -45,6 +45,9 @@ async function fixture(t, { kind = 'pipe', theme = 'light', many = false, width 
     const url = new URL(route.request().url()), method = route.request().method(), query = Object.fromEntries(url.searchParams);
     if (url.origin !== origin) return route.abort();
     if (url.pathname.startsWith('/api/')) {
+      if (/^\/api\/stock\/items\/[^/]+\/(requests|reservations)$/.test(url.pathname)) {
+        return route.fulfill({ json: { items: [], total: 0, page: Number(url.searchParams.get('page')), limit: Number(url.searchParams.get('limit')) } });
+      }
       const body = route.request().postDataJSON(); calls.push({ path: url.pathname, query, method, body });
       if (url.pathname === '/api/auth/me') return route.fulfill({ json: person });
       if (url.pathname === '/api/stock/zones') return route.fulfill({ json: { items: zones } });
