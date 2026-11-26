@@ -146,8 +146,8 @@ const WAREHOUSE_FIELDS = ['name', 'type', 'address', 'description', 'isActive', 
 type WarehouseQuery = { session: (session: ClientSession) => WarehouseQuery; exec: () => Promise<unknown> };
 type WarehouseWriter = {
   updateOne: (filter: object, update: object) => WarehouseQuery;
-  updateMany: (filter: object, update: object) => { exec: () => Promise<unknown> };
-  create: (docs: object | object[], options?: { session?: ClientSession }) => Promise<unknown>;
+  updateMany: (filter: object, update: object) => WarehouseQuery;
+  create: (docs: object[], options: { session: ClientSession }) => Promise<unknown>;
 };
 
 /** Оставляет только известные поля. Чужой ключ не попадает в `$set` и не затирает документ. */
@@ -168,41 +168,26 @@ function assertWarehouseSet(set: Record<string, unknown>) {
   if (!Object.keys(set).length) throw new Error('stock-writes: пустой $set склада');
 }
 
-/**
- * Новый склад. Сессия — как у склада по умолчанию: `create([doc], { session })`.
- * Без сессии — один документ. Это вставка, не замена живого документа.
- */
-export function insertWarehouse(model: WarehouseWriter, value: object, session?: ClientSession) {
+/** Вставка склада в транзакции владельца. */
+export function insertWarehouse(model: WarehouseWriter, value: object, session: ClientSession) {
   const set = warehouseSet(value);
   if (!set.name) throw new Error('stock-writes: у склада нет названия');
-  if (session) return model.create([set], { session }).then((rows) => (rows as unknown[])[0]);
-  return model.create(set);
+  return model.create([set], { session }).then((rows) => (rows as unknown[])[0]);
 }
 
 /** Правка склада: только `$set` известных полей. `replaceOne` и `save()` всего документа запрещены. */
-export function patchWarehouse(model: WarehouseWriter, id: unknown, set: Record<string, unknown>) {
+export function patchWarehouse(model: WarehouseWriter, id: unknown, set: Record<string, unknown>, session: ClientSession) {
   assertWarehouseSet(set);
-  return model.updateOne({ _id: id }, { $set: warehouseSet(set) });
+  return model.updateOne({ _id: id, deletedAt: null }, { $set: warehouseSet(set) }).session(session).exec();
 }
 
-/** Снять «по умолчанию» со всех складов перед назначением нового. */
-export function clearWarehouseDefaults(model: WarehouseWriter) {
-  return model.updateMany({ isDefault: true }, { $set: { isDefault: false } });
-}
-
-/** Снять «по умолчанию» с остальных, этот id не трогать. */
-export function clearOtherWarehouseDefaults(model: WarehouseWriter, exceptId: unknown) {
-  return model.updateMany({ _id: { $ne: exceptId }, isDefault: true }, { $set: { isDefault: false } });
-}
-
-/** Назначить один склад по умолчанию. Сессия вешается на query, как раньше в `defaultWarehouse`. */
-export function markWarehouseDefault(model: WarehouseWriter, id: unknown, session?: ClientSession) {
-  const update = model.updateOne({ _id: id }, { $set: { isDefault: true } });
-  if (session) update.session(session);
-  return update.exec();
+/** Снять устаревшие назначения, сохранив выбранный склад. */
+export function clearWarehouseDefaults(model: WarehouseWriter, session: ClientSession, keepId?: unknown) {
+  const filter = { isDefault: true, deletedAt: null, ...(keepId === undefined ? {} : { _id: { $ne: keepId } }) };
+  return model.updateMany(filter, { $set: { isDefault: false } }).session(session).exec();
 }
 
 /** Снятие с учёта. Повтор по уже снятому фильтру вызывающего не находит строку. */
-export function archiveWarehouse(model: WarehouseWriter, id: unknown, deletedAt: Date) {
-  return model.updateOne({ _id: id }, { $set: { deletedAt, isDefault: false } });
+export function archiveWarehouse(model: WarehouseWriter, id: unknown, deletedAt: Date, session: ClientSession) {
+  return model.updateOne({ _id: id, deletedAt: null }, { $set: { deletedAt, isDefault: false } }).session(session).exec();
 }

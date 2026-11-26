@@ -6,7 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { StockScoped } from '../../common/decorators/stock-scoped.decorator';
 import { OwnerIdempotency } from '../../common/idempotency/owner-idempotency.decorator';
 import type { StockScope } from '../../common/stock-scope';
-import { StockItemReservationsDto } from '../stock/stock-item-reservations.dto';
+import { StockItemReservationsDto } from '../stock';
 import { SupplyStockRequestDto, SupplyStockRequestQueryDto } from './supply-stock-request.dto';
 import { SupplyService } from './supply.service';
 

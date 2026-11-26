@@ -70,16 +70,29 @@ describe('C242 — session в целевых preflight и fallback склада'
     expect(await prepareTarget(db as never, { type: 'out', reason: 'Брак', writeOff: true }, session as never)).toMatchObject({ reason: 'Брак' });
   });
   it.each(['default', 'first', 'create'])('defaultWarehouse(%s) не теряет session в find/update/create', async (mode) => {
-    let call = 0;
-    const doc = { _id: new Types.ObjectId(), isDefault: mode === 'default' };
+    const doc = { _id: new Types.ObjectId(), isDefault: mode !== 'first' };
+    const transaction = { ...session, inTransaction: () => true, withTransaction: jest.fn(), endSession: jest.fn() };
     const query = (value: unknown) => {
       let supplied: unknown;
-      const chain = { sort: () => chain, session: (s: unknown) => { supplied = s; return chain; }, exec: async () => { expect(supplied).toBe(session); return value; } };
+      const chain = { sort: () => chain, limit: () => chain, session: (s: unknown) => { supplied = s; return chain; }, exec: async () => { expect(supplied).toBe(transaction); return value; } };
       return chain;
     };
-    const warehouses = { findOne: jest.fn(() => { call++; return query(mode === 'default' && call === 1 || mode === 'first' && call === 2 ? doc : null); }), updateOne: jest.fn(() => query({})), create: jest.fn(async (_values: unknown[], options: { session: unknown }) => { expect(options.session).toBe(session); return [doc]; }) };
-    const core = new StockCoreService({} as never, warehouses as never, {} as never);
-    expect(await core.defaultWarehouse(session as never)).toBe(doc);
+    const guard = { updateOne: jest.fn(async () => ({ matchedCount: 1 })) };
+    const connection = { startSession: jest.fn(), db: { collection: () => guard } };
+    const warehouses = {
+      find: jest.fn(() => query(mode === 'default' ? [doc] : [])),
+      findOne: jest.fn((filter: { isDefault?: boolean }) => query(mode === 'first' && !filter.isDefault ? doc : null)),
+      updateMany: jest.fn(() => query({})),
+      updateOne: jest.fn(() => query({})),
+      create: jest.fn(async (_values: unknown[], options: { session: unknown }) => { expect(options.session).toBe(transaction); return [doc]; }),
+    };
+    const core = new StockCoreService(connection as never, warehouses as never, {} as never);
+    expect(await core.defaultWarehouse(transaction as never)).toBe(doc);
+    expect(connection.startSession).not.toHaveBeenCalled();
+    expect(transaction.withTransaction).not.toHaveBeenCalled();
+    expect(transaction.endSession).not.toHaveBeenCalled();
+    if (mode === 'default') expect(guard.updateOne).not.toHaveBeenCalled();
+    else expect(guard.updateOne).toHaveBeenCalledWith({ _id: 'default' }, { $inc: { revision: 1 } }, { session: transaction });
     expect(warehouses.updateOne).toHaveBeenCalledTimes(mode === 'first' ? 1 : 0);
     expect(warehouses.create).toHaveBeenCalledTimes(mode === 'create' ? 1 : 0);
   });

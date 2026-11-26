@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException, type OnModuleInit } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
@@ -6,12 +6,18 @@ import { inScope, type StockScope } from '../../common/stock-scope';
 import { FeatureFlagService } from '../feature-flag/feature-flag.service';
 import { StorageItem, StorageItemDocument } from './schemas/storage-item.schema';
 import { Warehouse, WarehouseDocument, type WarehouseType } from './schemas/warehouse.schema';
-import { archiveWarehouse, clearOtherWarehouseDefaults, clearWarehouseDefaults, insertWarehouse, markWarehouseDefault, patchWarehouse, warehouseSet } from './stock-writes';
+import { archiveWarehouse, clearWarehouseDefaults, insertWarehouse, patchWarehouse, warehouseSet } from './stock-writes';
 import { WAREHOUSE_API_FLAG } from './warehouse-flag';
 import { gramsToKg } from './weight';
 
 const WAREHOUSE_TYPES = new Set(['main', 'branch', 'transit', 'production', 'other']);
-const liveWarehouse = { $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }] };
+const liveWarehouse = { deletedAt: null };
+const activeWarehouse = { ...liveWarehouse, isActive: { $ne: false } };
+const oldestWarehouse = { createdAt: 1, _id: 1 } as const;
+const warehouseGuardCollection = 'stock_warehouse_guards';
+const defaultWarehouseGuard = 'default';
+const warehouseWriteConcern = { w: 'majority' } as const;
+type WarehouseGuard = { _id: string; revision: number };
 
 export type WarehouseWrite = {
   name?: string;
@@ -30,7 +36,10 @@ const personName = (p: { lastName?: unknown; firstName?: unknown; patronymic?: u
 
 /** Общие операции склада: склад по умолчанию, строка остатка, пометка «изменено в приложении», подписи «кому выдано». */
 @Injectable()
-export class StockCoreService {
+export class StockCoreService implements OnModuleInit {
+  private readonly logger = new Logger(StockCoreService.name);
+  private warehouseGuardReady?: Promise<void>;
+
   constructor(
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(Warehouse.name) private readonly warehouses: Model<WarehouseDocument>,
@@ -38,23 +47,83 @@ export class StockCoreService {
     private readonly flags?: FeatureFlagService,
   ) {}
 
-  /** Склад по умолчанию; если не назначен — первый действующий («Главный склад») становится им. Флаг C260 не смотрит. */
-  async defaultWarehouse(session?: ClientSession): Promise<WarehouseDocument> {
-    const active = liveWarehouse;
-    const defaultQuery = this.warehouses.findOne({ isDefault: true, ...active });
-    if (session) defaultQuery.session(session);
-    const def = await defaultQuery.exec();
-    if (def) return def;
-    const firstQuery = this.warehouses.findOne({ isActive: { $ne: false }, ...active }).sort({ createdAt: 1 });
-    if (session) firstQuery.session(session);
-    const first = await firstQuery.exec();
-    if (first) {
-      await markWarehouseDefault(this.warehouses as never, first._id, session);
-      first.isDefault = true;
-      return first;
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.ensureWarehouseGuard();
+    } catch (error) {
+      this.logger.warn(`Не удалось подготовить блокировку склада: ${(error as Error).message}`);
     }
-    const value = { name: 'Главный склад', type: 'main' as const, isActive: true, isDefault: true };
-    return insertWarehouse(this.warehouses as never, value, session) as Promise<WarehouseDocument>;
+  }
+
+  private ensureWarehouseGuard(): Promise<void> {
+    this.warehouseGuardReady ??= this.prepareWarehouseGuard().catch(error => {
+      this.warehouseGuardReady = undefined;
+      throw error;
+    });
+    return this.warehouseGuardReady;
+  }
+
+  private async prepareWarehouseGuard(): Promise<void> {
+    // Mongo 4.4: обе коллекции и singleton должны существовать до транзакции с readConcern snapshot.
+    await this.warehouses.createCollection({ writeConcern: warehouseWriteConcern });
+    const db = this.connection.db!;
+    try {
+      await db.createCollection(warehouseGuardCollection, { writeConcern: warehouseWriteConcern });
+    } catch (error) {
+      if ((error as { code?: number }).code !== 48) throw error;
+    }
+    try {
+      await db.collection<WarehouseGuard>(warehouseGuardCollection).insertOne({ _id: defaultWarehouseGuard, revision: 0 }, { writeConcern: warehouseWriteConcern });
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) throw error;
+    }
+  }
+
+  private async withWarehouseGuard<T>(work: (session: ClientSession) => Promise<T>, external?: ClientSession): Promise<T> {
+    const run = async (session: ClientSession) => {
+      // Общая запись сериализует транзакции даже тогда, когда оба запроса видят пустой набор складов.
+      const result = await this.connection.db!.collection<WarehouseGuard>(warehouseGuardCollection)
+        .updateOne({ _id: defaultWarehouseGuard }, { $inc: { revision: 1 } }, { session });
+      if (!result.matchedCount) throw new ServiceUnavailableException('Блокировка склада ещё недоступна');
+      return work(session);
+    };
+    if (external?.inTransaction()) return run(external);
+    await this.ensureWarehouseGuard();
+    const session = external ?? await this.connection.startSession();
+    try {
+      return await session.withTransaction(() => run(session), { readConcern: { level: 'snapshot' }, writeConcern: warehouseWriteConcern });
+    } finally {
+      if (!external) await session.endSession();
+    }
+  }
+
+  private findActiveDefault(session: ClientSession) {
+    return this.warehouses.findOne({ ...activeWarehouse, isDefault: true }).sort(oldestWarehouse).session(session).exec();
+  }
+
+  private async reconcileWarehouseDefault(session: ClientSession): Promise<WarehouseDocument | null> {
+    const selected = await this.findActiveDefault(session)
+      ?? await this.warehouses.findOne(activeWarehouse).sort(oldestWarehouse).session(session).exec();
+    await clearWarehouseDefaults(this.warehouses as never, session, selected?._id);
+    if (selected && !selected.isDefault) {
+      await patchWarehouse(this.warehouses as never, selected._id, { isDefault: true }, session);
+      selected.isDefault = true;
+    }
+    return selected;
+  }
+
+  /** Быстрое чтение одного действующего default. Создание и восстановление идут через того же владельца, что и ручная запись. */
+  async defaultWarehouse(session?: ClientSession): Promise<WarehouseDocument> {
+    const query = this.warehouses.find({ ...liveWarehouse, isDefault: true }).limit(2);
+    if (session) query.session(session);
+    const defaults = await query.exec();
+    if (defaults.length === 1 && defaults[0].isActive !== false) return defaults[0];
+    return this.withWarehouseGuard(async transaction => {
+      const selected = await this.reconcileWarehouseDefault(transaction);
+      if (selected) return selected;
+      const value = { name: 'Главный склад', type: 'main', isActive: true, isDefault: true };
+      return insertWarehouse(this.warehouses as never, value, transaction) as Promise<WarehouseDocument>;
+    }, session);
   }
 
   async listWarehouses() {
@@ -123,9 +192,9 @@ export class StockCoreService {
     return warehouseSet({ ...dto, ...(name !== undefined ? { name } : {}), ...(roleIds ? { roleIds } : {}) });
   }
 
-  private async liveById(id: string) {
+  private async liveById(id: string, session: ClientSession) {
     if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Склад не найден');
-    const doc = await this.warehouses.findOne({ _id: new Types.ObjectId(id), ...liveWarehouse }).lean().exec();
+    const doc = await this.warehouses.findOne({ _id: new Types.ObjectId(id), ...liveWarehouse }).session(session).lean().exec();
     if (!doc) throw new NotFoundException('Склад не найден');
     return doc;
   }
@@ -136,34 +205,44 @@ export class StockCoreService {
     const name = String(dto.name ?? '').replace(/\s+/g, ' ').trim();
     if (!name) throw new BadRequestException('Укажите название склада');
     const set = this.warehouseFields({ ...dto, name, type: dto.type ?? 'main', isActive: dto.isActive ?? true });
-    const current = await this.warehouses.findOne({ isDefault: true, ...liveWarehouse }).select('_id').lean().exec();
-    set.isDefault = dto.isDefault === true || !current;
-    if (set.isDefault) await clearWarehouseDefaults(this.warehouses as never).exec();
-    return insertWarehouse(this.warehouses as never, set);
+    if (set.isActive === false && set.isDefault === true) throw new ConflictException('Неактивный склад нельзя назначить по умолчанию');
+    return this.withWarehouseGuard(async session => {
+      const isDefault = set.isActive !== false && (set.isDefault === true || !(await this.findActiveDefault(session)));
+      if (isDefault) await clearWarehouseDefaults(this.warehouses as never, session);
+      const created = await insertWarehouse(this.warehouses as never, { ...set, isDefault }, session);
+      if (!isDefault) await this.reconcileWarehouseDefault(session);
+      return created;
+    });
   }
 
   /** Правка известных полей. Снять единственный «по умолчанию» нельзя. */
   async patchWarehouse(id: string, dto: WarehouseWrite) {
     await this.assertWarehouseApi();
-    const doc = await this.liveById(id);
     const set = this.warehouseFields(dto);
     if (!Object.keys(set).length) throw new BadRequestException('Нет полей для записи');
-    if (set.isDefault === false && doc.isDefault) throw new ConflictException('Один склад должен остаться по умолчанию');
-    if (set.isDefault === true) await clearOtherWarehouseDefaults(this.warehouses as never, doc._id).exec();
-    await patchWarehouse(this.warehouses as never, doc._id, set).exec();
-    return this.warehouses.findOne({ _id: doc._id }).lean().exec();
+    return this.withWarehouseGuard(async session => {
+      const doc = await this.liveById(id, session);
+      const active = (set.isActive === undefined ? doc.isActive : set.isActive) !== false;
+      if (set.isDefault === true && !active) throw new ConflictException('Неактивный склад нельзя назначить по умолчанию');
+      if (set.isDefault === false && active && doc.isActive !== false && doc.isDefault) {
+        throw new ConflictException('Один склад должен остаться по умолчанию');
+      }
+      if (set.isDefault === true) await clearWarehouseDefaults(this.warehouses as never, session, doc._id);
+      await patchWarehouse(this.warehouses as never, doc._id, set, session);
+      if (set.isDefault !== true) await this.reconcileWarehouseDefault(session);
+      return this.warehouses.findOne({ _id: doc._id }).session(session).lean().exec();
+    });
   }
 
   /** Снятие с учёта (`deletedAt`). Был по умолчанию — назначается другой действующий, без создания нового. */
   async removeWarehouse(id: string) {
     await this.assertWarehouseApi();
-    const doc = await this.liveById(id);
-    const next = doc.isDefault
-      ? await this.warehouses.findOne({ _id: { $ne: doc._id }, isActive: { $ne: false }, ...liveWarehouse }).sort({ createdAt: 1 }).lean().exec()
-      : null;
-    await archiveWarehouse(this.warehouses as never, doc._id, new Date()).exec();
-    if (next?._id) await markWarehouseDefault(this.warehouses as never, next._id);
-    return this.warehouses.findOne({ _id: doc._id }).lean().exec();
+    return this.withWarehouseGuard(async session => {
+      const doc = await this.liveById(id, session);
+      await archiveWarehouse(this.warehouses as never, doc._id, new Date(), session);
+      await this.reconcileWarehouseDefault(session);
+      return this.warehouses.findOne({ _id: doc._id }).session(session).lean().exec();
+    });
   }
 
 }
