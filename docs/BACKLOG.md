@@ -10,7 +10,7 @@
 
 - [x] C269/C270: рабочие сетки, ввод в пустую ячейку только числом с подставленным контекстом, перенос остатка из «Не мытой» по подтверждению; выпущено v2.66; новые единицы ввода — C272. [Отчёт](crew/C270-worker-grid-entry/REPORT-FRONTEND.md).
 - [x] C271 backend: два адресных API (заявка и брони), 25 юнит + адресный e2e, openapi/MAP обновлены; прод-данные не тронуты. [Отчёт](crew/C271-worker-stock-context/REPORT-BACKEND.md).
-- [x] C271 frontend: ожидания, активные брони и подтверждённый заказ в подстроке;4300unit/924e2e/117Node/340stand, независимый дизайнер PASS. [Отчёт](crew/C271-worker-stock-context/REPORT.md).
+- [x] C271 frontend: ожидания, активные брони и подтверждённый заказ в подстроке;4300unit/924e2e/117Node/340stand, независимый дизайнер PASS. [Выпущено v2.69](crew/C271-worker-stock-context/RELEASE.md).
 
 - [ ] Отдельный долг: общий supply-list money-mask (`invoiceAmount`/`invoiceNote`); новый рабочий контекст C271 использует безопасную адресную проекцию и этих полей не получает. [Граница](crew/C271-worker-stock-context/ARCH-DELTA.md).
 
