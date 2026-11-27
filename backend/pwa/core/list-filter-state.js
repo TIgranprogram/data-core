@@ -2,7 +2,7 @@ import { parseFt } from './facets.js';
 
 /** Выбранные фильтры и полный сброс: значение по умолчанию тоже считается отбором. */
 export function listFilterState(L, P, view) {
-  const filters = (L.filters || []).filter(f => !view.gantt || f.key !== 'status');
+  const filters = (L.filters || []).filter(f => !(view.gantt || view.board) || f.key !== 'status');
   const extraKeys = (L.extraKeys || []).filter(k => !(view.gallery && L.gallery.pathKeys?.includes(k)));
   const count = filters.filter(f => {
     const v = f.type === 'chips' ? (P[f.key] ?? f.defaultValue ?? '') : P[f.key];

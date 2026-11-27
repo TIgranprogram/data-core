@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { listFilterState } from './list-filter-state.js';
+import { listQuery } from '../ui/kit/list-view.js';
+
+test('статус прямого входа действует в таблице, но не учитывается и не сбрасывается на доске', async () => {
+  const L = { filters: [{ key: 'status', type: 'chips' }, { key: 'supplier' }] };
+  const params = { status: 'requested' };
+  const board = listFilterState(L, params, { board: true });
+  assert.equal(board.count, 0);
+  assert.ok(!Object.hasOwn(board.clear, 'status'));
+  assert.equal((await listQuery(L, params, L.filters, true)).status, undefined);
+  assert.equal(listFilterState(L, params, {}).count, 1);
+  assert.equal((await listQuery(L, params, L.filters)).status, 'requested');
+  assert.equal(listFilterState(L, { ...params, supplier: 'a' }, { board: true }).count, 1);
+});
 
 test('сброс выбранного по умолчанию статуса оставляет «Все», поиск и страницу очищает', () => {
   const L = { filters: [{ key: 'status', type: 'chips', defaultValue: 'active' }, { key: 'supplier' }] };
