@@ -583,6 +583,72 @@ table.list .k-nowrap { white-space: nowrap; }
 /* C043: компактные плитки типов в раскрытой категории — рисунок ≈28 px (в 2 раза меньше), карточка ниже в 2 раза, больше плиток в ряду.
    Включается вариантами card({ compact: true }) → .k-compact и tileGrid({ compact: true }) → .k-tilegrid-compact (витрина #kit). */
 .k-tilegrid-compact { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--s2); }
+.k-catalog-shelves { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s4); }
+.k-catalog-shelves > section { min-width: 0; max-width: 100%; }
+.k-catalog-shelves h3 { margin: 0 0 var(--s2); }
+.k-pipe-disclosure { display: inline-flex; align-items: center; gap: var(--s1); text-align: start; }
+.k-pipe-table tr:has(.k-pipe-disclosure) > td { cursor: pointer; }
+.k-pipe-table { width: 100%; }
+.k-pipe-table th:first-child { width: clamp(12em, 23%, 20em); }
+.k-pipe-table [data-stock-label] { text-align: end; white-space: nowrap; color: var(--muted); }
+.k-pipe-table th:nth-child(3), .k-pipe-table th:nth-child(4) { width: 9em; }
+.k-pipe-table th:last-child { width: 9em; }
+.k-pipe-table td > .k-actions > span { color: var(--muted); }
+.table-wrap:has(> .k-pipe-table) { container-type: inline-size; }
+@container (max-width: 680px) {
+  table.list.k-pipe-table th, table.list.k-pipe-table td { padding-inline: var(--s1); }
+  .k-pipe-table .k-ti.k-ti-short { max-width: 4em; }
+  .k-pipe-table thead th:nth-child(n) { width: auto; }
+  table.list.k-pipe-table th:first-child { white-space: normal; }
+  .k-pipe-table td[rowspan] dl { gap: var(--s1); }
+  .k-pipe-table td .k-actions:has(.k-pipe-disclosure) { display: grid; justify-items: start; gap: 0; }
+  .k-pipe-table td[data-stock-label] { font-size: var(--fs-label); }
+  .k-pipe-table .k-stack > :is(.hint,.badge) { white-space: normal; }
+}
+.k-pipe-table td > .k-actions:has(.k-ti) { flex-wrap: nowrap; }
+.k-pipe-table .k-ti.k-ti-short { width: 5.5em; flex: 0 1 auto; }
+.k-pipe-table .k-actions .k-ti input { width: 100%; min-width: 0; max-width: 100%; }
+.k-pipe-table td .k-stack > .hint { margin: 0; }
+.k-pipe-table .k-stack { gap: var(--s1); }
+.k-pipe-table .k-stack > :empty { display: none; }
+.k-pipe-table .k-pipe-disclosure { align-self: flex-start; white-space: normal; }
+.k-pipe-table .k-pipe-length-link { align-self: flex-start; min-height: 0; height: auto; padding: 0 var(--s1); color: var(--link); text-decoration: underline; text-underline-offset: .15em; }
+.k-pipe-table [data-length-editor] { max-width: 100%; }
+.k-pipe-table [data-length-editor] > .k-actions { align-items: end; gap: var(--s2); }
+.k-pipe-table [data-length-editor] .k-ti.k-ti-short { width: auto; max-width: none; }
+.k-pipe-table [data-length-editor] .k-ti input { max-width: 7em; }
+.k-pipe-table [data-length-editor] > .k-actions > .btn { white-space: normal; line-height: 1.25; height: auto; padding-block: var(--s1); }
+.k-pipe-table tr:is([data-pipe-stock], [data-pipe-commitment]) > td { background: color-mix(in srgb, var(--gold-soft) 70%, var(--surface)); vertical-align: top; border-bottom-color: transparent; }
+.k-pipe-table tr:has(+ [data-pipe-stock]) > td,
+.k-pipe-table tr:is([data-pipe-stock], [data-pipe-commitment]) > td { position: relative; }
+.k-pipe-table tr:has(+ [data-pipe-stock]) > td::after,
+.k-pipe-table tr:is([data-pipe-stock], [data-pipe-commitment]) > td::after {
+  content: ''; position: absolute; inset: 0; border: 0 solid var(--gold-deep); pointer-events: none;
+}
+.k-pipe-table tr:has(+ [data-pipe-stock]) > td::after { border-top-width: 1px; }
+.k-pipe-table tr:has(+ [data-pipe-stock]) > td:first-child::after,
+.k-pipe-table tr[data-pipe-stock] > td[rowspan]::after { border-left-width: 1px; }
+.k-pipe-table tr:is(:has(+ [data-pipe-stock]), [data-pipe-stock], [data-pipe-commitment]) > td:last-child::after { border-right-width: 1px; }
+.k-pipe-table tr[data-pipe-stock] > td[rowspan]::after,
+.k-pipe-table tr[data-pipe-commitment=ordered] > td::after { border-bottom-width: 1px; }
+.k-pipe-table tr[data-pipe-commitment] > td { padding-block: var(--s1); font-variant-numeric: tabular-nums; }
+.k-pipe-table tr[data-pipe-commitment] > td:first-child { color: var(--muted); text-align: end; }
+.k-pipe-table tr[data-pipe-stock] > td > p { margin: var(--s2) 0 0; font-size: var(--fs-sm); color: var(--muted); white-space: normal; }
+.k-pipe-table td[rowspan] > div { display: grid; justify-items: start; gap: var(--s3); }
+.k-pipe-table td[rowspan] section { min-width: 0; max-width: 100%; }
+.k-pipe-table td[rowspan] h3 { margin: 0 0 var(--s1); font-size: var(--fs-label); color: var(--muted); }
+.k-pipe-table td[rowspan] dl { display: grid; grid-template-columns: auto auto; gap: var(--s1) var(--s4); margin: 0; }
+.k-pipe-table td[rowspan] dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.k-pipe-table [data-pipe-length] { display: flex; align-items: center; gap: var(--s2); }
+.k-pipe-table [data-pipe-length] h3 { margin: 0; }
+.k-pipe-table [data-pipe-length] select { min-width: 0; width: auto; max-width: 100%; }
+.k-pipe-table [data-stock-total] > strong { display: block; white-space: nowrap; font-size: var(--fs-h3); font-variant-numeric: tabular-nums; }
+.k-pipe-table [data-stock-total=pieces] > strong { color: var(--gold-deep); }
+.k-pipe-table [data-stock-total=metres] > strong { color: var(--ok); }
+
+.k-catalog-shelves .k-tilegrid { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.k-catalog-shelves .k-tilegrid > * { width: 10rem; max-width: 100%; }
+.m-tile-art img, .k-tile-art img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .k-expand .k-tilegrid-compact { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 /* 2026-11-08: рисунок слева в своей клетке (не вылезает на текст), справа название в 2 строки и число — плитка не «сливается» */
 .tile.k-compact.k-cover { flex-direction: row; align-items: center; gap: var(--s2); padding: var(--s2); }
@@ -1633,3 +1699,5 @@ tr.k-pos-more .k-readonly { border: 0; background: transparent; padding: 0; }
   .shell:has(.pg-worker) > .sidebar .side-link { justify-content: flex-start; }
   .shell:has(.pg-worker) > .sidebar .side-link { padding-inline: var(--s3); }
 }
+
+.sb-centered { width: min(100%, 32rem); margin-inline: auto; }

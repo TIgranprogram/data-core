@@ -333,3 +333,4 @@ export { planner } from './planner.js';
 
 /** Фото позиции/изделия в таблицах и строках (клик — крупно; нет фото — «нет фото») — ui/pos-pic.js */
 export { posPic, posPicOf } from './pos-pic.js';
+export { catalogShelves } from './blocks.js';

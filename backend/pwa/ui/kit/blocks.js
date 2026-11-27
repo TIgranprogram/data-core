@@ -22,6 +22,9 @@ export const tileGrid = (...args) => {
   grid.append(...[...grid.querySelectorAll(':scope > .k-tile-wrap > .k-expand')]);
   return mark(grid, 'tileGrid');
 };
+/** Группы занимают ширину своих карточек и переносятся вместе с заголовком. */
+export const catalogShelves = groups => h('div', { class: 'k-catalog-shelves' },
+  ...groups.map(([title, cards]) => h('section', null, h('h3', null, title), tileGrid({ compact: true }, ...cards))));
 /** Аккордеон: на открытие плитки закрыть остальные раскрытые плитки того же уровня (в tileGrid и landing). */
 const accordion = (el) => el.addEventListener('k-expand-open', (e) => {
   const mine = e.target.closest('.k-expand');

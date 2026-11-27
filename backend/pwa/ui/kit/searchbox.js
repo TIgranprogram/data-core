@@ -9,13 +9,13 @@ import { mark } from './mark.js';
  *   const sb = searchBox({ value, placeholder, delay: 300, minLength: 1, onSearch: (q) => …, onEnter: (q) => … });
  *   sb.el · sb.input · sb.set(v) (без события) · sb.focus() · sb.clear()
  */
-export function searchBox({ value = '', placeholder = 'Поиск…', label = 'Поиск', delay = 300, minLength = 1, onSearch, onEnter, className = '' }) {
+export function searchBox({ value = '', placeholder = 'Поиск…', label = 'Поиск', delay = 300, minLength = 1, onSearch, onEnter, className = '', centered = false }) {
   const decide = searchDecider(minLength);
   decide(value); // текущее значение — уже применено
   const input = h('input', { type: 'text', inputmode: 'search', enterkeyhint: 'search', autocomplete: 'off', placeholder, 'aria-label': label, value });
   const x = h('button', { type: 'button', class: 'sb-x', title: 'Очистить (Esc)', 'aria-label': 'Очистить поиск', hidden: !value, onclick: () => { clear(); input.focus(); } }, '×');
   const hint = h('div', { class: 'sb-hint', hidden: true, role: 'status' });
-  const el = mark(h('div', { class: ('sb ' + className).trim() }, input, x, hint), 'search');
+  const el = mark(h('div', { class: ['sb', centered && 'sb-centered', className].filter(Boolean).join(' ') }, input, x, hint), 'search');
   let t;
   const apply = () => {
     clearTimeout(t);

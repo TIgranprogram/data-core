@@ -76,7 +76,6 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
   window.addEventListener('resize', applyDock);
   document.body.append(back, drawer);
   applyDock();
-
   function destroy() { if (disposed) return; disposed = true; document.removeEventListener('keydown', onKey); window.removeEventListener('resize', applyDock); document.body.classList.remove('detail-open'); back.remove(); drawer.remove(); cardParent(drawer)?.destroy(); }
   async function canLeave() {
     if (saving || building || form?.busy?.() || (cardParent(drawer)?.child && !(await cardParent(drawer).child.canLeave()))) return false;
@@ -193,7 +192,6 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
   const buildMenu = (rare, hasTabs = false) => fillCardMenu({
     menuBox, rare, hasTabs, layouts: LAYOUTS, layoutNow, section, row, body, showView, showForm, doRemove, runAction,
   });
-
   async function loadHistory(ul, wrap, record) {
     if (!section.entityType || !record?.id) { ul.replaceChildren(); return; }
     const request = ++historyRequest;
@@ -220,7 +218,6 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
       if (wrap) wrap.hidden = false;
     } catch { if (request === historyRequest) { ul.replaceChildren(h('li', { class: 'muted' }, 'История недоступна')); wrap.hidden = false; } }
   }
-
   function actx() {
     return {
       beginInlineEdit: () => {
@@ -242,7 +239,6 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
     const done = busyBtn(btn, null, { delay: 250 });
     try { await a.run(row, actx()); } catch (e) { toastError(e, typeof a.label === 'string' ? a.label : ''); } finally { done(); }
   }
-
   async function doRemove() {
     const why = section.remove.blocked ? section.remove.blocked(row) : null;
     if (why) { toast(why, { error: true }); return; }
@@ -288,8 +284,10 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
     body.replaceChildren(...[err, revert ? h('div', { class: 'fill-note' }, revert.note) : null, form.el].filter(Boolean));
     let saveLabel = section.form.saveLabel || (isNew ? 'Создать' : 'Сохранить');
     const save = h('button', { class: 'btn btn-primary', type: 'button' }, saveLabel);
-    // форма сама управляет кнопкой: неактивна, пока нечего сохранять; подпись по выбору («Выдать 3 позиции») — SK-6c
-    form.bindSave?.((enabled, label) => { save.disabled = !enabled; if (label) { saveLabel = label; save.textContent = label; } });
+    let footerAction; form.bindSave?.((enabled, label, action) => {
+      footerAction = action; save.disabled = !enabled;
+      if (label) { saveLabel = label; save.textContent = label; }
+    });
     const cancel = h('button', { class: 'btn', type: 'button', onclick: async () => {
       if (saving || building || form?.busy?.()) return;
       const closingForm = form;
@@ -307,8 +305,8 @@ export function openCard(section, { id, mode = 'view', initial, fill, parent }, 
     save.onclick = async () => {
       let saved;
       const previousId = id;
-      if (save.disabled) return;
-      if (saving || form?.busy?.()) return;
+      if (save.disabled || saving || form?.busy?.()) return;
+      if (footerAction) return footerAction();
       const done = busyBtn(save, 'Сохраняю…'); err.hidden = true;
       saving = true; cancel.disabled = true;
       const controls = [...body.querySelectorAll('input,textarea,select,button')].map((el) => ({ el, disabled: el.disabled }));
