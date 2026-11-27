@@ -6,6 +6,18 @@
 <link rel="stylesheet" href="../../../backend/pwa/ui/tokens.css">
 <style>
 :root[data-theme=dark]{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px system-ui}header,nav,main,aside{padding:var(--s5)}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border-strong)}h1,h2,h3{color:var(--heading);margin:0 0 var(--s3)}p{margin:var(--s2) 0}header h1{margin:0}nav{display:grid;align-content:start;gap:var(--s2);border-right:1px solid var(--border-strong)}.layout{display:grid;grid-template-columns:220px minmax(0,1fr) minmax(360px,38%);min-height:calc(100vh - 82px)}aside{background:var(--surface,var(--bg));border-left:1px solid var(--border-strong)}button,input,textarea,select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border-strong);border-radius:var(--radius);padding:var(--s2) var(--s3)}button,summary{cursor:pointer}nav button{text-align:left}button[aria-current=true],.primary{background:var(--heading);color:var(--bg)}label{display:grid;gap:var(--s1);margin:var(--s3) 0}textarea{resize:vertical}section,details,.tile{border:1px solid var(--border-strong);border-radius:var(--radius);padding:var(--s4);margin:var(--s3) 0}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:var(--s2);border-bottom:1px solid var(--border)}small{color:var(--muted,var(--text))}.row{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center}.badge{border:1px solid var(--border-strong);border-radius:var(--radius-pill);padding:var(--s1) var(--s2)}dl{display:grid;grid-template-columns:max-content 1fr;gap:var(--s2) var(--s4)}dd{margin:0}a{color:var(--heading)}@media(max-width:950px){.layout{grid-template-columns:180px 1fr}aside{grid-column:2}}@media(max-width:600px){.layout{display:block}nav{display:flex;overflow:auto}nav button{white-space:nowrap}}
+.invoice-head{display:flex;align-items:start;justify-content:space-between;gap:var(--s4)}
+.invoice-head h2{margin-bottom:var(--s1)}
+.invoice-total{text-align:right;white-space:nowrap}
+.invoice-total strong{display:block;font-size:1.25rem;color:var(--heading)}
+.quick-edit{margin:var(--s4) 0;padding:var(--s4);border:1px solid var(--border-strong);border-inline-start:3px solid var(--heading);border-radius:var(--radius)}
+.quick-edit input{max-width:14rem}.quick-edit textarea{background:var(--surface,var(--bg))}
+.quick-actions{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.primary:disabled{opacity:.55;cursor:default}
+.invoice-details details{margin:0;padding:0;border:0;border-bottom:1px solid var(--border-strong);border-radius:0}
+.invoice-details summary{padding:var(--s3) 0}.invoice-details summary small{margin-inline-start:var(--s2)}
+.invoice-details details>div{padding:0 var(--s3) var(--s3)}.qty{text-align:right;white-space:nowrap}
+.invoice-details h3{margin-top:var(--s5)}[hidden]{display:none!important}
 </style>
 <header><div><h1>Лаборатория Рабочего места</h1><small>Учебные данные · изменения сохраняются в этом браузере</small></div><button id="theme">Сменить тему</button></header>
 <div class="layout"><nav id="nav" aria-label="Виды информации"></nav><main id="demo"></main><aside id="card" aria-label="Пример правой панели"></aside></div>
@@ -23,17 +35,69 @@ const screens = [
 const nav=document.querySelector('#nav'),demo=document.querySelector('#demo'),card=document.querySelector('#card');
 const key='datacore-ui-lab-invoice';
 const data=JSON.parse(localStorage.getItem(key)||'{}');
-function invoice(status='Оплачен', partial=false){
- card.innerHTML='<h2>Счёт № 1055</h2><p><span class="badge" id="cardStatus"></span> <strong>21 750 ₽</strong></p><form id="quick"><label>Дата доставки<input type="date" name="delivery"></label><label>Примечание<textarea name="note" rows="3" placeholder="Добавить примечание"></textarea></label><button class="primary">Сохранить</button> <span role="status"></span></form><section><h3>Позиции</h3><p>Труба 20×20 · 30 м</p><p class="second-line">Заглушка · 20 шт.</p></section><details><summary>Реквизиты · поставщик, дата, договор</summary><dl><dt>Поставщик</dt><dd>Учебный поставщик</dd><dt>Дата счёта</dt><dd>25.11.2026</dd><dt>Договор</dt><dd>№ 24</dd></dl></details><details><summary>Оплата, файл и история</summary><p>Платёж · 21 750 ₽</p><p>Счёт.pdf · 1 файл</p><ol><li>Создан</li><li>Выставлен</li><li>Оплата зарегистрирована</li></ol></details>';
- card.querySelector('#cardStatus').textContent=status;
- const form=card.querySelector('form');
- const reason=partial?'Видна часть позиций: только просмотр.':status==='Отменён'?'Счёт отменён: только просмотр.':'';
- if(partial)card.querySelector('.second-line').hidden=true;
- if(reason){for(const field of form.elements)field.disabled=true;form.querySelector('[role=status]').textContent=reason;}
- form.elements.delivery.value=data.delivery||'';
- form.elements.note.value=data.note||'';
- form.oninput=()=>{form.querySelector('[role=status]').textContent='Есть изменения';};
- form.onsubmit=e=>{e.preventDefault(); Object.assign(data,Object.fromEntries(new FormData(form)));localStorage.setItem(key,JSON.stringify(data));form.querySelector('[role=status]').textContent='Сохранено';};
+const draft = { delivery: data.delivery || '', note: data.note || '' };
+function invoice(status = 'Оплачен', partial = false) {
+ const paid = status === 'Оплачен';
+ const reason = partial ? 'Видна часть позиций. Счёт доступен для просмотра.' :
+   status === 'Отменён' ? 'Счёт отменён. Поля доступны для просмотра.' : '';
+ card.innerHTML = `
+   <div class="invoice-head">
+     <div><h2>Счёт № 1055</h2><p>Учебный поставщик · 25.11.2026</p><span class="badge" id="cardStatus"></span></div>
+     <div class="invoice-total"><small>Сумма счёта</small><strong>21 750 ₽</strong></div>
+   </div>
+   <form class="quick-edit" aria-labelledby="delivery-title">
+     <h3 id="delivery-title">Доставка</h3>
+     <p id="limit-reason" hidden></p>
+     <label>Дата доставки<input type="date" name="delivery"></label>
+     <label>Примечание<textarea name="note" rows="2" maxlength="1000" placeholder="Например: привезти до обеда"></textarea></label>
+     <div class="quick-actions"><button class="primary">Сохранить</button><small role="status"></small></div>
+   </form>
+   <div class="invoice-details">
+     <h3>По счёту</h3>
+     <details open><summary><strong>Позиции</strong><small>${partial ? '1 видимая' : '2 позиции'}</small></summary><div>
+       <table><thead><tr><th scope="col">Наименование</th><th scope="col" class="qty">Количество</th></tr></thead>
+       <tbody><tr><td>Труба 20×20</td><td class="qty">30 м</td></tr>
+       <tr ${partial ? 'hidden' : ''}><td>Заглушка</td><td class="qty">20 шт.</td></tr></tbody></table>
+     </div></details>
+     <details><summary><strong>Оплата</strong><small>${paid ? '21 750 ₽ оплачено' : 'Без платежей'}</small></summary>
+       <div><p>${paid ? '26.11.2026 · Банковский перевод · 21 750 ₽' : 'Платежей по этому учебному счёту пока нет.'}</p></div></details>
+     <details><summary><strong>Реквизиты</strong><small>Договор № 24</small></summary>
+       <div><dl><dt>Поставщик</dt><dd>Учебный поставщик</dd><dt>Дата счёта</dt><dd>25.11.2026</dd><dt>Договор</dt><dd>№ 24</dd></dl></div></details>
+     <details><summary><strong>Файлы</strong><small>Счёт.pdf</small></summary><div>PDF · 240 КБ</div></details>
+     <details><summary><strong>История</strong><small>${paid ? '3 события' : '2 события'}</small></summary>
+       <div><ol><li>25.11 · счёт создан</li><li>25.11 · счёт выставлен</li>${paid ? '<li>26.11 · оплата зарегистрирована</li>' : ''}</ol></div></details>
+   </div>`;
+ card.querySelector('#cardStatus').textContent = status;
+ const form = card.querySelector('form');
+ const hint = form.querySelector('[role=status]');
+ const save = form.querySelector('button');
+ const dirty = () => draft.delivery !== (data.delivery || '') || draft.note !== (data.note || '');
+ const refresh = () => {
+   save.disabled = Boolean(reason) || !dirty();
+   hint.textContent = !reason && dirty() ? 'Есть изменения' : '';
+ };
+ if (reason) {
+   const notice = form.querySelector('#limit-reason');
+   notice.hidden = false;
+   notice.textContent = reason;
+   form.elements.delivery.readOnly = form.elements.note.readOnly = true;
+ }
+ form.elements.delivery.value = reason ? data.delivery || '' : draft.delivery;
+ form.elements.note.value = reason ? data.note || '' : draft.note;
+ form.oninput = () => {
+   if (reason) return;
+   Object.assign(draft, Object.fromEntries(new FormData(form)));
+   refresh();
+ };
+ form.onsubmit = event => {
+   event.preventDefault();
+   if (reason || !dirty()) return;
+   Object.assign(data, draft);
+   localStorage.setItem(key, JSON.stringify(data));
+   refresh();
+   hint.textContent = 'Сохранено';
+ };
+ refresh();
 }
 function show(i){
  const [name,types,areas,example]=screens[i];
