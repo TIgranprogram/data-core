@@ -216,14 +216,17 @@ test('C280: один сортамент, остатки по мойке и за�
   await toggle.waitFor();
   assert.equal(await rows.count(), 1);
   assert.deepEqual(await table.getByRole('columnheader').allTextContents(),
-    ['Сортамент и материал', '', 'Штуки', 'Метры', 'Действие']);
+    ['Сортамент', 'Материал', 'Штуки', 'Метры', 'Действие']);
   await rows.getByText('Сталь', { exact: true }).waitFor();
   assert.doesNotMatch(await rows.innerText(), /СКЛ-|Труба круглая|Немытые/);
   const length = panel.getByLabel('Длина хлыста: ' + profile, { exact: true });
   assert.equal(await length.isVisible(), false);
+  assert.doesNotMatch(await rows.innerText(), /Уже в заявках|Ожидаем поставку|Оплачено/);
+  await toggle.click();
   await rows.getByText('Уже в заявках: 6 м', { exact: true }).waitFor();
   await rows.getByText('Ожидаем поставку: 12 м', { exact: true }).waitFor();
   await rows.getByText('Оплачено, ждём поставку: 9 м', { exact: true }).waitFor();
+  await toggle.click();
   const detail = table.locator('tr[data-pipe-stock]');
   const stockTotals = async (pieces, metres) => {
     const totalPieces = detail.locator('[data-stock-total=pieces]');
@@ -334,14 +337,14 @@ test('C280: длина для заказа и раскрытие строки т
   assert.equal(await metres.inputValue(), '9');
   await toggle.click();
   assert.equal(await length.isVisible(), false);
-  await row.getByRole('button', { name: 'Длина для заказа: 3 м' }).waitFor();
+  assert.doesNotMatch(await row.innerText(), /Длина для заказа/);
   await row.getByRole('button', { name: /В корзину/ }).click();
   assert.equal(await expanded(), 'false');
   await btn(panel, 'Корзина (1)').click();
   assert.equal(await pieces.inputValue(), '3');
   assert.equal(await metres.inputValue(), '9');
   await btn(panel, 'К каталогу').click();
-  await row.getByRole('button', { name: 'Длина для заказа: 3 м' }).click();
+  await toggle.click();
   await length.fill('4');
   await pieces.fill('2');
   await row.getByRole('button', { name: /В корзину/ }).click();
@@ -362,8 +365,8 @@ test('C280: длина для заказа и раскрытие строки т
     await panel.getByRole('button', { name: /^Круглые трубы/ }).click();
   };
   await openPipes();
-  await btn(panel, 'Указать длину').click();
-  assert.ok(await length.evaluate(el => el === document.activeElement));
+  await toggle.click();
+  await length.waitFor();
   await length.fill('3');
   await btn(panel, 'Сохранить длину в позиции').click();
   await length.waitFor({ state: 'hidden' });
@@ -373,6 +376,36 @@ test('C280: длина для заказа и раскрытие строки т
   assert.equal(await length.isVisible(), false);
   await pieces.fill('3');
   assert.equal(await metres.inputValue(), '9');
+  assert.deepEqual(errors, []);
+});
+
+for (const theme of ['light', 'dark']) test('C280: ровные строки и фильтр материала прямоугольных труб · ' + theme, async t => {
+  const catalog = ['Сталь', 'Нержавейка'].map((name, index) => ({
+    ...material(index + 1, 'Труба прямоугольная ' + name, 'м', 'СКЛ-' + index, 'Трубы'),
+    metal: 'pipe', typeName: 'Прямоугольные трубы', assortment: index ? '80×40×2' : '60×30×1,5',
+    dims: { width: index ? 80 : 60, height: index ? 40 : 30, thickness: index ? 2 : 1.5, length: index ? null : 6000 },
+    openPurchases: index ? [] : [{ status: 'requested', qty: 1, unit: 'м' }],
+  }));
+  const { page, errors } = await fixture(t, { catalog, theme });
+  const panel = await enter(page);
+  await panel.getByRole('button', { name: /^Трубы/ }).click();
+  await panel.getByRole('button', { name: /^Прямоугольные трубы/ }).click();
+  const filter = panel.getByRole('combobox', { name: 'Материал', exact: true });
+  const rows = panel.getByRole('table').locator('tbody tr');
+  assert.equal(await rows.count(), 2);
+  const geometry = await rows.evaluateAll(nodes => nodes.map(row => [row.offsetHeight, ...Array.from(row.cells, cell => cell.offsetLeft)]));
+  assert.deepEqual(geometry[0], geometry[1]);
+  assert.doesNotMatch(await panel.getByRole('table').innerText(), /Уже в заявках|Указать длину/);
+  await filter.selectOption('Нержавейка');
+  assert.equal(await rows.count(), 1);
+  assert.match(await rows.innerText(), /80×40×2/);
+  await filter.selectOption('Сталь');
+  assert.match(await rows.innerText(), /60×30×1,5/);
+  await btn(panel, 'Сбросить фильтры').click();
+  await shot(page, 'pipe-table-' + theme);
+  await rows.first().getByRole('cell').nth(1).click();
+  await panel.getByText('Уже в заявках: 1 м', { exact: true }).waitFor();
+  await shot(page, 'pipe-detail-' + theme);
   assert.deepEqual(errors, []);
 });
 

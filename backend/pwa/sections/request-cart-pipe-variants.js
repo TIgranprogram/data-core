@@ -57,7 +57,7 @@ function stockTotals(row) {
   return { pieces: format(pieces, 'шт'), metres: format(metres, 'м'), equivalent };
 }
 
-export function pipeVariantView(variants, row, { expanded, toggle, pick, colspan, editor }) {
+export function pipeVariantView(variants, row, { expanded, toggle, pick, colspan, editor, signals }) {
   const trigger = button({ label: row.name, kind: 'ghost', size: 'S', cls: 'k-pipe-disclosure',
     title: 'Длина хлыста и наличие', onClick: toggle });
   trigger.setAttribute('aria-expanded', String(expanded));
@@ -75,7 +75,7 @@ export function pipeVariantView(variants, row, { expanded, toggle, pick, colspan
     h('section', null, h('h3', null, 'На складе'), h('dl', null,
       stock('Мытые', pipeWashStock(row, true)), stock('Немытые', pipeWashStock(row, false)),
       row.pipe.unknownM > 0 ? stock('Мойка не указана', row.pipe.unknownM.toLocaleString('ru-RU')) : null))),
-    last ? h('p', null, last) : null), h('td', { 'data-stock-label': true }, 'Всего на складе'),
+    ...signals, last ? h('p', null, last) : null), h('td', { 'data-stock-label': true }, 'Всего на складе'),
   total('pieces', totals.pieces, totals.equivalent ? 'Количество хлыстов в пересчёте по метражу' : undefined),
   total('metres', totals.metres), h('td', { colspan: colspan - 4 }));
   const commitments = pipeCommitments(row);

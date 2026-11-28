@@ -89,11 +89,12 @@ function makeForm(items, key, draft, catalogError, demo = false) {
   const matchesQuery = row => normSearch(query).split(/\s+/).every(part =>
     normSearch([row.name, row.article, row.category, row.type, row.size, row.grade,
       ...(row.pipe?.sourceMaterials || []).map(source => source.name + ' ' + (source.article || ''))].filter(Boolean).join(' ')).includes(part));
+  const facetValue = (row, key) => key === 'material' ? row.pipe?.material : row[key];
   const filterRows = () => {
     return typeRows().filter(row =>
       matchesQuery(row) &&
       Object.entries(filters).every(([key, value]) => !value || (key === 'availability'
-        ? (Number(row.quantity) > 0) === (value === 'in') : String(row[key]) === value)))
+        ? (Number(row.quantity) > 0) === (value === 'in') : String(facetValue(row, key)) === value)))
       .sort((a, b) => {
         if (sort === 'size') return compare(a.size == null ? '\uffff' : a.size, b.size == null ? '\uffff' : b.size) || compare(a.name, b.name);
         if (sort === 'thickness') return (a.thickness ?? Infinity) - (b.thickness ?? Infinity) || compare(a.name, b.name);
@@ -142,7 +143,7 @@ function makeForm(items, key, draft, catalogError, demo = false) {
     const isPipe = category === 'Трубы';
     const groups = isPipe ? groupPipeVariants(filtered, sort) : filtered.map(row => [row]);
     const showOtherUnit = isPipe && filtered.some(row => !row.pipe.unitMode);
-    const columns = isPipe ? ['Сортамент и материал', '', 'Штуки', 'Метры', ...(showOtherUnit ? ['Количество'] : []), 'Действие']
+    const columns = isPipe ? ['Сортамент', 'Материал', 'Штуки', 'Метры', ...(showOtherUnit ? ['Количество'] : []), 'Действие']
       : ['Наименование', 'Ед.', 'Количество', 'Действие'];
     const pages = Math.max(1, Math.ceil(groups.length / PAGE));
     page = Math.min(page, pages - 1);
@@ -205,6 +206,7 @@ function makeForm(items, key, draft, catalogError, demo = false) {
             }
           } }) : null;
           const { trigger, detail, length } = pipeVariantView(variants, row, { expanded, colspan: columns.length,
+            signals: [...signals, selected],
             editor: pair?.length ? actions(pair.length.el, saveLength) : null,
             toggle: () => {
               openFamily = expanded ? null : family;
@@ -212,8 +214,7 @@ function makeForm(items, key, draft, catalogError, demo = false) {
             },
             pick: id => { chosenVariant.set(family, id); paintCatalog({ family, length: true }); } });
           if (focusTarget?.family === family) nextFocus = focusTarget.edit ? pair?.length?.input : focusTarget.length ? length : trigger;
-          const line = { cells: [stack(actions(trigger, h('span', null, row.pipe.material)),
-            pair?.length && !expanded ? button({ label: pair.lengthM() ? 'Длина для заказа: ' + pair.lengthM().toLocaleString('ru-RU') + ' м' : 'Указать длину', kind: 'ghost', size: 'S', cls: 'k-pipe-length-link', onClick: editLength }) : null, ...signals, selected), '',
+          const line = { cells: [trigger, row.pipe.material,
             quantityWithUnit(pair?.pieces.el ?? (row.pipe.unitMode === 'pieces' ? input.el : null), 'шт'),
             quantityWithUnit(pair?.metres.el ?? (row.pipe.unitMode === 'metres' ? input.el : null), 'м'),
             ...(showOtherUnit ? [row.pipe.unitMode ? '—' : stack(input.el, hint('Единица: ' + (row.unit || '—')))] : []),
@@ -265,8 +266,8 @@ function makeForm(items, key, draft, catalogError, demo = false) {
       }
       const rows = typeRows();
       const facet = (key, label) => {
-        const values = [...new Set(rows.map(row => row[key]).filter(v => v != null && v !== '').map(String))].sort(compare);
-        return values.length > 1 ? field(label, select({ label, value: filters[key] || '', options: [['', 'Все'], ...values.map(v => [v, v])],
+        const values = [...new Set(rows.map(row => facetValue(row, key)).filter(v => v != null && v !== '').map(String))].sort(compare);
+        return (values.length > 1 || (key === 'material' && values.length)) ? field(label, select({ label, value: filters[key] || '', options: [['', 'Все'], ...values.map(v => [v, v])],
           onChange: value => { filters[key] = value; page = 0; paintCatalog(); } })) : null;
       };
       const sorting = [['name', 'Название А–Я'], ['-name', 'Название Я–А'],
@@ -276,7 +277,8 @@ function makeForm(items, key, draft, catalogError, demo = false) {
       body.replaceChildren(stack(
         centeredSearch, back, h('h2', null, [category, type].filter(Boolean).join(' → ')),
         actions(
-          facet('unit', 'Единица'), facet('grade', 'Марка'), facet('size', 'Сечение'), facet('thickness', 'Толщина, мм'),
+          category === 'Трубы' ? facet('material', 'Материал') : null, facet('unit', 'Единица'),
+          facet('grade', 'Марка'), category === 'Трубы' ? null : facet('size', 'Сечение'), facet('thickness', 'Толщина, мм'),
           rows.some(row => row.quantity != null) ? field('Наличие', select({ label: 'Наличие', value: filters.availability || '',
             options: [['', 'Все'], ['in', 'Есть на складе'], ['out', 'Нет на складе']],
             onChange: value => { filters.availability = value; page = 0; paintCatalog(); } })) : null,
