@@ -589,6 +589,15 @@ table.list .k-nowrap { white-space: nowrap; }
 .k-pipe-disclosure { display: inline-flex; align-items: center; gap: var(--s1); text-align: start; }
 .k-pipe-table tr:has(.k-pipe-disclosure) > td { cursor: pointer; }
 .k-pipe-table { width: 100%; }
+.k-cart-review { width: 100%; }
+.k-cart-review td:first-child { width: 100%; white-space: normal; }
+.k-cart-review td > .k-stack { gap: var(--s1); }
+.k-cart-review .k-stack > .hint { margin: 0; }
+.k-cart-review td .k-ti-short { width: clamp(3.4em, 5vw, 6em); }
+.k-cart-review td > .k-actions { flex-wrap: nowrap; }
+.k-cart-review td .k-ti input { width: 100%; min-width: 0; }
+.k-cart-review td > .k-stack > .k-stack { gap: var(--s1); }
+
 .k-pipe-table th:first-child { width: clamp(12em, 23%, 20em); }
 .k-pipe-table [data-stock-label] { text-align: end; white-space: nowrap; color: var(--muted); }
 .k-pipe-table th:nth-child(3), .k-pipe-table th:nth-child(4) { width: 9em; }
