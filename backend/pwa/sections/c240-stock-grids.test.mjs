@@ -73,7 +73,8 @@ async function fixture(t, { user = { role: 'director', sections: ['stock'] }, vi
 for (const [view, theme] of [['pipe', 'light'], ['sheet', 'dark']]) {
   test('директор: ' + view + ' только для чтения, даже синтетические события не пишут', async t => {
     const { page, calls, errors } = await fixture(t, { view, theme });
-    await page.locator('table.list tbody tr').first().waitFor();
+    await page.locator('table [aria-label^="Фактически"]').first().waitFor();
+    await page.getByRole('link', { name: 'Экран «Труборез»', exact: true }).first().waitFor();
     assert.ok(await page.getByRole('link', { name: 'Экран «Труборез»', exact: true }).count());
     assert.ok(await page.getByRole('link', { name: 'Экран «Лазер лист»', exact: true }).count());
     const fields = page.locator('table input');

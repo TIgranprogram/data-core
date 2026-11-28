@@ -69,7 +69,9 @@ if [[ $UI == 1 ]]; then
   # find — надёжнее кавычек с ** на Windows/Git Bash; Node 20+ с --experimental-vm-modules
   mapfile -t PWA_TESTS < <(find backend/pwa -name '*.test.mjs' | sort)
   [[ ${#PWA_TESTS[@]} -gt 0 ]] || stop "нет backend/pwa/**/*.test.mjs"
-  node --experimental-vm-modules --test "${PWA_TESTS[@]}" >"$LOG" 2>&1 || pwa_tests_failed
+  # На рабочем ПК браузерные тесты делят процессоры с Chromium. Два набора
+  # одновременно оставляют ресурс для отрисовки при полном прогоне.
+  node --experimental-vm-modules --test --test-concurrency=2 "${PWA_TESTS[@]}" >"$LOG" 2>&1 || pwa_tests_failed
   (cd backend && npx jest src/pwa-guards --silent) >"$LOG" 2>&1 || { grep -E '●|Tests:' "$LOG" | head -6; stop "pwa-guards упал"; }
   ok "node --test и pwa-guards зелёные"
 fi
