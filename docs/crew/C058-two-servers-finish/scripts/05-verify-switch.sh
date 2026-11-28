@@ -7,7 +7,7 @@ bash deploy/synology/api.sh prod GET /api/control/switch | tee /tmp/c058-home-sw
 echo
 echo "== Sportin ping"
 curl -s -m 10 http://127.0.0.1:4203/api/control/switch/ping 2>/dev/null || \
-  curl -s -m 10 "http://31.222.224.247:8080/api/control/switch/ping" || true
+  curl -s -m 10 "http://192.144.29.184:8080/api/control/switch/ping" || true
 echo
 echo "== bridge files"
 ssh -o BatchMode=yes datacore-vm 'ls -la /var/lib/datacore/switch/; crontab -l | grep switch-watch || echo NO_CRON'

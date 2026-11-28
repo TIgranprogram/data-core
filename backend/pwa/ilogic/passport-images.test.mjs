@@ -88,3 +88,15 @@ test('повтор использует те же файлы; успех тол�
   for (const key of ['issued', 'drafts', 'skipped', 'warnings']) assert.ok(summary.includes(`ImportArray(result, "${key}")`));
   assert.match(summary, /For Each warning/);
 });
+
+
+test('оба листа ограничивают длинную сторону PNG и сохраняют пропорции окна камеры', () => {
+  const save = rule.match(/Sub SaveSheetPng\([\s\S]*?End Sub/)?.[0];
+  assert.match(save, /pixelsPerCm As Double = 2400\.0 \/ Math\.Max\(boxW, boxH\)/);
+  for (const [dimension, extent] of [['width', 'boxW'], ['height', 'boxH']]) {
+    assert.ok(save.includes(`Dim ${dimension} As Integer = Math.Max(1, CInt(${extent} * pixelsPerCm))`));
+  }
+  assert.match(save, /SaveAsBitmapWithOptions\(path, width, height, TransparentPngOptions\(app\)\)/);
+  assert.match(rule, /SaveSheetPng\(app, cam, .*"02_Габаритные размеры.png"\), boxW, boxH\)/);
+  assert.match(rule, /SaveSheetPng\(app, sCam, .*"03_Схема установки.png"\), sBoxRight - sBoxLeft, sBoxTop - sBoxBottom\)/);
+});

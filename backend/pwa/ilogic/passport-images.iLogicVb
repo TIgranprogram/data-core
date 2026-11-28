@@ -359,8 +359,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     cam.UpVector = tg.CreateUnitVector(0, 1, 0)
     cam.SetExtents(boxW, boxH)
     cam.ApplyWithoutTransition()
-    Dim imageHeight As Integer = Math.Max(200, CInt(2400.0 * boxH / boxW))
-    cam.SaveAsBitmapWithOptions(System.IO.Path.Combine(folder, "02_Габаритные размеры.png"), 2400, imageHeight, TransparentPngOptions(app))
+    SaveSheetPng(app, cam, System.IO.Path.Combine(folder, "02_Габаритные размеры.png"), boxW, boxH)
     stage = "Экспорт схемы установки в PNG"
     installationSheet.Activate()
     drawing.SelectSet.Clear()
@@ -374,8 +373,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     sCam.UpVector = tg.CreateUnitVector(0, 1, 0)
     sCam.SetExtents(sBoxRight - sBoxLeft, sBoxTop - sBoxBottom)
     sCam.ApplyWithoutTransition()
-    sCam.SaveAsBitmapWithOptions(System.IO.Path.Combine(folder, "03_Схема установки.png"), 2400,
-        Math.Max(200, CInt(2400.0 * (sBoxTop - sBoxBottom) / (sBoxRight - sBoxLeft))), TransparentPngOptions(app))
+    SaveSheetPng(app, sCam, System.IO.Path.Combine(folder, "03_Схема установки.png"), sBoxRight - sBoxLeft, sBoxTop - sBoxBottom)
 
     stage = "Загрузка рисунков на сайт"
     If MessageBox.Show("Загрузить рисунки на сайт (общий вид, габариты, схема установки)?", "Картинки для паспорта",
@@ -870,6 +868,14 @@ Sub SavePng(app As Inventor.Application, camera As Inventor.Camera,
             folder As String, name As String, height As Integer)
     camera.SaveAsBitmapWithOptions(
         System.IO.Path.Combine(folder, name), 2400, height, TransparentPngOptions(app))
+End Sub
+
+' Для узкого высокого листа фиксированная ширина давала 15 419 пикселей по высоте и E_FAIL.
+Sub SaveSheetPng(app As Inventor.Application, camera As Inventor.Camera, path As String, boxW As Double, boxH As Double)
+    Dim pixelsPerCm As Double = 2400.0 / Math.Max(boxW, boxH)
+    Dim width As Integer = Math.Max(1, CInt(boxW * pixelsPerCm))
+    Dim height As Integer = Math.Max(1, CInt(boxH * pixelsPerCm))
+    camera.SaveAsBitmapWithOptions(path, width, height, TransparentPngOptions(app))
 End Sub
 
 Function TransparentPngOptions(app As Inventor.Application) As Inventor.NameValueMap

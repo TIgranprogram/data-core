@@ -71,6 +71,6 @@ curl -s -m 5 -o /dev/null -w 'LOCAL_HEALTH=%{http_code}\n' http://127.0.0.1:3001
 EOF
 
 echo "== Проверка с ПК: публичный :8080 должен отвалиться (или timeout)"
-pub=$(curl -s -m 8 -o /dev/null -w '%{http_code}' http://31.222.224.247:8080/api/health/ready || echo 000)
+pub=$(curl -s -m 8 -o /dev/null -w '%{http_code}' http://192.144.29.184:8080/api/health/ready || echo 000)
 echo "PUBLIC_8080=$pub"
 echo A4_SCRIPT_OK

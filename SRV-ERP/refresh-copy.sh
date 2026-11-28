@@ -106,4 +106,4 @@ for i in $(seq 1 60); do
 done
 rm -rf "$W" "$B/incoming.tgz" "$B/code.tgz"
 REMOTE
-echo "== Готово: http://31.222.224.247:8080/app/"
+echo "== Готово: http://192.144.29.184:8080/app/"

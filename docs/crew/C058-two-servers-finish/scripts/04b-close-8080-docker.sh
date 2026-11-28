@@ -48,7 +48,7 @@ docker port datacore-backend || true
 EOF
 
 echo "== Проверка с ПК публичный :8080"
-pub=$(curl -s -m 8 -o /dev/null -w '%{http_code}' http://31.222.224.247:8080/api/health/ready || echo 000)
+pub=$(curl -s -m 8 -o /dev/null -w '%{http_code}' http://192.144.29.184:8080/api/health/ready || echo 000)
 echo "PUBLIC_8080=$pub"
 
 echo "== Recreate home backend после HA_PEER_URL"

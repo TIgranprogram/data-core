@@ -356,7 +356,7 @@ function nightLine() {
 }
 
 /** Возраст копий: дом и Sportin — из открытого /api/health (backup), ПК — свежий файл в D:\datacore-backups. Старше 30 ч — находка. */
-export const BACKUP_SOURCES = [['дом', 'https://kppdf-crm.ru/db/api/health'], ['Sportin', 'http://31.222.224.247:8080/api/health']];
+export const BACKUP_SOURCES = [['дом', 'https://kppdf-crm.ru/db/api/health'], ['Sportin', 'http://192.144.29.184:8080/api/health']];
 export function backupWord(body) {
   try {
     const j = JSON.parse(body); const b = (j.details || j.info || {}).backup || (j.error || {}).backup;
