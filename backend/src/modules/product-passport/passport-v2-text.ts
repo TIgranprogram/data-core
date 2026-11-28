@@ -6,6 +6,8 @@ import { choicesObject, resolveChoices, FIELD_SECTIONS, type PhraseTreeNode, typ
 import { isBriefPresentation, printPhraseRoots, shortDetailSections } from './passport-presentation';
 import { describeProduct, installText, maintenanceTables, usageRulesFrom, type DictRec, type InstallParts, type MaintenanceRow, type MaintenanceTable } from './passport-compose-parts';
 import type { FieldRef, FieldRefs } from './passport-snapshot-field';
+import { boltedTextBlock } from './passport-bolted-text';
+import { installationProfile } from './passport-variants';
 
 /**
  * Полный текст паспорта v2 (БЗ-6 Э4a3) — чистая функция: шаблон «Для всех» + версия категории (пункт категории с тем же
@@ -87,7 +89,10 @@ export function buildV2Text(input: V2TextInput): V2Text {
   const { passport: p, all, own, standards = {}, dicts = {} } = input;
   const category = String(p.passportCategory || '');
   const ownBlocks: PassportTextBlock[] = own ? legacyTemplateToBlocks(own).map((b) => ({ ...b, category, src: 'type' as TextSrc })) : [];
-  const blocks: PassportTextBlock[] = [...legacyTemplateToBlocks(all).map((b) => ({ ...b, src: 'all' as TextSrc })), ...ownBlocks];
+  const install = (dicts.install || []).find((r) => idOf(r) === String(p.installationTypeId ?? '')) ?? null;
+  const bolted = installationProfile(install).kind === 'bolted';
+  const templateBlocks = [...legacyTemplateToBlocks(all).map((b) => ({ ...b, src: 'all' as TextSrc })), ...ownBlocks];
+  const blocks = bolted ? templateBlocks.map(boltedTextBlock) : templateBlocks;
   let purposeSrc: TextSrc = 'product'; let installSrc: TextSrc = 'product';
   const productId = p.productId ? String(p.productId) : '';
   const ofProduct = (field: string): FieldRef | null => (productId ? { kind: 'product', id: productId, field } : null);
@@ -107,6 +112,10 @@ export function buildV2Text(input: V2TextInput): V2Text {
     if (!leaf) continue;
     // C060: свой текст изделия вместо варианта справочника / раздел убран
     const ov = overrideFor(p.textOverrides, root.id, root.section);
+    if (bolted && ['installation', 'mounting'].includes(root.section) && !ov.text && leaf.installTypeId !== String(p.installationTypeId)) {
+      resolved.leaves.delete(root.id);
+      continue;
+    }
     const text = ov.text ?? leaf.text;
     const sink = new Set<string>();
     funnelTexts.push({ id: root.id, section: root.section, name: root.name, variant: leaf.name, text: fill(text, p, category, standards, sink), own: !!ov.text, off: !!ov.off, canOff: !(FIELD_SECTIONS as readonly string[]).includes(root.section), ...(ov.text ? { original: fill(leaf.text, p, category, standards, sink) } : {}) });
@@ -122,7 +131,6 @@ export function buildV2Text(input: V2TextInput): V2Text {
   }
   const elements = pick(dicts.elements, p.elements as unknown[]);
   const materials = pick(dicts.materials, p.materialIds as unknown[]);
-  const install = (dicts.install || []).find((r) => idOf(r) === String(p.installationTypeId ?? '')) ?? null;
   // признаки изделия: справочники + «Конструкция»; условия when пунктов и дефектов смотрят на них
   const info = collectTraits(p.joints, { elements, materials, install }, category);
   const pt = { ...p, [TRAITS_FIELD]: info.traits };

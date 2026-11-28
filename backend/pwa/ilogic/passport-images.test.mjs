@@ -4,21 +4,26 @@ import test from 'node:test';
 
 // Без Inventor проверяем границу протокола VB ↔ API; транзакцию и редакции — серверными тестами.
 const rule = readFileSync(new URL('./passport-images.iLogicVb', import.meta.url), 'utf8');
+const pick = rule.match(/Function PickProductPlan[\s\S]*?End Function/)?.[0];
 const upload = rule.match(/Function UploadPassportImages[\s\S]*?End Function/)?.[0];
 
-test('после подтверждённого импорта открывается шаблон без нового паспорта', () => {
-  assert.match(rule, /Dim productId As String = UploadPassportImages\b[\s\S]*?If productId <> "" Then[\s\S]*?APP_BASE & "#products\?templateFor=" & productId[\s\S]*?ProcessStartInfo\(productUrl\)/);
+test('после подтверждённого импорта открывается обновлённый экземпляр', () => {
+  assert.match(rule, /Dim target As String = UploadPassportImages[\s\S]*?APP_BASE & target[\s\S]*?ProcessStartInfo\(productUrl\)/);
+  assert.match(rule, /routes.Add\("#passports\?open=" & ApiId\(item\)\)/);
+  assert.match(rule, /If routes.Count=1 Then Return routes\(0\)/);
   assert.doesNotMatch(rule, /#products\?bookFor=|HttpMethod\.Post, "passports/);
   assert.doesNotMatch(rule, /Ранее выданный паспорт сохранит прежний снимок/);
   assert.match(rule, /Номера сохранены\. Прежние данные — в истории редакций/);
 });
 
-test('контекст и три PNG отправляются одним commit без attach/delete/PATCH', () => {
-  const contextAt = upload.indexOf('importPath & "-context"');
+test('из контекста формируется один комплект PNG с разметкой для бетонирования', () => {
+  assert.ok(pick.includes('importPath & "-context"'));
   const uploadAt = upload.indexOf('Dim overviewId As String = UploadPng');
   const commitAt = upload.indexOf('Global.System.Net.Http.HttpMethod.Post, importPath, body');
-  assert.ok(contextAt > 0 && uploadAt > contextAt && commitAt > uploadAt);
-  assert.equal((upload.match(/UploadPng\(client,/g) || []).length, 3);
+  assert.ok(uploadAt > 0 && commitAt > uploadAt);
+  assert.equal((upload.match(/UploadPng\(client,/g) || []).length, 4);
+  assert.match(upload, /If concrete Then\s+stage = "Загрузка разметки ям"\s+images.Add\(New With \{.kind = "holes", .photoId = UploadPng\(client, holesPath\)/);
+  assert.ok(upload.indexOf("Not plan.SupportsHoles") < uploadAt);
   for (const [kind, variable] of [['overview', 'overviewId'], ['dimensions', 'dimensionsId'], ['foundation', 'foundationId']]) {
     assert.ok(upload.includes(`New With {.kind = "${kind}", .photoId = ${variable}}`));
   }
@@ -40,11 +45,10 @@ test('только подтверждённые конечные числа, о�
 
 test('C241: явный выбор из контекста и отмена раньше любого upload', () => {
   const choose = rule.match(/Function ChooseInstallation[\s\S]*?End Function/)?.[0];
-  const selectAt = upload.indexOf('ChooseInstallation(context)');
-  assert.ok(selectAt > upload.indexOf('importPath & "-context"'));
-  assert.ok(selectAt < upload.indexOf('Dim sizeKnown'));
-  assert.ok(selectAt < upload.indexOf('Dim overviewId As String = UploadPng'));
-  assert.match(upload, /If installation.ValueKind = Global.System.Text.Json.JsonValueKind.Undefined Then Return ""/);
+  assert.ok(pick.indexOf('ChooseInstallation(context)') > pick.indexOf('importPath & "-context"'));
+  assert.match(pick, /If installation.ValueKind = Global.System.Text.Json.JsonValueKind.Undefined Then Return False/);
+  assert.doesNotMatch(pick, /UploadPng/);
+  assert.ok(rule.indexOf('If Not PickProductPlan') < rule.indexOf('Dim target As String = UploadPassportImages'));
   assert.match(choose, /variants.GetArrayLength\(\) = 0 Then Throw/);
   assert.match(choose, /Dim selected As Integer = -1/);
   assert.match(choose, /If String.Equals\(id, currentId, StringComparison.Ordinal\) Then selected = choices.Count - 1/);
@@ -82,7 +86,7 @@ test('повтор использует те же файлы; успех тол�
   assert.match(retry, /New Global.System.Net.Http.StringContent\(json,/);
   assert.match(retry, /Catch ex As Global.System.Net.Http.HttpRequestException When attempt < 3/);
   assert.match(retry, /Catch ex As Global.System.Threading.Tasks.TaskCanceledException When attempt < 3/);
-  assert.match(retry, /importSummary = PassportImportSummary\(saved\)\s+Return productId/);
+  assert.match(retry, /importSummary = PassportImportSummary\(saved\)\s+Return PassportTarget\(saved,productId,importSummary\)/);
   const summary = rule.match(/Function PassportImportSummary[\s\S]*?End Function/)?.[0];
   assert.match(summary, /If status <> "applied" AndAlso status <> "unchanged" Then\s+Throw/);
   for (const key of ['issued', 'drafts', 'skipped', 'warnings']) assert.ok(summary.includes(`ImportArray(result, "${key}")`));

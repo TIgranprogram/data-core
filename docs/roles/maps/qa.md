@@ -2,7 +2,7 @@
 
 - C271/C272: критерии `docs/crew/C271-worker-stock-context/QA-PLAN.md:5`, backend full, SHA и нагрузочная проверка `docs/crew/C271-worker-stock-context/QA-REPORT-C271.md:5`. Backend e2e `backend/test/e2e/worker-stock-context.e2e-spec.ts:90`, `:127`, `:156`. Опорный коммит: `6a13c176`. Финальная UI-приёмка после freeze.
 
-коммит: f6b35fc5 · опорная ревизия для поиска, 23.11.2026; финальный staged backend определяется SHA C244/qa. Приёмка конкретного изменения фиксируется отдельно.
+коммит: 831b89c1 · база проверки iLogic, 28.11.2026; проверен индекс с изменениями импорта.
 
 Открой ТЗ, эту карту и свою часть вывода `node backend/scripts/review-scope.mjs owners --staged`.
 Границы и проверяющие заданы в [реестре](../ownership.json). Читай назначенный diff и только нужные функции или разделы по ссылкам ниже.
@@ -33,3 +33,5 @@
 - C245 FINAL authremember: `pult/test/document-intake.test.mjs:117` — actualCurrentUserDPAPI artificialdata local/prod; `pult/test/document-intake-remember.test.mjs:136` — storedbinding, `:163` — protect/atomicfail, `:192` — offlineLogout erase. UI source-fixture race fixes ожидание авторестора `pult/test/ui-document-intake.fixture.mjs:343`; actual4states×2themes evidence `docs/crew/C245-pult-remember-login/evidence/auth-ui/summary.json:1`; итог137Node+UI8/canonicalPASS — `docs/crew/C245-pult-remember-login/QA-REPORT.md:1`. Карта обновлена; финальные bytes — SHA `qa/final-summary.json`.
 
 - C280: корзина в Chromium, XLSX и права — `backend/pwa/sections/c280-request-cart-browser.test.mjs:109`, `:156`; частичный ответ и повтор после перезагрузки — `:163`. [QA и снимки](../../crew/C280-request-cart/QA-REPORT.md). Карта обновлена, коммит:4bd23dd1 (опорный HEAD; проверено рабочее дерево).
+
+- iLogic, полный прогон выпуска: docs/TEST-LOG.md:360; регрессии импорта: backend/test/e2e/passport-import.e2e-spec.ts:83.

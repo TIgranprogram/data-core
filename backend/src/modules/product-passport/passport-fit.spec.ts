@@ -39,6 +39,33 @@ const SCRAP = 'принимающим металлолом';
 const BIN = 'ёмкости для мусора';
 const ROT = 'гниение древесины';
 
+describe('Болтовое соединение в готовом тексте паспорта', () => {
+  const install = { _id: 'bolted', code: 'BOLTED', name: 'Болтовое соединение', montage: 'Соедините детали болтами по схеме изделия.' };
+  const leaf = { id: 'old', name: 'Анкеры', section: 'installation', text: 'Сверлите отверстия под анкеры.', installTypeId: 'anchor', children: [] };
+  const forest = [{ ...leaf, id: 'installation', children: [leaf] }] as never;
+  const build = (category: 'BLG' | 'DIO', name: string, element: string, extra = {}) => buildV2Text({
+    passport: { name, passportCategory: category, elements: [element], materialIds: ['steel'], joints: ['bolts'], installationTypeId: install._id, ...extra },
+    all: structuredClone(all), own: structuredClone(PASSPORT_TEXTS_V2[category]), dicts: { ...dicts, install: [install] },
+    funnel: { forest, choices: { installation: 'old' } },
+  });
+  it.each([['BLG', 'Секция ограждения', 'fence'], ['DIO', 'Игровая панель', 'slide']] as const)(
+    '%s — %s: указаны болты, сохранены категория и наименование', (category, name, element) => {
+      const snapshot = build(category, name, element);
+      expect(snapshot.install).toEqual({ text: install.montage, requiredImages: ['mounting'], requirements: [] });
+      const printed = [snapshot.install.text, ...snapshot.sections.flatMap(s => s.items.map(i => i.text))].join('\n');
+      expect(printed).toContain(name);
+      expect(printed).toContain('затяжку болтов');
+      expect(printed).not.toMatch(/фундамент|вертикальность стоек|подземных коммуникаций|анкеры|бетон/i);
+      expect(snapshot.choices).not.toHaveProperty('installation');
+      expect(snapshot.refs.install).toMatchObject({ kind: 'install', id: install._id });
+    });
+  it('сохраняет собственную инструкцию изделия', () => {
+    const snapshot = build('BLG', 'Кронштейн', 'stand', { manualText: ['installationMethod'], installationMethod: 'Моя инструкция по сборке.' });
+    expect(snapshot.install.text).toBe('Моя инструкция по сборке.');
+    expect(snapshot.src.install).toBe('manual');
+  });
+});
+
 describe('C094: эталон «указатель» (дерево, бетонирование)', () => {
   const { s, t } = text({ ...base, passportCategory: 'BLG', elements: ['stand'], materialIds: ['wood', 'paint'], installationTypeId: 'concrete' });
   it('чужих пунктов нет', () => {

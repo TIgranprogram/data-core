@@ -11,7 +11,7 @@ import { claimPassportLine, epochOf, type PassportLine } from '../../common/pass
 import { canon } from './passport-snapshot-refresh';
 import { isIssued, type Doc } from './passport-consts';
 import { ProductPassportService } from './product-passport.service';
-import { IMPORT_KINDS, PassportImportDto, type PassportImportConfirmedDto, type PassportImportInstallationResponseDto } from './dto/passport-import.dto';
+import { IMPORT_KINDS, REQUIRED_IMPORT_KINDS, PassportImportDto, type PassportImportConfirmedDto, type PassportImportInstallationResponseDto } from './dto/passport-import.dto';
 import { installationProfile } from './passport-variants';
 import { productPassportCode } from './passport-from-product';
 
@@ -91,7 +91,7 @@ export class PassportImportService {
 
   async context(id: string) {
     const current = await this.state(this.oid(id));
-    return { contextToken: current.token, installationTypeId: importInstallationId(current.product), installations: importInstallations(current.installs, current.category) };
+    return { contextToken: current.token, supportsHoles: true, installationTypeId: importInstallationId(current.product), installations: importInstallations(current.installs, current.category) };
   }
 
   /** Общий протокол с PhotosService: запись защиты сериализуется с захватом удаления. */
@@ -130,7 +130,9 @@ export class PassportImportService {
 
   async apply(id: string, dto: PassportImportDto, actor?: { id?: string }): Promise<PassportImportResult> {
     const productId = this.oid(id);
-    if (!Array.isArray(dto.images) || dto.images.length !== 3 || new Set(dto.images.map(i => i.kind)).size !== 3 || dto.images.some(i => !targetKind(i.kind))) throw new BadRequestException('Нужны три уникальных рисунка: overview, dimensions, foundation');
+    const kinds = new Set((Array.isArray(dto.images) ? dto.images : []).map(i => i?.kind));
+    if (!Array.isArray(dto.images) || kinds.size !== dto.images.length || [...kinds].some(k => !targetKind(k))
+      || REQUIRED_IMPORT_KINDS.some(k => !kinds.has(k))) throw new BadRequestException('Нужны overview, dimensions и foundation, дополнительно возможен план ям holes');
     const session = await this.connection.startSession();
     let result!: PassportImportResult;
     try {
@@ -153,6 +155,10 @@ export class PassportImportService {
         }
         const productInstallId = chosen ?? importInstallationId(current.product);
         const productInstallationKind = importInstallationKind({ installationTypeId: productInstallId }, current.installs);
+        const productPlan = installationProfile(current.installs.find(i => String(i._id) === String(productInstallId)) as Doc | undefined);
+        if (kinds.has('holes') && (productInstallationKind !== 'foundation' || !productPlan.allowedKinds.includes('holes'))) {
+          throw new BadRequestException('План ям не применяется к выбранному способу установки');
+        }
         for (const input of dto.images) {
           const kind = input.kind === 'foundation' ? productInstallationKind : input.kind;
           const sha = (await hash(input.photoId, true))!;
@@ -161,7 +167,6 @@ export class PassportImportService {
           selected.set(kind, { photoId: keep ? old.photoId as Types.ObjectId : this.oid(input.photoId), sha });
         }
         result = { status: 'unchanged', updatedKinds: [], confirmedFields: [], issued: [], drafts: [], skipped: [], warnings: [] };
-        const productPlan = installationProfile(current.installs.find(i => String(i._id) === String(productInstallId)) as Doc | undefined);
         const numbers = importNumbers(dto.confirmed);
         if (!productPlan.depthApplicable) delete numbers.product['passportDefaults.foundationDepth'];
         if (dto.confirmed.foundationDepth !== undefined && !productPlan.depthApplicable) result.warnings.push('Глубина Г не применяется к выбранному способу установки и не изменена');
@@ -174,7 +179,7 @@ export class PassportImportService {
           if (String((current.product.passportDefaults as Doc | undefined)?.installationTypeId ?? '') !== chosen) productSet['passportDefaults.installationTypeId'] = this.oid(chosen);
           if (Object.prototype.hasOwnProperty.call(current.product, 'installationTypeId') && String(current.product.installationTypeId ?? '') !== chosen) productSet.installationTypeId = this.oid(chosen);
         }
-        const productKinds = ['overview', 'dimensions', productInstallationKind];
+        const productKinds = ['overview', 'dimensions', productInstallationKind, ...(kinds.has('holes') ? ['holes'] : [])];
         const changedLinks = productKinds.filter(kind => {
           const links = current.links.filter(i => i.kind === kind);
           return links.length !== 1 || String(links[0].photoId) !== String(selected.get(kind)!.photoId);
@@ -204,7 +209,7 @@ export class PassportImportService {
           if (!orderId) result.warnings.push(`Паспорт ${passport.passportNumber ?? pid}: без заказа`);
           const own = (passport.images ?? []) as Array<Doc>;
           const passportInstallationKind = importInstallationKind(passport, current.installs);
-          const passportKinds = ['overview', 'dimensions', passportInstallationKind];
+          const passportKinds = productKinds;
           const patch: Doc = {};
           let imageChanged = passportInstallationKind === 'mounting' && own.some(i => i.kind === 'foundation');
           const images = own.filter(i => !passportKinds.includes(String(i.kind)) && !(passportInstallationKind === 'mounting' && i.kind === 'foundation'));

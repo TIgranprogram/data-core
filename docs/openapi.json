@@ -21195,6 +21195,11 @@
             "type": "boolean",
             "description": "Галочка «Деньги»: false — роль не видит цены, суммы и оплату; нет — по иерархии"
           },
+          "requestCartCreate": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Создание заявок из каталога; null — наследовать право"
+          },
           "pages": {
             "description": "Активна ли роль",
             "type": "array",
@@ -21256,11 +21261,6 @@
           "isSystem": {
             "type": "boolean",
             "description": "Системная роль (нельзя удалить)"
-          },
-          "requestCartCreate": {
-            "type": "boolean",
-            "nullable": true,
-            "description": "Создание заявок из каталога; null — наследовать право"
           }
         },
         "required": [
@@ -21316,6 +21316,11 @@
           "money": {
             "type": "boolean",
             "description": "Галочка «Деньги»: false — роль не видит цены, суммы и оплату; нет — по иерархии"
+          },
+          "requestCartCreate": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Создание заявок из каталога; null — наследовать право"
           },
           "pages": {
             "description": "Активна ли роль",
@@ -21389,11 +21394,6 @@
                 "sheet"
               ]
             }
-          },
-          "requestCartCreate": {
-            "type": "boolean",
-            "nullable": true,
-            "description": "Создание заявок из каталога; null — наследовать право"
           }
         }
       },
@@ -28498,6 +28498,10 @@
       "PassportImportContextResponseDto": {
         "type": "object",
         "properties": {
+          "supportsHoles": {
+            "type": "boolean",
+            "description": "Сервер поддерживает дополнительный рисунок holes для бетонируемых опор."
+          },
           "contextToken": {
             "type": "string"
           },
@@ -28515,6 +28519,7 @@
           }
         },
         "required": [
+          "supportsHoles",
           "contextToken",
           "installationTypeId",
           "installations"
@@ -28528,7 +28533,8 @@
             "enum": [
               "overview",
               "dimensions",
-              "foundation"
+              "foundation",
+              "holes"
             ],
             "description": "Третий лист передаётся как foundation; сервер выбирает foundation или mounting по способу установки."
           },
@@ -28608,8 +28614,8 @@
           },
           "images": {
             "minItems": 3,
-            "maxItems": 3,
-            "description": "Ровно три уникальных kind: overview, dimensions, foundation.",
+            "maxItems": 4,
+            "description": "Обязательны overview, dimensions, foundation. Для бетонируемых опор можно добавить holes (план ям).",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PassportImportImageDto"

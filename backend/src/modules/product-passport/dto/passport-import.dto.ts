@@ -2,7 +2,8 @@ import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ArrayMaxSize, ArrayMinSize, ArrayUnique, Equals, IsArray, IsIn, IsMongoId, IsNotEmpty, IsNumber, IsObject, IsString, Min, ValidateIf, ValidateNested } from 'class-validator';
 
-export const IMPORT_KINDS = ['overview', 'dimensions', 'foundation'] as const;
+export const REQUIRED_IMPORT_KINDS = ['overview', 'dimensions', 'foundation'] as const;
+export const IMPORT_KINDS = [...REQUIRED_IMPORT_KINDS, 'holes'] as const;
 export class PassportImportImageDto {
   @ApiProperty({ enum: IMPORT_KINDS, description: 'Третий лист передаётся как foundation; сервер выбирает foundation или mounting по способу установки.' })
   @IsIn(IMPORT_KINDS) kind!: string;
@@ -32,8 +33,8 @@ export class PassportImportConfirmedDto {
 export class PassportImportDto {
   @ApiProperty({ type: String, minLength: 1, description: 'Контекст до загрузки PNG из GET passport-import-context.' })
   @IsString() @IsNotEmpty() contextToken!: string;
-  @ApiProperty({ type: [PassportImportImageDto], minItems: 3, maxItems: 3, description: 'Ровно три уникальных kind: overview, dimensions, foundation.' })
-  @IsArray() @ArrayMinSize(3) @ArrayMaxSize(3) @ArrayUnique((i: PassportImportImageDto) => i.kind)
+  @ApiProperty({ type: [PassportImportImageDto], minItems: 3, maxItems: 4, description: 'Обязательны overview, dimensions, foundation. Для бетонируемых опор можно добавить holes (план ям).' })
+  @IsArray() @ArrayMinSize(3) @ArrayMaxSize(4) @ArrayUnique((i: PassportImportImageDto) => i.kind)
   @ValidateNested({ each: true }) @Type(() => PassportImportImageDto) images!: PassportImportImageDto[];
   @ApiProperty({ type: PassportImportConfirmedDto, description: 'Без одобренных чисел передать {}. null не очищает поля и запрещён.' })
   @IsObject() @ValidateNested() @Type(() => PassportImportConfirmedDto) confirmed!: PassportImportConfirmedDto;
@@ -47,6 +48,7 @@ export class PassportImportInstallationResponseDto {
   @ApiProperty({ type: Boolean }) depthApplicable!: boolean;
 }
 export class PassportImportContextResponseDto {
+  @ApiProperty({ type: Boolean, description: 'Сервер поддерживает дополнительный рисунок holes для бетонируемых опор.' }) supportsHoles!: boolean;
   @ApiProperty({ type: String }) contextToken!: string;
   @ApiProperty({ type: String, nullable: true, description: 'Текущий effective ID изделия: legacy поле перед defaults; неизвестный ID не выбирает первый вариант.' }) installationTypeId!: string | null;
   @ApiProperty({ type: [PassportImportInstallationResponseDto], description: 'Живые поддержанные способы установки, применимые к типу паспорта изделия.' }) installations!: PassportImportInstallationResponseDto[];

@@ -1,22 +1,11 @@
-'==============================================================================
-' Картинки для паспорта — внешнее правило iLogic (Inventor 2027)
-' Канон на сайте: /db/app/ilogic/passport-images.iLogicVb  (кнопка «Скопировать» в книжке паспорта)
-' Репозиторий: backend/pwa/ilogic/passport-images.iLogicVb
-'
-' Установка: iLogic → Внешние правила → вставить этот текст (или открыть файл).
-' Ключ API: переменная пользователя Windows DATACORE_API_KEY = kppd_…
-' Сайт: https://kppdf-crm.ru/db/api/  (пути не менять без правки сервера)
-'
-' Делает: PNG (общий вид, габариты, схема установки) → загрузка в изделие →
-'          по согласию пишет Д×Ш×В, массу и глубину Г; обновляет действующие паспорта с историей.
-' Версия текста: 2026-11-23 (C241: подтверждённый способ установки перед загрузкой)
-'==============================================================================
-AddReference "System.Net.Http.dll"
+﻿AddReference "System.Net.Http.dll"
 AddReference "System.Net.Primitives.dll"
 AddReference "System.Private.Uri.dll"
 AddReference "System.Memory.dll"
 AddReference "System.Text.Json.dll"
 AddReference "System.Private.Windows.Core.dll"
+
+Imports WF = System.Windows.Forms
 
 Class ThisRule
 
@@ -110,21 +99,41 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
             Throw New InvalidOperationException("Не найден шаблон GOST.idw в " & installedTemplates)
         End If
     End If
-    ' Одна папка на модель: прежний комплект удаляется целиком, новый пишется на его место (пользователь 2026-11-13)
-    Dim folder As String = System.IO.Path.Combine(
-        System.IO.Path.GetDirectoryName(model.FullFileName),
-        System.IO.Path.GetFileNameWithoutExtension(model.FullFileName) & " — картинки паспорта")
-    If System.IO.Directory.Exists(folder) Then
-        stage = "Удаление прежней папки: " & folder
-        ' открытый прежний чертёж держит файл — закрыть без сохранения (это копия, её всё равно заменяем)
-        Dim prefix As String = System.IO.Path.GetFullPath(folder).TrimEnd("\"c) & "\"
-        For i As Integer = app.Documents.Count To 1 Step -1
-            Dim d As Inventor.Document = app.Documents.Item(i)
-            If Not String.IsNullOrEmpty(d.FullFileName) AndAlso
-               d.FullFileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) Then d.Close(True)
-        Next
-        System.IO.Directory.Delete(folder, True)
+    Dim destination=MessageBox.Show("Подготовить комплект для отправки на сайт?" & vbCrLf & "Нет — сохранить только на рабочем столе.", "Рисунки паспорта",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)
+    If destination=DialogResult.Cancel Then Return
+    Dim online=destination=DialogResult.Yes
+    Dim plan As New ImportPlan()
+    Dim installationCode As String
+    If online Then
+        If Not PickProductPlan(model,plan,stage) Then Return
+        installationCode=JsonString(plan.Installation,"code")
+    Else
+        installationCode=LocalInstallation()
+        If installationCode="" Then Return
     End If
+    Dim concrete=installationCode="CONCRETE_POSTS" OrElse installationCode="CONCRETE" OrElse installationCode="FENCE_POSTS"
+    Dim foundation As Settings=Nothing
+    Dim bodies As New Global.System.Collections.Generic.List(Of Inventor.SurfaceBody)
+    Dim embedment As Double=0
+    If concrete Then
+        Collect(model,bodies)
+        If bodies.Count=0 Then Throw New Exception("В модели нет видимых твёрдых тел.")
+        Dim mins As Double()={Double.MaxValue,Double.MaxValue,Double.MaxValue}
+        For Each body In bodies
+            Dim point=body.RangeBox.MinPoint
+            mins(0)=Math.Min(mins(0),point.Z*10)
+            mins(1)=Math.Min(mins(1),point.Y*10)
+            mins(2)=Math.Min(mins(2),point.X*10)
+        Next
+        foundation=ReadSettings(mins,1)
+        If foundation Is Nothing Then Return
+        Dim axes As String()={"XY","XZ","YZ"}
+        embedment=Math.Max(0,foundation.Level-mins(Array.IndexOf(axes,foundation.Axis)))
+        Orient(app,bodies,foundation.Axis,foundation.Level)
+    End If
+    Dim folder=System.IO.Path.Combine(Global.System.Environment.GetFolderPath(Global.System.Environment.SpecialFolder.DesktopDirectory),"Рисунки паспортов",System.IO.Path.GetFileNameWithoutExtension(model.FullFileName) & "_" & Date.Now.ToString("yyyyMMdd_HHmmss_fff"))
+    stage="Проверка материалов"
+    OfferSteel(app,model)
     stage = "Создание папки: " & folder
     System.IO.Directory.CreateDirectory(folder)
 
@@ -161,6 +170,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     Dim drawing As Inventor.DrawingDocument = CType(app.Documents.Add(
         Inventor.DocumentTypeEnum.kDrawingDocumentObject, template, True),
         Inventor.DrawingDocument)
+    SetPassportLineWeights(drawing)
     Dim sheet As Inventor.Sheet = drawing.Sheets.Item(1)
     ' Если Inventor оставит бумагу непрозрачной, она будет белой.
     drawing.SheetSettings.SheetColor = app.TransientObjects.CreateColor(255, 255, 255)
@@ -225,6 +235,56 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     Dim dimensions As Double() = AddDimensions(sheet, front, top, tg)
     drawing.Update()
 
+    Dim depthMm As Double=embedment
+    Dim picture As String
+    stage = "Экспорт габаритного листа в PNG"
+    drawing.Activate()
+    sheet.Activate()
+    drawing.SelectSet.Clear()
+    Dim drawingView As Inventor.View = app.ActiveView
+    drawingView.Fit()
+    drawingView.Update()
+    ' Камера — точно на блок видов с размерными линиями (+ поле 0,5 см), снимок — в тех же пропорциях:
+    ' без пустых полей листа и окна, паспорт сам растягивает рисунок на страницу (2026-11-13).
+    Dim boxLeft As Double = Math.Min(front.Left, top.Left) - 0.5
+    Dim boxRight As Double = Math.Max(front.Left + front.Width, top.Left + top.Width) + dimRoom
+    Dim boxTop As Double = front.Top + 0.5
+    Dim boxBottom As Double = top.Top - top.Height - 0.5
+    Dim boxW As Double = boxRight - boxLeft, boxH As Double = boxTop - boxBottom
+    Dim cam As Inventor.Camera = drawingView.Camera
+    cam.Target = tg.CreatePoint((boxLeft + boxRight) / 2, (boxTop + boxBottom) / 2, 0)
+    cam.Eye = tg.CreatePoint((boxLeft + boxRight) / 2, (boxTop + boxBottom) / 2, 10)
+    cam.UpVector = tg.CreateUnitVector(0, 1, 0)
+    cam.SetExtents(boxW, boxH)
+    cam.ApplyWithoutTransition()
+    SaveSheetPng(app, cam, System.IO.Path.Combine(folder, "02_Габаритные размеры.png"), boxW, boxH)
+    If concrete Then
+        stage="План и разрез бетонирования"
+        MakeDrawing(app,bodies,foundation.Side,foundation.Depth,foundation.Gravel,folder,foundation.RoundPit)
+        picture=System.IO.Path.Combine(folder,"04_Бетонирование.png")
+    ElseIf installationCode="BOLTED" Then
+        stage="Чертёж болтового соединения"
+        Dim boltSheet=drawing.Sheets.Add(Inventor.DrawingSheetSizeEnum.kA4DrawingSheetSize,Inventor.PageOrientationTypeEnum.kLandscapePageOrientation,"Болтовое соединение")
+        If boltSheet.TitleBlock IsNot Nothing Then boltSheet.TitleBlock.Delete()
+        If boltSheet.Border IsNot Nothing Then boltSheet.Border.Delete()
+        ClearTemplateGraphics(boltSheet)
+        Dim w=boltSheet.Width,h=boltSheet.Height
+        Dim boltView=boltSheet.DrawingViews.AddBaseView(model,tg.CreatePoint2d(w/2,h/2),1,Inventor.ViewOrientationTypeEnum.kCurrentViewOrientation,Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,AdditionalOptions:=viewOptions)
+        drawing.Update()
+        boltView.Scale=GostScale(boltView.Scale*Math.Min(w*0.85/boltView.Width,h*0.78/boltView.Height))
+        boltView.Position=tg.CreatePoint2d(w/2,h/2)
+        AddLabel(boltSheet.DrawingNotes.GeneralNotes,tg,w/2,h*0.94,"Болтовое соединение")
+        drawing.Update()
+        boltSheet.Activate()
+        Dim boltCam=app.ActiveView.Camera
+        boltCam.Target=tg.CreatePoint(w/2,h/2,0)
+        boltCam.Eye=tg.CreatePoint(w/2,h/2,10)
+        boltCam.UpVector=tg.CreateUnitVector(0,1,0)
+        boltCam.SetExtents(w,h)
+        boltCam.ApplyWithoutTransition()
+        picture=System.IO.Path.Combine(folder,"03_Болтовое соединение.png")
+        SaveSheetPng(app,boltCam,picture,w,h)
+    Else
     ' «Схема установки» (2026-11-13, проверено тестом tools/passport-section-test.iLogicVb на 3211): лист книжный;
     ' сверху вид спереди с линией земли (плоскость XZ модели) и размером «Г» от земли до низа опоры у левой опоры;
     ' снизу разрез А-А по линии земли — взгляд сверху на опоры, с габаритами; подпись «А-А (1:N)» под размером.
@@ -253,7 +313,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     stage = "Линия земли (плоскость XZ) и глубина Г"
     Dim groundY As Double = installationView.ModelToSheetSpace(tg.CreatePoint(0, 0, 0)).Y
     ' глубина заложения: от земли до низа изделия, мм (0 — не заглублено); пойдёт в паспорт «Глубина Г = … мм»
-    Dim depthMm As Double = Math.Max(0, Math.Round((groundY - fBottom) / installationView.Scale * 10))
+    depthMm = Math.Max(0, Math.Round((groundY - fBottom) / installationView.Scale * 10))
 
     stage = "Линия разреза по земле"
     Dim cutSketch As Inventor.DrawingSketch = installationView.Sketches.Add()
@@ -334,32 +394,6 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     Dim schemeLeft As Double = Math.Min(gl, gDimX - 1.3) - 0.4, schemeRight As Double = Math.Max(gr, dimX + 1.6) + 0.4
     Dim schemeTop As Double = fTop + 0.5, schemeBottom As Double = labelY - 0.8
 
-    Dim drawingPath As String = System.IO.Path.Combine(
-        folder, "Габаритные размеры" & If(drawing.IsInventorDWG, ".dwg", ".idw"))
-    stage = "Сохранение чертежа: " & drawingPath
-    drawing.SaveAs(drawingPath, False)
-
-    stage = "Экспорт габаритного листа в PNG"
-    drawing.Activate()
-    sheet.Activate()
-    drawing.SelectSet.Clear()
-    Dim drawingView As Inventor.View = app.ActiveView
-    drawingView.Fit()
-    drawingView.Update()
-    ' Камера — точно на блок видов с размерными линиями (+ поле 0,5 см), снимок — в тех же пропорциях:
-    ' без пустых полей листа и окна, паспорт сам растягивает рисунок на страницу (2026-11-13).
-    Dim boxLeft As Double = Math.Min(front.Left, top.Left) - 0.5
-    Dim boxRight As Double = Math.Max(front.Left + front.Width, top.Left + top.Width) + dimRoom
-    Dim boxTop As Double = front.Top + 0.5
-    Dim boxBottom As Double = top.Top - top.Height - 0.5
-    Dim boxW As Double = boxRight - boxLeft, boxH As Double = boxTop - boxBottom
-    Dim cam As Inventor.Camera = drawingView.Camera
-    cam.Target = tg.CreatePoint((boxLeft + boxRight) / 2, (boxTop + boxBottom) / 2, 0)
-    cam.Eye = tg.CreatePoint((boxLeft + boxRight) / 2, (boxTop + boxBottom) / 2, 10)
-    cam.UpVector = tg.CreateUnitVector(0, 1, 0)
-    cam.SetExtents(boxW, boxH)
-    cam.ApplyWithoutTransition()
-    SaveSheetPng(app, cam, System.IO.Path.Combine(folder, "02_Габаритные размеры.png"), boxW, boxH)
     stage = "Экспорт схемы установки в PNG"
     installationSheet.Activate()
     drawing.SelectSet.Clear()
@@ -375,25 +409,31 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     sCam.ApplyWithoutTransition()
     SaveSheetPng(app, sCam, System.IO.Path.Combine(folder, "03_Схема установки.png"), sBoxRight - sBoxLeft, sBoxTop - sBoxBottom)
 
+    picture=System.IO.Path.Combine(folder,"03_Схема установки.png")
+    End If
+    Dim drawingPath As String = System.IO.Path.Combine(
+        folder, "Габаритные размеры" & If(drawing.IsInventorDWG, ".dwg", ".idw"))
+    stage = "Сохранение чертежа: " & drawingPath
+    drawing.SaveAs(drawingPath, False)
+
     stage = "Загрузка рисунков на сайт"
-    If MessageBox.Show("Загрузить рисунки на сайт (общий вид, габариты, схема установки)?", "Картинки для паспорта",
-                       MessageBoxButtons.YesNo, MessageBoxIcon.Question,
-                       MessageBoxDefaultButton.Button2) = DialogResult.Yes Then
+    If online Then
         stage = "Чтение массы модели"
         Dim massKg As Double = ModelMassKg(model)
         Dim importSummary As String = ""
-        Dim productId As String = UploadPassportImages(model, folder, dimensions, depthMm, massKg, stage, importSummary)
-        If productId <> "" Then
-            MessageBox.Show(importSummary & vbCrLf & vbCrLf & "Откроется шаблон паспорта изделия.", "Картинки для паспорта")
-            stage = "Открытие шаблона паспорта изделия"
-            Dim productUrl As String = APP_BASE & "#products?templateFor=" & productId
+        Dim target As String = UploadPassportImages(model, folder, dimensions, depthMm, massKg, stage, importSummary, picture, plan, concrete)
+        If target <> "" Then
+            stage = "Открытие паспорта изделия"
+            Dim productUrl As String = APP_BASE & target
             System.Diagnostics.Process.Start(New System.Diagnostics.ProcessStartInfo(productUrl) With {.UseShellExecute = True})
             Return
         End If
     End If
     stage = "Открытие папки в Проводнике"
-    MessageBox.Show("Рисунки сохранены в папке рядом со сборкой. На сайт они не загружены.", "Картинки для паспорта")
+    MessageBox.Show("Рисунки сохранены на рабочем столе в папке «Рисунки паспортов». На сайт они не загружены.", "Картинки для паспорта")
     System.Diagnostics.Process.Start("explorer.exe", """" & folder & """")
+    stage = "Открытие каталога изделий"
+    System.Diagnostics.Process.Start(New System.Diagnostics.ProcessStartInfo(APP_BASE & "#products") With {.UseShellExecute = True})
 End Sub
 
 Sub ClearTemplateGraphics(sheet As Inventor.Sheet)
@@ -434,9 +474,89 @@ Sub HideVisible(visible As Boolean, setVisible As Action(Of Boolean),
 End Sub
 
 ' Масса модели, кг (0,1). Не посчиталась (нет материала, модель не обновлена) — 0: масса на сайт не пишется.
+Function GenericParts(model As Inventor.Document) As Global.System.Collections.Generic.List(Of Inventor.PartDocument)
+    Dim parts As New Global.System.Collections.Generic.List(Of Inventor.PartDocument)
+    Dim seen As New Global.System.Collections.Generic.HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+    If model.DocumentType=Inventor.DocumentTypeEnum.kPartDocumentObject Then
+        Dim singlePart=DirectCast(model,Inventor.PartDocument)
+        If String.Equals(singlePart.ActiveMaterial.Name.Trim(),"1:Generic",StringComparison.OrdinalIgnoreCase) Then parts.Add(singlePart)
+    Else
+        For Each leaf As Inventor.ComponentOccurrence In DirectCast(model,Inventor.AssemblyDocument).ComponentDefinition.Occurrences.AllLeafOccurrences
+            If leaf.Suppressed OrElse leaf.DefinitionDocumentType<>Inventor.DocumentTypeEnum.kPartDocumentObject Then Continue For
+            Dim part=DirectCast(leaf.Definition.Document,Inventor.PartDocument)
+            If Not seen.Add(part.FullDocumentName) Then Continue For
+            If String.Equals(part.ActiveMaterial.Name.Trim(),"1:Generic",StringComparison.OrdinalIgnoreCase) Then parts.Add(part)
+        Next
+    End If
+    Return parts
+End Function
+
+Sub OfferSteel(app As Inventor.Application,model As Inventor.Document)
+    Dim parts=GenericParts(model)
+    If parts.Count=0 Then Return
+    Dim sample=String.Join(vbCrLf,parts.Take(6).Select(Function(p) "• " & p.DisplayName))
+    If parts.Count>6 Then sample &= vbCrLf & "…"
+    Dim prompt="Деталей с материалом «Типовые»: " & parts.Count & "." & vbCrLf & sample & vbCrLf & vbCrLf & "Назначить этим деталям материал Autodesk «Сталь» перед расчётом массы?" & vbCrLf & "Изменения попадут в файлы деталей при обычном сохранении модели."
+    Dim choice=MessageBox.Show(prompt,"Материалы изделия",MessageBoxButtons.YesNo,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)
+    If choice<>DialogResult.Yes Then Return
+    ApplySteel(app,model,parts)
+End Sub
+
+Sub ApplySteel(app As Inventor.Application,model As Inventor.Document,parts As Global.System.Collections.Generic.List(Of Inventor.PartDocument))
+    Dim steel As Inventor.MaterialAsset=Nothing
+    For Each materialLibrary As Inventor.AssetLibrary In app.AssetLibraries
+        For Each candidate As Inventor.MaterialAsset In materialLibrary.MaterialAssets
+            If candidate.Name="Material-077" AndAlso (candidate.DisplayName="Сталь" OrElse candidate.DisplayName="Steel") Then
+                steel=candidate
+                Exit For
+            End If
+        Next
+        If steel IsNot Nothing Then Exit For
+    Next
+    If steel Is Nothing Then Throw New Exception("В библиотеке Inventor не найден стандартный материал Autodesk «Сталь».")
+    For Each part In parts
+        If Not part.IsModifiable Then Throw New Exception("Деталь недоступна для изменения: " & part.DisplayName)
+    Next
+    For Each part In parts
+        Dim tx=app.TransactionManager.StartTransaction(part,"Назначить сталь")
+        Try
+            If String.Equals(part.ActiveMaterial.Name.Trim(),"1:Generic",StringComparison.OrdinalIgnoreCase) Then
+                Dim local As Inventor.MaterialAsset=Nothing
+                For Each existing As Inventor.MaterialAsset In part.MaterialAssets
+                    If existing.Name.Trim()="1:Steel" OrElse (existing.Name=steel.Name AndAlso existing.DisplayName=steel.DisplayName) Then local=existing
+                Next
+                If local Is Nothing Then local=steel
+                part.ActiveMaterial=local
+                If Not part.Update2(False) Then Throw New Exception("Не удалось пересчитать " & part.DisplayName)
+            End If
+            tx.End()
+        Catch
+            tx.Abort()
+            Throw
+        End Try
+    Next
+    If Not model.Update2(False) Then Throw New Exception("Не удалось обновить массу модели.")
+End Sub
+
+Function UnknownMassMaterial(part As Inventor.PartDocument) As Boolean
+    If part.ComponentDefinition.MassProperties.MassOverridden Then Return False
+    Return String.Equals(part.ActiveMaterial.Name.Trim(),"1:Generic",StringComparison.OrdinalIgnoreCase)
+End Function
+
 Function ModelMassKg(model As Inventor.Document) As Double
     Try
         Dim assembly As Inventor.AssemblyDocument = TryCast(model, Inventor.AssemblyDocument)
+        If assembly IsNot Nothing Then
+            If Not assembly.ComponentDefinition.MassProperties.MassOverridden Then
+                For Each leaf As Inventor.ComponentOccurrence In assembly.ComponentDefinition.Occurrences.AllLeafOccurrences
+                    If leaf.Suppressed OrElse leaf.DefinitionDocumentType<>Inventor.DocumentTypeEnum.kPartDocumentObject Then Continue For
+                    Dim part=DirectCast(leaf.Definition.Document,Inventor.PartDocument)
+                    If UnknownMassMaterial(part) Then Return 0
+                Next
+            End If
+        ElseIf UnknownMassMaterial(DirectCast(model,Inventor.PartDocument)) Then
+            Return 0
+        End If
         Dim mass As Double
         If assembly IsNot Nothing Then
             mass = assembly.ComponentDefinition.MassProperties.Mass
@@ -450,32 +570,41 @@ Function ModelMassKg(model As Inventor.Document) As Double
     End Try
 End Function
 
-Function UploadPassportImages(model As Inventor.Document, folder As String,
-                              dimensions As Double(), depthMm As Double, massKg As Double, ByRef stage As String, ByRef importSummary As String) As String
+Class ImportPlan
+    Public ProductId, ContextToken As String
+    Public SupportsHoles As Boolean
+    Public Installation As Global.System.Text.Json.JsonElement
+End Class
+
+Function LocalInstallation() As String
+    Using dialog As New WF.Form With {.Text="Способ установки",.Width=430,.Height=155,.StartPosition=WF.FormStartPosition.CenterScreen,.FormBorderStyle=WF.FormBorderStyle.FixedDialog,.MinimizeBox=False,.MaximizeBox=False}
+        Dim methods As New WF.ComboBox With {.Left=14,.Top=14,.Width=380,.DropDownStyle=WF.ComboBoxStyle.DropDownList}
+        methods.Items.AddRange(New Object() {"Бетонирование опор","Анкерное крепление","Болтовое соединение","Другая установка"})
+        Dim ok As New WF.Button With {.Text="Продолжить",.Left=193,.Top=57,.Width=100,.Enabled=False,.DialogResult=DialogResult.OK}
+        Dim cancel As New WF.Button With {.Text="Отмена",.Left=300,.Top=57,.Width=94,.DialogResult=DialogResult.Cancel}
+        AddHandler methods.SelectedIndexChanged,Sub(sender,e)
+            ok.Enabled=methods.SelectedIndex>=0
+        End Sub
+        AddHandler methods.SelectionChangeCommitted,Sub(sender,e)
+            If methods.SelectedIndex>=0 Then dialog.DialogResult=DialogResult.OK
+        End Sub
+        dialog.Controls.AddRange(New WF.Control(){methods,ok,cancel})
+        dialog.AcceptButton=ok
+        dialog.CancelButton=cancel
+        If dialog.ShowDialog()<>DialogResult.OK Then Return ""
+        Return If(methods.SelectedIndex=0,"CONCRETE_POSTS",If(methods.SelectedIndex=1,"ANCHORS",If(methods.SelectedIndex=2,"BOLTED","OTHER")))
+    End Using
+End Function
+
+Function PickProductPlan(model As Inventor.Document,plan As ImportPlan,ByRef stage As String) As Boolean
     Dim fileName As String = System.IO.Path.GetFileNameWithoutExtension(model.FullFileName)
     Dim proposal As String = System.Text.RegularExpressions.Regex.Match(fileName, "^\d+(?=\.)").Value
     If proposal = "" Then proposal = fileName
     Dim sku As String = Microsoft.VisualBasic.Interaction.InputBox(
         "Укажите точный артикул изделия на сайте.", "Загрузка рисунков", proposal).Trim()
-    If sku = "" Then Return ""
+    If sku = "" Then Return False
 
-    Dim key As String = Global.System.Environment.GetEnvironmentVariable(
-        "DATACORE_API_KEY", Global.System.EnvironmentVariableTarget.User)
-    If String.IsNullOrWhiteSpace(key) Then
-        key = Global.System.Environment.GetEnvironmentVariable("DATACORE_API_KEY")
-    End If
-    If String.IsNullOrWhiteSpace(key) OrElse Not key.Trim().StartsWith("kppd_", StringComparison.Ordinal) Then
-        Throw New InvalidOperationException("Задайте машинный ключ kppd_… в переменной DATACORE_API_KEY.")
-    End If
-
-    Using handler As New Global.System.Net.Http.HttpClientHandler()
-        handler.AllowAutoRedirect = False
-        Using client As New Global.System.Net.Http.HttpClient(handler)
-            client.BaseAddress = New Global.System.Uri(API_BASE)
-            client.Timeout = TimeSpan.FromSeconds(90)
-            client.DefaultRequestHeaders.Authorization =
-                New System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key.Trim())
-
+    Using client=PassportClient()
             stage = "Поиск изделия по артикулу " & sku
             Dim productId As String = Nothing
             Dim productName As String = Nothing
@@ -500,7 +629,7 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                                "Обновить общий вид, габариты и схему установки изделия и подходящих действующих паспортов?" & vbCrLf &
                                "Паспорта с другим или неизвестным способом установки будут пропущены. Номера сохранятся, прежние данные останутся в истории. Закрытые договоры не изменятся.",
                                "Подтвердите изделие", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
-                               MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
+                               MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return False
             Dim photosPath As String = "products/" & productId & "/photos"
             Dim importPath As String = "products/" & productId & "/passport-import"
             stage = "Получение способов установки"
@@ -508,7 +637,46 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             Dim contextToken As String = JsonString(context, "contextToken")
             If String.IsNullOrWhiteSpace(contextToken) Then Throw New InvalidOperationException("Сайт не подтвердил готовность к импорту. Обновите правило iLogic и сайт.")
             Dim installation As Global.System.Text.Json.JsonElement = ChooseInstallation(context)
-            If installation.ValueKind = Global.System.Text.Json.JsonValueKind.Undefined Then Return ""
+            If installation.ValueKind = Global.System.Text.Json.JsonValueKind.Undefined Then Return False
+            plan.ProductId=productId
+            plan.ContextToken=contextToken
+            Dim capability As Global.System.Text.Json.JsonElement
+            plan.SupportsHoles=context.TryGetProperty("supportsHoles",capability) AndAlso capability.ValueKind=Global.System.Text.Json.JsonValueKind.True
+            plan.Installation=installation.Clone()
+            Return True
+    End Using
+End Function
+
+Function PassportClient() As Global.System.Net.Http.HttpClient
+    Dim key As String = Global.System.Environment.GetEnvironmentVariable(
+        "DATACORE_API_KEY", Global.System.EnvironmentVariableTarget.User)
+    If String.IsNullOrWhiteSpace(key) Then
+        key = Global.System.Environment.GetEnvironmentVariable("DATACORE_API_KEY")
+    End If
+    If String.IsNullOrWhiteSpace(key) OrElse Not key.Trim().StartsWith("kppd_", StringComparison.Ordinal) Then
+        Throw New InvalidOperationException("Задайте машинный ключ kppd_… в переменной DATACORE_API_KEY.")
+    End If
+
+    Dim handler As New Global.System.Net.Http.HttpClientHandler()
+        handler.AllowAutoRedirect = False
+    Dim client As New Global.System.Net.Http.HttpClient(handler)
+            client.BaseAddress = New Global.System.Uri(API_BASE)
+            client.Timeout = TimeSpan.FromSeconds(90)
+            client.DefaultRequestHeaders.Authorization =
+                New System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key.Trim())
+
+    Return client
+End Function
+
+Function UploadPassportImages(model As Inventor.Document, folder As String,
+                              dimensions As Double(), depthMm As Double, massKg As Double, ByRef stage As String, ByRef importSummary As String, picture As String, plan As ImportPlan, concrete As Boolean) As String
+    Using client=PassportClient()
+            Dim holesPath=System.IO.Path.Combine(folder,"05_Разметка ям.png")
+            If concrete AndAlso Not System.IO.File.Exists(holesPath) Then Throw New InvalidOperationException("Отсутствует рисунок разметки ям: " & holesPath)
+            If concrete AndAlso Not plan.SupportsHoles Then Throw New InvalidOperationException("Для отправки разметки ям обновите сервер. Комплект сохранён: " & folder)
+            Dim productId=plan.ProductId, installation=plan.Installation,contextToken=plan.ContextToken
+            Dim photosPath="products/" & productId & "/photos"
+            Dim importPath="products/" & productId & "/passport-import"
             Dim installationId As String = ApiId(installation)
             Dim depthApplicable As Boolean = installation.GetProperty("depthApplicable").GetBoolean()
             ' Значения в карточку — по отдельному согласию: на сайте их могли уже поправить вручную (пользователь 2026-11-13)
@@ -536,13 +704,15 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
 
             stage = "Проверка существующих рисунков"
             Dim previous As Global.System.Collections.Generic.Dictionary(Of String, String) = ReadPassportSlots(client, photosPath)
-            If previous.Count > 0 Then
+            Dim thirdKind=JsonString(installation, "thirdImportKind")
+            If Global.System.Linq.Enumerable.Any(previous.Values, Function(kind) kind="overview" OrElse kind="dimensions" OrElse kind=thirdKind OrElse (concrete AndAlso kind="holes")) Then
                 Dim overviewCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = "overview")
                 Dim dimensionsCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = "dimensions")
-                Dim foundationCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = "foundation")
+                Dim foundationCount As Integer = Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind = thirdKind)
+                Dim holeCount=Global.System.Linq.Enumerable.Count(previous.Values, Function(kind) kind="holes")
                 If MessageBox.Show("На сайте уже есть рисунки:" & vbCrLf &
                                    "Общий вид: " & overviewCount & vbCrLf &
-                                   "Габаритные размеры: " & dimensionsCount & vbCrLf & "Схема установки опор: " & foundationCount & vbCrLf & "Заменить их?",
+                                   "Габаритные размеры: " & dimensionsCount & vbCrLf & "Схема монтажа: " & foundationCount & If(concrete,vbCrLf & "Разметка ям: " & holeCount,"") & vbCrLf & "Заменить их?",
                                    "Подтвердите замену", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
                                    MessageBoxDefaultButton.Button2) <> DialogResult.Yes Then Return ""
             End If
@@ -552,7 +722,7 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             stage = "Загрузка PNG габаритных размеров"
             Dim dimensionsId As String = UploadPng(client, System.IO.Path.Combine(folder, "02_Габаритные размеры.png"))
             stage = "Загрузка PNG схемы установки"
-            Dim foundationId As String = UploadPng(client, System.IO.Path.Combine(folder, "03_Схема установки.png"))
+            Dim foundationId As String = UploadPng(client, picture)
             ' Только одобренные числа. Даже совпавшее число передаём: паспорт мог остаться со старым значением.
             Dim confirmed As New Global.System.Collections.Generic.Dictionary(Of String, Object)
             confirmed.Add("installationTypeId", installationId)
@@ -560,12 +730,16 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
                 .length = dimensions(0), .width = dimensions(1), .height = dimensions(2), .unit = "мм"})
             If writeMass Then confirmed.Add("weightKg", massKg)
             If writeDepth Then confirmed.Add("foundationDepth", depthMm)
-            Dim payload = New With {
-                .contextToken = contextToken,
-                .images = New Object() {
+            Dim images As New Global.System.Collections.Generic.List(Of Object) From {
                     New With {.kind = "overview", .photoId = overviewId},
                     New With {.kind = "dimensions", .photoId = dimensionsId},
-                    New With {.kind = "foundation", .photoId = foundationId}},
+                    New With {.kind = "foundation", .photoId = foundationId}}
+            If concrete Then
+                stage = "Загрузка разметки ям"
+                images.Add(New With {.kind = "holes", .photoId = UploadPng(client, holesPath)})
+            End If
+            Dim payload = New With {
+                .contextToken = contextToken, .images = images,
                 .confirmed = confirmed}
             stage = "Обновление изделия и паспортов с сохранением истории"
             Dim saved As Global.System.Text.Json.JsonElement
@@ -588,8 +762,35 @@ Function UploadPassportImages(model As Inventor.Document, folder As String,
             Next
             ' Ни привязок, ни чисел отдельно не пишем: весь результат подтверждает одна серверная транзакция.
             importSummary = PassportImportSummary(saved)
-            Return productId
-        End Using
+            Return PassportTarget(saved,productId,importSummary)
+    End Using
+End Function
+
+Function PassportTarget(saved As Global.System.Text.Json.JsonElement, productId As String, summary As String) As String
+    Dim routes As New Global.System.Collections.Generic.List(Of String)
+    Dim labels As New Global.System.Collections.Generic.List(Of String)
+    For Each item In ImportArray(saved,"issued").EnumerateArray()
+        routes.Add("#passports?open=" & ApiId(item))
+        labels.Add("Паспорт № " & JsonString(item,"number"))
+    Next
+    For Each item In ImportArray(saved,"drafts").EnumerateArray()
+        routes.Add("#passports?open=" & item.GetString())
+        labels.Add("Черновик " & item.GetString())
+    Next
+    If routes.Count=1 Then Return routes(0)
+    If routes.Count=0 Then
+        MessageBox.Show(summary & vbCrLf & "Обновлённых экземпляров нет. Откроется шаблон этого изделия.", "Результат отправки")
+        Return "#products?templateFor=" & productId
+    End If
+    Using form As New WF.Form With {.Text="Какой паспорт открыть?",.Width=490,.Height=145,.StartPosition=WF.FormStartPosition.CenterScreen}
+        Dim pick As New WF.ComboBox With {.Left=12,.Top=12,.Width=445,.DropDownStyle=WF.ComboBoxStyle.DropDownList}
+        pick.Items.AddRange(labels.ToArray())
+        pick.SelectedIndex=0
+        Dim ok As New WF.Button With {.Text="Открыть",.Left=357,.Top=51,.Width=100,.DialogResult=WF.DialogResult.OK}
+        form.Controls.AddRange(New WF.Control(){pick,ok})
+        form.AcceptButton=ok
+        If form.ShowDialog()=WF.DialogResult.OK Then Return routes(pick.SelectedIndex)
+        Return "#products?templateFor=" & productId
     End Using
 End Function
 
@@ -610,11 +811,11 @@ Function ChooseInstallation(context As Global.System.Text.Json.JsonElement) As G
         dialog.MaximizeBox = False
         dialog.MinimizeBox = False
         Dim explanation As New Global.System.Windows.Forms.Label With {.Left = 16, .Top = 16, .Width = 570, .Height = 48,
-            .Text = "Выберите способ, которому соответствуют все три рисунка. Для анкеров третий лист — монтаж, для бетонирования — фундамент. Другие способы паспортов не изменятся."}
+            .Text = "Для болтового и анкерного соединений формируется схема монтажа. Для бетонирования — схема фундамента и разметка ям. Другие способы паспортов не изменятся."}
         Dim selectBox As New Global.System.Windows.Forms.ComboBox With {.Left = 16, .Top = 72, .Width = 570,
             .DropDownStyle = Global.System.Windows.Forms.ComboBoxStyle.DropDownList}
         Dim details As New Global.System.Windows.Forms.Label With {.Left = 16, .Top = 108, .Width = 570, .Height = 40,
-            .Text = "Выберите способ установки. Без подтверждения рисунки на сайт не отправляются."}
+            .Text = "Выберите способ установки. При выборе бетонирования откроются параметры основания."}
         Dim accept As New Global.System.Windows.Forms.Button With {.Left = 364, .Top = 160, .Width = 110, .Text = "Подтвердить", .Enabled = False, .DialogResult = DialogResult.OK}
         Dim cancel As New Global.System.Windows.Forms.Button With {.Left = 484, .Top = 160, .Width = 102, .Text = "Отмена", .DialogResult = DialogResult.Cancel}
         Dim selected As Integer = -1
@@ -632,12 +833,16 @@ Function ChooseInstallation(context As Global.System.Text.Json.JsonElement) As G
             selectBox.Items.Add(name)
             If String.Equals(id, currentId, StringComparison.Ordinal) Then selected = choices.Count - 1
         Next
+        If choices.Count=0 Then Throw New InvalidOperationException("Для подготовленного комплекта на сайте нет подходящего способа установки.")
         AddHandler selectBox.SelectedIndexChanged, Sub(sender, args)
             accept.Enabled = selectBox.SelectedIndex >= 0
             If Not accept.Enabled Then Return
             Dim item As Global.System.Text.Json.JsonElement = choices(selectBox.SelectedIndex)
             details.Text = "Третий лист: " & If(JsonString(item, "thirdImportKind") = "mounting", "схема монтажа", "схема фундамента") & ". " &
                 If(item.GetProperty("depthApplicable").GetBoolean(), "Глубина Г — по отдельному подтверждению.", "Глубина Г не применяется и не отправляется.")
+        End Sub
+        AddHandler selectBox.SelectionChangeCommitted,Sub(sender,e)
+            If selectBox.SelectedIndex>=0 Then dialog.DialogResult=DialogResult.OK
         End Sub
         selectBox.SelectedIndex = selected
         dialog.Controls.AddRange(New Global.System.Windows.Forms.Control() {explanation, selectBox, details, accept, cancel})
@@ -680,7 +885,7 @@ Function ReadPassportSlots(client As Global.System.Net.Http.HttpClient, path As 
     Dim result As Global.System.Text.Json.JsonElement = RequestJson(client, Global.System.Net.Http.HttpMethod.Get, path & "?purpose=passport")
     For Each item As Global.System.Text.Json.JsonElement In result.EnumerateArray()
         Dim kind As String = JsonString(item, "kind")
-        If kind = "overview" OrElse kind = "dimensions" OrElse kind = "foundation" Then slots.Add(ApiId(item), kind)
+        If kind = "overview" OrElse kind = "dimensions" OrElse kind = "foundation" OrElse kind = "mounting" OrElse kind = "holes" Then slots.Add(ApiId(item), kind)
     Next
     Return slots
 End Function
@@ -812,6 +1017,585 @@ Sub SchemeNote(notes As Inventor.GeneralNotes, tg As Inventor.TransientGeometry,
     End Try
 End Sub
 
+    Class Settings
+        Public Axis As String
+        Public RoundPit As Boolean
+        Public Level,Side,Depth,Gravel As Double
+    End Class
+
+    Function MmLabel(value As Double, Optional signed As Boolean=False) As String
+        Return Math.Round(value,0,MidpointRounding.AwayFromZero).ToString(If(signed,"+0;-0;0","0"))
+    End Function
+
+    Function Millimetres(text As String, ByRef n As Double) As Boolean
+        Return Double.TryParse(text.Trim().Replace(","c,"."c), Global.System.Globalization.NumberStyles.AllowLeadingSign Or Global.System.Globalization.NumberStyles.AllowDecimalPoint,Global.System.Globalization.CultureInfo.InvariantCulture,n) AndAlso Double.IsFinite(n)
+    End Function
+
+    Function ReadSettings(mins As Double(), defaultAxis As Integer) As Settings
+        Using dialog As New WF.Form()
+            dialog.Text="Схема бетонирования"
+            dialog.StartPosition=WF.FormStartPosition.CenterScreen
+            dialog.FormBorderStyle=WF.FormBorderStyle.FixedDialog
+            dialog.MaximizeBox=False
+            dialog.MinimizeBox=False
+            dialog.AutoSize=True
+            dialog.AutoSizeMode=WF.AutoSizeMode.GrowAndShrink
+            Dim grid As New WF.TableLayoutPanel With {.AutoSize=True,.ColumnCount=2,.Padding=New WF.Padding(14),.Dock=WF.DockStyle.Fill}
+            dialog.Controls.Add(grid)
+            Dim axis As New WF.ComboBox With {.DropDownStyle=WF.ComboBoxStyle.DropDownList}
+            axis.Items.AddRange(New Object() {"XY  ·  вверх Z","XZ  ·  вверх Y","YZ  ·  вверх X"})
+            axis.SelectedIndex=defaultAxis
+            Dim level As New WF.TextBox With {.Text="0"}
+            Dim side As New WF.TextBox With {.Text="400"}
+            Dim depth As New WF.TextBox With {.Text="700"}
+            Dim gravel As New WF.TextBox With {.Text="100"}
+            Dim shape As New WF.ComboBox With {.DropDownStyle=WF.ComboBoxStyle.DropDownList}
+            shape.Items.AddRange(New Object() {"Круглая скважина","Квадратная яма"})
+            Dim names={"Плоскость земли","Отметка земли, мм","А · Размер ямы, мм","Б · Глубина бетона, мм","В · Щебень, мм (0 — без слоя)"}
+            grid.Controls.Add(New WF.Label With {.Text="Форма основания",.AutoSize=True,.Anchor=WF.AnchorStyles.Left},0,0)
+            shape.Width=180
+            shape.Margin=New WF.Padding(9,4,3,4)
+            grid.Controls.Add(shape,1,0)
+            Dim inputs As WF.Control()={axis,level,side,depth,gravel}
+            For i As Integer=0 To inputs.Length-1
+                grid.Controls.Add(New WF.Label With {.Text=names(i),.AutoSize=True,.Anchor=WF.AnchorStyles.Left},0,i+1)
+                inputs(i).Width=180
+                inputs(i).Margin=New WF.Padding(9,4,3,4)
+                grid.Controls.Add(inputs(i),1,i+1)
+            Next
+            Dim feedback As New WF.Label With {.AutoSize=True,.Text="Размеры можно изменить по проекту."}
+            grid.Controls.Add(feedback,0,6)
+            AddHandler shape.SelectedIndexChanged,Sub(sender,e)
+                names(2)=If(shape.SelectedIndex=0,"А · Диаметр скважины, мм","А · Сторона квадрата, мм")
+                grid.GetControlFromPosition(0,3).Text=names(2)
+            End Sub
+            grid.SetColumnSpan(feedback,2)
+            Dim buttons As New WF.FlowLayoutPanel With {.AutoSize=True,.Anchor=WF.AnchorStyles.Right}
+            Dim submit As New WF.Button With {.Text="Создать чертёж",.AutoSize=True}
+            Dim cancel As New WF.Button With {.Text="Отмена",.DialogResult=WF.DialogResult.Cancel,.AutoSize=True}
+            buttons.Controls.AddRange(New WF.Control(){submit,cancel})
+            grid.Controls.Add(buttons,0,7)
+            grid.SetColumnSpan(buttons,2)
+            dialog.AcceptButton=submit
+            dialog.CancelButton=cancel
+            Dim result As New Settings
+            AddHandler submit.Click,Sub(sender,e)
+                If shape.SelectedIndex<0 Then
+                    feedback.Text="Выберите форму основания по проекту."
+                    shape.Focus()
+                    Return
+                End If
+                result.RoundPit=shape.SelectedIndex=0
+                Dim fields As WF.TextBox()={level,side,depth,gravel}
+                Dim nums(3) As Double
+                For i As Integer=0 To 3
+                    If Not Millimetres(fields(i).Text,nums(i)) OrElse ((i=1 OrElse i=2) AndAlso nums(i)<=0) OrElse (i=3 AndAlso nums(i)<0) Then
+                        feedback.Text="Проверьте поле «" & names(i+1) & "»."
+                        fields(i).Focus()
+                        fields(i).SelectAll()
+                        Return
+                    End If
+                Next
+                result.Axis=axis.Text.Substring(0,2)
+                result.Level=nums(0)
+                result.Side=nums(1)
+                result.Depth=nums(2)
+                result.Gravel=nums(3)
+                dialog.DialogResult=WF.DialogResult.OK
+            End Sub
+            If dialog.ShowDialog()=WF.DialogResult.OK Then Return result
+            Return Nothing
+        End Using
+    End Function
+
+    Public Sub Collect(model As Inventor.Document, bodies As System.Collections.Generic.List(Of Inventor.SurfaceBody))
+        If model.DocumentType = Inventor.DocumentTypeEnum.kPartDocumentObject Then
+            For Each b As Inventor.SurfaceBody In DirectCast(model, Inventor.PartDocument).ComponentDefinition.SurfaceBodies
+                If b.IsSolid AndAlso b.Visible Then bodies.Add(b)
+            Next
+        Else
+            For Each occ As Inventor.ComponentOccurrence In DirectCast(model, Inventor.AssemblyDocument).ComponentDefinition.Occurrences
+                CollectOccurrence(occ, bodies, ThisApplication.TransientGeometry.CreateMatrix(), ThisApplication)
+            Next
+        End If
+    End Sub
+
+    Sub CollectOccurrence(occ As Inventor.ComponentOccurrence, bodies As System.Collections.Generic.List(Of Inventor.SurfaceBody), parentPose As Inventor.Matrix, app As Inventor.Application)
+        If occ.Suppressed OrElse Not occ.Visible Then Return
+        Dim pose As Inventor.Matrix=occ.Transformation.Copy()
+        pose.PreMultiplyBy(parentPose)
+        If occ.DefinitionDocumentType=Inventor.DocumentTypeEnum.kAssemblyDocumentObject Then
+            For Each child As Inventor.ComponentOccurrence In DirectCast(occ.Definition, Inventor.AssemblyComponentDefinition).Occurrences
+                CollectOccurrence(child,bodies,pose,app)
+            Next
+        ElseIf occ.DefinitionDocumentType=Inventor.DocumentTypeEnum.kPartDocumentObject Then
+            For Each body As Inventor.SurfaceBody In occ.SurfaceBodies
+                If Not body.IsSolid OrElse Not body.Visible Then Continue For
+                Dim located As Inventor.SurfaceBody=app.TransientBRep.Copy(body)
+                app.TransientBRep.Transform(located,pose)
+                bodies.Add(located)
+            Next
+        End If
+    End Sub
+    Public Sub Orient(app As Inventor.Application,bodies As System.Collections.Generic.List(Of Inventor.SurfaceBody),axis As String,level As Double)
+        Dim tg=app.TransientGeometry
+        Dim rot=tg.CreateMatrix()
+        If axis="XY" Then rot.SetToRotation(-Math.PI/2,tg.CreateVector(1,0,0),tg.CreatePoint(0,0,0))
+        If axis="YZ" Then rot.SetToRotation(Math.PI/2,tg.CreateVector(0,0,1),tg.CreatePoint(0,0,0))
+        rot.SetTranslation(tg.CreateVector(0,-level/10,0),False)
+        For i As Integer=0 To bodies.Count-1
+            Dim copy=app.TransientBRep.Copy(bodies(i))
+            app.TransientBRep.Transform(copy,rot)
+            bodies(i)=copy
+        Next
+    End Sub
+    Class Profile
+        Public solid As Inventor.SurfaceBody
+        Public lines As New System.Collections.Generic.List(Of Double())
+        Public x0 As Double = Double.MaxValue, x1 As Double = Double.MinValue
+        Public z0 As Double = Double.MaxValue, z1 As Double = Double.MinValue
+    End Class
+
+    Sub MakeDrawing(app As Inventor.Application, bodies As System.Collections.Generic.List(Of Inventor.SurfaceBody), side As Double, depth As Double, gravel As Double, folder As String, roundPit As Boolean)
+        Dim tg = app.TransientGeometry
+        Dim plane = tg.CreatePlane(tg.CreatePoint(0,0,0),tg.CreateVector(0,1,0))
+        Dim outlines As New System.Collections.Generic.List(Of Profile)
+        Dim feet As New System.Collections.Generic.List(Of Profile)
+        For Each b As Inventor.SurfaceBody In bodies
+            If b.RangeBox.MinPoint.Y >= 0 OrElse b.RangeBox.MaxPoint.Y <= 0 Then Continue For
+            Dim solid=app.TransientBRep.Copy(b)
+            Dim cut = app.TransientBRep.CreateIntersectionWithPlane(solid,plane)
+            If cut Is Nothing Then Continue For
+            Dim local As New System.Collections.Generic.List(Of Profile)
+            For Each wire As Inventor.Wire In cut.Wires
+                Dim poly As New Profile()
+                poly.solid=solid
+                For Each edge As Inventor.Edge In wire.Edges
+                    Dim ev = edge.Evaluator
+                    Dim lo, hi As Double
+                    ev.GetParamExtents(lo,hi)
+                    Dim count As Integer, coords() As Double = New Double() {}
+                    ev.GetStrokes(lo,hi,0.02,count,coords)
+                    If count < 2 Then Continue For
+                    poly.lines.Add(coords)
+                    For j As Integer = 0 To count-1
+                        poly.x0=Math.Min(poly.x0,coords(j*3)*10)
+                        poly.x1=Math.Max(poly.x1,coords(j*3)*10)
+                        poly.z0=Math.Min(poly.z0,coords(j*3+2)*10)
+                        poly.z1=Math.Max(poly.z1,coords(j*3+2)*10)
+                    Next
+                Next
+                If poly.lines.Count>0 Then
+                    local.Add(poly)
+                    outlines.Add(poly)
+                End If
+            Next
+            For Each p As Profile In local
+                Dim inner As Boolean=False
+                For Each q As Profile In local
+                    If q IsNot p AndAlso q.x0<p.x0 AndAlso q.x1>p.x1 AndAlso q.z0<p.z0 AndAlso q.z1>p.z1 Then inner=True
+                Next
+                If Not inner Then feet.Add(p)
+            Next
+        Next
+        If feet.Count=0 Then Throw New Exception("На выбранной отметке нет пересечений. Проверьте выбранную плоскость и отметку земли.")
+        Dim xmin=Double.MaxValue, xmax=Double.MinValue, zmin=Double.MaxValue, zmax=Double.MinValue
+        For Each p As Profile In feet
+            Dim fits=Math.Max(p.x1-p.x0,p.z1-p.z0)<side-0.01
+            If fits AndAlso roundPit Then
+                For Each segment As Double() In p.lines
+                    For j As Integer=0 To segment.Length-1 Step 3
+                        Dim dx=segment(j)*10-(p.x0+p.x1)/2, dz=segment(j+2)*10-(p.z0+p.z1)/2
+                        If dx*dx+dz*dz>=(side/2-0.005)^2 Then fits=False
+                    Next
+                Next
+            End If
+            If Not fits Then Throw New Exception("Контур стойки не помещается внутри выбранного основания. Проверьте форму, размер и отметку земли.")
+            Dim x=(p.x0+p.x1)/2, z=(p.z0+p.z1)/2
+            xmin=Math.Min(xmin,x-side/2) : xmax=Math.Max(xmax,x+side/2)
+            zmin=Math.Min(zmin,z-side/2) : zmax=Math.Max(zmax,z+side/2)
+        Next
+        Dim template=app.FileManager.GetTemplateFile(Inventor.DocumentTypeEnum.kDrawingDocumentObject)
+        Dim drawing=DirectCast(app.Documents.Add(Inventor.DocumentTypeEnum.kDrawingDocumentObject,template,True),Inventor.DrawingDocument)
+        SetPassportLineWeights(drawing)
+        Try
+            Dim sh=drawing.Sheets.Item(1)
+            If sh.TitleBlock IsNot Nothing Then sh.TitleBlock.Delete()
+            If sh.Border IsNot Nothing Then sh.Border.Delete()
+            For i As Integer=sh.SketchedSymbols.Count To 1 Step -1
+                sh.SketchedSymbols.Item(i).Delete()
+            Next
+            For i As Integer=sh.Sketches.Count To 1 Step -1
+                sh.Sketches.Item(i).Delete()
+            Next
+            sh.Size=Inventor.DrawingSheetSizeEnum.kA3DrawingSheetSize
+            sh.Orientation=Inventor.PageOrientationTypeEnum.kLandscapePageOrientation
+            drawing.SheetSettings.SheetColor=app.TransientObjects.CreateColor(255,255,255)
+            Dim w=sh.Width,h=sh.Height
+            Dim sc=Math.Min(w*0.40/(xmax-xmin),h*0.60/(zmax-zmin))
+            Dim rs=Math.Min(w*0.18/side,h*0.48/(depth+gravel))
+            If feet.Count=1 Then sc=Math.Min(sc,rs)
+            Dim mapX As Func(Of Double,Double)=Function(x) w*0.29+(x-(xmin+xmax)/2)*sc
+            Dim mapZ As Func(Of Double,Double)=Function(z) h*0.50-(z-(zmin+zmax)/2)*sc
+            Dim left=w*0.73-side*rs/2,right=left+side*rs,top=h*0.70,joinY=top-depth*rs,baseY=joinY-gravel*rs
+            Dim first=feet(0)
+            Dim fx=(first.x0+first.x1)/2, fz=(first.z0+first.z1)/2
+            Dim xs As New System.Collections.Generic.SortedDictionary(Of Double, Double)
+            Dim zs As New System.Collections.Generic.SortedDictionary(Of Double, Double)
+            For Each pt As Profile In feet
+                Dim x=Math.Round((pt.x0+pt.x1)/2,1), z=Math.Round((pt.z0+pt.z1)/2,1)
+                x=SameAxis(xs.Keys,x)
+                z=SameAxis(zs.Keys,z)
+                If Not xs.ContainsKey(x) Then xs.Add(x,z)
+                xs(x)=Math.Max(xs(x),z)
+                If Not zs.ContainsKey(z) Then zs.Add(z,x)
+                zs(z)=Math.Max(zs(z),x)
+            Next
+            Dim chainY=mapZ(zmax)-0.95,chainX=mapX(xmax)+0.80
+            Dim verticalLabels As New Global.System.Collections.Generic.List(Of Tuple(Of Double,Double,String))
+            Dim labels As New System.Collections.Generic.List(Of Tuple(Of Double,Double,String))
+            Dim dimY=mapZ(first.z0+(first.z1-first.z0)/2)+side*sc/2+0.55
+            Dim sk=sh.Sketches.Add()
+            sk.Edit()
+            Try
+                For Each p As Profile In outlines
+                    For Each a As Double() In p.lines
+                        For j As Integer=3 To a.Length-1 Step 3
+                            Dim x0=mapX(a(j-3)*10), y0=mapZ(a(j-1)*10), x1=mapX(a(j)*10), y1=mapZ(a(j+2)*10)
+                            If Math.Abs(x1-x0)+Math.Abs(y1-y0)>0.00001 Then AddLine(sk,tg,x0,y0,x1,y1)
+                        Next
+                    Next
+                Next
+                For Each p As Profile In feet
+                    Dim x=mapX((p.x0+p.x1)/2),y=mapZ((p.z0+p.z1)/2),r=side*sc/2
+                    PitOutline(sk,tg,x,y,r,roundPit)
+                Next
+                AddArrowLine(sk,tg,mapX(fx-side/2),dimY,mapX(fx+side/2),dimY)
+                Dim prev As Double=Double.NaN
+                For Each entry In xs
+                    If xs.Count=1 Then Exit For
+                    Dim px=mapX(entry.Key)
+                    AddLine(sk,tg,px,mapZ(entry.Value)-side*sc/2,px,chainY-0.15)
+                    If Not Double.IsNaN(prev) Then
+                        AddArrowLine(sk,tg,mapX(prev),chainY,px,chainY)
+                        labels.Add(Tuple.Create((mapX(prev)+px)/2,chainY+0.27,MmLabel((entry.Key-prev))))
+                    End If
+                    prev=entry.Key
+                Next
+                Dim paired As New System.Collections.Generic.HashSet(Of String)
+                Dim elevations As New System.Collections.Generic.List(Of Double())
+                For Each axis In xs.Keys
+                    Dim levels As New System.Collections.Generic.SortedSet(Of Double)
+                    For Each pt In feet
+                        If Math.Abs((pt.x0+pt.x1)/2-axis)<=0.5 Then levels.Add(SameAxis(zs.Keys,Math.Round((pt.z0+pt.z1)/2,1)))
+                    Next
+                    Dim lev=levels.ToArray()
+                    If lev.Length<2 Then Continue For
+                    Dim signature=String.Join("/",lev)
+                    If Not paired.Add(signature) Then Continue For
+                    elevations.Add(lev)
+                    Dim onLeft=(axis<(xmin+xmax)/2)
+                    Dim dx=If(onLeft,mapX(xmin)-0.60,mapX(xmax)+0.60)
+                    Dim nearest=axis
+                    If Not onLeft Then
+                        For Each pt In feet
+                            Dim zz=SameAxis(zs.Keys,Math.Round((pt.z0+pt.z1)/2,1))
+                            If zz=lev(0) Then nearest=Math.Max(nearest,(pt.x0+pt.x1)/2)
+                        Next
+                    End If
+                    For i As Integer=0 To lev.Length-1
+                        Dim yy=mapZ(lev(i))
+                        AddLine(sk,tg,mapX(nearest)+If(onLeft,-1,1)*side*sc/2,yy,dx+If(onLeft,-0.12,0.12),yy)
+                        If i>0 Then
+                            AddArrowLine(sk,tg,dx,mapZ(lev(i-1)),dx,yy)
+                            verticalLabels.Add(Tuple.Create(dx-0.32,(yy+mapZ(lev(i-1)))/2,MmLabel((lev(i)-lev(i-1)))))
+                        End If
+                    Next
+                Next
+                If elevations.Count=2 AndAlso elevations(0).Length=2 AndAlso elevations(1).Length=2 Then
+                    Dim shift1=elevations(1)(0)-elevations(0)(0),shift2=elevations(1)(1)-elevations(0)(1)
+                    labels.Add(Tuple.Create(w*0.27,h*0.19,"Правая группа: смещение осей вниз по плану, мм"))
+                    labels.Add(Tuple.Create(w*0.27,h*0.16,"Верхний ряд " & MmLabel(shift1,True) & "     Нижний ряд " & MmLabel(shift2,True)))
+                End If
+                Dim vertical=app.TransientBRep.CreateIntersectionWithPlane(first.solid,tg.CreatePlane(tg.CreatePoint(0,0,fz/10),tg.CreateVector(0,0,1)))
+                If vertical IsNot Nothing Then
+                    For Each ed As Inventor.Edge In vertical.Edges
+                        Dim ev=ed.Evaluator
+                        Dim lo,hi As Double, n As Integer, pts() As Double=New Double(){}
+                        ev.GetParamExtents(lo,hi)
+                        ev.GetStrokes(lo,hi,0.02,n,pts)
+                        For k As Integer=3 To pts.Length-1 Step 3
+                            Dim ax=(pts(k-3)*10-fx)*rs, ay=pts(k-2)*10*rs
+                            Dim bx=(pts(k)*10-fx)*rs, by=pts(k+1)*10*rs
+                            Dim maxY=h*0.08, minY=-depth*rs
+                            If Math.Max(ay,by)<minY OrElse Math.Min(ay,by)>maxY Then Continue For
+                            Dim t0 As Double=0,t1 As Double=1
+                            If Math.Abs(by-ay)>0.000001 Then
+                                Dim ta=(minY-ay)/(by-ay),tb=(maxY-ay)/(by-ay)
+                                t0=Math.Max(0,Math.Min(ta,tb)) : t1=Math.Min(1,Math.Max(ta,tb))
+                            End If
+                            Dim dx=bx-ax,dy=by-ay
+                            If (Math.Abs(dx)+Math.Abs(dy))*(t1-t0)<0.00001 Then Continue For
+                            If Math.Max(Math.Abs(ax+t0*dx),Math.Abs(ax+t1*dx))>side*rs/2+0.001 Then Continue For
+                            AddLine(sk,tg,(left+right)/2+ax+t0*dx,top+ay+t0*dy,(left+right)/2+ax+t1*dx,top+ay+t1*dy)
+                        Next
+                    Next
+                End If
+                For Each edge As Inventor.SketchLine In sk.SketchLines.AddAsTwoPointRectangle(tg.CreatePoint2d(left,baseY),tg.CreatePoint2d(right,top))
+                    edge.LineWeight=OutlineWeightCm
+                Next
+                AddLine(sk,tg,left-0.7,top,right+0.7,top)
+                If gravel>0 Then AddLine(sk,tg,left,joinY,right,joinY)
+                Dim centre=(left+right)/2
+                Dim postHalf=(first.x1-first.x0)*rs/2
+                Dim postBottom=Math.Max(joinY,top+first.solid.RangeBox.MinPoint.Y*10*rs)
+                Dim postY=top+h*0.045
+                Dim postX=centre+postHalf
+                AddLine(sk,tg,postX,postY,right+0.28,postY+0.38)
+                AddLine(sk,tg,right+0.28,postY+0.38,right+2.38,postY+0.38)
+                Dim ledX=left-0.65
+                AddLine(sk,tg,left+(centre-postHalf-left)*0.5,top-(top-joinY)*0.36,ledX,top-(top-joinY)*0.36+0.50)
+                AddLine(sk,tg,ledX,top-(top-joinY)*0.36+0.50,ledX-2.3,top-(top-joinY)*0.36+0.50)
+                If gravel>0 Then
+                    AddLine(sk,tg,left+0.20,(joinY+baseY)/2,ledX,(joinY+baseY)/2+0.35)
+                    AddLine(sk,tg,ledX,(joinY+baseY)/2+0.35,ledX-2.3,(joinY+baseY)/2+0.35)
+                End If
+                AddArrowLine(sk,tg,right+0.85,top,right+0.85,joinY)
+                If gravel>0 Then AddArrowLine(sk,tg,right+0.85,joinY,right+0.85,baseY)
+                AddArrowLine(sk,tg,left,baseY-0.65,right,baseY-0.65)
+            Finally
+                sk.ExitEdit()
+            End Try
+            Dim pm=drawing.DrawingHatchPatternsManager
+            Dim pf=System.IO.Path.Combine(System.IO.Path.GetTempPath(),Guid.NewGuid().ToString("N") & ".pat")
+            Try
+                System.IO.File.WriteAllLines(pf, New String() {"*DC_CONCRETE, Concrete section","45, 0,0, 0.12,0.09, 0.22,-0.06","*DC_FILL, Granular fill","45, 0,0, 0.35,0.28, 0.12,-0.48","45, 0.035,0, 0.35,0.28, 0.12,-0.48","45, 0.070,0, 0.35,0.28, 0.12,-0.48","0, 0,0.05, 0.06,0.12, 0.007,-0.14",""},System.Text.Encoding.ASCII)
+                pm.LoadHatchPatterns(pf,New String() {"DC_CONCRETE","DC_FILL"})
+            Finally
+                If System.IO.File.Exists(pf) Then System.IO.File.Delete(pf)
+            End Try
+            Dim cp=pm.Item("DC_CONCRETE")
+            For Each foot As Profile In feet
+                HatchPlan(sh,tg,cp,foot,mapX,mapZ,side*sc,roundPit)
+            Next
+            Dim mid=(left+right)/2, half=(first.x1-first.x0)*rs/2
+            FillRegion(sh,tg,cp,left,mid-half,joinY,top)
+            FillRegion(sh,tg,cp,mid+half,right,joinY,top)
+            Dim postEnd=Math.Max(joinY,Math.Min(top,top+first.solid.RangeBox.MinPoint.Y*10*rs))
+            FillRegion(sh,tg,cp,mid-half,mid+half,joinY,postEnd)
+            ' В типовом разрезе полость стойки оставляем без обозначения бетона.
+            If gravel>0 Then FillRegion(sh,tg,pm.Item("DC_FILL"),left,right,baseY,joinY)
+            Dim notes=sh.DrawingNotes.GeneralNotes
+            AddLabel(notes,tg,right+1.33,top+h*0.045+0.67,"Стойка")
+            AddLabel(notes,tg,left-1.8,top-(top-joinY)*0.36+0.78,"Бетон")
+            If gravel>0 Then AddLabel(notes,tg,left-1.8,(joinY+baseY)/2+0.63,"Щебень")
+            For Each label In verticalLabels
+                AddLabel(notes,tg,label.Item1,label.Item2,label.Item3,True)
+            Next
+            For Each label In labels
+                AddLabel(notes,tg,label.Item1,label.Item2,label.Item3)
+            Next
+            AddLabel(notes,tg,mapX(fx),dimY+0.30,"А")
+            AddLabel(notes,tg,w*0.27,h*0.88,"План опор по уровню земли")
+            Dim materialNote=If(gravel>0,"Класс бетона и фракцию щебня принимать по проектно-сметной документации объекта.","Класс бетона принимать по проектно-сметной документации объекта.")
+            AddLabel(notes,tg,w*0.70,h*0.105,materialNote)
+            AddLabel(notes,tg,w*0.74,h*0.88,"Типовой разрез основания")
+            AddLabel(notes,tg,w*0.27,h*0.11,"Оснований: " & feet.Count & "   ·   Оси с расхождением до 0,5 мм объединены")
+            AddLabel(notes,tg,(left+right)/2,baseY-1.1,"А")
+            AddLabel(notes,tg,right+1.19,(top+joinY)/2,"Б",True)
+            If gravel>0 Then AddLabel(notes,tg,right+1.19,(joinY+baseY)/2,"В",True)
+            AddLabel(notes,tg,w*0.50,h*0.065,If(roundPit,"А — диаметр скважины: ","А — сторона квадрата: ") & MmLabel(side) & " мм     Б — глубина бетона: " & MmLabel(depth) & " мм     В — толщина щебня: " & MmLabel(gravel) & " мм")
+            AddLabel(notes,tg,w*0.50,h*0.035,"Общая глубина Б + В = " & MmLabel((depth+gravel)) & " мм")
+            drawing.Update()
+            Dim cam=app.ActiveView.Camera
+            cam.Target=tg.CreatePoint(w/2,h/2,0)
+            cam.Eye=tg.CreatePoint(w/2,h/2,10)
+            cam.UpVector=tg.CreateUnitVector(0,1,0)
+            cam.SetExtents(w*1.02,h*1.02)
+            cam.ApplyWithoutTransition()
+            SaveSheetPng(app,cam,System.IO.Path.Combine(folder,"04_Бетонирование.png"),w,h)
+            MakePitLayout(app,drawing,feet,side,depth+gravel,roundPit,folder)
+            sh.Activate()
+            drawing.SaveAs(System.IO.Path.Combine(folder,"04_Бетонирование.idw"),False)
+            Return
+        Catch
+            drawing.Close(True)
+            Throw
+        End Try
+    End Sub
+Private Const FineWeightCm As Double = 0.001
+Private Const OutlineWeightCm As Double = 0.006
+
+Sub SetPassportLineWeights(drawing As Inventor.DrawingDocument)
+    For Each layer As Inventor.Layer In drawing.StylesManager.Layers
+        If layer.StyleLocation=Inventor.StyleLocationEnum.kLibraryStyleLocation Then Continue For
+        Dim name=layer.Name.ToLowerInvariant().Split("("c)(0).Trim()
+        Dim outline=name="видимый контур" OrElse name="visible" OrElse name="visible edges" OrElse name="линия разреза" OrElse name="cutting plane"
+        layer.LineWeight=If(outline,OutlineWeightCm,FineWeightCm)
+    Next
+End Sub
+
+Sub PitOutline(sk As Inventor.DrawingSketch,tg As Inventor.TransientGeometry,x As Double,y As Double,r As Double,roundPit As Boolean)
+    If roundPit Then
+        sk.SketchCircles.AddByCenterRadius(tg.CreatePoint2d(x,y),r).LineWeight=OutlineWeightCm
+    Else
+        For Each edge As Inventor.SketchLine In sk.SketchLines.AddAsTwoPointRectangle(tg.CreatePoint2d(x-r,y-r),tg.CreatePoint2d(x+r,y+r))
+                    edge.LineWeight=OutlineWeightCm
+                Next
+    End If
+End Sub
+
+Sub MakePitLayout(app As Inventor.Application,drawing As Inventor.DrawingDocument,feet As System.Collections.Generic.List(Of Profile),side As Double,totalDepth As Double,roundPit As Boolean,folder As String)
+    Dim sh=drawing.Sheets.Add(Inventor.DrawingSheetSizeEnum.kA3DrawingSheetSize,Inventor.PageOrientationTypeEnum.kLandscapePageOrientation,"Разметка ям")
+    If sh.TitleBlock IsNot Nothing Then sh.TitleBlock.Delete()
+    If sh.Border IsNot Nothing Then sh.Border.Delete()
+    ClearTemplateGraphics(sh)
+    sh.Activate()
+    Dim tg=app.TransientGeometry, w=sh.Width,h=sh.Height
+    Dim xs As New Global.System.Collections.Generic.SortedSet(Of Double)
+    Dim zs As New Global.System.Collections.Generic.SortedSet(Of Double)
+    Dim centres As New Global.System.Collections.Generic.List(Of Double())
+    For Each p As Profile In feet
+        Dim x=SameAxis(xs,Math.Round((p.x0+p.x1)/2,1)),z=SameAxis(zs,Math.Round((p.z0+p.z1)/2,1))
+        xs.Add(x)
+        zs.Add(z)
+        centres.Add(New Double(){x,z})
+    Next
+    Dim factor=Math.Min(w*0.72/(xs.Max-xs.Min+side),h*0.64/(zs.Max-zs.Min+side))
+    Dim radius=side*factor/2
+    Dim px As Func(Of Double,Double)=Function(x) w/2+(x-(xs.Min+xs.Max)/2)*factor
+    Dim py As Func(Of Double,Double)=Function(z) h/2-(z-(zs.Min+zs.Max)/2)*factor
+    Dim chainY=py(zs.Max)-radius-0.75,chainX=px(xs.Min)-radius-0.75
+    Dim labels As New Global.System.Collections.Generic.List(Of Tuple(Of Double,Double,String,Boolean))
+    Dim sk=sh.Sketches.Add()
+    sk.Edit()
+    Try
+        For Each c In centres
+            Dim x=px(c(0)),y=py(c(1)),cross=Math.Min(radius*0.60,0.32)
+            PitOutline(sk,tg,x,y,radius,roundPit)
+            AddLine(sk,tg,x-cross,y,x+cross,y)
+            AddLine(sk,tg,x,y-cross,x,y+cross)
+        Next
+        If feet.Count=1 Then
+            Dim f=feet(0), ox=(f.x0+f.x1)/2,oz=(f.z0+f.z1)/2
+            Dim edgeX=Double.MinValue,edgeY As Double
+            For Each segment As Double() In f.lines
+                For i As Integer=0 To segment.Length-1 Step 3
+                    Dim xx=px(centres(0)(0)+segment(i)*10-ox)
+                    Dim yy=py(centres(0)(1)+segment(i+2)*10-oz)
+                    If xx>edgeX Then
+                        edgeX=xx
+                        edgeY=yy
+                    End If
+                    If i>=3 Then
+                        Dim lastX=px(centres(0)(0)+segment(i-3)*10-ox)
+                        Dim lastY=py(centres(0)(1)+segment(i-1)*10-oz)
+                        If Math.Abs(xx-lastX)+Math.Abs(yy-lastY)>0.00001 Then AddLine(sk,tg,lastX,lastY,xx,yy)
+                    End If
+                Next
+            Next
+            Dim elbowX=px(centres(0)(0))+radius+0.55,elbowY=edgeY+0.75
+            AddLine(sk,tg,edgeX,edgeY,elbowX,elbowY)
+            AddLine(sk,tg,elbowX,elbowY,elbowX+2.3,elbowY)
+            labels.Add(Tuple.Create(elbowX+1.15,elbowY+0.28,"Стойка",False))
+        End If
+        Dim prev As Double=Double.NaN
+        For Each x In xs
+            If xs.Count=1 Then Exit For
+            Dim lowest=centres.Where(Function(c)c(0)=x).Max(Function(c)c(1))
+            AddLine(sk,tg,px(x),py(lowest)-radius,px(x),chainY-0.14)
+            If Not Double.IsNaN(prev) Then
+                AddArrowLine(sk,tg,px(prev),chainY,px(x),chainY)
+                labels.Add(Tuple.Create((px(prev)+px(x))/2,chainY-0.32,MmLabel(x-prev),False))
+            End If
+            prev=x
+        Next
+        prev=Double.NaN
+        For Each z In zs
+            If zs.Count=1 Then Exit For
+            Dim leftmost=centres.Where(Function(c)c(1)=z).Min(Function(c)c(0))
+            AddLine(sk,tg,px(leftmost)-radius,py(z),chainX-0.14,py(z))
+            If Not Double.IsNaN(prev) Then
+                AddArrowLine(sk,tg,chainX,py(prev),chainX,py(z))
+                labels.Add(Tuple.Create(chainX-0.32,(py(prev)+py(z))/2,MmLabel(z-prev),True))
+            End If
+            prev=z
+        Next
+    Finally
+        sk.ExitEdit()
+    End Try
+    Dim notes=sh.DrawingNotes.GeneralNotes
+    AddLabel(notes,tg,w/2,h*0.94,"Разметка ям · вид сверху")
+    AddLabel(notes,tg,w/2,h*0.075,If(roundPit,"Круглая скважина Ø","Квадратная яма ") & MmLabel(side) & If(roundPit,""," × " & MmLabel(side)) & " мм     Глубина " & MmLabel(totalDepth) & " мм     Количество: " & centres.Count)
+    AddLabel(notes,tg,w/2,h*0.042,"Крестом показаны центры. Размеры между осями указаны в миллиметрах.")
+    For Each l In labels
+        AddLabel(notes,tg,l.Item1,l.Item2,l.Item3,l.Item4)
+    Next
+    drawing.Update()
+    Dim cam=app.ActiveView.Camera
+    cam.Target=tg.CreatePoint(w/2,h/2,0)
+    cam.Eye=tg.CreatePoint(w/2,h/2,10)
+    cam.UpVector=tg.CreateUnitVector(0,1,0)
+    cam.SetExtents(w*1.02,h*1.02)
+    cam.ApplyWithoutTransition()
+    SaveSheetPng(app,cam,System.IO.Path.Combine(folder,"05_Разметка ям.png"),w,h)
+End Sub
+
+Function SameAxis(keys As System.Collections.Generic.IEnumerable(Of Double), value As Double) As Double
+    For Each k In keys
+        If Math.Abs(k-value)<=0.5 Then Return k
+    Next
+    Return value
+End Function
+
+Sub HatchPlan(sheet As Inventor.Sheet,tg As Inventor.TransientGeometry,pattern As Inventor.DrawingHatchPattern,foot As Profile,mapX As Func(Of Double,Double),mapZ As Func(Of Double,Double),span As Double,roundPit As Boolean)
+    Dim x=mapX((foot.x0+foot.x1)/2), y=mapZ((foot.z0+foot.z1)/2)
+    Dim sk=sheet.Sketches.Add()
+    sk.Edit()
+    Try
+        PitOutline(sk,tg,x,y,span/2,roundPit)
+        Dim vertices As New Global.System.Collections.Generic.Dictionary(Of String,Inventor.SketchPoint)
+        For Each segment As Double() In foot.lines
+            Dim previous As Inventor.SketchPoint=Nothing
+            For i As Integer=0 To segment.Length-1 Step 3
+                Dim sx=mapX(segment(i)*10), sy=mapZ(segment(i+2)*10)
+                Dim key=Math.Round(sx,6).ToString("R") & ":" & Math.Round(sy,6).ToString("R")
+                Dim pt As Inventor.SketchPoint=Nothing
+                If Not vertices.TryGetValue(key,pt) Then
+                    pt=sk.SketchPoints.Add(tg.CreatePoint2d(sx,sy),False)
+                    vertices.Add(key,pt)
+                End If
+                If previous IsNot Nothing AndAlso previous IsNot pt Then sk.SketchLines.AddByTwoPoints(previous,pt)
+                previous=pt
+            Next
+        Next
+        Dim area=sk.Profiles.AddForSolid(True)
+        Dim hole As Boolean=False
+        For Each contour As Inventor.ProfilePath In area
+            If Not contour.AddsMaterial Then hole=True
+        Next
+        If Not hole Then Throw New Exception("Не удалось выделить контур стойки на плане основания.")
+        Dim factor=Math.Max(0.18,Math.Min(1.0,span/4))
+        sk.SketchHatchRegions.Add(area,pattern,Angle:=0.0,Scale:=factor,LineWeight:=FineWeightCm)
+    Finally
+        sk.ExitEdit()
+    End Try
+End Sub
+
+Sub FillRegion(sheet As Inventor.Sheet, tg As Inventor.TransientGeometry, pat As Inventor.DrawingHatchPattern, l As Double,r As Double,b As Double,t As Double)
+    If r-l<0.001 OrElse t-b<0.001 Then Return
+    Dim regionSketch=sheet.Sketches.Add()
+    regionSketch.Edit()
+    Try
+        regionSketch.SketchLines.AddAsTwoPointRectangle(tg.CreatePoint2d(l,b),tg.CreatePoint2d(r,t))
+        Dim profile=regionSketch.Profiles.AddForSolid()
+        regionSketch.SketchHatchRegions.Add(profile,pat,Angle:=0.0,Scale:=1.0,LineWeight:=FineWeightCm)
+    Finally
+        regionSketch.ExitEdit()
+    End Try
+End Sub
+
+
 Sub AddLine(sketch As Inventor.DrawingSketch, tg As Inventor.TransientGeometry,
             x1 As Double, y1 As Double, x2 As Double, y2 As Double)
     sketch.SketchLines.AddByTwoPoints(tg.CreatePoint2d(x1, y1), tg.CreatePoint2d(x2, y2))
@@ -832,9 +1616,10 @@ Sub AddArrowLine(sketch As Inventor.DrawingSketch, tg As Inventor.TransientGeome
 End Sub
 
 Sub AddLabel(notes As Inventor.GeneralNotes, tg As Inventor.TransientGeometry,
-             x As Double, y As Double, label As String)
+             x As Double, y As Double, label As String, Optional vertical As Boolean=False)
     Dim point As Inventor.Point2d = tg.CreatePoint2d(x, y)
     Dim note As Inventor.GeneralNote = notes.AddFitted(point, label)
+    If vertical Then note.Rotation=Math.PI/2
     Dim bounds As Inventor.Box2d = note.RangeBox
     Dim centerX As Double = (bounds.MinPoint.X + bounds.MaxPoint.X) / 2
     Dim centerY As Double = (bounds.MinPoint.Y + bounds.MaxPoint.Y) / 2

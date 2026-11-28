@@ -80,6 +80,31 @@ describe('C172: атомарный импорт рисунков Inventor', () =
     expect((await db().collection('productpassports').findOne({ _id: f.passportId }))!.revision).toBe(2);
     expect(await db().collection('photos').countDocuments({ _id: { $in: f.old.map(i => new Types.ObjectId(i.photoId)) }, deletedAt: null })).toBe(3);
   });
+  it('четвёртый план ям обновляет изделие и редакцию, старый клиент сохраняет план', async () => {
+    const f = await fixture();
+    const extra = await images('#778899');
+    const holes = { ...extra[0], kind: 'holes' };
+    const before = { kind: 'holes', photoId: new Types.ObjectId(extra[1].photoId) };
+    await db().collection('productphotos').insertOne({ ...before, productId: f.productId, purpose: 'passport', deletedAt: null });
+    await db().collection('productpassports').updateOne({ _id: f.passportId }, { $set: { images: [...f.old.map(i => ({ ...i, photoId: new Types.ObjectId(i.photoId) })), before] } });
+    const body = { ...f.body, contextToken: await f.context(), images: [...f.fresh, holes] };
+    expect((await f.apply(body).expect(200)).body.updatedKinds).toContain('holes');
+    expect((await f.apply(body).expect(200)).body.status).toBe('unchanged');
+    const legacy = { ...f.body, contextToken: await f.context(), images: f.old };
+    await f.apply(legacy).expect(200);
+    const passport = await db().collection('productpassports').findOne({ _id: f.passportId });
+    const next = { kind: 'holes', photoId: new Types.ObjectId(holes.photoId) };
+    expect(passport!.images).toContainEqual(expect.objectContaining(next));
+    expect(passport!.revisions[0].data.images).toContainEqual(before);
+    expect(await db().collection('productphotos').countDocuments({ productId: f.productId, ...next, deletedAt: null })).toBe(1);
+  });
+  it('план ям у анкеров и замена обязательного вида на holes отклоняются атомарно', async () => {
+    const f = await fixture(), holes = { ...f.fresh[0], kind: 'holes' };
+    await f.apply({ ...f.body, images: [f.fresh[0], f.fresh[1], holes] }).expect(400);
+    await db().collection('dict_values').updateOne({ _id: f.installId }, { $set: { code: 'ANCHOR' } });
+    await f.apply({ ...f.body, contextToken: await f.context(), images: [...f.fresh, holes] }).expect(400);
+    expect((await db().collection('productpassports').findOne({ _id: f.passportId }))!.revision).toBe(1);
+  });
   it('CAS отвергает изменившийся паспорт без частичного обновления изделия/связей', async () => {
     const f = await fixture();
     await db().collection('productpassports').updateOne({ _id: f.passportId }, { $set: { note: 'Конкурентная правка' } });
@@ -355,6 +380,7 @@ describe('C172: атомарный импорт рисунков Inventor', () =
     await db().collection('products').updateOne({ _id: f.productId }, { $set: { installationTypeId: anchor, 'passportDefaults.passportCategory': 'TRN' } });
     const context = (await http().get(`${f.url}-context`).set(auth()).expect(200)).body;
     expect(context.installationTypeId).toBe(String(anchor));
+    expect(context.supportsHoles).toBe(true);
     expect(context.installations).toContainEqual({ id: String(anchor), name: 'C241 Анкеры', code: 'ANCHORS', thirdImportKind: 'mounting', depthApplicable: false });
     expect(context.installations).toContainEqual(expect.objectContaining({ id: String(f.installId), thirdImportKind: 'foundation', depthApplicable: true }));
     for (const excluded of [foreign, removed, future]) expect(context.installations.some((row: { id: string }) => row.id === String(excluded))).toBe(false);
