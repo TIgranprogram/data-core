@@ -49,9 +49,9 @@ const newUid = () => globalThis.crypto?.randomUUID?.() || Array.from(
   byte => byte.toString(16).padStart(2, '0'),
 ).join('');
 const quantityWithUnit = (input, unit) => input ? actions(input, h('span', { 'aria-hidden': 'true' }, unit)) : '—';
-const rowButton = (label, row, onClick) => {
+const rowButton = (label, row, onClick, disabled = false) => {
   const name = label + ': ' + row.name;
-  const el = button({ label, title: name, size: 'S', onClick });
+  const el = button({ label, title: name, size: 'S', onClick, disabled });
   el.setAttribute('aria-label', name);
   return el;
 };
@@ -161,7 +161,7 @@ function makeForm(items, key, draft, catalogError, demo = false) {
         };
         const editLength = () => { openFamily = family; paintCatalog({ family, edit: true }); };
         const add = () => {
-          if (demo) return;
+          if (demo || draft.pending) return;
           const qty = pair ? pair.quantity() : numberOf(input.value);
           if (qty == null && pair?.length && !pair.lengthM()) { toast('Укажите длину для пересчёта между штуками и метрами', { error: true }); editLength(); return; }
           if (qty == null) { toast('Укажите положительное количество', { error: true }); (pair?.pieces || input).focus(); return; }
@@ -218,10 +218,10 @@ function makeForm(items, key, draft, catalogError, demo = false) {
             quantityWithUnit(pair?.pieces.el ?? (row.pipe.unitMode === 'pieces' ? input.el : null), 'шт'),
             quantityWithUnit(pair?.metres.el ?? (row.pipe.unitMode === 'metres' ? input.el : null), 'м'),
             ...(showOtherUnit ? [row.pipe.unitMode ? '—' : stack(input.el, hint('Единица: ' + (row.unit || '—')))] : []),
-            demo ? button({ label: 'В корзину', disabled: true }) : rowButton('В корзину', row, add)] };
+            demo ? button({ label: 'В корзину', disabled: true }) : rowButton('В корзину', row, add, !!draft.pending)] };
           return detail ? [line, detail] : [line];
         }
-        return { cells: [stack(position(row), ...signals, selected), row.unit || '—', input.el, rowButton('В корзину', row, add)] };
+        return { cells: [stack(position(row), ...signals, selected), row.unit || '—', input.el, rowButton('В корзину', row, add, !!draft.pending)] };
       }),
     }) : empty({ title: 'Ничего не найдено', hint: 'Измените запрос или выберите другую категорию.' }),
     pages > 1 ? actions(
@@ -234,10 +234,11 @@ function makeForm(items, key, draft, catalogError, demo = false) {
 
   function paintBar() {
     actionBar.replaceChildren(actions(
-      inCart && !draft.pending ? button({ label: 'К каталогу', onClick: toggle }) : null,
+      inCart ? button({ label: 'К каталогу', onClick: toggle }) : null,
       inCart ? button({ label: 'Скачать Excel', disabled: !valid(), onClick: () => exportCart(draft.rows, numberOf) }) : null,
     ));
-    actionBar.hidden = !inCart;
+    if (!inCart && draft.pending) actionBar.append(hint('Ожидается подтверждение отправки. Каталог доступен для просмотра.'));
+    actionBar.hidden = !inCart && !draft.pending;
     saveState();
   }
 
@@ -291,28 +292,37 @@ function makeForm(items, key, draft, catalogError, demo = false) {
       paintCatalog();
       return;
     }
+    const paired = row => canCountPipe(row) && (!draft.pending || hasPipeOrder(row));
+    const hasPairs = draft.rows.some(paired);
+    const nativeColumn = row => hasPairs && (row.unit === 'шт' || row.unit === 'м') ? row.unit : null;
+    const hasOther = draft.rows.some(row => !paired(row) && !nativeColumn(row));
     body.replaceChildren(stack(
-      draft.pending ? hint('Часть заявок могла сохраниться. Повтор отправляет ту же корзину с прежним ключом.') : null,
+      draft.pending ? hint('Подтверждение получено не для всех заявок. Можно вернуться в каталог или повторить отправку этой корзины.') : null,
       draft.rows.length ? table({
-        label: 'Корзина',
-        columns: [{ label: 'Наименование' }, { label: 'Ед.' }, { label: 'Количество' }, { label: 'Действие' }],
+        label: 'Корзина', cls: 'k-cart-review',
+        columns: ['Наименование', ...(hasPairs ? ['Штуки', 'Метры'] : []),
+          ...(hasOther ? ['Количество'] : []), ...(draft.pending ? [] : ['Действие'])].map(label => ({ label })),
         rows: draft.rows.map(row => {
-          const pair = canCountPipe(row) && (!draft.pending || hasPipeOrder(row)) ? pipeInputs(row, { quantity: row.qty, disabled: !!draft.pending,
+          const pair = paired(row) ? pipeInputs(row, { quantity: row.qty, disabled: !!draft.pending,
             onChange: (value, length) => { row.qty = value; if (row.orderLengthM || !row.pipe.lengthM) row.orderLengthM = length; persist(); paintBar(); } }) : null;
           const input = pair ? null : textInput({ value: row.qty, short: true, inputmode: 'decimal', disabled: !!draft.pending,
             onInput: value => { row.qty = value; persist(); paintBar(); } });
           input?.input.setAttribute('aria-label', 'Количество: ' + row.name);
-          const amount = pair ? actions(pair.length?.el, field('Штуки', pair.pieces.el), field('Метры', pair.metres.el)) : input.el;
           const needsConfirmation = hasPipeOrder(row) && pair && !draft.pending && pair.quantity() !== numberOf(row.qty);
           const confirm = needsConfirmation ? button({ label: 'Округлить до целых труб', size: 'S', onClick: () => {
             const qty = pair.quantity();
             if (qty != null) { row.qty = qty; persist(); paint(); }
           } }) : null;
-          return { cells: [position(row), row.unit || '—', amount, draft.pending ? null :
-            actions(confirm, rowButton('Убрать', row, () => { draft.rows = draft.rows.filter(item => item !== row); persist(); paint(); }))] };
+          return { cells: [pair?.length && !draft.pending ? stack(position(row), pair.length.el) : position(row),
+            ...(hasPairs ? [pair?.pieces.el ?? (nativeColumn(row) === 'шт' ? input.el : ''),
+              pair?.metres.el ?? (nativeColumn(row) === 'м' ? input.el : '')] : []),
+            ...(hasOther ? [input && !nativeColumn(row) ? quantityWithUnit(input.el, row.unit || '') : ''] : []),
+            ...(draft.pending ? [] : [actions(confirm, rowButton('Убрать', row, () => {
+              draft.rows = draft.rows.filter(item => item !== row); persist(); paint();
+            }))])] };
         }),
       }) : empty({ title: 'Корзина пуста', hint: 'Выберите позиции в каталоге.' }),
-      hint('После создания заявки появятся в колонке «Заказать».'),
+      !draft.pending ? hint('После создания заявки появятся в колонке «Заказать».') : null,
     ));
   }
   paint();
@@ -354,7 +364,6 @@ export const requestCart = {
       }
       const key = storageKey();
       const draft = readDraft(key);
-      if (draft.pending) return makeForm([], key, draft);
       try { return makeForm((await api('/stock/lookup', { query: { catalog: '1' } })).items || [], key, draft); }
       catch (error) {
         if (!draft.rows.length) throw error;

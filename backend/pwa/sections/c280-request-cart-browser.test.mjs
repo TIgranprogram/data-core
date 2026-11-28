@@ -420,6 +420,7 @@ test('C280: частичная запись после сбоя, блокиро�
   await btn(panel, 'Все позиции категории').click();
   await add(panel, stock[2]);
   await btn(panel, 'Корзина (2)').click();
+  await shot(page, 'review-before-send');
   const go = btn(panel, 'Создать заявки');
   await go.dblclick().catch(error => { if (!posts.length) throw error; });
   const retry = btn(panel, 'Повторить отправку');
@@ -431,6 +432,14 @@ test('C280: частичная запись после сбоя, блокиро�
   await page.reload();
   await retry.waitFor();
   assert.ok(await quantity(panel, stock[0]).isDisabled());
+  assert.equal(await panel.getByRole('columnheader', { name: 'Действие' }).count(), 0);
+  await btn(panel, 'К каталогу').click();
+  await panel.getByRole('button', { name: /^Металл/ }).click();
+  await btn(panel, 'Все позиции категории').click();
+  assert.ok(await panel.getByRole('button', { name: 'В корзину: ' + stock[0].name, exact: true }).isDisabled());
+  await quantity(panel, stock[0]).press('Enter');
+  await btn(panel, 'Корзина (2)').click();
+  assert.equal(posts.length, 1);
   await retry.click();
   await panel.waitFor({ state: 'hidden' });
   assert.equal(posts.length, 2);
@@ -439,6 +448,48 @@ test('C280: частичная запись после сбоя, блокиро�
   assert.deepEqual(errors, []);
 });
 
+
+test('C280: корзина труб и крепежа до отправки и после потери ответа', async t => {
+  const pipe = stockPipe(4, false, 12, 6);
+  const { page, posts } = await fixture(t, { catalog: [pipe, stock[2]], loseFirstResponse: true });
+  const panel = await enter(page);
+  await panel.getByRole('button', { name: /^Трубы/ }).click();
+  await btn(panel, 'Все позиции категории').click();
+  await btn(panel, 'В корзину: ' + profile).click();
+  await btn(panel, 'Все категории').click();
+  await panel.getByRole('button', { name: /^Крепёж/ }).click();
+  await btn(panel, 'Все позиции категории').click();
+  await add(panel, stock[2]);
+  await btn(panel, 'Корзина (2)').click();
+  const table = panel.getByRole('table', { name: 'Корзина' });
+  assert.deepEqual(await table.getByRole('columnheader').allTextContents(), ['Наименование', 'Штуки', 'Метры', 'Действие']);
+  await shot(page, 'mixed-cart-light');
+  await panel.getByRole('separator', { name: 'Ширина правой панели' }).press('End');
+  await shot(page, 'mixed-cart-wide-light');
+  await page.evaluate(() => { window.name = 'dc-solo-requestcart'; });
+  await page.reload();
+  await btn(panel, 'Создать заявки').waitFor();
+  await shot(page, 'mixed-cart-window-light');
+  await btn(panel, 'Создать заявки').click();
+  await btn(panel, 'Повторить отправку').waitFor();
+  await page.reload();
+  await btn(panel, 'Повторить отправку').waitFor();
+  await shot(page, 'mixed-cart-window-pending-light');
+  await page.evaluate(() => { window.name = ''; });
+  await page.reload();
+  await btn(panel, 'Повторить отправку').waitFor();
+  await shot(page, 'mixed-cart-wide-pending-light');
+  await panel.getByRole('separator', { name: 'Ширина правой панели' }).press('Enter');
+  await shot(page, 'mixed-cart-pending-light');
+  assert.ok(await table.getByLabel('Метры: ' + profile).isDisabled());
+  assert.equal(await table.getByRole('columnheader', { name: 'Действие' }).count(), 0);
+  await btn(panel, 'Отмена').click();
+  await panel.waitFor({ state: 'hidden' });
+  await enter(page);
+  await btn(panel, 'К каталогу').click();
+  await panel.getByRole('heading', { name: 'Категории номенклатуры' }).waitFor();
+  assert.equal(posts.length, 1);
+});
 
 test('Поздний отказ импорта корзины сохраняет открытую вкладку счетов', async t => {
   const { page } = await fixture(t);
