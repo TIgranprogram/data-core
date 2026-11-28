@@ -6,6 +6,7 @@
  *  - Вышла версия B: в фоне собирается кэш B (свежие index.html и ядро), `cur` не трогается — открытая вкладка не мешает смесью.
  *  - «Обновить» (сообщение `apply`) или свежий запуск без других окон: `cur` = B, остальные кэши удаляются, страница
  *    грузится целиком из B. Файла нет в B — сеть (а сеть уже на версии B) и кладётся в B.
+ *  - Явное обновление также восстанавливает смешанный кэш текущей версии: старый кэш остаётся, пока не получено ядро.
  * Нет version.json (стенд, локально) — кэш `dc-shell-nov`: «сеть, иначе кэш», как раньше.
  * Фото (/uploads/*) — «кэш, иначе сеть»: файлы неизменяемые (uuid в имени).
  */
@@ -42,9 +43,10 @@ async function fill(name, files, fresh) {
 }
 
 let checking = null;
-/** Сверить версию с сервером. Первая — становится рабочей; новая — готовится в `pend`. Одна проверка за раз. */
-function check() {
-  return (checking ??= (async () => {
+/** Новая версия готовится в `pend`. При явном обновлении можно пересобрать и текущую версию. */
+function check(rebuild = false) {
+  if (checking) return rebuild ? checking.then(() => check(true)) : checking;
+  return (checking = (async () => {
     let r;
     try { r = await fetch('version.json', { cache: 'no-store' }); } catch { return; } // нет сети — работаем тем, что есть
     const cur = await getMeta('cur');
@@ -52,21 +54,25 @@ function check() {
     let j; try { j = await r.json(); } catch { return; }
     const v = j?.v;
     if (!v) { if (!cur) await setMeta('cur', { name: NOV, v: null }); return; }
-    const name = 'dc-shell-' + v;
+    const baseName = 'dc-shell-' + v;
     if (!cur || !cur.v) { // первый запуск (или стенд получил версии): рабочий сразу
-      await setMeta('cur', { name, v, info: j }); await delMeta('pend');
+      await setMeta('cur', { name: baseName, v, info: j }); await delMeta('pend');
       cleanup().catch(() => {});
-      fill(name, SHELL_FILES, false).catch(() => {});
+      fill(baseName, SHELL_FILES, false).catch(() => {});
       return;
     }
-    if (cur.v === v) return;
+    if (cur.v === v && !rebuild) return;
     const pend = await getMeta('pend');
     if (pend?.v === v) return;
+    const name = cur.name === baseName ? baseName + '-rebuild' : baseName;
     await delMeta('pend');
     await caches.delete(name); // недособранный кэш этой версии — с нуля
     await fill(name, ['./', './index.html', './main.js'], true);
     const c = await caches.open(name);
-    if (!(await c.match('./index.html'))) return; // страницу не получили — переключаться нельзя
+    if (!(await c.match('./index.html')) || !(await c.match('./main.js'))) {
+      await caches.delete(name);
+      return;
+    }
     await setMeta('pend', { name, v, info: j });
     cleanup().catch(() => {});
     fill(name, SHELL_FILES.slice(3), false).catch(() => {});
@@ -82,14 +88,13 @@ async function apply() {
   return true;
 }
 
+let applying = null;
 self.addEventListener('message', (e) => {
   const port = e.ports?.[0];
   if (e.data?.type === 'ver') { e.waitUntil(getMeta('cur').then((c) => port?.postMessage(c?.info || null))); return; } // версия, из которой открыта страница
   if (e.data?.type !== 'apply') return;
-  e.waitUntil((async () => {
-    try { await check(); await apply(); } catch { /* перезагрузка пройдёт и так */ }
-    port?.postMessage('done');
-  })());
+  applying ??= (async () => { await check(true); await apply(); })().catch(() => {}).finally(() => { applying = null; });
+  e.waitUntil(applying.then(() => port?.postMessage('done')));
 });
 
 async function fromNetwork(req, name) {
