@@ -2,7 +2,7 @@ import { api, PREFIX } from '../../core/api.js';
 import { h } from '../../core/dom.js';
 import { qty } from '../../core/format.js';
 import { normSearch, searchTokens } from '../../core/facets.js';
-import { activeOrders, orderLabel } from '../../sections/salesorders.js';
+import { activeOrders, orderLabel } from '../../sections/order-options.js';
 import { peopleByWork, recentIssues, withOrders, lastTo, saveTo } from '../../sections/issue.js';
 import { attachCombo, enhanceSelect } from './pick.js';
 import { errText } from './errors.js';

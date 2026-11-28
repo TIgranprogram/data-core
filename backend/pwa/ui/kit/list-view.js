@@ -5,6 +5,7 @@
  * section.list = {
  *   toolbarExtra?() → { el, update(P) } — свой элемент в панели инструментов (фильтры по признакам у «Остатков»), extraKeys — его ключи в адресе;
  *   path, sortDefault, searchPlaceholder, createLabel, headActions?() → [кнопки рядом с «+ Создать»],
+ *   canHeadActions?() → право на эти действия, если оно отличается от права редактировать раздел,
  *   moreActions?(reload) → [{ label, title?, onSelect?, href? }] | [{ title?, sep?, items }] — второстепенные действия шапки в меню «Ещё ▾» (вместе с «⇩ Excel»); в шапке остаётся одна главная кнопка (аудит П2),
  *   columns: [{ key, label, sort?, cls?, render(row) }], columnsFor?(params) → новые колонки после query; sortFor?(params) → default сортировки,
  *   card: { title(row), sub(row), side(row), thumb?(row) },        // вид на телефоне

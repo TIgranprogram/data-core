@@ -80,7 +80,7 @@ export function mountList(section, params, { onOpen, onCreate, quick, onChanged 
     h('span', { class: 'spacer' }),
     viewSwitch,
     selBtn,
-    ...(L.headActions && canEditSection(section) ? L.headActions(() => load()) : []),
+    ...(L.headActions && (L.canHeadActions ? L.canHeadActions() : canEditSection(section)) ? L.headActions(() => load()) : []),
     exportBtn,
     canCreate ? h('button', { class: 'btn btn-primary', type: 'button', onclick: onCreate, title: 'Клавиша N' }, '+ ' + (L.createLabel || 'Создать')) : null);
   const toolbar = h('div', { class: 'toolbar' }, side ? null : h('div', { class: 'search' }, sb.el));
