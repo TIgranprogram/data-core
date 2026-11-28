@@ -205,6 +205,8 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         model, tg.CreatePoint2d(sheet.Width * 0.46, sheet.Height * 0.31), 1,
         Inventor.ViewOrientationTypeEnum.kTopViewOrientation,
         Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, AdditionalOptions:=viewOptions)
+    front.DisplayTangentEdges = True
+    top.DisplayTangentEdges = True
     front.IncludeSurfaceBodies = False
     top.IncludeSurfaceBodies = False
     If rotate Then top.Rotation = -Math.PI / 2
@@ -270,10 +272,14 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
         If boltSheet.Border IsNot Nothing Then boltSheet.Border.Delete()
         ClearTemplateGraphics(boltSheet)
         Dim w=boltSheet.Width,h=boltSheet.Height
-        Dim boltView=boltSheet.DrawingViews.AddBaseView(model,tg.CreatePoint2d(w/2,h/2),1,Inventor.ViewOrientationTypeEnum.kCurrentViewOrientation,Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,AdditionalOptions:=viewOptions)
+        Dim boltView=boltSheet.DrawingViews.AddBaseView(model,tg.CreatePoint2d(w/2,h/2),1,Inventor.ViewOrientationTypeEnum.kArbitraryViewOrientation,Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,ArbitraryCamera:=original,AdditionalOptions:=viewOptions)
+        boltView.DisplayTangentEdges = True
         drawing.Update()
-        boltView.Scale=GostScale(boltView.Scale*Math.Min(w*0.85/boltView.Width,h*0.78/boltView.Height))
-        boltView.Position=tg.CreatePoint2d(w/2,h/2)
+        Const marginCm As Double=1.0
+        Const titleBandCm As Double=1.2
+        boltView.Scale=boltView.Scale*Math.Min((w-2*marginCm)/boltView.Width,(h-2*marginCm-titleBandCm)/boltView.Height)
+        drawing.Update()
+        boltView.Position=tg.CreatePoint2d(w/2,(h-titleBandCm)/2)
         AddLabel(boltSheet.DrawingNotes.GeneralNotes,tg,w/2,h*0.94,"Болтовое соединение")
         drawing.Update()
         boltSheet.Activate()
@@ -301,6 +307,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     Dim installationView As Inventor.DrawingView = installationSheet.DrawingViews.AddBaseView(
         model, tg.CreatePoint2d(sW * 0.5, sH * 0.7), 1, frontOrientation,
         Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, AdditionalOptions:=viewOptions)
+    installationView.DisplayTangentEdges = True
     installationView.IncludeSurfaceBodies = False
     drawing.Update()
     ' масштаб вида спереди — из ряда ГОСТ 2.302, самый крупный, что помещается
@@ -331,6 +338,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
     Dim section As Inventor.SectionDrawingView = installationSheet.DrawingViews.AddSectionView(installationView, cutSketch,
         tg.CreatePoint2d(sW * 0.5, fTop + 4), Inventor.DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle,
         Scale:=installationView.Scale, ShowLabel:=True, Name:="А")
+    section.DisplayTangentEdges = True
     drawing.Update()
     ' пока масштаб и X общие — края разреза = крайние опоры на виде спереди
     Dim postsLeft As Double = section.Left
