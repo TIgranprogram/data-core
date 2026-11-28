@@ -1169,6 +1169,54 @@ End Sub
         Public z0 As Double = Double.MaxValue, z1 As Double = Double.MinValue
     End Class
 
+    ' Координаты обводки Inventor в сантиметрах. Проверяем саму замкнутую линию, включая границу.
+    Function InSupportLoop(loopProfile As Profile,x As Double,z As Double) As Boolean
+        Dim inside=False
+        Const tol As Double=0.0001
+        For Each seg In loopProfile.lines
+            For i As Integer=3 To seg.Length-1 Step 3
+                Dim ax=seg(i-3),az=seg(i-1),bx=seg(i),bz=seg(i+2)
+                Dim dx=bx-ax,dz=bz-az,len2=dx*dx+dz*dz
+                If len2=0 Then Continue For
+                Dim t=Math.Max(0,Math.Min(1,((x-ax)*dx+(z-az)*dz)/len2))
+                If (x-ax-t*dx)^2+(z-az-t*dz)^2<=tol*tol Then Return True
+                If (az>z)<>(bz>z) AndAlso x<ax+(z-az)*dx/dz Then inside=Not inside
+            Next
+        Next
+        Return inside
+    End Function
+
+    Function EnclosesSupport(shell As Profile,part As Profile) As Boolean
+        Const tolMm As Double=0.001
+        If part.x0<shell.x0-tolMm OrElse part.x1>shell.x1+tolMm OrElse part.z0<shell.z0-tolMm OrElse part.z1>shell.z1+tolMm Then Return False
+        For Each seg In part.lines
+            For i As Integer=0 To seg.Length-1 Step 3
+                Dim x=seg(i),z=seg(i+2)
+                If Not InSupportLoop(shell,x,z) Then Return False
+                If i=0 Then Continue For
+                ' Между вершинами ребро может выйти через вогнутый вырез.
+                Dim ax=seg(i-3),az=seg(i-1),dx=x-ax,dz=z-az
+                Dim cuts As New Global.System.Collections.Generic.List(Of Double) From {0,1}
+                For Each border In shell.lines
+                    For k As Integer=3 To border.Length-1 Step 3
+                        Dim px=border(k-3)-ax,pz=border(k-1)-az
+                        Dim ex=border(k)-border(k-3),ez=border(k+2)-border(k-1)
+                        Dim det=dx*ez-dz*ex
+                        If Math.Abs(det)<0.0000000001 Then Continue For
+                        Dim t=(px*ez-pz*ex)/det,u=(px*dz-pz*dx)/det
+                        If t>0 AndAlso t<1 AndAlso u>=0 AndAlso u<=1 Then cuts.Add(t)
+                    Next
+                Next
+                cuts.Sort()
+                For n As Integer=1 To cuts.Count-1
+                    Dim t=(cuts(n)+cuts(n-1))/2
+                    If Not InSupportLoop(shell,ax+t*dx,az+t*dz) Then Return False
+                Next
+            Next
+        Next
+        Return True
+    End Function
+
     Function MakeDrawing(app As Inventor.Application, bodies As System.Collections.Generic.List(Of Inventor.SurfaceBody), side As Double, depth As Double, gravel As Double, folder As String, roundPit As Boolean) As Integer
         Dim tg = app.TransientGeometry
         Dim plane = tg.CreatePlane(tg.CreatePoint(0,0,0),tg.CreateVector(0,1,0))
@@ -1179,7 +1227,6 @@ End Sub
             Dim solid=app.TransientBRep.Copy(b)
             Dim cut = app.TransientBRep.CreateIntersectionWithPlane(solid,plane)
             If cut Is Nothing Then Continue For
-            Dim local As New System.Collections.Generic.List(Of Profile)
             For Each wire As Inventor.Wire In cut.Wires
                 Dim poly As New Profile()
                 poly.solid=solid
@@ -1199,17 +1246,25 @@ End Sub
                     Next
                 Next
                 If poly.lines.Count>0 Then
-                    local.Add(poly)
                     outlines.Add(poly)
                 End If
             Next
-            For Each p As Profile In local
-                Dim inner As Boolean=False
-                For Each q As Profile In local
-                    If q IsNot p AndAlso q.x0<p.x0 AndAlso q.x1>p.x1 AndAlso q.z0<p.z0 AndAlso q.z1>p.z1 Then inner=True
+        Next
+        Dim members As New Global.System.Collections.Generic.Dictionary(Of Profile,Global.System.Collections.Generic.List(Of Profile))
+        For Each candidate In outlines.OrderByDescending(Function(p) (p.x1-p.x0)*(p.z1-p.z0))
+            Dim outer=feet.FirstOrDefault(Function(p) EnclosesSupport(p,candidate))
+            If outer Is Nothing Then
+                feet.Add(candidate)
+                Dim group As New Global.System.Collections.Generic.List(Of Profile) From {candidate}
+                For Each prior In feet.Where(Function(p) p IsNot candidate AndAlso EnclosesSupport(candidate,p)).ToArray()
+                    group.AddRange(members(prior))
+                    members.Remove(prior)
+                    feet.Remove(prior)
                 Next
-                If Not inner AndAlso Not feet.Any(Function(q) Math.Abs((q.x0+q.x1-p.x0-p.x1)/2)<=0.5 AndAlso Math.Abs((q.z0+q.z1-p.z0-p.z1)/2)<=0.5) Then feet.Add(p)
-            Next
+                members.Add(candidate,group)
+            Else
+                members(outer).Add(candidate)
+            End If
         Next
         If feet.Count=0 Then Throw New Exception("На выбранной отметке нет пересечений. Проверьте выбранную плоскость и отметку земли.")
         Dim xmin=Double.MaxValue, xmax=Double.MinValue, zmin=Double.MaxValue, zmax=Double.MinValue
@@ -1251,7 +1306,8 @@ End Sub
             Dim mapX As Func(Of Double,Double)=Function(x) w*0.29+(x-(xmin+xmax)/2)*sc
             Dim mapZ As Func(Of Double,Double)=Function(z) h*0.50-(z-(zmin+zmax)/2)*sc
             Dim left=w*0.73-side*rs/2,right=left+side*rs,top=h*0.70,joinY=top-depth*rs,baseY=joinY-gravel*rs
-            Dim first=feet(0)
+            Dim first=feet.OrderBy(Function(p) members(p).Min(Function(m) m.solid.RangeBox.MinPoint.Y)).First()
+            Dim post=members(first).OrderBy(Function(p) p.solid.RangeBox.MinPoint.Y).ThenByDescending(Function(p) (p.x1-p.x0)*(p.z1-p.z0)).First()
             Dim fx=(first.x0+first.x1)/2, fz=(first.z0+first.z1)/2
             Dim xs As New System.Collections.Generic.SortedDictionary(Of Double, Double)
             Dim zs As New System.Collections.Generic.SortedDictionary(Of Double, Double)
@@ -1330,7 +1386,7 @@ End Sub
                     labels.Add(Tuple.Create(w*0.27,h*0.19,"Правая группа: смещение осей вниз по плану, мм"))
                     labels.Add(Tuple.Create(w*0.27,h*0.16,"Верхний ряд " & MmLabel(shift1,True) & "     Нижний ряд " & MmLabel(shift2,True)))
                 End If
-                Dim vertical=app.TransientBRep.CreateIntersectionWithPlane(first.solid,tg.CreatePlane(tg.CreatePoint(0,0,fz/10),tg.CreateVector(0,0,1)))
+                Dim vertical=app.TransientBRep.CreateIntersectionWithPlane(post.solid,tg.CreatePlane(tg.CreatePoint(0,0,(post.z0+post.z1)/20),tg.CreateVector(0,0,1)))
                 If vertical IsNot Nothing Then
                     For Each ed As Inventor.Edge In vertical.Edges
                         Dim ev=ed.Evaluator
@@ -1360,10 +1416,10 @@ End Sub
                 AddLine(sk,tg,left-0.7,top,right+0.7,top)
                 If gravel>0 Then AddLine(sk,tg,left,joinY,right,joinY)
                 Dim centre=(left+right)/2
-                Dim postHalf=(first.x1-first.x0)*rs/2
-                Dim postBottom=Math.Max(joinY,top+first.solid.RangeBox.MinPoint.Y*10*rs)
+                Dim postHalf=(post.x1-post.x0)*rs/2
+                Dim postBottom=Math.Max(joinY,top+post.solid.RangeBox.MinPoint.Y*10*rs)
                 Dim postY=top+h*0.045
-                Dim postX=centre+postHalf
+                Dim postX=centre+(post.x1-fx)*rs
                 AddLine(sk,tg,postX,postY,right+0.28,postY+0.38)
                 AddLine(sk,tg,right+0.28,postY+0.38,right+2.38,postY+0.38)
                 Dim ledX=left-0.65
@@ -1391,10 +1447,10 @@ End Sub
             For Each foot As Profile In feet
                 HatchPlan(sh,tg,cp,foot,mapX,mapZ,side*sc,roundPit)
             Next
-            Dim mid=(left+right)/2, half=(first.x1-first.x0)*rs/2
+            Dim mid=(left+right)/2+((post.x0+post.x1)/2-fx)*rs, half=(post.x1-post.x0)*rs/2
             FillRegion(sh,tg,cp,left,mid-half,joinY,top)
             FillRegion(sh,tg,cp,mid+half,right,joinY,top)
-            Dim postEnd=Math.Max(joinY,Math.Min(top,top+first.solid.RangeBox.MinPoint.Y*10*rs))
+            Dim postEnd=Math.Max(joinY,Math.Min(top,top+post.solid.RangeBox.MinPoint.Y*10*rs))
             FillRegion(sh,tg,cp,mid-half,mid+half,joinY,postEnd)
             ' В типовом разрезе полость стойки оставляем без обозначения бетона.
             If gravel>0 Then FillRegion(sh,tg,pm.Item("DC_FILL"),left,right,baseY,joinY)
