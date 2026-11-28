@@ -99,7 +99,7 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
             Throw New InvalidOperationException("Не найден шаблон GOST.idw в " & installedTemplates)
         End If
     End If
-    Dim destination=MessageBox.Show("Подготовить комплект для отправки на сайт?" & vbCrLf & "Нет — сохранить только на рабочем столе.", "Рисунки паспорта",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question,MessageBoxDefaultButton.Button2)
+    Dim destination=MessageBox.Show("Отправить рисунки на рабочий сайт и открыть обновлённый паспорт?" & vbCrLf & "Нет — сохранить только на рабочем столе.", "Рисунки паспорта",MessageBoxButtons.YesNoCancel,MessageBoxIcon.Question,MessageBoxDefaultButton.Button1)
     If destination=DialogResult.Cancel Then Return
     Dim online=destination=DialogResult.Yes
     Dim plan As New ImportPlan()
@@ -428,6 +428,8 @@ Sub Prepare(app As Inventor.Application, model As Inventor.Document, ByRef stage
             System.Diagnostics.Process.Start(New System.Diagnostics.ProcessStartInfo(productUrl) With {.UseShellExecute = True})
             Return
         End If
+        MessageBox.Show("Замена рисунков отменена. Файлы сохранены в папке " & folder, "Отправка отменена")
+        Return
     End If
     stage = "Открытие папки в Проводнике"
     MessageBox.Show("Рисунки сохранены на рабочем столе в папке «Рисунки паспортов». На сайт они не загружены.", "Картинки для паспорта")
