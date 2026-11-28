@@ -193,6 +193,35 @@ for (const role of ['user', 'director']) test('C280: выключенное пр
   assert.deepEqual(posts, []);
 });
 
+for (const theme of ['light', 'dark']) test('C280: одна подкатегория для рулеток · ' + theme, async t => {
+  const tapeMeasures = ['Doppelhaken', 'Komfortabel'].map((model, index) => {
+    const name = 'Рулетка ' + model;
+    return { ...material(index + 1, name, 'шт', 'Р-' + (index + 1), 'Оборудование'), typeName: name };
+  });
+  const hammer = { ...material(3, 'Молоток NEO Tools', 'шт', 'М-1', 'Оборудование'), typeName: 'Молоток NEO Tools' };
+  const { page, errors } = await fixture(t, { theme, catalog: [...tapeMeasures, hammer] });
+  const panel = await enter(page);
+  await panel.getByRole('button', { name: /^Оборудование/ }).click();
+  const tile = panel.getByRole('button', { name: /^Рулетки(?:\s|$)/ });
+  assert.equal(await tile.count(), 1);
+  assert.match(await tile.innerText(), /Позиций: 2/);
+  assert.equal(await panel.getByRole('button', { name: /^Рулетка / }).count(), 0);
+  assert.equal(await panel.getByRole('button', { name: /^Молоток NEO Tools/ }).count(), 1);
+  await shot(page, 'tape-measure-category-' + theme);
+  await tile.click();
+  const rows = panel.getByRole('table').locator('tbody tr');
+  assert.equal(await rows.count(), 2);
+  for (const tape of tapeMeasures) {
+    assert.equal(await rows.getByText(tape.name, { exact: true }).count(), 1);
+    assert.equal(await rows.getByText('Арт. ' + tape.article, { exact: true }).count(), 1);
+  }
+  await shot(page, 'tape-measure-positions-' + theme);
+  for (const tape of tapeMeasures) await add(panel, tape);
+  await btn(panel, 'Корзина (2)').click();
+  for (const tape of tapeMeasures) assert.equal(await quantity(panel, tape).inputValue(), '1');
+  assert.deepEqual(errors, []);
+});
+
 test('C280: один сортамент, остатки по мойке и закупка целыми трубами через корзину', async t => {
   const raw = stockPipe(5, false, 24, 4);
   const catalog = [stockPipe(4, true, 12, 4), raw, stockPipe(6, true, 8, 2), stockPipe(7, false, 10, 2)];

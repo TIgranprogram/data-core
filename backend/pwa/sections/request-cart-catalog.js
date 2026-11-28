@@ -31,8 +31,9 @@ export function catalogRows(items) {
     const name = item.invoiceName || item.name || 'Позиция';
     const category = item.categoryName?.trim() || 'Без категории';
     const group = item.metal === 'pipe' ? 'Трубы' : item.metal === 'sheet' ? 'Листы' : category;
-    const type = group === 'Трубы' ? pipeSection(item) : item.typeName?.trim() || (item.metal === 'sheet' ? item.materialGrade?.trim() : null)
+    let type = group === 'Трубы' ? pipeSection(item) : item.typeName?.trim() || (item.metal === 'sheet' ? item.materialGrade?.trim() : null)
       || (group !== category ? category : facetsOf(name).type) || 'Без уточнения';
+    if (group === 'Оборудование' && /^рулетк[аи](?![а-яё])/iu.test(type)) type = 'Рулетки';
     const row = { materialId, name, article: item.article, unit: item.unit, category: group, type,
       lastPurchase: item.lastPurchase, openPurchases: item.openPurchases || [], grade: item.materialGrade, size: item.assortment, thickness: item.dims?.thickness, quantity: item.quantity };
     if (group === 'Трубы') addPurchasePipe(pipes, item, row);
