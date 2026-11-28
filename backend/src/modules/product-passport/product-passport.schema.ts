@@ -243,6 +243,7 @@ export class ProductPassport {
   @Prop() maxUsers?: number;
   /** Глубина заложения Г, мм: от земли до низа опоры (схема установки; пишет iLogic). Печатается под схемой. */
   @Prop() foundationDepth?: number;
+  @Prop() foundationSupportCount?: number;
   /** C095: модули сборного изделия { name, dims?, qty, photoId? } — печатаются разделом «Состав изделия: модули» с «Итого». */
   @Prop({ type: [Object], default: undefined }) modules?: Array<{ name: string; dims?: string; qty: number; photoId?: string }>;
   /** C142: прямые дети состава и детали модуля. Пишет синхронизация черновика; выпущенный снимок не пересобирается. */

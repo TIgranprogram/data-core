@@ -36,6 +36,7 @@ export async function productPatch(db: mongo.Db, prod: Doc, opts: { presentation
   const dm = (prod.dimensions ?? {}) as Doc;
   for (const k of ['length', 'width', 'height']) put(k, pos(dm[k]));
   put('weight', pos(prod.weightKg));
+  put('foundationSupportCount', prod.foundationSupportCount);
   put('purpose', String(prod.purpose ?? '').trim());
   put('installationMethod', String(prod.installation ?? '').trim());
   put('description', String(prod.description ?? '').trim());

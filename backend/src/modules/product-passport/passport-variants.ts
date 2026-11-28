@@ -58,6 +58,12 @@ export function installationProfile(install: { code?: unknown; requiredImages?: 
   if (code === 'BOLTED') labels.mounting = 'Схема болтового соединения';
   return { code, known: !!row, kind: row?.[0] ?? 'unknown', managedKinds, allowedKinds: row?.[1] ?? [], requiredKinds: row?.[2] ?? [], labels, depthApplicable: row?.[3] ?? false, traits: row?.[4] ?? [], thirdImportKind: row?.[5] ?? null };
 }
+/** Число отдельных оснований из CAD определяет необходимость разбивочного плана. */
+export function foundationPlan(plan: InstallationPlan, count: unknown): InstallationPlan {
+  if ((plan.kind !== 'concrete' && plan.kind !== 'fence') || typeof count !== 'number' || count < 1) return plan;
+  const kinds = (prior: string[]) => [...new Set([...prior.filter(k => k !== 'holes'), ...(count > 1 ? ['holes'] : [])])];
+  return { ...plan, allowedKinds: kinds(plan.allowedKinds), requiredKinds: [...new Set([...kinds(plan.requiredKinds), 'foundation'])] };
+}
 export const installKindOf = (install: { code?: unknown; name?: unknown } | null | undefined): InstallKind => installationProfile(install).kind;
 export interface VariantCtx { category?: string; install?: InstallKind; variant?: PassportVariant; installationPlan?: InstallationPlan }
 const codeOfKind: Record<InstallKind, string> = { concrete: 'CONCRETE_POSTS', anchor: 'ANCHORS', bolted: 'BOLTED', embedded: 'EMBEDDED', surface: 'ON_SURFACE', freestanding: 'FREESTANDING', laid: 'LAID', fence: 'FENCE_POSTS', unknown: '' };

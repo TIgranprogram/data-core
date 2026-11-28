@@ -22,12 +22,14 @@ test('из контекста формируется один комплект P
   const commitAt = upload.indexOf('Global.System.Net.Http.HttpMethod.Post, importPath, body');
   assert.ok(uploadAt > 0 && commitAt > uploadAt);
   assert.equal((upload.match(/UploadPng\(client,/g) || []).length, 4);
-  assert.match(upload, /If concrete Then\s+stage = "Загрузка разметки ям"\s+images.Add\(New With \{.kind = "holes", .photoId = UploadPng\(client, holesPath\)/);
+  assert.match(upload, /If supportCount>1 Then\s+stage = "Загрузка разметки ям"\s+images.Add\(New With \{.kind = "holes", .photoId = UploadPng\(client, holesPath\)/);
   assert.ok(upload.indexOf("Not plan.SupportsHoles") < uploadAt);
   for (const [kind, variable] of [['overview', 'overviewId'], ['dimensions', 'dimensionsId'], ['foundation', 'foundationId']]) {
     assert.ok(upload.includes(`New With {.kind = "${kind}", .photoId = ${variable}}`));
   }
-  assert.match(upload, /\.contextToken = contextToken/);
+  assert.ok(upload.includes('{"contextToken",contextToken}'));
+  assert.ok(upload.includes('If concrete Then payload.Add("supportCount",supportCount)'));
+  assert.ok(rule.includes("If feet.Count>1 Then MakePitLayout("));
   assert.doesNotMatch(upload, /AttachPassportImage|HttpMethod\.Delete|"PATCH"|payload\.Count = 0/);
   assert.doesNotMatch(rule, /Sub VerifyReadSlots|Function AttachPassportImage|Function DimensionsMatch/);
 });

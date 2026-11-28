@@ -1,4 +1,4 @@
-import { installationProfile } from './passport-variants';
+import { foundationPlan, installationProfile } from './passport-variants';
 /**
  * Части текста паспорта v2 из справочников «Паспорта» (БЗ-6 Э3c) — чистые функции без БД.
  * Записи справочников (dict_values) приходят с полями на верхнем уровне и с `id` или `_id`.
@@ -192,11 +192,12 @@ export function maintenanceTables(
 }
 
 /** Монтаж: текст по шагам, требования к основанию и обязательные рисунки. */
-export function installText(install: DictRec | null | undefined): InstallParts {
+export function installText(install: DictRec | null | undefined, count?: unknown): InstallParts {
   if (!install) return { text: '', requirements: [], requiredImages: [] };
+  const plan = foundationPlan(installationProfile(install), count);
   return {
     text: lines(install.montage ?? install.mountText).join('\n'),
     requirements: lines(install.baseRequirements),
-    requiredImages: uniq([...lines(install.requiredImages).flatMap((s) => csv(s)).filter(k => !installationProfile(install).managedKinds.includes(k) || installationProfile(install).allowedKinds.includes(k)), ...installationProfile(install).requiredKinds]),
+    requiredImages: uniq([...lines(install.requiredImages).flatMap((s) => csv(s)).filter(k => !plan.managedKinds.includes(k) || plan.allowedKinds.includes(k)), ...plan.requiredKinds]),
   };
 }

@@ -1,5 +1,5 @@
 import { PASSPORT_IMAGE_KINDS } from './product-passport.schema';
-import { imageKindAllowed, planOfContext, variantOf, OPTIONAL_FIELDS, type InstallKind, type PassportVariant, type VariantCtx } from './passport-variants';
+import { foundationPlan, imageKindAllowed, planOfContext, variantOf, OPTIONAL_FIELDS, type InstallKind, type PassportVariant, type VariantCtx } from './passport-variants';
 
 /**
  * Правила паспортов без БД (TASKS ПС.2–ПС.5; тесты — passport-rules.spec.ts): номера и талон, чистка текста
@@ -194,7 +194,7 @@ export function requiredFieldsOf(code: string, cat?: { requiredFields?: string }
 }
 
 /** Обязательные виды картинок паспорта по категории (справочник, по строке вид; «(если разборное)» — только у разборных). */
-export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImages?: string } | null, ctx?: VariantCtx): string[] {
+export function requiredImageKinds(p: { isKit?: boolean; foundationSupportCount?: unknown }, cat?: { requiredImages?: string } | null, ctx?: VariantCtx): string[] {
   const out: string[] = [];
   // по строке, через пробел или запятую; «(если разборное)» — относится к видам этой строки
   for (const line of String(cat?.requiredImages ?? '').split(/\r?\n/)) {
@@ -202,6 +202,7 @@ export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImage
     for (const kind of line.replace(/\([^)]*\)/g, ' ').split(/[\s,;]+/).filter((x) => /^[a-z_]+$/.test(x))) if (!out.includes(kind)) out.push(kind);
   }
   if (!ctx) return out;
+  ctx = { ...ctx, installationPlan: foundationPlan(planOfContext(ctx), p.foundationSupportCount) };
   // правила категории/способа установки/варианта; схема фундамента — обязательна при бетонировании
   const res = out.filter((k) => imageKindAllowed(k, ctx));
   for (const kind of planOfContext(ctx).requiredKinds) if (!res.includes(kind)) res.push(kind);
@@ -213,9 +214,10 @@ export function requiredImageKinds(p: { isKit?: boolean }, cat?: { requiredImage
  * required — обязательные виды (справочник категории + фундамент при бетонировании), slots — виды, которые вообще
  * нужны этому изделию (зона безопасности — только DIO, фундамент — не при анкере, дополнительные виды — только в полном).
  */
-export function imageRules(p: { isKit?: boolean }, cat: { requiredImages?: string } | null | undefined, ctx: VariantCtx): { required: string[]; slots: string[] } {
+export function imageRules(p: { isKit?: boolean; foundationSupportCount?: unknown }, cat: { requiredImages?: string } | null | undefined, ctx: VariantCtx): { required: string[]; slots: string[] } {
   // Фото изделия обязательно уже в общих missingFields; тот же состав нужен check, выпуску и PDF.
   const required = [...new Set(['overview', ...requiredImageKinds(p, cat, ctx)])];
+  ctx = { ...ctx, installationPlan: foundationPlan(planOfContext(ctx), p.foundationSupportCount) };
   const slots = PASSPORT_IMAGE_KINDS.filter((k) => k !== 'safety' && k !== 'module' && (imageKindAllowed(k, ctx) || required.includes(k)));
   return { required, slots: [...slots] };
 }

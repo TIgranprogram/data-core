@@ -91,7 +91,7 @@ export class PassportImportService {
 
   async context(id: string) {
     const current = await this.state(this.oid(id));
-    return { contextToken: current.token, supportsHoles: true, installationTypeId: importInstallationId(current.product), installations: importInstallations(current.installs, current.category) };
+    return { contextToken: current.token, supportsHoles: true, supportsSupportCount: true, installationTypeId: importInstallationId(current.product), installations: importInstallations(current.installs, current.category) };
   }
 
   /** Общий протокол с PhotosService: запись защиты сериализуется с захватом удаления. */
@@ -133,6 +133,10 @@ export class PassportImportService {
     const kinds = new Set((Array.isArray(dto.images) ? dto.images : []).map(i => i?.kind));
     if (!Array.isArray(dto.images) || kinds.size !== dto.images.length || [...kinds].some(k => !targetKind(k))
       || REQUIRED_IMPORT_KINDS.some(k => !kinds.has(k))) throw new BadRequestException('Нужны overview, dimensions и foundation, дополнительно возможен план ям holes');
+    if (dto.supportCount !== undefined && (!Number.isSafeInteger(dto.supportCount) || dto.supportCount < 1 || kinds.has('holes') !== (dto.supportCount > 1))) {
+      throw new BadRequestException('Для одной опоры нужен общий лист, для нескольких — дополнительный план ям');
+    }
+    const single = dto.supportCount === 1;
     const session = await this.connection.startSession();
     let result!: PassportImportResult;
     try {
@@ -156,7 +160,7 @@ export class PassportImportService {
         const productInstallId = chosen ?? importInstallationId(current.product);
         const productInstallationKind = importInstallationKind({ installationTypeId: productInstallId }, current.installs);
         const productPlan = installationProfile(current.installs.find(i => String(i._id) === String(productInstallId)) as Doc | undefined);
-        if (kinds.has('holes') && (productInstallationKind !== 'foundation' || !productPlan.allowedKinds.includes('holes'))) {
+        if ((kinds.has('holes') || dto.supportCount !== undefined) && (productInstallationKind !== 'foundation' || !productPlan.allowedKinds.includes('holes'))) {
           throw new BadRequestException('План ям не применяется к выбранному способу установки');
         }
         for (const input of dto.images) {
@@ -171,6 +175,12 @@ export class PassportImportService {
         if (!productPlan.depthApplicable) delete numbers.product['passportDefaults.foundationDepth'];
         if (dto.confirmed.foundationDepth !== undefined && !productPlan.depthApplicable) result.warnings.push('Глубина Г не применяется к выбранному способу установки и не изменена');
         const productSet: Doc = {};
+        // Старое правило с отдельной разметкой не сообщает количество опор.
+        const priorHole = current.links.find(i => i.kind === 'holes');
+        const changedHole = kinds.has('holes') && (!priorHole || await hash(priorHole.photoId) !== selected.get('holes')!.sha);
+        const countFor = (old: unknown) => dto.supportCount ?? (kinds.has('holes') && typeof old === 'number' && (old === 1 || changedHole) ? null : old);
+        const count = countFor(current.product.foundationSupportCount);
+        if (count !== current.product.foundationSupportCount) productSet.foundationSupportCount = count;
         for (const [key, value] of Object.entries(numbers.product)) {
           const prev = key === 'passportDefaults.foundationDepth' ? (current.product.passportDefaults as Doc | undefined)?.foundationDepth : current.product[key];
           if (!same(prev, value)) productSet[key] = value;
@@ -184,6 +194,7 @@ export class PassportImportService {
           const links = current.links.filter(i => i.kind === kind);
           return links.length !== 1 || String(links[0].photoId) !== String(selected.get(kind)!.photoId);
         });
+        if (single && current.links.some(i => i.kind === 'holes')) changedLinks.push('holes');
         if (productInstallationKind === 'mounting' && current.links.some(i => i.kind === 'foundation')) changedLinks.push('foundation');
         const priorInstall = current.installs.find(i => String(i._id) === importInstallationId(current.product));
         if (chosen !== undefined && productInstallationKind === 'foundation' && installationProfile(priorInstall as Doc | undefined).thirdImportKind !== 'foundation'
@@ -211,8 +222,11 @@ export class PassportImportService {
           const passportInstallationKind = importInstallationKind(passport, current.installs);
           const passportKinds = productKinds;
           const patch: Doc = {};
-          let imageChanged = passportInstallationKind === 'mounting' && own.some(i => i.kind === 'foundation');
-          const images = own.filter(i => !passportKinds.includes(String(i.kind)) && !(passportInstallationKind === 'mounting' && i.kind === 'foundation'));
+          const count = countFor(passport.foundationSupportCount);
+          if (count !== passport.foundationSupportCount) patch.foundationSupportCount = count;
+          const obsolete = (kind: unknown) => single && kind === 'holes' || passportInstallationKind === 'mounting' && kind === 'foundation';
+          let imageChanged = own.some(i => obsolete(i.kind));
+          const images = own.filter(i => !passportKinds.includes(String(i.kind)) && !obsolete(i.kind));
           for (const kind of passportKinds) {
             const old = own.filter(i => i.kind === kind);
             const incoming = selected.get(kind === passportInstallationKind ? productInstallationKind : kind)!;
@@ -224,7 +238,7 @@ export class PassportImportService {
           // В историю переходят все прежние managed-рисунки: не только первый,
           // использованный для дедупликации, но и дубли/legacy foundation анкеров.
           if (imageChanged) for (const old of own) {
-            if (passportKinds.includes(String(old.kind)) || passportInstallationKind === 'mounting' && old.kind === 'foundation') await hash(old.photoId);
+            if (passportKinds.includes(String(old.kind)) || obsolete(old.kind)) await hash(old.photoId);
           }
           for (const [key, value] of Object.entries(numbers.passport)) if ((key !== 'foundationDepth' || installationProfile(current.installs.find(i => String(i._id) === String(passport.installationTypeId)) as Doc | undefined).depthApplicable) && !same(passport[key], value)) patch[key] = value;
           if (Object.keys(patch).length) changes.push({ current: passport, patch, line: line as PassportLine | undefined, order });

@@ -14,7 +14,7 @@ import { isDraftNumber, isIssued } from './passport-consts';
 import type { PdfOrg } from './passport-pdf';
 import { zipStore } from './zip';
 import { safeUploadPath } from '../../common/uploads/safe-path';
-import { filterImagesByKind, installationProfile, planOfContext, installKindOf, variantOf, type PassportVariant } from './passport-variants';
+import { foundationPlan, filterImagesByKind, installationProfile, planOfContext, installKindOf, variantOf, type PassportVariant } from './passport-variants';
 import { standardSchemes } from './passport-schemes';
 import { renderPassportCoverPreview, renderPassportPdfV2, renderPassportsPdfV2, renderStandPdf, resolveStyle, type PdfImageV2, type PdfV2Style, type PdfV2Text } from './passport-pdf-v2';
 import { PassportLookService } from './passport-look.service';
@@ -302,7 +302,7 @@ export class PassportPdfService {
       for (const x of std) { const buf = await this.file(su.get(x.photoId)); if (buf) (byKind[x.kind] ||= []).push({ buf }); }
     }
     // вариант паспорта, категория и способ установки решают, какие рисунки печатать (passport-variants.ts)
-    const ctx = { category: String(p.passportCategory ?? ''), installationPlan: frozen?.installationPlan ?? (!frozen ? installationProfile(installs?.get(String(p.installationTypeId ?? ''))) : undefined), install: frozen?.install ?? installKindOf(installs?.get(String(p.installationTypeId ?? ''))), variant };
+    const ctx = { category: String(p.passportCategory ?? ''), installationPlan: frozen?.installationPlan ?? (!frozen ? foundationPlan(installationProfile(installs?.get(String(p.installationTypeId ?? ''))), p.foundationSupportCount) : undefined), install: frozen?.install ?? installKindOf(installs?.get(String(p.installationTypeId ?? ''))), variant };
     // Исторические снимки до C179 сохраняют свой набор рисунков.
     if (frozen && !frozen.installationPlan) ctx.installationPlan = { ...planOfContext(ctx), allowedKinds: ['foundation', 'holes', 'mounting', 'embedded_layout'] };
     const images = filterImagesByKind(byKind, ctx);

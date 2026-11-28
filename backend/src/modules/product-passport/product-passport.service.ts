@@ -2,7 +2,7 @@ import { withStoredPassportWrite } from '../../common/order-archive/write';
 import { passportProductVersion, withPassportProductWrite } from './passport-product-write';
 import { assertSitePassport, copyPassportValue, lineBaseline, passportLine, stalePassport, withPassportSite } from '../../common/passport/line-source';
 import { parseModules } from '../../common/passport/modules';
-import { reconcileInstallationRules, installationProfile, imageKindAllowed, installKindOf, variantOf, PASSPORT_VARIANTS, type PassportVariant } from './passport-variants';
+import { foundationPlan, reconcileInstallationRules, installationProfile, imageKindAllowed, installKindOf, variantOf, PASSPORT_VARIANTS, type PassportVariant } from './passport-variants';
 import { blankItems } from './passport-blanks';
 import { assertRevisionRemovable, revisionRows } from './passport-revisions';
 import { compositionPresentation } from './passport-composition-presentation';
@@ -192,7 +192,7 @@ export class ProductPassportService {
     const standardImages = std.map((x) => ({ ...x, url: stdUrl.get(x.photoId) ?? null }));
     // обязательные виды картинок (для сортировки в карточке и форме): safety_zone = safety (v1)
     const instRec = (await this.installs()).get(String(doc.installationTypeId ?? '')) ?? null;
-    const vopts = { installationPlan: installationProfile(instRec), variant: 'short' as const, install: installKindOf(instRec) };
+    const vopts = { installationPlan: foundationPlan(installationProfile(instRec), doc.foundationSupportCount), variant: 'short' as const, install: installKindOf(instRec) };
     const rules = imageRules(doc as never, cat, { category: String(doc.passportCategory ?? ''), ...vopts });
     const requiredImages = rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k));
     const productImageKinds = [...new Set(eff.filter((i) => !((doc.images as Doc[]) || []).includes(i as never)).map((i) => String(i.kind)))];
@@ -1089,7 +1089,7 @@ export class ProductPassportService {
     };
   }
 
-  private async evaluatePresentation(input: Doc, mode: 'template' | 'instance', session?: ClientSession, previous?: { print: PassportPrintSources; reuseText: boolean }) {
+  private async evaluatePresentation(input: Doc, mode: 'template' | 'instance', session?: ClientSession, previous?: { print: PassportPrintSources; reuseText: boolean; changedCount?: boolean }) {
     const db = this.connection.db!;
     const document: Doc = { ...input };
     const brief = isBriefPresentation(document);
@@ -1113,7 +1113,7 @@ export class ProductPassportService {
     let built: Awaited<ReturnType<ProductPassportService['buildText']>> = null;
     let simpleWithoutCategory: Awaited<ReturnType<ProductPassportService['resolveSimpleText']>> | null = null;
     if (previous?.reuseText && !installationPlan.known) missing.push(makeIssue('installationTypeId', 'Выберите способ установки'));
-    const savedText = previous?.reuseText ? input.textSnapshot as NonNullable<typeof built>['text'] : undefined;
+    const savedText = previous?.reuseText ? input.textSnapshot as ReturnType<typeof buildV2Text> : undefined;
     if (!hasCategory) {
       document.passportCategory = null;
       missing.push(makeIssue('category', 'Выберите тип паспорта', 'Карточка изделия → Паспорт → Тип паспорта'));
@@ -1127,7 +1127,8 @@ export class ProductPassportService {
         missing.push(makeIssue('textSnapshot', 'Текст паспорта не собрался', 'Проверьте тексты и правила категории'));
       }
     }
-    if (!previous?.reuseText) installationPlan = installationProfile(installs.get(String(document.installationTypeId ?? '')));
+    if (!previous?.reuseText || previous.changedCount && document.foundationSupportCount == null) installationPlan = installationProfile(installs.get(String(document.installationTypeId ?? '')));
+    installationPlan = foundationPlan(installationPlan, document.foundationSupportCount);
     const effective = await this.effectiveImages(document, session, mode === 'instance');
     const installation = installs.get(String(document.installationTypeId ?? ''));
     const frozenStandard = previous?.reuseText && document.schemeSource !== 'own' ? previous.print.standardImages : undefined;
@@ -1148,7 +1149,12 @@ export class ProductPassportService {
     const simple = built?.simple ?? simpleWithoutCategory;
     const partsIssue = simple?.source?.kind === 'parts' ? selectedPartsIssue(simple.source) : null;
     if (partsIssue) missing.push(partsIssue);
-    if (savedText) document.textSnapshot = savedText;
+    if (savedText) {
+      // При смене компоновки сохранить утверждённые фразы и обновить только требования к рисункам.
+      document.textSnapshot = previous?.changedCount && savedText.install ? { ...savedText, install: { ...savedText.install, requiredImages: [...new Set([
+        ...(savedText.install.requiredImages ?? []).filter(kind => !installationPlan.managedKinds.includes(kind)), ...installationPlan.requiredKinds,
+      ])] } } : savedText;
+    }
     else if (snap) {
       const had = input.textSnapshot as (Snap & FieldSnap) | undefined;
       const next = { ...snap, sizeLayout: 2, drawingLayout: 2, at: new Date() };
@@ -1234,11 +1240,11 @@ export class ProductPassportService {
 
   private async refreshRevisionPrint(doc: ProductPassportDocument, current: Doc, after: Doc, changed: string[], session?: ClientSession) {
     const print = current.printSnapshot as PassportPrintSources | undefined;
-    const reuseText = !!print && !!current.textSnapshot && changed.every((key) => key === 'images');
+    const reuseText = !!print && !!current.textSnapshot && changed.every((key) => key === 'images' || key === 'foundationSupportCount');
     // В images при выпуске записываются и типовые схемы. Не считать их собственными при новой редакции.
     const priorSchemes = new Set((print?.standardImages ?? []).map((i) => `${i.kind}/${i.photoId}`));
     const images = ((after.images as PassportImageLike[]) ?? []).filter((i) => !priorSchemes.has(`${i.kind}/${i.photoId}`));
-    const evaluated = await this.evaluatePresentation({ ...after, images }, 'instance', session, print ? { print, reuseText } : undefined);
+    const evaluated = await this.evaluatePresentation({ ...after, images }, 'instance', session, print ? { print, reuseText, changedCount: changed.includes('foundationSupportCount') } : undefined);
     const methodChanged = changed.includes('installationTypeId') && String(current.installationTypeId ?? '') !== String(after.installationTypeId ?? '');
     const missingOnlyNewScheme = methodChanged && evaluated.installationPlan.known && evaluated.readiness.missing.every(m => {
       const kind = m.key.replace(/^img_/, '');
@@ -1266,7 +1272,7 @@ export class ProductPassportService {
         if (evaluated.readiness.missing.some(m => m.key === 'textSnapshot')) throw new ConflictException('Не удалось пересобрать текст паспорта');
         doc.set('textSnapshot', evaluated.document.textSnapshot);
       }
-    } else if (fields.some(k => k !== 'images') && after.passportCategory) {
+    } else if (fields.some(k => k !== 'images' && k !== 'foundationSupportCount') && after.passportCategory) {
       after.textSnapshot = { ...(current.textSnapshot as Snap ?? {}), sizeLayout: 2 };
       if ((current.textSnapshot as Snap | undefined)?.sections) await this.rebuildSafe(doc, after, session);
       else await this.applySnapshot(doc, after, session);
@@ -1296,7 +1302,7 @@ export class ProductPassportService {
     if (readiness && bindingError) addBindingBlocker(readiness, bindingError);
     const document = evaluated?.document ?? own;
     const frozenSource = (raw.textSnapshot as { simpleDescriptionSource?: SimpleDescriptionSource } | undefined)?.simpleDescriptionSource;
-    const installationPlan = evaluated?.installationPlan ?? (printSnapshot as PassportPrintSources | undefined)?.installationPlan ?? installationProfile((await this.installs()).get(String(raw.installationTypeId ?? '')));
+    const installationPlan = evaluated?.installationPlan ?? (printSnapshot as PassportPrintSources | undefined)?.installationPlan ?? foundationPlan(installationProfile((await this.installs()).get(String(raw.installationTypeId ?? ''))), raw.foundationSupportCount);
     const revisionList = await this.revisionList(raw);
     const savedImages = binding.installationMismatch ? ((own.images as Doc[]) ?? []) : [];
     const savedIds = savedImages.map(image => String(image.photoId ?? '')).filter(value => Types.ObjectId.isValid(value)).map(value => this.oid(value));
@@ -1488,7 +1494,7 @@ export class ProductPassportService {
     // C112 А1: умолчания типа паспорта считаются заполненными; что они закрыли — в `defaulted` (для экрана «чего не хватает»)
     const full = { ...full0 } as Doc;
     const usedDefaults = applyCategoryDefaults(full, cat);
-    const vopts = { installationPlan: installationProfile(inst.get(String(p.installationTypeId ?? ''))), variant: variantOf(body.variant), install: installKindOf(inst.get(String(p.installationTypeId ?? ''))) };
+    const vopts = { installationPlan: foundationPlan(installationProfile(inst.get(String(p.installationTypeId ?? ''))), p.foundationSupportCount), variant: variantOf(body.variant), install: installKindOf(inst.get(String(p.installationTypeId ?? ''))) };
     const rules = imageRules(p as never, cat, { category: String(p.passportCategory ?? ''), ...vopts });
     const choices = await this.choiceMissing({ ...p, textChoices: parseChoices(p.textChoices) }, vopts.install);
     const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
@@ -1538,7 +1544,7 @@ export class ProductPassportService {
     const cat = cats.get(String(doc.passportCategory ?? '')) ?? null;
     const full = this.withSchemes(doc, inst);
     applyCategoryDefaults(full as Doc, cat); // C112 А1: умолчание типа паспорта — заполнено (копия, в паспорт не пишется)
-    const ctx = { installationPlan: installationProfile(inst.get(String(doc.installationTypeId ?? ''))), category: String(doc.passportCategory ?? ''), variant: 'short' as const, install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) };
+    const ctx = { installationPlan: foundationPlan(installationProfile(inst.get(String(doc.installationTypeId ?? ''))), doc.foundationSupportCount), category: String(doc.passportCategory ?? ''), variant: 'short' as const, install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) };
     const missing = [...missingKeyed(full as never, cat, ctx), ...(await this.choiceMissing(doc, ctx.install, session)), ...jointsMissing(doc)];
     const required = imageRules(full, cat, ctx).required;
     const broken = await unreadableRequiredImages(this.connection.db!, (full.images ?? []) as Array<{ kind?: unknown; photoId?: unknown }>, required, session);

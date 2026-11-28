@@ -136,7 +136,7 @@ export function buildV2Text(input: V2TextInput): V2Text {
   const pt = { ...p, [TRAITS_FIELD]: info.traits };
   const printedBlocks = brief ? blocks.filter((b) => !shortDetailSections.includes(b.sectionKey)) : blocks;
   const r = compose(printedBlocks, pt, category, { standards, startNumber: legacyStartNumber(all), unknownTraits: info.unknown, usedFields: input.usedFields });
-  const installParts = installText(install);
+  const installParts = installText(install, p.foundationSupportCount);
   if (installLeaf) installParts.text = fill((installLeaf as PhraseTreeNode).text, p, category, standards, extraMissing, input.usedFields);
   // Вписанный вручную текст («свой текст», manualText) важнее справочника; назначение без выбора — из поля паспорта
   const manual = Array.isArray(p.manualText) ? (p.manualText as string[]) : [];

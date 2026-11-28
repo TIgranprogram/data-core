@@ -28498,6 +28498,9 @@
       "PassportImportContextResponseDto": {
         "type": "object",
         "properties": {
+          "supportsSupportCount": {
+            "type": "boolean"
+          },
           "supportsHoles": {
             "type": "boolean",
             "description": "Сервер поддерживает дополнительный рисунок holes для бетонируемых опор."
@@ -28519,6 +28522,7 @@
           }
         },
         "required": [
+          "supportsSupportCount",
           "supportsHoles",
           "contextToken",
           "installationTypeId",
@@ -28607,6 +28611,11 @@
       "PassportImportDto": {
         "type": "object",
         "properties": {
+          "supportCount": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Количество отдельных оснований из Inventor. При одном общий лист foundation включает план и разрез, при нескольких нужен дополнительный holes. Без значения сохраняется прежний протокол."
+          },
           "contextToken": {
             "type": "string",
             "minLength": 1,
