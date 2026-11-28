@@ -33,12 +33,12 @@ let browser;
 before(async () => { browser = await chromium.launch({ executablePath: findBrowser(), headless: true }); });
 after(async () => { await browser?.close(); });
 
-async function fixture(t, { role = 'manager', theme = 'light', loseFirstResponse = false, catalog = stock } = {}) {
+async function fixture(t, { role = 'manager', requestCartCreate = true, theme = 'light', loseFirstResponse = false, catalog = stock } = {}) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
   t.after(() => page.close());
   page.setDefaultTimeout(7000);
   const requests = new Map(), posts = [], patches = [], errors = [];
-  const user = { id: 'c280-user', role, displayName: 'Проверка корзины', sections: ['requests'], canMoney: false };
+  const user = { id: 'c280-user', role, requestCartCreate, displayName: 'Проверка корзины', sections: ['requests'], canMoney: false };
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(({ user, theme }) => {
     localStorage.setItem('dc-theme', theme);
@@ -124,8 +124,8 @@ async function sheetFrom(download) {
   assert.fail('Лист XLSX отсутствует');
 }
 
-test('C280: категории, повтор, проверка корзины, Excel и появление заявок в «Заказать»', async t => {
-  const { page, requests, posts, errors } = await fixture(t);
+for (const role of ['manager', 'director', 'user']) test('C280: каталог, корзина, Excel и создание заявок — ' + role, async t => {
+  const { page, requests, posts, errors } = await fixture(t, { role });
   const panel = await enter(page);
   assert.equal(await panel.getByRole('table').count(), 0);
   await panel.getByRole('button', { name: /^Металл/ }).click();
@@ -183,10 +183,13 @@ test('C280: категории, повтор, проверка корзины, E
   assert.deepEqual(errors, []);
 });
 
-test('C280: директор не видит вход для создания заявок пачкой', async t => {
-  const { page, posts } = await fixture(t, { role: 'director' });
+for (const role of ['user', 'director']) test('C280: выключенное право скрывает корзину — ' + role, async t => {
+  const { page, posts } = await fixture(t, { role, requestCartCreate: false });
   await page.getByRole('heading', { name: 'Заявки', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'Из каталога', exact: true }).count(), 0);
+  await page.evaluate(() => { location.hash = 'requests?of=requestcart&new=1'; });
+  await page.waitForFunction(() => !new URLSearchParams(location.hash.split('?')[1]).has('new'));
+  assert.equal(await page.getByRole('dialog').count(), 0);
   assert.deepEqual(posts, []);
 });
 
@@ -401,4 +404,25 @@ test('C280: частичная запись после сбоя, блокиро�
   assert.deepEqual(posts[1], posts[0]);
   assert.equal(requests.size, 2);
   assert.deepEqual(errors, []);
+});
+
+
+test('Поздний отказ импорта корзины сохраняет открытую вкладку счетов', async t => {
+  const { page } = await fixture(t);
+  let requested;
+  const intercepted = new Promise(resolve => { requested = resolve; });
+  await page.route('**/sections/request-cart.js', route => requested(route));
+  await page.getByRole('button', { name: 'Из каталога', exact: true }).click();
+  const pending = await intercepted;
+  await page.evaluate(() => { location.hash = 'requests?tab=invoices'; });
+  const invoices = page.getByText('Счетов пока нет', { exact: true });
+  await invoices.waitFor();
+  const original = await invoices.elementHandle();
+  await pending.fulfill({ contentType: 'text/javascript', body: "throw new Error('Тест позднего отказа');" });
+  await page.evaluate(async () => {
+    await import('./sections/request-cart.js').catch(() => {});
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  assert.equal(await original.evaluate(el => el.isConnected), true);
+  assert.equal(await page.getByText('Раздел не открылся', { exact: true }).count(), 0);
 });

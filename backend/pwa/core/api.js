@@ -53,6 +53,7 @@ export const session = {
   seesDocs() { return this.sees('docs'); },
 };
 
+export const canUseRequestCart = () => session.user?.requestCartCreate === true || session.user?.isOwner === true;
 /** Может ли менять записи раздела: свои права раздела (section.canEdit, напр. паспорта — директор/админ) или общее правило. */
 export const canEditSection = (section) => (section?.canEdit ? !!section.canEdit() : session.canEdit);
 

@@ -63,4 +63,47 @@ describe('Supply catalog view=all + requests/bulk', () => {
     await http().post('/api/supply/requests/bulk').set(auth()).send({ clientUid: 'c036-dup', items: [line, line] }).expect(400);
     await http().post('/api/supply/requests/bulk').set(auth()).send({ clientUid: 'c036-empty', items: [] }).expect(400);
   });
+
+  it('директор оформляет корзину, ограничения раздела, склада и прав записи сохраняются', async () => {
+    const login = async (name: string, role: string) => {
+      const account = { username: 'bulk-' + name, password: 'bulk-test-pass' };
+      await http().post('/api/admin/users').set(auth()).send({ ...account, role }).expect(201);
+      const result = await http().post('/api/auth/login').send(account).expect(200);
+      return authHeader(result.body.access);
+    };
+    const director = await login('director', 'director');
+    const body = { clientUid: 'bulk-director', items: [{ materialId: String(mFree), qty: 2 }] };
+    const endpoint = '/api/supply/requests/bulk';
+    const result = await http().post(endpoint).set(director).send(body).expect(201);
+    expect(result.body.items).toHaveLength(1);
+    expect(result.body.items[0]).toMatchObject({ status: 'requested', qty: 2 });
+    const blocked = { ...body, clientUid: 'bulk-blocked' };
+    await http().post(endpoint).set(await login('observer', 'user')).send(blocked).expect(403);
+    for (const [name, limits] of [
+      ['section', { appSections: ['stock'] }],
+      ['zone', { appSections: ['requests'], stockCategoryIds: [String(new Types.ObjectId())] }],
+    ] as const) {
+      const role = await http().post('/api/roles').set(auth()).send({ label: 'Директор ' + name, baseRole: 'director', ...limits }).expect(201);
+      await http().post(endpoint).set(await login(name, role.body.name)).send(blocked).expect(403);
+    }
+    expect(await db().collection('supplyrequests').countDocuments({ clientUid: /^bulk-blocked:/ })).toBe(0);
+
+    const { body: custom } = await http().post('/api/roles').set(auth()).send({ label: 'Оформитель корзины', baseRole: 'user', appSections: ['requests', 'stock'] }).expect(201);
+    expect(custom).toMatchObject({ requestCartCreate: false, requestCartCreateOverride: null });
+    const clerk = await login('clerk', custom.name);
+    const patch = async (id: string, value: boolean | null) => (await http().patch('/api/roles/' + id).set(auth()).send({ requestCartCreate: value }).expect(200)).body;
+    expect(await patch(custom.id, true)).toMatchObject({ requestCartCreate: true, requestCartCreateOverride: true });
+    await http().post(endpoint).set(clerk).send({ ...body, clientUid: 'bulk-clerk' }).expect(201);
+    await http().patch('/api/stock/items/' + mFree).set(clerk).send({ notes: 'правка склада' }).expect(403);
+    const roles = (await http().get('/api/roles').set(auth()).expect(200)).body;
+    expect(roles.find((r: { id: string }) => r.id === custom.id)).toMatchObject({ requestCartCreate: true });
+    expect(await patch(custom.id, null)).toMatchObject({ requestCartCreate: false, requestCartCreateOverride: null });
+    await http().post(endpoint).set(clerk).send(blocked).expect(403);
+    const directorRole = roles.find((r: { name: string }) => r.name === 'director');
+    expect(await patch(directorRole.id, false)).toMatchObject({ requestCartCreate: false, requestCartCreateOverride: false });
+    const me = (await http().get('/api/auth/me').set(director).expect(200)).body;
+    expect((me.user || me).requestCartCreate).toBe(false);
+    await http().post(endpoint).set(director).send(blocked).expect(403);
+    expect(await db().collection('supplyrequests').countDocuments({ clientUid: /^bulk-blocked:/ })).toBe(0);
+  });
 });

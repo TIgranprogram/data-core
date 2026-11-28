@@ -19,7 +19,7 @@ import { effectivePermissions } from '../../common/contracts/rbac-contract';
 import { CONFIRM_TTL_SEC, signConfirmToken } from '../../common/confirm-token';
 import { appSectionsFor } from '../../common/app-sections';
 import { stockViewsFor } from '../../common/stock-views';
-import { canSeeMoney, roleLabelOf } from '../../common/roles-hierarchy';
+import { canCreateRequestCart, canSeeMoney, roleLabelOf } from '../../common/roles-hierarchy';
 
 /**
  * Single-source-of-truth generic login error.
@@ -342,6 +342,7 @@ export class AuthService {
       roleLabel: roleLabelOf(user.role, roleDoc?.label),
       permissions: Array.from(effectivePermissions(user, accessDoc)),
       canMoney: canSeeMoney({ role: user.role, isOwner }),
+      requestCartCreate: canCreateRequestCart({ role: user.role, isOwner }),
       // TZ-ACCESS-301: page ACL delivered via /auth/me.
       pages: visiblePages,
       // SK-8a: разделы «Рабочего места» по роли; null — как раньше (по иерархии), у admin всегда null.

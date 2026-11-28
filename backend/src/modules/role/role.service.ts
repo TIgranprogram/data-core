@@ -20,6 +20,8 @@ import {
   setCustomRoleBases,
   setRoleMoney,
   setRoleMoneyAll,
+  setRequestCartOverride,
+  setRequestCartOverrides,
 } from '../../common/roles-hierarchy';
 import { deleteRoleSections, setRoleSections, setRoleSectionsAll } from '../../common/app-sections';
 import { setRoleStockScope, setRoleStockScopeAll } from '../../common/stock-scope';
@@ -46,10 +48,11 @@ export class RoleService implements OnModuleInit {
   }
 
   async reloadRoleSections(): Promise<void> {
-    const list = await this.model.find({}, { name: 1, appSections: 1, stockCategoryIds: 1, warehouseIds: 1, money: 1 }).lean().exec();
+    const list = await this.model.find({}, { name: 1, appSections: 1, stockCategoryIds: 1, warehouseIds: 1, money: 1, requestCartCreate: 1 }).lean().exec();
     setRoleSectionsAll(list as Array<{ name: string; appSections?: string[] }>);
     setRoleStockScopeAll(list as Array<{ name: string; stockCategoryIds?: string[]; warehouseIds?: string[] }>);
     setRoleMoneyAll(list as Array<{ name: string; money?: boolean }>);
+    setRequestCartOverrides(list);
   }
 
   async reloadRoleBases(): Promise<void> {
@@ -80,6 +83,7 @@ export class RoleService implements OnModuleInit {
     setRoleSections(doc.name, doc.appSections);
     setRoleStockScope(doc.name, doc);
     setRoleMoney(doc.name, doc.money);
+    setRequestCartOverride(doc.name, doc.requestCartCreate);
     this.logger.log(`Role created: ${doc.name}`);
     return doc;
   }
@@ -139,6 +143,7 @@ export class RoleService implements OnModuleInit {
       setRoleSections(role.name, role.appSections);
       setRoleStockScope(role.name, role);
       setRoleMoney(role.name, role.money);
+      setRequestCartOverride(role.name, role.requestCartCreate);
     }
     if (!base) return { role, access: role, baseRole: name };
     return { role, access: await this.findByName(base), baseRole: base };
@@ -175,6 +180,7 @@ export class RoleService implements OnModuleInit {
     setRoleSections(doc.name, doc.appSections);
     setRoleStockScope(doc.name, doc);
     setRoleMoney(doc.name, doc.money);
+    setRequestCartOverride(doc.name, doc.requestCartCreate);
     userActivityCache.invalidateAll();
     this.logger.log(`Role updated: ${doc.name}`);
     return doc;
@@ -196,6 +202,7 @@ export class RoleService implements OnModuleInit {
     deleteRoleSections(doc.name);
     setRoleStockScope(doc.name, null);
     setRoleMoney(doc.name, null);
+    setRequestCartOverride(doc.name);
     userActivityCache.invalidateAll();
     this.logger.log(`Role deleted: ${doc.name}`);
   }

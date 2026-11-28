@@ -15,6 +15,16 @@ import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RoleService } from './role.service';
 import { APP_SECTIONS } from '../../common/app-sections';
+import { canCreateRequestCart } from '../../common/roles-hierarchy';
+import type { RoleDocument } from './role.schema';
+
+function presentRole(role: RoleDocument) {
+  return {
+    ...role.toObject(),
+    requestCartCreate: canCreateRequestCart({ role: role.name }),
+    requestCartCreateOverride: role.requestCartCreate ?? null,
+  };
+}
 
 @ApiTags('Управление — Роли')
 @Controller('roles')
@@ -24,10 +34,10 @@ export class RoleController {
   @Get()
   @Roles('admin', 'manager')
   @ApiOperation({ summary: 'List all roles' })
-  @ApiResponse({ status: 200, description: 'List of roles' })
+  @ApiResponse({ status: 200, description: 'Роли с вычисленным правом requestCartCreate и настройкой requestCartCreateOverride (boolean или null для наследования)' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  findAll() {
-    return this.service.findAll();
+  async findAll() {
+    return (await this.service.findAll()).map(presentRole);
   }
 
   /** SK-8a: список разделов «Рабочего места» для галочек у роли. */
@@ -42,11 +52,11 @@ export class RoleController {
   @Get(':id')
   @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Get role by ID' })
-  @ApiResponse({ status: 200, description: 'Role found' })
+  @ApiResponse({ status: 200, description: 'Роль с вычисленным правом requestCartCreate и настройкой requestCartCreateOverride' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Role not found' })
-  findOne(@Param('id') id: string) {
-    return this.service.findById(id);
+  async findOne(@Param('id') id: string) {
+    return presentRole(await this.service.findById(id));
   }
 
   @Post()
@@ -56,8 +66,8 @@ export class RoleController {
   @ApiResponse({ status: 400, description: 'Нет baseRole или передан name' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  create(@Body() dto: CreateRoleDto) {
-    return this.service.createCustom(dto);
+  async create(@Body() dto: CreateRoleDto) {
+    return presentRole(await this.service.createCustom(dto));
   }
 
   @Patch(':id')
@@ -68,8 +78,8 @@ export class RoleController {
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 400, description: 'Код роли или «права как у» встроенной роли менять нельзя' })
   @ApiResponse({ status: 404, description: 'Role not found' })
-  update(@Param('id') id: string, @Body() dto: UpdateRoleDto) {
-    return this.service.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: UpdateRoleDto) {
+    return presentRole(await this.service.update(id, dto));
   }
 
   @Delete(':id')

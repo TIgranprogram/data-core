@@ -1,6 +1,6 @@
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
-import { modal } from '../ui/kit/index.js';
+import { modal } from '../ui/kit/dialog.js';
 
 /**
  * ЗЯ-1c: администратор обходит запрет с причиной.

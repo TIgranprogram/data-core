@@ -1,6 +1,6 @@
 import { isoDay, parseNum } from '../core/format.js';
 import { PRIORITY, SUPPLY_STATUS, supplyKey } from '../ui/kit/badges.js';
-import { joinRef, splitRef } from './salesorders.js';
+import { joinRef, splitRef } from './order-options.js';
 
 export function toInitial(row) {
   return {

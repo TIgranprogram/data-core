@@ -63,6 +63,10 @@ export class Role {
   @Prop({ type: Boolean, default: undefined })
   money?: boolean;
 
+  /** Пакетная заявка из каталога. Отсутствующее значение наследуется от базовой роли. */
+  @Prop({ type: Boolean, default: undefined })
+  requestCartCreate?: boolean | null;
+
   @Prop({ default: true })
   isActive!: boolean;
 }

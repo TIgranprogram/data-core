@@ -35,6 +35,8 @@ export interface AuthUserPayload {
   permissions: string[];
   /** Галочка «Деньги» роли (canSeeMoney): false — клиент не показывает цены, суммы, оплату. */
   canMoney: boolean;
+  /** Разрешено оформлять заявки из каталога. */
+  requestCartCreate: boolean;
   phone?: string | null;
   fullName?: string | null;
   /** `preset:<код>` | `photo:<photoId>` | null */

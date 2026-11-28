@@ -1,5 +1,6 @@
 import { h } from '../core/dom.js';
-import { button, tabs as kitTabs } from './kit/index.js';
+import { button } from './kit/buttons.js';
+import { tabs as kitTabs } from './kit/tabs.js';
 import { api } from '../core/api.js';
 import { icon } from './icons.js';
 import { setBadgePart } from './app-badge.js';

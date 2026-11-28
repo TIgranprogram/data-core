@@ -1025,14 +1025,10 @@
       lBase.append(base); fields.append(lBase);
     }
     wrap.append(fields);
-    const lMoney = el('label', 'rl-money'); const money = el('input'); money.type = 'checkbox';
-    const fullMoney = r.name === 'admin' || r.name === 'director';
-    money.checked = fullMoney || r.money === true; money.disabled = fullMoney;
-    lMoney.append(money, el('span', '', 'Деньги'));
-    const moneyHint = el('p', 'muted small', 'Без галочки цены и суммы скрыты везде.');
+    const { lMoney, moneyHint, money, cartLabel, cartHint, resetCart, syncCart, cartChoice } = window.mountRoleOperations(r, { el, base, own, roleList });
     let box = null, stockBox = null, zoneBox = null;
-    const api = { wrap, name, base, box, stockBox, zoneBox, own, money, isNew, warnings: () => [] };
-    if (r.name === 'admin') { wrap.append(lMoney, moneyHint); return api; }
+    const api = { wrap, name, base, box, stockBox, zoneBox, own, money, cartChoice, isNew, warnings: () => [] };
+    if (r.name === 'admin') { wrap.append(lMoney, moneyHint, roleCard('Снабжение', cartLabel, cartHint, resetCart)); return api; }
 
     const known = roleState.sections;
     const used = new Set(ROLE_GROUPS.flatMap((g) => g[1]));
@@ -1046,6 +1042,7 @@
       const g = checkGrid(items, on); g.grid.classList.add("rl-secs"); Object.assign(cells, g.byId);
       const kids = [g.grid];
       if (title === 'Деньги') kids.unshift(lMoney, moneyHint);
+      if (title === 'Снабжение') kids.push(cartLabel, cartHint, resetCart);
       if (title === 'Склад') kids.push(...(api.stockViewSettings = window.DataCoreRoleStockViews.mount(r, { el, checkGrid })).nodes);
       if (title === 'Склад' && roleState.zones.length) {
         kids.push(el('p', 'muted small', 'Склады: какие склады роль видит и меняет. Пусто — весь склад.'));
@@ -1084,6 +1081,7 @@
       return all.find((c) => /основн/i.test(label(c))) || all[0];
     };
     function refresh() {
+      syncCart();
       Object.values(cells).forEach((c) => c.querySelector('.rl-need')?.remove());
       const all = problems(), ps = all.filter((p) => !p.soft);
       all.filter((p) => p.soft).forEach((p) => {
@@ -1136,6 +1134,8 @@
     if (f.stockBox && !(body.warehouseIds && body.warehouseIds.length)) body.stockCategoryIds = [...f.stockBox.querySelectorAll('input:checked')].map((c) => c.value);
     Object.assign(body, window.DataCoreRoleStockViews.read(f.stockViewSettings, { isNew: f.isNew, checkedOf }));
     if (f.base) body.baseRole = f.base.value;
+    const cart = f.cartChoice();
+    if (cart !== undefined) body.requestCartCreate = cart;
     if (!f.money.disabled) body.money = f.money.checked;
     return body;
   }

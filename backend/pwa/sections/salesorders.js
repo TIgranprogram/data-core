@@ -1,9 +1,10 @@
+import { heading } from './order-options.js';
+export { prodNo, activeOrders, orderLabel, orderOptions, joinRef, splitRef } from './order-options.js';
 import { hasProductionNumber } from './order-attachments-zip.js';
 import { STAGE, crumbTrail } from './order-stage.js';
 import { nextStep, orderCounts } from './salesorders-next.js';
 import { sideForm, openSide, sideNote } from '../ui/kit/side-form.js';
 import { api, session, writeHooks } from '../core/api.js';
-import { ordersLookup } from '../core/orders-lookup.js';
 import { h } from '../core/dom.js';
 import { date, isoDay, money, qty } from '../core/format.js';
 import { current, go, patch } from '../core/router.js';
@@ -46,9 +47,7 @@ const STAGE_ORDER = Object.keys(STAGE);
 /** Приоритет заказа: «обычный» не показываем. */
 const prio = (r) => (r.priority && r.priority !== 'normal' ? badge(ORDER_PRIORITY, r.priority) : null);
 /** № заказа = № на производство (productionNo); № договора (orderNo) — справка. Несколько договоров с одним № — один заказ производства. */
-export const prodNo = (r) => r?.productionNo || 'нет №';
 const documentKind = (r) => hasProductionNumber(r) ? 'Заказ' : 'Договор';
-const heading = (r) => hasProductionNumber(r) ? `Заказ № ${r.productionNo}` : `Договор № ${r?.orderNos?.[0] || r?.orderNo || '—'}`;
 const deadline = (r) => r.deadline || r.shipDate || r.productionDeadline || r.deliveryDeadline;
 function due(r) {
   const d = deadline(r);
@@ -708,23 +707,3 @@ export const salesorder = {
   searchRow: (r) => ({ title: `${heading(r)} · ${r.customer || ''}`, sub: [hasProductionNumber(r) && r.orderNo && 'договор ' + r.orderNo, r.title, `${r.lineCount} поз.`].filter(Boolean).join(' · '), side: badge(STAGE, r.stage) }),
   open: (id) => go('salesorders', { open: id }),
 };
-
-/** Выбор заказа и позиции (для заявок и списаний, З.6): заказы в работе. Кэш на 1 минуту (core/orders-lookup.js). */
-// SK-8d: короткий список (/salesorders/lookup) — открыт и для «Склада», «Заявок»; кэш — в core/orders-lookup.js
-export const activeOrders = () => ordersLookup({ filter: 'active' });
-export const orderLabel = (o) => [hasProductionNumber(o) ? `№ ${prodNo(o)}` : heading(o), hasProductionNumber(o) && o.orderNo && `договор ${o.orderNo}`, o.customer].filter(Boolean).join(' · ');
-
-/** Варианты «Заказ / позиция» для выпадающего списка (З.6): «id» — весь заказ, «id:lineId» — позиция. */
-export async function orderOptions(keep) {
-  // SK-8d: заказы в работе сразу с позициями — без /incomes?limit=3000 (раздел «Позиции и оплаты» может быть закрыт)
-  const orders = await ordersLookup({ filter: 'active', lines: true });
-  const opts = [];
-  for (const o of orders) {
-    opts.push({ value: o.id, label: orderLabel(o) + ' — весь заказ' });
-    for (const l of o.lines || []) opts.push({ value: o.id + ':' + l.id, label: `   └ ${seq(l, -1) ? seq(l, -1) + '. ' : ''}${String(l.title || '').slice(0, 70)}` });
-  }
-  if (keep && !opts.some((x) => x.value === keep)) opts.unshift({ value: keep, label: 'Заказ (выполнен или удалён)' });
-  return opts;
-}
-export const splitRef = (ref) => { const [o, l] = String(ref || '').split(':'); return { salesOrderId: o || '', salesOrderLineId: l || '' }; };
-export const joinRef = (r) => (r.salesOrderId ? String(r.salesOrderId) + (r.salesOrderLineId ? ':' + String(r.salesOrderLineId) : '') : '');

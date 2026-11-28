@@ -71,6 +71,11 @@ export class CreateRoleDto {
   @IsBoolean()
   money?: boolean;
 
+  @ApiPropertyOptional({ type: Boolean, nullable: true, description: 'Создание заявок из каталога; null — наследовать право' })
+  @IsOptional()
+  @IsBoolean()
+  requestCartCreate?: boolean | null;
+
   @ApiPropertyOptional({ description: 'Активна ли роль' })
   /** TZ-ACCESS-301: page ACL — visible nav pages for this role. */
   @ApiPropertyOptional({ type: [String], description: "Страницы, доступные роли (page ACL)" })

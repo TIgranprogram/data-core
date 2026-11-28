@@ -1,4 +1,4 @@
-import { api, session } from '../core/api.js';
+import { api, canUseRequestCart, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { normSearch } from '../core/facets.js';
 import { parseNum } from '../core/format.js';
@@ -20,7 +20,6 @@ const shelves = [
   ['Расходники и материалы', /расход|краск|хими|древ|пиломат|пласт|электр|резин|упаков/i],
 ];
 const retained = new Map();
-export const canUseRequestCart = () => ['admin', 'manager'].includes(session.role) || session.user?.isOwner === true;
 const storageKey = () => 'dc-requestcart:' + (session.user?.id || session.user?._id || 'local');
 
 function readDraft(key) {
@@ -188,7 +187,7 @@ function makeForm(items, key, draft, catalogError, demo = false) {
         showSelected();
         if (row.pipe) {
           const expanded = openFamily === family;
-          const saveLength = pair?.length && !demo ? button({ label: 'Сохранить длину в позиции', size: 'S', onClick: async () => {
+          const saveLength = pair?.length && !demo && session.canEdit ? button({ label: 'Сохранить длину в позиции', size: 'S', onClick: async () => {
             const metres = pair.lengthM();
             if (!metres) { toast('Укажите длину хлыста', { error: true }); pair.length.focus(); return; }
             try {

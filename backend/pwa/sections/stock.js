@@ -52,7 +52,8 @@ import { openStockBulk } from './stock-bulk.js';
 const unit = (r) => r.unit || '';
 /** Миниатюра в строке списка (или пустое место того же размера — колонки не прыгают). */
 /** Миниатюра в ячейке таблицы; фото нет (или битое) — ячейка пустая, без квадрата-заглушки. */
-export const pic = (p) => (p ? h('img', { class: 'pic', src: PREFIX + (p.thumb || p.url), alt: '', loading: 'lazy', onerror: (e) => e.target.remove() }) : null);
+import { pic } from '../ui/kit/stock-pic.js';
+export { pic };
 let knownStockZones = [];
 const columnScopes = new Map();
 const scopeKey = () => JSON.stringify([stockScopeKey(), zoneNow()]);

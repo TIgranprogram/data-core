@@ -6,10 +6,10 @@ import { modal } from '../ui/kit/dialog.js';
 import { isoDay, date } from '../core/format.js';
 import { patch, go } from '../core/router.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { unmatchedCount } from './matching-queue.js';
+import { unmatchedCount } from './matching-count.js';
 import { fillToday } from './fill.js';
 import { dueText, plural, productIdentificationToday, svg } from './home-ui.js';
-import { empty, card, row, button, segmented, section, stack, stat, tabs, link, toolbar, layout, hint, miniChart, tileGrid } from '../ui/kit/index.js';
+import { empty, card, row, button, segmented, section, stack, stat, tabs, link, toolbar, layout, hint, miniChart, tileGrid } from '../ui/kit/basics.js';
 
 /**
  * «Сегодня» — утренний бриф по ролям (docs/audit/AUDIT-TODAY.md §3): у каждой роли свои 3–6 блоков,

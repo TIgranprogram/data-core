@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { foldPurchases, topSupplier } from '../stock/purchase-history';
 import { SupplyService, type SupplyBulkInput } from './supply.service';
+import { canCreateRequestCart, setCustomRoleBase, setRequestCartOverride } from '../../common/roles-hierarchy';
 import { SUPPLY_REQUEST_API_FLAG } from './supply-request-flag';
 
 const flagsOn = { isEnabled: async () => true };
@@ -37,6 +38,21 @@ describe('foldPurchases', () => {
 });
 
 describe('SupplyService.createBulk', () => {
+  it('наследует право пакетного создания и учитывает явные запреты и разрешения роли', () => {
+    expect(['admin', 'director', 'accountant', 'manager', 'user'].map(role => canCreateRequestCart({ role }))).toEqual([true, true, true, true, false]);
+    setCustomRoleBase('r-test-cart', 'director');
+    try {
+      setRequestCartOverride('director', false);
+      expect(canCreateRequestCart({ role: 'r-test-cart' })).toBe(false);
+      expect(canCreateRequestCart({ role: 'director', isOwner: true })).toBe(true);
+      setRequestCartOverride('r-test-cart', true);
+      expect(canCreateRequestCart({ role: 'r-test-cart' })).toBe(true);
+    } finally {
+      setCustomRoleBase('r-test-cart', null);
+      setRequestCartOverride('director');
+      setRequestCartOverride('r-test-cart');
+    }
+  });
   const m1 = oidOf(), m2 = oidOf(), m3 = oidOf(), sA = oidOf(), sB = oidOf();
   let colls: Record<string, Array<Record<string, unknown>>>;
   let saved: Array<Record<string, unknown>>;

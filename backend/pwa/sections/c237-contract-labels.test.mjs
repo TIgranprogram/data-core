@@ -5,8 +5,9 @@ import vm from 'node:vm';
 
 const source = readFileSync(new URL('./salesorders.js', import.meta.url), 'utf8');
 const pdf = readFileSync(new URL('./order-attachments-zip.js', import.meta.url), 'utf8');
-const hasProductionNumber = vm.runInNewContext(pdf.match(/^export const hasProductionNumber = (.*);$/m)[1]);
-const named = name => source.match(new RegExp(`^(?:export )?const ${name} = .*;$`, 'm'))[0].replace(/^export /, '');
+const options = readFileSync(new URL('./order-options.js', import.meta.url), 'utf8');
+const hasProductionNumber = vm.runInNewContext(options.match(/^export const hasProductionNumber = (.*);$/m)[1]);
+const named = name => (source + '\n' + options).match(new RegExp(`^(?:export )?const ${name} = .*;$`, 'm'))[0].replace(/^export /, '');
 const sandbox = vm.createContext({ badge: () => '', STAGE: {}, hasProductionNumber });
 const labels = vm.runInContext(['prodNo', 'documentKind', 'heading', 'orderCrumb', 'orderLabel'].map(named).join('\n')
   + '\n({ documentKind, heading, orderCrumb, orderLabel });', sandbox);

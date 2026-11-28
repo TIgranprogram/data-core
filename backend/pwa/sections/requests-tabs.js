@@ -1,7 +1,6 @@
 import { h } from '../core/dom.js';
 import { go } from '../core/router.js';
-import { mountInvoicesTab } from './invoices-tab.js';
-import { tabs as kitTabs } from '../ui/kit/index.js';
+import { tabs as kitTabs } from '../ui/kit/tabs.js';
 
 /**
  * «Заявки» с вкладками (CHAIN-AUDIT В2): «Заявки» (доска/таблица, как раньше) и «Счета» (#requests?tab=invoices).
@@ -11,7 +10,7 @@ const tabOf = (p) => (p.tab === 'invoices' ? 'invoices' : 'list');
 const TABS = [['list', 'Заявки'], ['invoices', 'Счета']];
 const clean = (p) => { const { tab, ...rest } = p; return rest; };
 
-export function mountRequests(params, mkList) {
+export function mountRequests(params, mkList, mountInvoicesTab) {
   let tab = tabOf(params);
   let inner = null;
   const seg = h('div');

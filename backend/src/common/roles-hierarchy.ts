@@ -90,6 +90,26 @@ export function setRoleMoney(name: string, money: boolean | null | undefined): v
 export const MONEY_ROLES = ['admin', 'director', 'accountant', 'manager'];
 export const PAYROLL_ROLES = ['admin', 'director', 'accountant'];
 
+/** Пакетная заявка: явная настройка роли, затем её базы и прежние права менеджера. */
+const requestCartOverrides = new Map<string, boolean>();
+
+export function setRequestCartOverride(name: string, value?: boolean | null): void {
+  if (typeof value === 'boolean') requestCartOverrides.set(name, value);
+  else requestCartOverrides.delete(name);
+}
+
+export function setRequestCartOverrides(roles: Array<{ name: string; requestCartCreate?: boolean | null }>): void {
+  requestCartOverrides.clear();
+  for (const role of roles) setRequestCartOverride(role.name, role.requestCartCreate);
+}
+
+export function canCreateRequestCart(user?: { role?: string | null; isOwner?: boolean } | null): boolean {
+  if (user?.isOwner === true) return true;
+  if (!user?.role) return false;
+  const base = baseRoleOf(user.role) || user.role;
+  return requestCartOverrides.get(user.role) ?? requestCartOverrides.get(base) ?? effectiveRoles(user.role).includes('manager');
+}
+
 export function canSeeMoney(user: { role?: string | null; isOwner?: boolean } | undefined | null): boolean {
   if (!user) return false;
   if (user.isOwner === true || user.role === 'admin' || user.role === 'director') return true;

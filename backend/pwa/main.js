@@ -1,3 +1,4 @@
+import { mountHome } from './sections/home.js';
 import { allowsStockPanel, allowsWoodPanel, canOpen, canViewStock, stockScreenAccess, stockView, woodScreen, OWNER } from './core/route-access.js';
 import { startRain, stopRain } from './ui/cat-rain.js';
 import { startLiveSync, stopLiveSync } from './core/live-sync.js';
@@ -12,14 +13,12 @@ import { mark } from './ui/kit/mark.js';
 import { closeStep, current, go, onChange, onNav, patch, setGuard } from './core/router.js';
 import { confirmDlg, modal } from './ui/kit/dialog.js';
 import { searchBox } from './ui/kit/searchbox.js';
-import { openCard } from './ui/kit/card.js'; import { popout, popoutWanted } from './core/popout.js';
+import { popout, popoutWanted } from './core/popout.js';
 import { installGlobalErrors } from './ui/kit/errors.js';
 import { toast, toastError } from './ui/kit/toast.js';
 import { icon } from './ui/icons.js';
 import { closePopMenu, isOpenFor, openPopMenu } from './ui/kit/pop-menu.js';
-import { button, iconButton } from './ui/kit/index.js';
-import { mountList } from './ui/kit/list.js';
-import { mountHome } from './sections/home.js';
+import { button, iconButton } from './ui/kit/buttons.js';
 import { lookups } from './sections/lookups.js';
 /** Включаемые разделы: ФОТ — презентационный (TASKS Д3.6), false — пропадёт из меню и не откроется. */
 const FEATURES = { payroll: true };
@@ -45,6 +44,8 @@ const SECTIONS = {};   // имя раздела -> описание (запол�
 const FN = {};         // имя функции монтирования -> функция
 // ключ загрузчика -> [загрузчик модуля, [[имя в SECTIONS или @функция, экспорт]]]
 const LAZY = {
+  listUi: [() => import('./ui/kit/list.js'), [['@mountList', 'mountList']]],
+  cardUi: [() => import('./ui/kit/card.js'), [['@openCard', 'openCard']]],
   desk: [() => import('./sections/desk.js'), [['@mountDesk', 'mountDesk'], ['desk', 'deskTask']]],
   woodgrid: [() => import('./sections/wood-grid.js'), [['@mountWoodGrid', 'mountWoodGrid'], ['wooditem', 'woodItem']]],
   partwork: [() => import('./sections/part-work.js'), [['partwork','partWork']]], // C122: виды работ детали — правая панель
@@ -105,20 +106,13 @@ const LAZY = {
   trash: [() => import('./sections/trash.js'), [['@mountTrash','mountTrash']]],
   fill: [() => import('./sections/fill.js'), [['@mountFill','mountFill']]],
   search: [() => import('./sections/search.js'), [['@mountSearch','mountSearch']]],
+  invoiceTab: [() => import('./sections/invoices-tab.js'), [['@mountInvoicesTab','mountInvoicesTab']]],
   reqtabs: [() => import('./sections/requests-tabs.js'), [['@mountRequests','mountRequests']]],
   'stock-mobile': [() => import('./sections/stock-mobile.js'), [['stock-mobile','stockMobile']]],
 };
 // имя раздела (адрес / ?of=) -> ключ загрузчика, если они различаются
 const LOADER_OF = { salesorder: 'salesorders', orderedit: 'salesorders', worklaunch: 'work', workplan: 'work', wsstep: 'workschedule', pasteorder: 'invoice', dict: 'dicts', dicts: 'dicts', doctpl: 'docs', passarchive: 'docs', orderpass: 'docs', catalogimport: 'kp', fromorders: 'kp', frompassports: 'kp', ptextview: 'ptext', staffcard: 'staff', zonecard: 'staff', contracts: 'contract', expense: 'expenses', incpay: 'orders', incprice: 'orders', payout: 'payroll', finstart: 'money', reqreceive: 'requests', pricelist: 'suppliercatalog', modulecomp: 'modules', partblank: 'parts' };
 const loading = {};
-let warmed = false;
-/** Прогрев (скорость): после входа, в простое, подтянуть частые разделы — первое открытие без ожидания. Один раз, ошибки молча. */
-function warmUp() {
-  if (warmed) return;
-  warmed = true;
-  const run = () => { ['salesorders', 'requests', 'stock', 'design', 'products'].filter(id => allowed(id)).forEach((k) => { loadSec(k).catch(() => {}); }); };
-  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 5000 }); else setTimeout(run, 2500);
-}
 /** Загрузить модуль раздела (один раз; при сбое промис сбрасывается — повтор по «Повторить»). */
 function loadSec(key) {
   const def = LAZY[key];
@@ -127,15 +121,17 @@ function loadSec(key) {
     // старый файл из кэша рядом с новым main.js: без этой проверки — «FN.… is not a function» и бесконечная перерисовка
     if (def[1].some(([, exp]) => m[exp] === undefined)) throw new Error('Приложение обновилось. Обновите страницу (F5).');
     for (const [name, exp] of def[1]) { if (name[0] === '@') FN[name.slice(1)] = m[exp]; else SECTIONS[name] = m[exp]; }
-  }).catch((e) => { delete loading[key]; recoverStale(e); throw e; })); // старая копия + переехавшие файлы — сами на новую версию
+  }).catch((e) => { delete loading[key]; throw e; })); // старая копия + переехавшие файлы — сами на новую версию
 }
 /** Какие модули ещё нужны экрану: сам раздел + раздел панели справа (?of=). */
 function needed(section, params) {
   const keys = new Set();
   const add = (n) => { const k = LOADER_OF[n] || n; if (LAZY[k]) keys.add(k); };
   add(section); add(params?.of);
+  if (section === 'requests' || SECTIONS[section]?.list) keys.add('listUi');
+  if (params?.new || params?.open) keys.add('cardUi');
   if (section === 'stock' && woodScreen(session, params?.view)) keys.add('woodgrid');
-  if (section === 'requests') keys.add('reqtabs');
+  if (section === 'requests') { keys.add('reqtabs'); if (params?.tab === 'invoices') keys.add('invoiceTab'); }
   if (section === 'money' && params?.tab === 'debts') keys.add('orders'); // «Долги» — список из orders.js
   return [...keys].filter((k) => LAZY[k][1].some(([n]) => (n[0] === '@' ? !FN[n.slice(1)] : !SECTIONS[n])));
 }
@@ -453,7 +449,12 @@ function render(c) {
   if (section === 'requests' && params.tab === 'invoices' && params.open && !params.of) { patch({ of: 'invoicecard' }); return; }
   const miss = needed(section, params);
   if (miss.length) {
-    trackLoad(Promise.all(miss.map(loadSec))).then(() => render(current())).catch((e) => {
+    const shell = ui, generation = routeSeq, key = routeKey(c);
+    const isCurrent = () => shell === ui && shell.main.isConnected && generation === routeSeq && key === routeKey(current());
+    trackLoad(Promise.all(miss.map(loadSec))).then(() => {
+      if (isCurrent()) render(c);
+    }, (e) => {
+      if (!isCurrent() || recoverStale(e)) return;
       reportError(e, { kind: 'unhandled', action: 'загрузить раздел' });
       ui.main.replaceChildren(failBlock(e, () => { mounted = null; render(current()); }, { cls: 'panel state', text: 'Раздел не открылся' }));
       mounted = null;
@@ -483,18 +484,18 @@ function render(c) {
     else if (stockAccess?.view === 'pipe') list = FN.mountPipeGrid({ readOnly: stockAccess.readOnly });
     else if (stockAccess?.view === 'sheet') list = FN.mountSheetGrid({ readOnly: stockAccess.readOnly });
     else if (section === 'docs') list = FN.mountDocs(params, { onChanged: () => refreshCounts() });
-    else if (section === 'requests') list = FN.mountRequests(params, (p) => mountList(sec, p, {
+    else if (section === 'requests') list = FN.mountRequests(params, (p) => FN.mountList(sec, p, {
       onOpen: (row) => openRecord(section, row.id),
       onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),
       quick: sec.quick ? sec.quick(() => { mounted?.list?.reload?.(); refreshCounts(); }) : null,
       onChanged: () => { /* счётчики и список обновит dc:changed после записи */ },
-    }));
+    }), (p) => FN.mountInvoicesTab(p));
     else if (sec?.mount) {
       const el = h('div', { class: 'panel' });
       const handle = sec.mount(el, { params, setTitle: (t) => { if (ui.heading) ui.heading.textContent = t; } });
       list = { ...(handle || {}), el }; // mount может вернуть { update(params), destroy() }
     } else if (sec?.list) { // «Сопоставление»: sec — только правая панель, экран — mountMatchingQueue ниже
-      list = mountList(sec, params, {
+      list = FN.mountList(sec, params, {
         onOpen: (row) => openRecord(section, row.id),
         onCreate: () => go(section, { ...current().params, new: '1', open: undefined }, { replace: true }),
         quick: sec.quick ? sec.quick(() => { mounted?.list?.reload?.(); refreshCounts(); }) : null,
@@ -605,11 +606,11 @@ function syncCard(section, params) {
       for (const k of ['title', 'unit', 'categoryName', 'orderNo', 'productionNo', 'customer', 'companyName', 'orderId', 'article', 'supplierName', 'priceHint', 'productUrl', 'salesOrderRef', 'qty', 'supplierId', 'materialId']) if (params[k]) x[k] = params[k];
       return x;
     });
-    card = { key, of: ofName, handle: openCard(sec, { mode: 'create', initial }, ctx) };
+    card = { key, of: ofName, handle: FN.openCard(sec, { mode: 'create', initial }, ctx) };
   } else {
     // выбрано «в отдельном окне» для раздела — карточка уходит туда, основное окно не перекрывается (2026-11-10)
     if (sec.popout !== false && sec.id && !params.fill && popoutWanted(sec.id) && popout(sec.id, { remember: false })) { ctx.close(); return; }
-    card = { key, of: ofName, handle: openCard(sec, { id: params.open, fill: params.fill }, ctx) };
+    card = { key, of: ofName, handle: FN.openCard(sec, { id: params.open, fill: params.fill }, ctx) };
   }
   card.hash = location.hash;
   card.el = [...document.querySelectorAll('aside.drawer')].at(-1); // своя панель карточки, не вложенная
@@ -656,7 +657,6 @@ async function showApp() {
   ui = shell();
   mounted = null; card = null;
   render(current());
-  warmUp();
   // Свежие данные о пользователе (роль могла измениться)
   // SK-8b: изменились разделы роли — перестроить меню и проверить текущий экран
   refreshMe();
@@ -667,7 +667,7 @@ function refreshMe() {
   return api('/auth/me').then(async (me) => {
     if (!(me?.id || me?.username)) return;
     const access = () => JSON.stringify([session.role, session.user?.role, session.user?.isOwner,
-      session.user?.sections, session.user?.stockViews, session.canMoney, stockView(session.user), session.user?.roleLabel]);
+      session.user?.sections, session.user?.stockViews, session.user?.requestCartCreate, session.canMoney, stockView(session.user), session.user?.roleLabel]);
     const was = access();
     const face = (u) => `${u?.avatar ?? ''}|${u?.displayName ?? ''}`;
     const wasFace = face(session.realUser);

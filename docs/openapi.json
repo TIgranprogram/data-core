@@ -364,7 +364,7 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": "List of roles"
+            "description": "Роли с вычисленным правом requestCartCreate и настройкой requestCartCreateOverride (boolean или null для наследования)"
           },
           "401": {
             "description": "Unauthorized"
@@ -438,7 +438,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Role found"
+            "description": "Роль с вычисленным правом requestCartCreate и настройкой requestCartCreateOverride"
           },
           "401": {
             "description": "Unauthorized"
@@ -5734,6 +5734,7 @@
     "/api/supply/requests/bulk": {
       "post": {
         "operationId": "SupplyController_createBulk",
+        "summary": "Создать заявки из каталога при разрешении requestCartCreate и доступе к разделу «Заявки»",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -21255,6 +21256,11 @@
           "isSystem": {
             "type": "boolean",
             "description": "Системная роль (нельзя удалить)"
+          },
+          "requestCartCreate": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Создание заявок из каталога; null — наследовать право"
           }
         },
         "required": [
@@ -21383,6 +21389,11 @@
                 "sheet"
               ]
             }
+          },
+          "requestCartCreate": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Создание заявок из каталога; null — наследовать право"
           }
         }
       },

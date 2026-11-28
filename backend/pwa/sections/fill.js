@@ -5,7 +5,7 @@ import { qty, parseNum } from '../core/format.js';
 import { go, patch } from '../core/router.js';
 import { opThumb } from '../ui/op-row.js';
 import { toast, toastError } from '../ui/kit/toast.js';
-import { empty, button } from '../ui/kit/index.js';
+import { empty, button } from '../ui/kit/basics.js';
 import { requestInvoiceOperation } from './invoice-workspace-state.js';
 import { withReason } from './admin-override.js';
 

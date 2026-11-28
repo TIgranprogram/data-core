@@ -1,3 +1,4 @@
+import { unmatchedCount } from './matching-count.js';
 import { api, session } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { qty } from '../core/format.js';
@@ -23,7 +24,6 @@ const LIMIT = 50;
 
 /** Количество несопоставленных позиций: {total, inProduction}. */
 // роль без «Сопоставления» (кладовщик) не спрашивает: сервер ответил бы 403, лишняя строка в журнале ошибок
-export const unmatchedCount = () => (session.sees('matching') ? api('/matching/unmatched/count').catch(() => ({ total: 0, inProduction: 0 })) : Promise.resolve({ total: 0, inProduction: 0 }));
 
 /** Жёлтая плашка «N позиций не связаны с продукцией — Сопоставить» (заказ не блокируется). */
 export function unmatchedPlate(n, orderId) {

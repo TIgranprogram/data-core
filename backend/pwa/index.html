@@ -28,20 +28,13 @@
   <script type="module" src="main.js"></script>
   <!-- preload:begin (node backend/scripts/pwa-preload.mjs) -->
   <link rel="modulepreload" href="core/api.js" />
-  <link rel="modulepreload" href="core/cache.js" />
   <link rel="modulepreload" href="core/dom.js" />
   <link rel="modulepreload" href="core/error-context.js" />
   <link rel="modulepreload" href="core/errors.js" />
-  <link rel="modulepreload" href="core/facets.js" />
   <link rel="modulepreload" href="core/format.js" />
   <link rel="modulepreload" href="core/garbage.js" />
-  <link rel="modulepreload" href="core/grammar.js" />
-  <link rel="modulepreload" href="core/list-filter-state.js" />
   <link rel="modulepreload" href="core/live-sync.js" />
   <link rel="modulepreload" href="core/nav-stack.js" />
-  <link rel="modulepreload" href="core/order-color.js" />
-  <link rel="modulepreload" href="core/orders-lookup.js" />
-  <link rel="modulepreload" href="core/passport-kinds.js" />
   <link rel="modulepreload" href="core/popout.js" />
   <link rel="modulepreload" href="core/prefs.js" />
   <link rel="modulepreload" href="core/rate-limit-retry.js" />
@@ -50,184 +43,49 @@
   <link rel="modulepreload" href="core/route-access.js" />
   <link rel="modulepreload" href="core/router.js" />
   <link rel="modulepreload" href="core/stale.js" />
-  <link rel="modulepreload" href="core/stock-display.js" />
   <link rel="modulepreload" href="core/stock-list.js" />
   <link rel="modulepreload" href="core/update-check.js" />
   <link rel="modulepreload" href="core/view-as.js" />
   <link rel="modulepreload" href="core/write-retry.js" />
-  <link rel="modulepreload" href="core/xlsx-read.js" />
-  <link rel="modulepreload" href="core/xlsx-write.js" />
   <link rel="modulepreload" href="core/zone.js" />
   <link rel="modulepreload" href="sections/admin-override.js" />
-  <link rel="modulepreload" href="sections/bulk-edit.js" />
   <link rel="modulepreload" href="sections/fill.js" />
-  <link rel="modulepreload" href="sections/financial-articles-state.js" />
-  <link rel="modulepreload" href="sections/financial-articles.js" />
   <link rel="modulepreload" href="sections/home-ui.js" />
   <link rel="modulepreload" href="sections/home.js" />
   <link rel="modulepreload" href="sections/invoice-workspace-state.js" />
-  <link rel="modulepreload" href="sections/issue.js" />
-  <link rel="modulepreload" href="sections/item-orders.js" />
   <link rel="modulepreload" href="sections/lookups.js" />
-  <link rel="modulepreload" href="sections/matching-queue.js" />
-  <link rel="modulepreload" href="sections/metal.js" />
-  <link rel="modulepreload" href="sections/movements.js" />
-  <link rel="modulepreload" href="sections/ops-weight.js" />
-  <link rel="modulepreload" href="sections/ops.js" />
-  <link rel="modulepreload" href="sections/order-archive.js" />
-  <link rel="modulepreload" href="sections/order-attachments-zip.js" />
-  <link rel="modulepreload" href="sections/order-blocks.js" />
-  <link rel="modulepreload" href="sections/order-bulk.js" />
-  <link rel="modulepreload" href="sections/order-design.js" />
-  <link rel="modulepreload" href="sections/order-footer.js" />
-  <link rel="modulepreload" href="sections/order-line-actions.js" />
-  <link rel="modulepreload" href="sections/order-line-files.js" />
-  <link rel="modulepreload" href="sections/order-line-more.js" />
-  <link rel="modulepreload" href="sections/order-line-passports.js" />
-  <link rel="modulepreload" href="sections/order-lines.js" />
-  <link rel="modulepreload" href="sections/order-passport-plan.js" />
-  <link rel="modulepreload" href="sections/order-passport-text.js" />
-  <link rel="modulepreload" href="sections/order-product-picker.js" />
-  <link rel="modulepreload" href="sections/order-reservations.js" />
-  <link rel="modulepreload" href="sections/order-shipments.js" />
-  <link rel="modulepreload" href="sections/order-stage.js" />
-  <link rel="modulepreload" href="sections/order-work.js" />
-  <link rel="modulepreload" href="sections/orders.js" />
-  <link rel="modulepreload" href="sections/passport-source-picker.js" />
-  <link rel="modulepreload" href="sections/passports/book-template.js" />
-  <link rel="modulepreload" href="sections/passports/common.js" />
-  <link rel="modulepreload" href="sections/passports/fill/model.js" />
-  <link rel="modulepreload" href="sections/passports/print-options.js" />
-  <link rel="modulepreload" href="sections/passports/traits.js" />
-  <link rel="modulepreload" href="sections/pipe-grid.js" />
-  <link rel="modulepreload" href="sections/product-attachments.js" />
-  <link rel="modulepreload" href="sections/qr.js" />
-  <link rel="modulepreload" href="sections/reservations.js" />
-  <link rel="modulepreload" href="sections/sales-legal-state.js" />
-  <link rel="modulepreload" href="sections/sales-legal.js" />
-  <link rel="modulepreload" href="sections/salesorders-import.js" />
-  <link rel="modulepreload" href="sections/salesorders-lines.js" />
-  <link rel="modulepreload" href="sections/salesorders-matching.js" />
-  <link rel="modulepreload" href="sections/salesorders-next.js" />
-  <link rel="modulepreload" href="sections/salesorders-unassigned.js" />
-  <link rel="modulepreload" href="sections/salesorders.js" />
-  <link rel="modulepreload" href="sections/sheet-grid.js" />
-  <link rel="modulepreload" href="sections/stock-bulk.js" />
-  <link rel="modulepreload" href="sections/stock-card.js" />
-  <link rel="modulepreload" href="sections/stock-dimension-columns.js" />
-  <link rel="modulepreload" href="sections/stock-duplicate-preview.js" />
-  <link rel="modulepreload" href="sections/stock-grid-input.js" />
-  <link rel="modulepreload" href="sections/stock-issue-card.js" />
-  <link rel="modulepreload" href="sections/stock-issue.js" />
-  <link rel="modulepreload" href="sections/stock-ops-pick.js" />
-  <link rel="modulepreload" href="sections/stock-ops-res.js" />
-  <link rel="modulepreload" href="sections/stock-ops.js" />
-  <link rel="modulepreload" href="sections/stock-passport.js" />
-  <link rel="modulepreload" href="sections/stock-requests.js" />
-  <link rel="modulepreload" href="sections/stock-table-columns.js" />
-  <link rel="modulepreload" href="sections/stock-types.js" />
-  <link rel="modulepreload" href="sections/stock-worker-confirm.js" />
-  <link rel="modulepreload" href="sections/stock-worker-context-view.js" />
-  <link rel="modulepreload" href="sections/stock-worker-context.js" />
-  <link rel="modulepreload" href="sections/stock-worker-create.js" />
-  <link rel="modulepreload" href="sections/stock-worker-details.js" />
-  <link rel="modulepreload" href="sections/stock-worker-grid.js" />
-  <link rel="modulepreload" href="sections/stock-worker-history.js" />
-  <link rel="modulepreload" href="sections/stock-worker-model.js" />
-  <link rel="modulepreload" href="sections/stock-worker-scope.js" />
-  <link rel="modulepreload" href="sections/stock-worktable.js" />
-  <link rel="modulepreload" href="sections/stock.js" />
-  <link rel="modulepreload" href="sections/warehouse-mobile.js" />
-  <link rel="modulepreload" href="sections/work-composition.js" />
-  <link rel="modulepreload" href="sections/work-facts.js" />
-  <link rel="modulepreload" href="sections/work-launch.js" />
-  <link rel="modulepreload" href="sections/work-route.js" />
+  <link rel="modulepreload" href="sections/matching-count.js" />
   <link rel="modulepreload" href="ui/app-badge.js" />
   <link rel="modulepreload" href="ui/avatars.js" />
   <link rel="modulepreload" href="ui/bell.js" />
-  <link rel="modulepreload" href="ui/board.js" />
-  <link rel="modulepreload" href="ui/cat-art.js" />
   <link rel="modulepreload" href="ui/cat-rain.js" />
   <link rel="modulepreload" href="ui/chat-button.js" />
   <link rel="modulepreload" href="ui/chat-window.js" />
-  <link rel="modulepreload" href="ui/composition-suggest.js" />
-  <link rel="modulepreload" href="ui/confirm-password.js" />
   <link rel="modulepreload" href="ui/dict-options.js" />
-  <link rel="modulepreload" href="ui/history.js" />
   <link rel="modulepreload" href="ui/icons.js" />
-  <link rel="modulepreload" href="ui/kit/auto-more.js" />
   <link rel="modulepreload" href="ui/kit/badges.js" />
+  <link rel="modulepreload" href="ui/kit/basics.js" />
   <link rel="modulepreload" href="ui/kit/blocks.js" />
-  <link rel="modulepreload" href="ui/kit/board.js" />
   <link rel="modulepreload" href="ui/kit/busy.js" />
-  <link rel="modulepreload" href="ui/kit/card-gallery.js" />
-  <link rel="modulepreload" href="ui/kit/card-menu.js" />
-  <link rel="modulepreload" href="ui/kit/card-parent.js" />
-  <link rel="modulepreload" href="ui/kit/card-tabs.js" />
-  <link rel="modulepreload" href="ui/kit/card.js" />
+  <link rel="modulepreload" href="ui/kit/buttons.js" />
   <link rel="modulepreload" href="ui/kit/crumbs.js" />
   <link rel="modulepreload" href="ui/kit/dialog.js" />
   <link rel="modulepreload" href="ui/kit/drag.js" />
   <link rel="modulepreload" href="ui/kit/empty.js" />
-  <link rel="modulepreload" href="ui/kit/entity-panel.js" />
   <link rel="modulepreload" href="ui/kit/errors.js" />
-  <link rel="modulepreload" href="ui/kit/filter-panel.js" />
-  <link rel="modulepreload" href="ui/kit/filter.js" />
-  <link rel="modulepreload" href="ui/kit/folder-tile.js" />
-  <link rel="modulepreload" href="ui/kit/form.js" />
-  <link rel="modulepreload" href="ui/kit/funnel.js" />
   <link rel="modulepreload" href="ui/kit/gallery.js" />
-  <link rel="modulepreload" href="ui/kit/guide.js" />
-  <link rel="modulepreload" href="ui/kit/index.js" />
-  <link rel="modulepreload" href="ui/kit/links.js" />
-  <link rel="modulepreload" href="ui/kit/list-chips.js" />
-  <link rel="modulepreload" href="ui/kit/list-periods.js" />
-  <link rel="modulepreload" href="ui/kit/list-rows.js" />
-  <link rel="modulepreload" href="ui/kit/list-tiles.js" />
-  <link rel="modulepreload" href="ui/kit/list-view.js" />
-  <link rel="modulepreload" href="ui/kit/list.js" />
   <link rel="modulepreload" href="ui/kit/mark.js" />
-  <link rel="modulepreload" href="ui/kit/mobile.js" />
-  <link rel="modulepreload" href="ui/kit/panel.js" />
-  <link rel="modulepreload" href="ui/kit/pdf-preview.js" />
-  <link rel="modulepreload" href="ui/kit/photos.js" />
-  <link rel="modulepreload" href="ui/kit/pick.js" />
-  <link rel="modulepreload" href="ui/kit/planner-axis.js" />
-  <link rel="modulepreload" href="ui/kit/planner-bar.js" />
-  <link rel="modulepreload" href="ui/kit/planner-tree.js" />
-  <link rel="modulepreload" href="ui/kit/planner.js" />
   <link rel="modulepreload" href="ui/kit/pop-menu.js" />
-  <link rel="modulepreload" href="ui/kit/pos-pic.js" />
-  <link rel="modulepreload" href="ui/kit/qty-input.js" />
-  <link rel="modulepreload" href="ui/kit/readonly.js" />
   <link rel="modulepreload" href="ui/kit/recent-cards.js" />
-  <link rel="modulepreload" href="ui/kit/screens/blocks.js" />
-  <link rel="modulepreload" href="ui/kit/screens/card.js" />
   <link rel="modulepreload" href="ui/kit/searchbox.js" />
-  <link rel="modulepreload" href="ui/kit/side-form.js" />
-  <link rel="modulepreload" href="ui/kit/similar.js" />
-  <link rel="modulepreload" href="ui/kit/src.js" />
-  <link rel="modulepreload" href="ui/kit/stage-bar.js" />
-  <link rel="modulepreload" href="ui/kit/table.js" />
   <link rel="modulepreload" href="ui/kit/tabs.js" />
-  <link rel="modulepreload" href="ui/kit/target-picker.js" />
   <link rel="modulepreload" href="ui/kit/toast.js" />
-  <link rel="modulepreload" href="ui/kit/tree-table.js" />
   <link rel="modulepreload" href="ui/kit/warn-card.js" />
-  <link rel="modulepreload" href="ui/links.js" />
-  <link rel="modulepreload" href="ui/list-export.js" />
-  <link rel="modulepreload" href="ui/materials-spec.js" />
   <link rel="modulepreload" href="ui/notice-card.js" />
   <link rel="modulepreload" href="ui/notices.js" />
   <link rel="modulepreload" href="ui/op-row.js" />
-  <link rel="modulepreload" href="ui/phrases.js" />
-  <link rel="modulepreload" href="ui/popup.js" />
-  <link rel="modulepreload" href="ui/pos-pic.js" />
   <link rel="modulepreload" href="ui/resizer.js" />
-  <link rel="modulepreload" href="ui/responsible.js" />
-  <link rel="modulepreload" href="ui/rows-table.js" />
   <link rel="modulepreload" href="ui/search-logic.js" />
-  <link rel="modulepreload" href="ui/weight-count.js" />
   <!-- preload:end -->
 </body>
 </html>

@@ -6,7 +6,7 @@ import { date, money } from '../core/format.js';
 import { INVOICE_STATUS, badge, enhanceSelect, empty, table, link, autoMore, button, field, searchBox } from '../ui/kit/index.js';
 import { filterPanel } from '../ui/kit/filter-panel.js';
 import { lookups } from './lookups.js';
-import { articleTree, articleFilterOptions } from './expenses.js';
+import { articleTree, articleFilterOptions } from './expense-article-options.js';
 
 /** Вкладка — только список/фильтры. Все операции и позиции находятся в routable invoicecard. */
 const LIMIT = 30;

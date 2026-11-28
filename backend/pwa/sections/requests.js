@@ -1,6 +1,6 @@
 import { grp, enhanceSelect } from '../ui/kit/index.js';
 import { paintOrder } from '../core/order-color.js';
-import { api, PREFIX, session } from '../core/api.js';
+import { api, canUseRequestCart, PREFIX, session } from '../core/api.js';
 import { normSearch } from '../core/facets.js';
 import { h } from '../core/dom.js';
 import { responsibleField, handoffLine } from '../ui/responsible.js';
@@ -18,15 +18,15 @@ import { quickAdd } from '../ui/quick.js';
 import { openSide, sideForm } from '../ui/kit/side-form.js';
 import { toast, toastError } from '../ui/kit/toast.js';
 import { lookups, UNITS, unitList, partnerAction } from './lookups.js';
-import { pic } from './stock.js';
+import { pic } from '../ui/kit/stock-pic.js';
 import { dictNames } from '../ui/dict-options.js';
-import { joinRef, orderLabel, orderOptions } from './salesorders.js';
+import { joinRef, orderLabel, orderOptions } from './order-options.js';
 import { requestBody, requestPatch, toInitial } from './request-form-payload.js';
 import { wireFill } from './request-fill.js';
 import { adminAction, isAdmin, withReason } from './admin-override.js';
 import { ordersLookup } from '../core/orders-lookup.js';
 import { advance, bulkOrder, invoiceBlock, missingFor, nextStep, stageStrip } from './request-step.js';
-import { invoiceActions } from './request-invoice-actions.js'; import { acceptRequests } from './ops.js'; import { linkStockFields } from './request-link.js'; import { articleTree, articleFilterOptions, requestArticleField } from './expenses.js';
+import { invoiceActions } from './request-invoice-actions.js'; import { linkStockFields } from './request-link.js'; import { articleTree, articleFilterOptions, requestArticleField } from './expense-article-options.js';
 /** Раздел «Заявки» (PRODUCT §1) — коллекция supplyrequests через /api/supply. */
 /** «+ Новый заказчик «…»» и «Заказчик: X · Объект: Y» под списком поля «Заказчик» (TASKS ЗЧ.2). */
 function customerActions(text, shown, form) {
@@ -294,8 +294,8 @@ export const requests = {
     createLabel: 'Заявка',
     // «+ Счёт» — внести уже оплаченный/полученный счёт с позициями одним окном (TASKS В.3)
     // П2: один главный вход «+ Заявка», каталог — вторичный способ создания.
-    headActions: () => ['admin', 'manager'].includes(session.role) || session.user?.isOwner === true
-      ? [button({ label: 'Из каталога', title: 'Собрать заявки в корзину', onClick: () => patch({ of: 'requestcart', new: '1', open: undefined }) })] : [],
+    canHeadActions: canUseRequestCart,
+    headActions: () => [button({ label: 'Из каталога', title: 'Собрать заявки в корзину', onClick: () => patch({ of: 'requestcart', new: '1', open: undefined }) })],
     moreActions: () => [
       { label: 'Заявки из таблицы', title: 'Скопировать строки из Excel / корзины сайта — заявки на все позиции сразу', onSelect: () => patch({ of: 'pasteorder', new: '1', open: undefined }) },
       { label: 'Счёт без заявок', title: 'Счёт, которого не было в заявках: внести уже оплаченный или полученный счёт со всеми позициями', onSelect: () => patch({ of: 'invoice', new: '1', open: undefined }) }],
@@ -360,7 +360,7 @@ export const requests = {
       label: (rows) => (new Set(rows.map(supplyKey)).size > 1 ? 'Отметьте один статус: «Заказать» или «Оплачено»' : rows.every((r) => supplyKey(r) === 'paid') ? 'Принять на склад' : 'Заказал у поставщика'),
       open: (ids, { done, rows }) => {
         const paid = rows.filter((r) => supplyKey(r) === 'paid');
-        (paid.length ? acceptRequests(`Принять на склад: ${paid.length}`, paid) : bulkOrder(rows)).then((n) => { if (n) done(); });
+        (paid.length ? import('./ops.js').then(({ acceptRequests }) => acceptRequests(`Принять на склад: ${paid.length}`, paid)) : bulkOrder(rows)).then((n) => { if (n) done(); });
       } },
     rowAction: (r) => {
       const k = supplyKey(r);

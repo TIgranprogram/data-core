@@ -8,6 +8,7 @@ import { findBrowser } from '../../tools/browser-path.mjs';
 const source = await readFile(new URL('./admin.js', import.meta.url), 'utf8');
 const helpers = source.slice(source.indexOf('  const checkedOf ='), source.indexOf('  /** Поля роли:'));
 const forms = source.slice(source.indexOf('  function roleForm('), source.indexOf('  function toggleRole('));
+const operationModule = await readFile(new URL('./role-operation-settings.js', import.meta.url), 'utf8');
 const stockModule = await readFile(new URL('./role-stock-views.js', import.meta.url), 'utf8');
 const tokens = (await readFile(new URL('../pwa/ui/tokens.css', import.meta.url), 'utf8')).replaceAll("url('../fonts/", "url('http://c240-role.test/app/fonts/");
 const css = tokens + '\n' + await readFile(new URL('./admin.css', import.meta.url), 'utf8');
@@ -15,26 +16,27 @@ let browser;
 before(async () => { browser = await chromium.launch({ executablePath: findBrowser(), headless: true }); });
 after(async () => { await browser?.close(); });
 
-async function fixture(t, role, isNew = false, theme = 'light') {
+async function fixture(t, role, isNew = false, theme = 'light', roleItems = []) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }); t.after(() => page.close());
   await page.route('http://c240-role.test/app/fonts/*', async route => {
     const name = new URL(route.request().url()).pathname.split('/').pop();
     await route.fulfill({ contentType: 'font/woff2', body: await readFile(new URL('../pwa/fonts/' + name, import.meta.url)) });
   });
   await page.setContent('<!doctype html><html data-theme="' + theme + '"><head><meta charset="utf-8"><style>' + css + '</style></head><body><main class="main"><section class="panel"><h1>Настройка роли</h1><div id="fixture"></div></section></main></body></html>');
-  await page.evaluate(({ role, isNew, helpers, forms, stockModule }) => {
+  await page.evaluate(({ role, isNew, helpers, forms, stockModule, operationModule, roleItems }) => {
     const el = (tag, cls, txt) => { const n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; };
-    const roleState = { sections: [{ id: 'stock', label: 'Остатки' }, { id: 'money', label: 'Деньги' }, { id: 'products', label: 'Продукция' }], zones: [], stockCats: [] };
-    const ROLE_GROUPS = [['Склад', ['stock']], ['Деньги', ['money']], ['Продукция', ['products']]];
+    const roleState = { sections: [{ id: 'stock', label: 'Остатки' }, { id: 'money', label: 'Деньги' }, { id: 'products', label: 'Продукция' }, { id: 'requests', label: 'Заявки' }], zones: [], stockCats: [] };
+    const roleList = { items: roleItems };
+    const ROLE_GROUPS = [['Склад', ['stock']], ['Деньги', ['money']], ['Продукция', ['products']], ['Снабжение', ['requests']]];
     const ROLE_RULES = [], ROLE_PRESETS = [], BASE_ROLES = ['user', 'manager', 'accountant', 'director', 'admin'];
     const ROLE_HINT = { user: 'Наблюдатель', manager: 'Менеджер', accountant: 'Бухгалтер', director: 'Директор', admin: 'Администратор' };
     const BASE_RANK = { user: 0, manager: 1, accountant: 2, director: 3, admin: 4 };
     const isBuiltinRole = name => BASE_ROLES.includes(name), roleTitle = r => r.label || ROLE_HINT[r.name] || r.name;
     // Вызываются реальные roleForm/roleBody и общие checkGrid/roleCard, а не копия поведения формы.
-    eval(stockModule);
+    eval(stockModule); eval(operationModule);
     eval(helpers + '\n' + forms + '\nwindow.c240Form = roleForm(role, isNew); window.c240Body = () => roleBody(window.c240Form);');
     document.querySelector('#fixture').append(window.c240Form.wrap);
-  }, { role, isNew, helpers, forms, stockModule });
+  }, { role, isNew, helpers, forms, stockModule, operationModule, roleItems });
   return page;
 }
 
@@ -82,4 +84,44 @@ test('classic helper подключён перед admin.js без async/module'
   const html = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.match(html, /<script src="role-stock-views\.js"><\/script>/);
   assert.ok(html.indexOf('src="role-stock-views.js"') < html.indexOf('src="admin.js"'));
+});
+
+test('заявки из каталога: снятая галочка сохраняется как false, в том числе у администратора', async t => {
+  for (const name of ['manager', 'director', 'admin']) {
+    const role = { name, appSections: ['requests'] };
+    const page = await fixture(t, role);
+    const choice = page.getByRole('checkbox', { name: 'Создание заявок из каталога' });
+    assert.equal(await choice.isChecked(), true);
+    assert.equal(Object.hasOwn(await page.evaluate(() => window.c240Body()), 'requestCartCreate'), false);
+    await choice.uncheck();
+    const saved = await page.evaluate(() => window.c240Body());
+    assert.equal(saved.requestCartCreate, false);
+    const again = await fixture(t, { ...role, ...saved });
+    assert.equal(await again.getByLabel('Создание заявок из каталога').isChecked(), false);
+  }
+});
+
+test('новая роль наследует базу, ручное решение сохраняется при смене базовой роли', async t => {
+  const page = await fixture(t, { name: '', baseRole: 'manager' }, true);
+  const choice = page.getByLabel('Создание заявок из каталога');
+  const base = page.getByLabel('Права как у');
+  await base.selectOption('user');
+  assert.equal(await choice.isChecked(), false);
+  await base.selectOption('accountant');
+  assert.equal(await choice.isChecked(), true);
+  await choice.uncheck();
+  await base.selectOption('director');
+  assert.equal(await choice.isChecked(), false);
+  assert.equal((await page.evaluate(() => window.c240Body())).requestCartCreate, false);
+  const existing = await fixture(t, { name: 'r-special', baseRole: 'user', requestCartCreate: true });
+  assert.equal(await existing.getByLabel('Создание заявок из каталога').isChecked(), true);
+  await existing.getByRole('button', { name: 'Вернуть по умолчанию' }).click();
+  assert.equal(await existing.getByLabel('Создание заявок из каталога').isChecked(), false);
+  assert.equal((await existing.evaluate(() => window.c240Body())).requestCartCreate, null);
+  const inherited = await fixture(t, { name: 'r-office', baseRole: 'director', requestCartCreate: false, requestCartCreateOverride: null },
+    false, 'light', [{ name: 'director', requestCartCreate: false }, { name: 'user', requestCartCreate: true }]);
+  assert.equal(await inherited.getByLabel('Создание заявок из каталога').isChecked(), false);
+  await inherited.getByLabel('Права как у').selectOption('user');
+  assert.equal(await inherited.getByLabel('Создание заявок из каталога').isChecked(), true);
+  assert.equal(Object.hasOwn(await inherited.evaluate(() => window.c240Body()), 'requestCartCreate'), false);
 });

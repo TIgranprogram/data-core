@@ -1,5 +1,6 @@
 import { UndatedInvoicePaymentDto, RevokeUndatedInvoicePaymentDto } from './dto-invoice';
 import { canSeeMoney } from '../../common/roles-hierarchy';
+import { RequestCartCreateGuard } from './request-cart-create.guard';
 import { CreateInvoicePaymentDto, VoidInvoicePaymentDto, LegacyPayInvoiceDto } from './dto-invoice';
 import { AppSection, AppSectionFree } from '../../common/decorators/app-section.decorator';
 import { BadRequestException, Body, Controller, ForbiddenException, Delete, Get, HttpCode, Ip, Param, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common';
@@ -395,7 +396,8 @@ export class SupplyController {
 
   /** Заявки пачкой (C036 Ш3): отметили позиции — по заявке на каждую, поставщик и цена из прошлых закупок. */
   @Post('requests/bulk')
-  @Roles('admin', 'manager')
+  @UseGuards(RequestCartCreateGuard)
+  @ApiOperation({ summary: 'Создать заявки из каталога при разрешении requestCartCreate и доступе к разделу «Заявки»' })
   @AuditAction({ action: 'supply.request.created', entityType: 'SupplyRequest' })
   createBulk(@Body() dto: SupplyBulkDto, @StockScoped() scope: StockScope | null, @CurrentUser() user?: AuthenticatedUser) {
     return this.supply.createBulk(dto, scope, user?.id);

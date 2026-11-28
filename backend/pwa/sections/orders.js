@@ -8,7 +8,7 @@ import { badge } from '../ui/kit/badges.js';
 import { toast } from '../ui/kit/toast.js';
 import { openSide, noteField, sideForm } from '../ui/kit/side-form.js';
 import { UNITS, unitList, lookups } from './lookups.js';
-import { pic } from './stock.js';
+import { pic } from '../ui/kit/stock-pic.js';
 import { dictNames } from '../ui/dict-options.js';
 import { customerLink } from '../ui/links.js';
 import { crumbTrail } from './order-stage.js';

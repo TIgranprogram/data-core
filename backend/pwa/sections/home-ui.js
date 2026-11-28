@@ -1,7 +1,7 @@
 import { api } from '../core/api.js';
 import { h } from '../core/dom.js';
 import { isoDay, qty } from '../core/format.js';
-import { section, stack, link, hint } from '../ui/kit/index.js';
+import { section, stack, link, hint } from '../ui/kit/basics.js';
 import { busyBlock, failBlock } from '../ui/kit/busy.js';
 const SVGNS = 'http://www.w3.org/2000/svg';
 

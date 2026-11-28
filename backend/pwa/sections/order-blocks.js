@@ -64,7 +64,8 @@ export function issuedBlock(d, suggestLink) {
 }
 
 export const sec = (title, tone, count, ...kids) => section({ title, tone, count, open: tone === 'money' || undefined, body: kids });
-export const seq = (l, i) => l.seqNo ?? l.lineNo ?? i + 1;
+import { seq } from './order-options.js';
+export { seq };
 /** «К производству»: одинаковые позиции всех договоров заказа сложены вместе (только просмотр). */
 export function produceBlock(d, openLine) {
   const t = d.toProduce || [];
