@@ -248,7 +248,9 @@ test('основные колонки выбираются по полному s
   const missing = await fixture(t, { kind: 'main', unknownSize: true });
   await missing.page.evaluate(async () => (await import('/app/core/router.js')).patch({ categoryId: 'missing-size' }));
   await missing.page.getByRole('columnheader', { name: 'Размеры', exact: true }).waitFor();
-  assert.equal(await missing.page.getByText('Размеры не указаны', { exact: true }).count(), 1);
+  const missingSize = missing.page.getByText('Размеры не указаны', { exact: true });
+  await missingSize.waitFor();
+  assert.equal(await missingSize.count(), 1);
 });
 
 test('форма металла хранит W/H/D отдельно; частичная смена длины не обнуляет ширину профиля', async t => {
