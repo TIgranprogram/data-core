@@ -43,9 +43,13 @@ describe('Болтовое соединение в готовом тексте �
   const install = { _id: 'bolted', code: 'BOLTED', name: 'Болтовое соединение', montage: 'Соедините детали болтами по схеме изделия.' };
   const leaf = { id: 'old', name: 'Анкеры', section: 'installation', text: 'Сверлите отверстия под анкеры.', installTypeId: 'anchor', children: [] };
   const forest = [{ ...leaf, id: 'installation', children: [leaf] }] as never;
+  const savedTemplate = structuredClone(all);
+  const mounting = savedTemplate.sections.find(s => s.key === 'mounting')!;
+  mounting.paragraphs[mounting.ids!.indexOf('p6')] = 'Способ крепления изделия к основанию, требования к основанию и порядок сборки приведены в описании способа установки и на схемах, прилагаемых к паспорту.';
+  mounting.paragraphs[mounting.ids!.indexOf('p8')] = 'Во время монтажа контролируют соответствие положения изделия монтажной схеме, включая вертикальность и горизонтальность, а также затяжку крепёжных соединений при их наличии.';
   const build = (category: 'BLG' | 'DIO', name: string, element: string, extra = {}) => buildV2Text({
     passport: { name, passportCategory: category, elements: [element], materialIds: ['steel'], joints: ['bolts'], installationTypeId: install._id, ...extra },
-    all: structuredClone(all), own: structuredClone(PASSPORT_TEXTS_V2[category]), dicts: { ...dicts, install: [install] },
+    all: category === 'BLG' ? savedTemplate : all, own: structuredClone(PASSPORT_TEXTS_V2[category]), dicts: { ...dicts, install: [install] },
     funnel: { forest, choices: { installation: 'old' } },
   });
   it.each([['BLG', 'Секция ограждения', 'fence'], ['DIO', 'Игровая панель', 'slide']] as const)(
@@ -55,7 +59,7 @@ describe('Болтовое соединение в готовом тексте �
       const printed = [snapshot.install.text, ...snapshot.sections.flatMap(s => s.items.map(i => i.text))].join('\n');
       expect(printed).toContain(name);
       expect(printed).toContain('затяжку болтов');
-      expect(printed).not.toMatch(/фундамент|вертикальность стоек|подземных коммуникаций|анкеры|бетон/i);
+      expect(printed).not.toMatch(/фундамент|вертикальность|подземных коммуникаций|крепления изделия к основанию|анкеры|бетон/i);
       expect(snapshot.choices).not.toHaveProperty('installation');
       expect(snapshot.refs.install).toMatchObject({ kind: 'install', id: install._id });
     });
