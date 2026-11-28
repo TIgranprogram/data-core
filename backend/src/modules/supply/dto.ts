@@ -79,6 +79,7 @@ export class SupplyBulkLineDto {
   @ApiPropertyOptional({ description: 'Позиция склада (материал)' }) @IsMongoId() materialId!: string;
   @ApiPropertyOptional({ description: 'Количество, больше нуля' }) @IsNumber() @Min(0.000001) qty!: number;
   @ApiPropertyOptional({ description: 'Поставщик (organizations.id); пусто — из прошлых закупок' }) @IsOptional() @IsMongoId() supplierId?: string;
+  @ApiPropertyOptional({ description: 'Примечание к заявке', maxLength: 2000 }) @IsOptional() @IsString() @Length(0, 2000) note?: string;
 }
 
 /** Заявки пачкой: по одной на строку; повтор с тем же clientUid не плодит дубли. */

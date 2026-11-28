@@ -1,0 +1,87 @@
+{
+  "date": "2026-11-28",
+  "baseCommit": "fa25c6359e59cecb6baa59bb3094de563dcd31c8",
+  "mongo": "4.4 rs0, 127.0.0.1:27280, datacore-test-*",
+  "unit": {
+    "suites": 425,
+    "tests": 4349
+  },
+  "e2e": {
+    "suites": 116,
+    "tests": 966,
+    "failed": 0,
+    "skipped": 0,
+    "groups": {
+      "c172-release": {
+        "suites": 3,
+        "tests": 74
+      },
+      "c240-c242": {
+        "suites": 2,
+        "tests": 14
+      },
+      "c244-photo": {
+        "suites": 1,
+        "tests": 4
+      },
+      "c198-acts": {
+        "suites": 1,
+        "tests": 3
+      },
+      "c274-stock": {
+        "suites": 1,
+        "tests": 7
+      },
+      "t26-c280release": {
+        "suites": 1,
+        "tests": 12
+      },
+      "batch-1": {
+        "suites": 13,
+        "tests": 110
+      },
+      "access": {
+        "suites": 1,
+        "tests": 23
+      },
+      "batch-2": {
+        "suites": 14,
+        "tests": 87
+      },
+      "batch-3": {
+        "suites": 14,
+        "tests": 111
+      },
+      "batch-4": {
+        "suites": 14,
+        "tests": 86
+      },
+      "batch-5": {
+        "suites": 14,
+        "tests": 103
+      },
+      "batch-6": {
+        "suites": 14,
+        "tests": 98
+      },
+      "batch-7": {
+        "suites": 14,
+        "tests": 142
+      },
+      "batch-8": {
+        "suites": 8,
+        "tests": 70
+      },
+      "reset": {
+        "suites": 1,
+        "tests": 22
+      }
+    }
+  },
+  "typecheck": 0,
+  "finalDelta": {
+    "src\\modules\\stock\\stock.controller.ts": "0410f944ca9b269cc3120b483b42a7e718099a22262072f85bbc40b24c132103",
+    "test\\e2e\\app-sections.e2e-spec.ts": "da395d5df36474de504ad014ae5ef3a0e2b86381fa95175f620e702898e8e310"
+  },
+  "logs": "tools/logs/c280-release-*.{json,log}"
+}

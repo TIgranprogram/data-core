@@ -1,6 +1,7 @@
 import { Types } from 'mongoose';
 import { MoneyMaskInterceptor } from '../../common/interceptors/money-mask.interceptor';
 import { AppSection } from '../../common/decorators/app-section.decorator';
+import { openSectionsFor, sectionOpen } from '../../common/app-sections';
 import { Throttle } from '@nestjs/throttler';
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiConflictResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
@@ -99,8 +100,10 @@ export class StockController {
   @AppSection('stock', 'requests', 'products')
   @Get('lookup')
   @Roles('admin', 'director', 'manager', 'user')
-  lookup(@Query('zoneId') zoneId: string | undefined, @StockScoped() own: StockScope | null) {
-    return this.stock.lookup(narrowToZone(own, zoneId));
+  @ApiQuery({ name: 'catalog', required: false, description: '1 — добавить тип, сортамент, марку и размеры для витрины' })
+  lookup(@Query('zoneId') zoneId: string | undefined, @StockScoped() own: StockScope | null, @Query('catalog') catalog?: string, @CurrentUser() user?: AuthenticatedUser) {
+    const withPurchases = catalog === '1' && sectionOpen(openSectionsFor(user), 'requests');
+    return this.stock.lookup(narrowToZone(own, zoneId), withPurchases);
   }
 
   /** Сводка по категориям: позиций всего / к закупке / нет на складе. */

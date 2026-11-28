@@ -5,7 +5,7 @@ import { h } from '../core/dom.js';
 import { session } from '../core/api.js';
 import { srcBox, srcLegend, srcPaint } from '../ui/kit/src.js';
 const SRC_DEMO = { all: 'Общий — для всех изделий', type: 'Для этого типа паспорта', product: 'По этому изделию', manual: 'Вписан вручную' };
-import { pad, hint, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, headbar, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, folderTile, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
+import { pad, hint, catalogShelves, tileGrid, typeArt, typeIconList, landing, miniChart, navList, photoStrip, catArt, stat, searchBox, readonlyGroup, similarBox, posPic, posPicOf, sku, section, stack, button, iconButton, segmented, headbar, link, badge, card, empty, tabs, stats, toolbar, row, actions, boardStatic, board, layout, mobile, failBlock, autoMore, openPdfPreview, stageBar, headStats, clamp, funnel, planner, qtyInput, folderTile, targetPicker, toast, pick, filter, table, treeTable, textInput, fieldRow, panel, entityPanel, select, fileButton, links, guide, SUPPLY_STATUS } from '../ui/kit/index.js';
 import { buildCardTabs } from '../ui/kit/card-tabs.js';
 import { gallery } from '../ui/kit/card-gallery.js';
 import { taskDiscussion } from '../ui/kit/task-discussion.js';
@@ -13,12 +13,11 @@ import { taskPhotos } from '../ui/kit/task-photos.js';
 import { atlasMap } from '../ui/kit/atlas-map.js';
 import { buildAtlasModel, traceAtlas } from './atlas-model.js';
 import { infoCard, nextCard, warnCard, positionsTable, boardCard, footerBar } from '../ui/kit/screens/blocks.js';
-
+const categoryPreview = name => { const el = h('span'); el.innerHTML = catArt(name); return el; };
 /** Витрина эталонов (#kit, только admin): семейство × варианты × пусто / длинный текст / ошибка. */
 const LONG = 'Очень длинное название позиции для проверки переноса и обрезки текста в карточке эталона';
 const TONES = ['neutral', 'info', 'warn', 'danger', 'ok'];
 const PIC = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="#eee"/><path d="M10 50 L40 10 L70 50 Z" fill="#999"/></svg>');
-
 const block = (title, note, ...kids) => h('section', { class: 'panel' }, h('h2', null, title), note ? h('p', { class: 'k-note' }, note) : null, ...kids);
 const sample = (...kids) => h('div', { class: 'k-sample' }, ...kids);
 const cards = (size) => TONES.map((tone) => card({ size, tone, title: 'Заголовок ' + tone, meta: 'Мета · 12 шт', badges: badge(SUPPLY_STATUS, 'ordered'), onClick: () => toast('Клик: ' + tone) }));
@@ -295,20 +294,21 @@ export const kit = {
       block('Колонки таблицы pic и nowrap · C030-12', 'columns: [{ pic: true }] — под posPic, ширина по фото; { nowrap: true } — без переноса. Где используется: склад, заказы.',
         table({ label: 'pic и nowrap', columns: [{ label: '', pic: true }, { label: 'Позиция' }, { label: 'Склад', nowrap: true }], rows: [{ cells: [posPic(null, 'sm'), LONG, 'Зона А · полка 12'] }] })),
       block('Карточка S: art, low, expand · C030-1', 'Плитка с рисунком 40×40, часть меты «мало» красным; expand раскрывает панель под плиткой на всю ширину сетки. Где используется: склад (категории, зоны), каталог поставщика.',
-        tileGrid(card({ size: 'S', title: 'Без рисунка', meta: '12 позиций' }), card({ size: 'S', title: 'С рисунком', meta: '34 позиции', low: 'мало 3', art: catArt('Крепёж'), onClick: () => toast('Клик: категория') }),
-          card({ size: 'S', title: 'Зона А (раскрыта)', meta: '8 позиций', art: catArt('Труба'), expand: { title: 'Зона А', action: button({ label: 'Принять', size: 'S' }), body: h('p', { class: 'muted' }, 'Позиции зоны') } }),
-          card({ size: 'S', title: 'Зона Б (закрыта)', meta: '2 позиции', art: catArt('Лист'), expand: { title: 'Зона Б', body: h('p', { class: 'muted' }, 'Позиции зоны') } }))),
+        tileGrid(card({ size: 'S', title: 'Без рисунка', meta: '12 позиций' }), card({ size: 'S', title: 'С рисунком', meta: '34 позиции', low: 'мало 3', art: categoryPreview('Крепёж'), onClick: () => toast('Клик: категория') }),
+          card({ size: 'S', title: 'Зона А (раскрыта)', meta: '8 позиций', art: categoryPreview('Труба'), expand: { title: 'Зона А', action: button({ label: 'Принять', size: 'S' }), body: h('p', { class: 'muted' }, 'Позиции зоны') } }),
+          card({ size: 'S', title: 'Зона Б (закрыта)', meta: '2 позиции', art: categoryPreview('Лист'), expand: { title: 'Зона Б', body: h('p', { class: 'muted' }, 'Позиции зоны') } }))),
       block('Карточка S: artCover · C030-1б', 'artCover: true — рисунок сверху во всю ширину 16:10 на фоне фото, под ним название и мета; с expand панель раскрывается под плиткой. Склад и Продукция.',
-        tileGrid(card({ size: 'S', artCover: true, title: 'Крепёж', meta: '34 позиции', low: 'мало 3', art: catArt('Крепёж'), onClick: () => toast('Клик: категория') }),
-          card({ size: 'S', artCover: true, title: 'Труба', meta: '18 позиций', art: catArt('Труба'), expand: { title: 'Раздел «Труба»', body: h('p', { class: 'muted' }, 'Группы раздела') } }),
-          card({ size: 'S', artCover: true, title: 'Лист', meta: '9 позиций', art: catArt('Лист') }))),
-      block('Иконки типов · C037/C039', 'typeArt(тип) — плоская пиктограмма типа позиции: графит + один зелёный акцент на прозрачном фоне; нет своей иконки — иконка семейства (Болты, Шайбы…, правила — core/facets.js TYPE_FAMILIES), общий значок — «Прочее». Ниже — все иконки набора и шаг «Тип» воронки по полочкам (values[].group).',
+        tileGrid(card({ size: 'S', artCover: true, title: 'Крепёж', meta: '34 позиции', low: 'мало 3', art: categoryPreview('Крепёж'), onClick: () => toast('Клик: категория') }),
+          card({ size: 'S', artCover: true, title: 'Труба', meta: '18 позиций', art: categoryPreview('Труба'), expand: { title: 'Раздел «Труба»', body: h('p', { class: 'muted' }, 'Группы раздела') } }),
+          card({ size: 'S', artCover: true, title: 'Лист', meta: '9 позиций', art: categoryPreview('Лист') }))),
+      block('Иконки типов · C037/C039', 'Предметные изображения для выбора типа позиции. Для неизвестного типа используется изображение семейства.',
         tileGrid(...typeIconList().map((i) => card({ size: 'S', artCover: true, title: i.label, meta: i.key, art: (() => { const el = h('span'); el.innerHTML = i.svg; return el; })() }))),
         funnel({ steps: [{ key: 'type', label: 'Тип', ask: 'выберите тип', values: [{ id: '1', label: 'Болт', count: 44, group: 'Болты и анкеры' }, { id: '2', label: 'Болт мебельный', count: 23, group: 'Болты и анкеры' }, { id: '3', label: 'Гайка шестигр', count: 12, group: 'Гайки' }, { id: '4', label: 'Гайка колпачковая', count: 6, group: 'Гайки' }, { id: '5', label: 'Шуруп', count: 7, group: '' }, { id: '*', label: 'Все типы' }] }] }).el),
+      block('Группы каталога', 'Группы карточек распределяются по ширине панели.', catalogShelves([['Металлопрокат', ['Трубы', 'Листы'].map(title => card({ size: 'S', title }))], ['Комплектующие', [card({ size: 'S', title: 'Крепёж' })]]])),
       block('Плитки типов · C043', 'card({ size: \'S\', artCover: true, compact: true }) — плитка в 2 раза ниже (рисунок ≈28 px, название в одну строку), tileGrid({ compact: true }, …плитки) — плотная сетка: так типы выглядят в раскрытой категории «Остатков» (sections/stock-types.js). Плитки категорий верхнего уровня — по-прежнему обычные.',
         tileGrid({ compact: true }, ...typeIconList().slice(0, 8).map((i) => card({ size: 'S', artCover: true, compact: true, title: i.label, meta: '12 поз.', art: (() => { const el = h('span'); el.innerHTML = i.svg; return el; })(), onClick: () => toast('Клик: тип ' + i.label) })))),
       block('Посадочная (landing) · C030-2', 'landing({ head, action, body }) — строка «Выберите … · всего N», кнопка справа, ниже плитки. Где используется: склад, каталог поставщика.',
-        landing({ head: 'Выберите категорию · всего 3', action: button({ label: 'Все позиции', size: 'S' }), body: tileGrid(card({ size: 'S', title: 'Крепёж', meta: '34', art: catArt('Крепёж') }), card({ size: 'S', title: 'Труба', meta: '18', art: catArt('Труба') }), card({ size: 'S', title: 'Лист', meta: '9', art: catArt('Лист') })) })),
+        landing({ head: 'Выберите категорию · всего 3', action: button({ label: 'Все позиции', size: 'S' }), body: tileGrid(card({ size: 'S', title: 'Крепёж', meta: '34', art: categoryPreview('Крепёж') }), card({ size: 'S', title: 'Труба', meta: '18', art: categoryPreview('Труба') }), card({ size: 'S', title: 'Лист', meta: '9', art: categoryPreview('Лист') })) })),
       block('Секция: fixed, urgent, more · C030-3', 'fixed — всегда раскрыта, без стрелки; urgent — полоса danger слева; more: { limit, label } — первые limit строк и «Все (ещё N) →». Где используется: главная.',
         sample(
           section({ title: 'Показатели', count: 3, fixed: true, body: h('p', { class: 'muted' }, 'Содержимое') }),

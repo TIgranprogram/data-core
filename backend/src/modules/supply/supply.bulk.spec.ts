@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { foldPurchases, topSupplier } from '../stock/purchase-history';
-import { SupplyService } from './supply.service';
+import { SupplyService, type SupplyBulkInput } from './supply.service';
 import { SUPPLY_REQUEST_API_FLAG } from './supply-request-flag';
 
 const flagsOn = { isEnabled: async () => true };
@@ -84,17 +84,18 @@ describe('SupplyService.createBulk', () => {
     jest.spyOn(service as never, 'assertNew').mockResolvedValue(undefined as never);
   });
 
-  const body = (items: Array<{ materialId: string; qty: number; supplierId?: string }>, clientUid = 'u1') => ({ clientUid, items });
+  const body = (items: SupplyBulkInput['items'], clientUid = 'u1') => ({ clientUid, items });
 
   it('3 строки → 3 заявки: поставщик и цена из истории, из прайса, без поставщика', async () => {
     const r = await service.createBulk(body([
-      { materialId: String(m1), qty: 10 },
+      { materialId: String(m1), qty: 10, note: '  Два хлыста по 5 м  ' },
       { materialId: String(m2), qty: 2 },
       { materialId: String(m3), qty: 3, supplierId: String(sB) },
     ]), null, undefined);
     expect(r.total).toBe(3);
     expect(saved).toHaveLength(3);
-    expect(saved[0]).toMatchObject({ qty: 10, unit: 'м', priceHint: 125, clientUid: `u1:${m1}` });
+    expect(saved[0]).toMatchObject({ qty: 10, unit: 'м', notes: 'Два хлыста по 5 м', priceHint: 125, clientUid: `u1:${m1}` });
+    expect(saved[1].notes).toBeUndefined();
     expect(String(saved[0].materialId)).toBe(String(m1));
     expect(String(saved[0].supplierId)).toBe(String(sA));
     expect(saved[1].supplierId).toBeUndefined();

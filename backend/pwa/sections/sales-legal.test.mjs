@@ -154,7 +154,7 @@ async function submitThroughKit(panel, values, panelCtx = {}) {
   const sandbox = vm.createContext({
     section: panel, form: { read: () => ({ values }) }, id: 'new.fixture', row: null, isNew: true,
     save: { disabled: false }, cancel: {}, err: {}, body: { querySelectorAll: () => [] },
-    saving: false, busyBtn: () => () => {}, reportError: (e) => errors.push(e),
+    saving: false, footerAction: undefined, busyBtn: () => () => {}, reportError: (e) => errors.push(e),
     isFailure: () => false, errText: (e) => e.message,
     ctx: { changed: () => { changed.push(true); panelCtx.changed?.(); }, close: () => { closed.push(true); panelCtx.close?.(); } },
     window: { dispatchEvent() {} }, CustomEvent: class {}, destroy() {},

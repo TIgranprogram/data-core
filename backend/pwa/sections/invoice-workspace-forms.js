@@ -127,14 +127,10 @@ async function buildMetaForm(invoice, services) {
   const widget = { key: 'fileIds', label: 'Файлы счёта', type: 'widget', wide: true, widget: () => ({ el: files.el, get value() { return JSON.stringify(fileIds()); }, set value(_) { /* файлы уже показаны */ } }) };
   const contractOptions = [{ value: '', label: 'Без договора' }, ...contracts.map((c) => ({ value: c.id, label: `№ ${c.no} от ${date(c.date)}` }))];
   if (invoice.contractId && !contracts.some((c) => String(c.id) === String(invoice.contractId))) contractOptions.push({ value: invoice.contractId, label: `№ ${invoice.contractNo || '—'} (текущий)` });
-  const deliveryDate = String(invoice.deliveryDate || '').slice(0, 10);
-  const note = invoice.note || '';
   const form = buildForm([
     { section: 'Реквизиты счёта', fixed: true },
     !p.boundary ? { key: 'duplicateReason', label: 'Причина отдельного счёта с тем же номером', max: 200, wide: true, hint: 'Только если отдельный счёт с тем же номером действительно нужен.' } : null,
     { key: 'no', label: '№ счёта', max: 100 }, { key: 'date', label: 'Дата счёта', type: 'date' },
-    { key: 'deliveryDate', label: 'Дата доставки', type: 'date' },
-    { key: 'note', label: 'Примечание', type: 'textarea', max: 1000, wide: true },
     p.payer ? { key: 'payerCompanyId', label: 'Наша компания', type: 'select', required: true, options: [{ value: '', label: 'Выберите компанию' }, ...payers], hint: 'Кто платит: без компании расход не попадёт в «Деньги»' } : null,
     ...(p.finance ? financialFields(invoice) : []),
     { section: 'Договор поставщика', tone: 'info' },
@@ -142,7 +138,7 @@ async function buildMetaForm(invoice, services) {
     { note: link({ label: 'Создать договор отдельно →', href: services.href({ of: 'contract', new: '1', open: undefined, supplierId: invoice.supplierId }) }) },
     { section: 'Файлы', tone: 'info' }, widget,
     { note: '«Выбрать файл» — отдельная загрузка файла на сервер. К счёту он привяжется только после «Сохранить». Отмена не меняет реквизиты счёта.' },
-  ].filter(Boolean), { no: invoice.no || '', date: String(invoice.date || '').slice(0, 10), deliveryDate, note, payerCompanyId: String(invoice.payerCompanyId || ''), contractId: String(invoice.contractId || ''), fileIds: fileIds(), currency: invoice.currency || 'RUB', currencyName: invoice.currencyName || '', exchangeRate: invoice.exchangeRate ?? '', exchangeRateDate: String(invoice.exchangeRateDate || '').slice(0, 10), exchangeRateSource: invoice.exchangeRateSource || '', confirmedAmountRub: invoice.confirmedAmountRub ?? '', conversionNote: invoice.conversionNote || '', vatMode: invoice.vatMode || '', vatRate: invoice.vatRate ?? '', declaredVatAmount: invoice.declaredVatAmount ?? '' });
+  ].filter(Boolean), { no: invoice.no || '', date: String(invoice.date || '').slice(0, 10), payerCompanyId: String(invoice.payerCompanyId || ''), contractId: String(invoice.contractId || ''), fileIds: fileIds(), currency: invoice.currency || 'RUB', currencyName: invoice.currencyName || '', exchangeRate: invoice.exchangeRate ?? '', exchangeRateDate: String(invoice.exchangeRateDate || '').slice(0, 10), exchangeRateSource: invoice.exchangeRateSource || '', confirmedAmountRub: invoice.confirmedAmountRub ?? '', conversionNote: invoice.conversionNote || '', vatMode: invoice.vatMode || '', vatRate: invoice.vatRate ?? '', declaredVatAmount: invoice.declaredVatAmount ?? '' });
   const read = () => {
     const result = form.read(); if (result.errors || !p.finance) return result;
     try { financialMetaBody({ ...result.values, fileIds: fileIds() }, invoice); }
@@ -152,8 +148,6 @@ async function buildMetaForm(invoice, services) {
   return { ...form, read, busy: () => !!files.el.querySelector('.photo-drop.busy'), payload: () => {
     const result = read(); if (result.errors) return null;
     const draft = { ...result.values, fileIds: fileIds() };
-    if ((draft.deliveryDate || '') === deliveryDate) delete draft.deliveryDate;
-    if (String(draft.note || '').trim() === note.trim()) delete draft.note;
     return metaBody(invoice, draft, session);
   } };
 }

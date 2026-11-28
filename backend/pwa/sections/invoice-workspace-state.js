@@ -28,7 +28,7 @@ export function permissions(invoice, rights) {
         : 'По счёту уже есть приёмка. Цены исправляет администратор; можно менять номер, дату, файлы и договор.')
         : paid ? 'До первой приёмки позиции можно править; убрать позицию из оплаченного счёта может администратор. Исходный платёж не меняется.' : '';
   // Цену позиции администратор исправляет на любой стадии (решение 2026-11-06); добавить и убрать — только до приёмки.
-  return { whole, live, boundary, ledgerLocked, meta: meta && !dateRequired, finance, payer, paid, isAdmin, reason, dateRequired,
+  return { whole, live, boundary, ledgerLocked, delivery: meta, meta: meta && !dateRequired, finance, payer, paid, isAdmin, reason, dateRequired,
     confirmUndated: meta && !!rights.canMoney && !dateRequired && !reconciliation && !foreignInvoice(invoice) && !!invoice.payerCompanyId && Number(invoice.amount) > 0 && !invoice.financialLocked && !invoice.paymentSnapshot && !invoice.paymentsTotal && !(invoice.payments || []).length && !Number(invoice.paidAmount || 0) && !invoice.paidAt && !(invoice.requests || []).some(r => r.paid || r.paidAt) && ['draft', 'issued'].includes(invoice.status),
     revokeUndated: meta && !!rights.canMoney && dateRequired,
     add: linesAdmin && !!rights.canMoney, editLine: meta && !!rights.canMoney && !ledgerLocked && (isAdmin || !boundary), removeLine: linesAdmin && (isAdmin || !paid),
@@ -83,7 +83,7 @@ export function metaBody(invoice, draft, rights) {
 }
 export function assertOperation(invoice, rights, operation, lineId) {
   const p = permissions(invoice, rights);
-  const allowed = { meta: p.meta, line: p.editLine, add: p.add, remove: p.removeLine, issue: p.issue, pay: p.pay, payment: p.pay, undated: p.confirmUndated, revokeUndated: p.revokeUndated, receive: p.receive };
+  const allowed = { delivery: p.delivery, meta: p.meta, line: p.editLine, add: p.add, remove: p.removeLine, issue: p.issue, pay: p.pay, payment: p.pay, undated: p.confirmUndated, revokeUndated: p.revokeUndated, receive: p.receive };
   if (!allowed[operation]) throw new Error(p.reason || 'Недостаточно прав для этого действия');
   if ((operation === 'issue' || operation === 'pay') && !invoice.payerCompanyId) {
     throw new Error('Укажите «Нашу компанию» — кто платит (иначе расход не попадёт в «Деньги»)');

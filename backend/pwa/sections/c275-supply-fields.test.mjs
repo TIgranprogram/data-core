@@ -22,7 +22,7 @@ let browser;
 before(async () => { browser = await chromium.launch({ executablePath: findBrowser(), headless: true }); });
 after(async () => { await browser?.close(); });
 
-async function fixture(t, theme, { initialRequest, history = [], canMoney = false, role = 'manager', width = 1440, otherDeliveries = [] } = {}) {
+async function fixture(t, theme, { initialRequest, history = [], canMoney = false, role = 'manager', width = 1440, otherDeliveries = [], initialInvoice = {} } = {}) {
   const page = await browser.newPage({ viewport: { width, height: 1000 }, serviceWorkers: 'block', reducedMotion: 'reduce' });
   t.after(() => page.close());
   page.setDefaultTimeout(6000);
@@ -32,7 +32,7 @@ async function fixture(t, theme, { initialRequest, history = [], canMoney = fals
   let request = initialRequest && { id: 'c275-request', num: 275, status: 'requested', ...initialRequest };
   let invoice = {
     id: 'c275-invoice', status: 'issued', no: 'C275', date: '2026-11-20T00:00:00.000Z', supplierName: 'Учебный поставщик',
-    deliveryDate: '2026-11-28T00:00:00.000Z', note: 'Привезти до обеда', requests: [], fileIds: [],
+    deliveryDate: '2026-11-28T00:00:00.000Z', note: 'Привезти до обеда', requests: [], fileIds: [], ...initialInvoice,
   };
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(({ manager, theme }) => {
@@ -126,7 +126,7 @@ async function screenshot(page, name) {
   const folder = process.env.C275_EVIDENCE;
   if (!folder) return;
   await mkdir(folder, { recursive: true });
-  await page.screenshot({ path: join(folder, name + '.png') });
+  await page.screenshot({ animations: 'disabled', path: join(folder, name + '.png') });
 }
 
 function firstSection(drawer) { return drawer.locator('.drawer-body .form-block').first(); }
@@ -355,47 +355,45 @@ test('администратор удаляет заявку в корзину �
   assert.deepEqual(errors, []); assert.deepEqual(declined, []);
 });
 
-test('менеджер без денежных прав видит и редактирует доставку и примечание счёта', async t => {
-  const { page, writes, errors, declined, currentInvoice } = await fixture(t, 'dark');
-  await page.getByRole('tab', { name: 'Счета', exact: true }).click();
-  await page.getByRole('link', { name: 'Счёт № C275', exact: true }).click();
-  const drawer = page.getByRole('dialog');
-  const openEdit = async () => {
-    await drawer.getByRole('button', { name: 'Ещё действия', exact: true }).click();
-    await drawer.getByRole('menuitem', { name: 'Реквизиты счёта', exact: true }).click();
-  };
-  const save = async () => {
-    const response = page.waitForResponse(res => res.request().method() === 'PATCH' && new URL(res.url()).pathname === invoicePath);
-    await drawer.getByRole('button', { name: 'Сохранить', exact: true }).click();
-    assert.equal((await response).ok(), true);
-    await drawer.getByRole('button', { name: 'Ещё действия', exact: true }).waitFor();
-  };
-  const first = firstSection(drawer);
-  const date = first.getByLabel('Дата доставки', { exact: true }), note = first.getByLabel('Примечание', { exact: true });
-  await openEdit();
-  assert.equal(await date.inputValue(), '2026-11-28');
-  assert.equal(await note.inputValue(), 'Привезти до обеда');
-  assert.equal(await drawer.getByLabel('Валюта документа').count(), 0);
-  await screenshot(page, 'invoice-edit-dark');
-  await first.getByLabel('№ счёта', { exact: true }).fill('C275-2');
-  await save();
-  assert.equal('deliveryDate' in writes[0].body, false);
-  assert.equal('note' in writes[0].body, false);
-  assert.equal(currentInvoice().deliveryDate, '2026-11-28T00:00:00.000Z');
-  assert.equal(currentInvoice().note, 'Привезти до обеда');
-
-  await openEdit();
-  await date.fill(''); await note.fill('');
-  await save();
-  assert.equal(writes[1].body.deliveryDate, '');
-  assert.equal(writes[1].body.note, '');
-
-  await openEdit();
-  assert.equal(await date.inputValue(), ''); assert.equal(await note.inputValue(), '');
-  await date.fill('2026-12-02'); await note.fill('Звонить перед доставкой');
-  await save();
-  assert.equal(writes[2].body.deliveryDate, '2026-12-02');
-  assert.equal(writes[2].body.note, 'Звонить перед доставкой');
-  assert.ok(writes.every(({ body }) => ['amount', 'currency', 'vatMode', 'payerCompanyId', 'priceHint'].every(key => !(key in body))));
-  assert.deepEqual(errors, []); assert.deepEqual(declined, []);
-});
+for (const scenario of [
+  { status: 'draft' }, { status: 'issued' }, { status: 'paid' },
+  { status: 'paid', receiptBoundaryAt: '2026-11-26' },
+  { status: 'issued', requiresPaymentDate: true },
+  { status: 'cancelled', readonly: true }, { status: 'paid', partial: true, readonly: true },
+]) {
+  test('Доставка в карточке счёта: ' + JSON.stringify(scenario), async t => {
+    const theme = scenario.status === 'paid' ? 'dark' : 'light';
+    const { page, writes, errors, declined } = await fixture(t, theme, { initialInvoice: { requests: [{ id: 'demo-line', title: 'Труба 20×20', qty: 30, unit: 'м', status: 'ordered' }], ...scenario } });
+    await page.goto(origin + '/app/#requests?of=invoicecard&open=c275-invoice');
+    const drawer = page.getByRole('dialog');
+    const date = drawer.getByLabel('Дата доставки', { exact: true });
+    const note = drawer.getByLabel('Примечание', { exact: true });
+    const save = drawer.getByRole('button', { name: 'Сохранить доставку', exact: true });
+    await drawer.getByText('Доставка', { exact: true }).first().waitFor({ state: 'visible' });
+    if (scenario.readonly) {
+      assert.equal(await save.count(), 0);
+      assert.equal(await note.count(), 0);
+      assert.deepEqual(writes, []);
+      return;
+    }
+    assert.equal(await date.inputValue(), '2026-11-28');
+    assert.equal(await note.inputValue(), 'Привезти до обеда');
+    assert.equal(await save.isDisabled(), true);
+    if (scenario.status === 'paid' && !scenario.receiptBoundaryAt) await screenshot(page, 'invoice-delivery-paid-dark');
+    if (scenario.status === 'issued' && !scenario.requiresPaymentDate) await screenshot(page, 'invoice-delivery-issued-light');
+    await note.fill('Звонить перед доставкой');
+    await save.click();
+    await drawer.getByLabel('Примечание').evaluate(node => {
+      if (node.value !== 'Звонить перед доставкой') throw new Error('Потерян текст примечания');
+    });
+    await page.waitForFunction(() => document.querySelector('.drawer-body textarea')?.disabled === false);
+    assert.deepEqual(writes[0]?.body, { note: 'Звонить перед доставкой' });
+    await date.fill(''); await note.fill('');
+    await save.click();
+    await page.waitForFunction(() => document.querySelector('.drawer-body textarea')?.disabled === false);
+    assert.deepEqual(writes[1]?.body, { deliveryDate: '', note: '' });
+    assert.equal(await date.inputValue(), '');
+    assert.equal(await note.inputValue(), '');
+    assert.deepEqual(errors, []); assert.deepEqual(declined, []);
+  });
+}

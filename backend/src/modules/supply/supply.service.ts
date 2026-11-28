@@ -43,7 +43,7 @@ import { SUPPLY_REQUEST_API_FLAG } from './supply-request-flag';
 /** Заявки пачкой: тело `POST /supply/requests/bulk`. */
 export interface SupplyBulkInput {
   clientUid: string;
-  items: Array<{ materialId: string; qty: number; supplierId?: string }>;
+  items: Array<{ materialId: string; qty: number; supplierId?: string; note?: string }>;
 }
 
 export interface SupplyInput {
@@ -694,6 +694,7 @@ export class SupplyService {
         : undefined;
       items.push(await this.create({
         materialId: line.materialId, qty: line.qty, ...(supplierId ? { supplierId } : {}),
+        ...(line.note?.trim() ? { notes: line.note.trim() } : {}),
         unit: units.get(String(ids[n])) || undefined,
         ...(Number(unit) > 0 ? { priceHint: Math.round(Number(unit) * line.qty * 100) / 100 } : {}), // в заявке — сумма, не цена за единицу
         clientUid: `${dto.clientUid}:${line.materialId}`,

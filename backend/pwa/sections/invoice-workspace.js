@@ -1,4 +1,4 @@
-import { metaBlock } from './invoice-workspace-meta.js';
+import { deliveryBlock, invoiceFilesBlock, metaBlock } from './invoice-workspace-meta.js';
 import { h } from '../core/dom.js';
 import { api, PREFIX, session } from '../core/api.js';
 import { current } from '../core/router.js';
@@ -281,6 +281,7 @@ function body(invoice, ctx, notes = []) {
   const adjustments = session.canMoney ? invoice.paymentAdjustments || [] : [];
   const orders = (invoice.orders || []).map((order) => typeof order === 'object' ? order : { productionNo: order });
   return h('div', { 'data-invoice-workspace': invoice.id, class: 'iw-screen' },
+    deliveryBlock(invoice, () => refreshInvoice(invoice, ctx)),
     section({ title: 'Позиции', count: (invoice.requests || []).length, open: true, body: [
       positions(invoice, ctx, { receiveChecks: checks }),
       checks ? actions(
@@ -292,8 +293,9 @@ function body(invoice, ctx, notes = []) {
     ] }),
     ...notes,
     undatedEvidenceBlock(invoice),
-    metaBlock(invoice, ctx, refreshInvoice),
     paymentHistory(invoice, ctx),
+    metaBlock(invoice),
+    invoiceFilesBlock(invoice),
     orders.length ? section({ title: 'Связанные заказы', body: table({ label: 'Заказы', columns: [{ label: 'Заказ' }, { label: 'Договоры' }], rows: orders.map((order) => ({ cells: [`№ ${order.productionNo || '—'}`, (order.contracts || []).join(', ') || '—'] })) }) }) : null,
     session.canMoney && invoice.paymentSnapshot ? section({ title: 'Оплата и корректировки', count: adjustments.length, body: [
       h('p', { class: 'hint' }, 'Исходный платёж неизменяем. Корректировки меняют текущую сумму строк.'),

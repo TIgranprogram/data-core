@@ -74,6 +74,18 @@ describe('Разделы роли на сервере (SK-8d) и деньги в
   afterAll(async () => { await ctx?.cleanup(); });
 
   describe('Кладовщик (manager + Склад, Заявки)', () => {
+    it('история закупок в catalog=1 доступна только роли с открытым разделом «Заявки»', async () => {
+      const lookup = async (token: string) => {
+        const response = await http().get('/api/stock/lookup').query({ catalog: '1' }).set(as(token)).expect(200);
+        return response.body.items.find((item: { id: string }) => item.id === itemId);
+      };
+      expect(await lookup(tok.keeper)).toMatchObject({ id: itemId, openPurchases: [], lastPurchase: null });
+      const stockOnly = await lookup(tok.dirStock);
+      expect(stockOnly.id).toBe(itemId);
+      expect(stockOnly).not.toHaveProperty('openPurchases');
+      expect(stockOnly).not.toHaveProperty('lastPurchase');
+    });
+
     it('склад и заявки — целиком: списки, карточки, приход по заявке, выдача под позицию заказа', async () => {
       const k = as(tok.keeper);
       await http().get('/api/stock/items').set(k).expect(200);

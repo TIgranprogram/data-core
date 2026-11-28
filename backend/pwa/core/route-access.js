@@ -7,7 +7,7 @@ export const OWNER = Object.freeze({
   shipdo: 'salesorders', matching: 'salesorders', specimport: 'salesorders',
   wsstep: 'workschedule', designorder: 'design', prodreq: 'design', designsettings: 'design',
   profile: 'home', movements: 'stock', stockop: 'stock', stockissue: 'stock', resedit: 'stock', ops: 'stock',
-  pasteorder: 'requests', reqstep: 'requests', orderbulk: 'requests', invoicecard: 'requests', invoice: 'requests',
+  pasteorder: 'requests', reqstep: 'requests', orderbulk: 'requests', requestcart: 'requests', invoicecard: 'requests', invoice: 'requests',
   reqreceive: 'requests', contract: 'partners', staffcard: 'staff', zonecard: 'staff', dict: 'dicts',
   incpay: 'money', incprice: 'money', expense: 'money', payout: 'payroll', finstart: 'money', moneyclassification: 'money',
   pricelist: 'suppliercatalog', kp: 'products', catalogimport: 'products', fromorders: 'products',

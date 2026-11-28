@@ -11,7 +11,7 @@ export const nItems = (n) => `${qty(n)} ${plural(n, 'изделие', 'изде�
 /** ПРД.6: самый глубокий выбранный шаг воронки (раздел → группа → подгруппа) — это groupId для сервера (он берёт всё поддерево). */
 export const deepGroup = (P) => P.sub || P.grp || P.sec || '';
 
-const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
+const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // предметная иллюстрация из набора приложения
 const catTile = (g, pick) => card({ size: 'S', artCover: true, art: art(g.name), title: g.name, meta: nItems(g.count || 0), onClick: () => pick(g.id) });
 const SEC_KEY = 'dc-prod-sec'; // раскрытый раздел — «назад» из галереи видит то же
 const secOpen = () => { try { return sessionStorage.getItem(SEC_KEY) || ''; } catch { return ''; } };

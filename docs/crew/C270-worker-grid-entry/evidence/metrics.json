@@ -1,0 +1,1729 @@
+{
+  "checks": [
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 91,
+        "cells": 91
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: кнопка без стрелки",
+      "data": "20×20×2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: повтор Остаток убран из колонок"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(226, 243, 234)",
+        "main": "rgb(227, 237, 231)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: ленивая история максимум2",
+      "data": {
+        "calls": 2,
+        "max": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: Enter сначала требует подтверждение, запросов нет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: количество 3 сохраняется без преобразования",
+      "data": {
+        "type": "count",
+        "note": "Трубы",
+        "lines": [
+          {
+            "materialId": "6ae45d39d29aaee2976a2697",
+            "qty": 3,
+            "expected": 0
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: уход с изменённого количества не пишет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1440-native: ошибка сервера не вызывает автоматический повтор"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 91,
+        "cells": 91
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: кнопка без стрелки",
+      "data": "20×20×2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: повтор Остаток убран из колонок"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgba(63, 207, 142, 0.15)",
+        "main": "rgb(29, 36, 48)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: ленивая история максимум2",
+      "data": {
+        "calls": 2,
+        "max": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "pipe-dark-1920-native: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: ни одна позиция не потеряна",
+      "data": {
+        "items": 91,
+        "cells": 91
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          }
+        ],
+        "minInputHeight": null
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: кнопка без стрелки",
+      "data": "20×20×2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: повтор Остаток убран из колонок"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(220, 231, 222)",
+        "main": "rgb(190, 199, 207)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: ленивая история максимум2",
+      "data": {
+        "calls": 2,
+        "max": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: просмотр без полей записи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: просмотр не пишет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-soft-2560-readonly: просмотр не создаёт материалы"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ни одна позиция не потеряна",
+      "data": {
+        "items": 8,
+        "cells": 8
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: кнопка без стрелки",
+      "data": "40×20×2"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: повтор Остаток убран из колонок"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(226, 243, 234)",
+        "main": "rgb(227, 237, 231)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ленивая история максимум2",
+      "data": {
+        "calls": 5,
+        "max": 2
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ошибка истории исправляется повтором"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: закрыт пересчёт pipe-multiple"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: закрыт пересчёт pipe-unknown"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ноль слегка красный"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: у нуля нет дублирующей подписи"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: пустые координаты не красные"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: нестандартная длина не потеряна",
+      "data": [
+        "Сечение, мм\t\nМытая\n3 м\n\t\nМытая\n4 м\n\t\nМытая\n6 м\n\t\nНе мытая\n12 м\n\t\nМойка не указана\n7,5 м\n\n",
+        "Дата / времяКоличествоПримечание",
+        "Дата / времяКоличествоПримечание",
+        "Дата / времяКоличествоПримечание",
+        "Дата / времяКоличествоПримечание",
+        "Дата / времяКоличествоПримечание",
+        "Сечение, мм\t\nМытая\nДлина не указана\n\n",
+        "Сечение, мм\t\nМытая\n6 м\n\n",
+        "Дата / времяКоличествоПримечание"
+      ]
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: Enter сначала требует подтверждение, запросов нет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: количество 3 сохраняется без преобразования",
+      "data": {
+        "type": "count",
+        "note": "Трубы",
+        "lines": [
+          {
+            "materialId": "pipe-6a",
+            "qty": 3,
+            "expected": 12
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: уход с изменённого количества не пишет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "pipe-light-1024-edges: ошибка сервера не вызывает автоматический повтор"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 46,
+        "cells": 46
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          },
+          {
+            "width": 1375,
+            "parent": 1375
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: кнопка без стрелки",
+      "data": "1,5"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(226, 243, 234)",
+        "main": "rgb(227, 237, 231)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: ленивая история максимум2",
+      "data": {
+        "calls": 1,
+        "max": 1
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: Enter сначала требует подтверждение, запросов нет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: количество 3 сохраняется без преобразования",
+      "data": {
+        "type": "count",
+        "note": "Листовой материал",
+        "lines": [
+          {
+            "materialId": "6ae44678cdc3f92ad170db86",
+            "qty": 3,
+            "expected": 1
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: уход с изменённого количества не пишет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: ошибка сервера не вызывает автоматический повтор"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: примечание сохраняется отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: добавление отменяется без записи"
+    },
+    {
+      "ok": false,
+      "name": "sheet-light-1440-native: приёмка ограничена своим типом"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: приёмка сохраняет явный контекст зоны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1440-native: нет универсального создания шт в приёмке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: ни одна позиция не потеряна",
+      "data": {
+        "items": 46,
+        "cells": 46
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          },
+          {
+            "width": 1607,
+            "parent": 1607
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: кнопка без стрелки",
+      "data": "1,5"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgba(63, 207, 142, 0.15)",
+        "main": "rgb(29, 36, 48)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: ленивая история максимум2",
+      "data": {
+        "calls": 1,
+        "max": 1
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: добавление отменяется без записи"
+    },
+    {
+      "ok": false,
+      "name": "sheet-dark-1920-native: приёмка ограничена своим типом"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: приёмка сохраняет явный контекст зоны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-dark-1920-native: нет универсального создания шт в приёмке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: ни одна позиция не потеряна",
+      "data": {
+        "items": 46,
+        "cells": 46
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          },
+          {
+            "width": 2247,
+            "parent": 2247
+          }
+        ],
+        "minInputHeight": null
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: кнопка без стрелки",
+      "data": "1,5"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(220, 231, 222)",
+        "main": "rgb(190, 199, 207)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: ленивая история максимум2",
+      "data": {
+        "calls": 1,
+        "max": 1
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: просмотр без полей записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: просмотр не пишет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-soft-2560-readonly: просмотр не создаёт материалы"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: меню скрыто слева"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: меню доступно по кнопке"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: Escape закрывает меню"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: заполненная таблица"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: специализированная сетка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: раскрывашки Подробнее отсутствуют"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ни одна позиция не потеряна",
+      "data": {
+        "items": 7,
+        "cells": 7
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: materialId не дублируются"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: нет горизонтального скролла страницы",
+      "data": {
+        "pageX": -15,
+        "tables": [
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          },
+          {
+            "width": 967,
+            "parent": 967
+          }
+        ],
+        "minInputHeight": 48
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: крупные поля количества",
+      "data": 48
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: история не грузится до раскрытия"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: первая ячейка кнопка"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: кнопка без стрелки",
+      "data": "3"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: подстрока открыта"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: фон подстроки отличается от основной строки",
+      "data": {
+        "detail": "rgb(226, 243, 234)",
+        "main": "rgb(227, 237, 231)"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: данные материалов отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ленивая история максимум2",
+      "data": {
+        "calls": 1,
+        "max": 1
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ошибка истории исправляется повтором"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: повторное нажатие сворачивает подстроку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: повторное раскрытие использует кэш"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: другая строка закрывает предыдущую во всём экране"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: возврат раскрывает только исходную строку"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: закрыт пересчёт sheet-multiple"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: закрыт пересчёт sheet-unknown"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ноль слегка красный"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: у нуля нет дублирующей подписи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: пустые координаты не красные"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: обрезки явно показаны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: Enter сначала требует подтверждение, запросов нет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: количество 3 сохраняется без преобразования",
+      "data": {
+        "type": "count",
+        "note": "Листовой материал",
+        "lines": [
+          {
+            "materialId": "sheet-3a",
+            "qty": 3,
+            "expected": 12
+          }
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: фокус остался в таблице после сохранения",
+      "data": {
+        "tag": "INPUT",
+        "cls": "pg-in"
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: уход с изменённого количества не пишет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: Escape не сохраняет"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: отрицательное значение не записано"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: ошибка сервера не вызывает автоматический повтор"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: примечание сохраняется отдельно"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: добавление отменяется без записи"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: проверка создания ничего не записывает"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: частичный сбой явно сохраняет созданный материал с нулём"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: повтор остатка не повторяет создание"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: создание в явной зоне без чужих DTO-полей",
+      "data": {
+        "path": "/stock/items",
+        "zoneId": "6ae722517cfafdae6c36721f",
+        "body": {
+          "name": "Листовой металл · 3 × 1250 × 2500 · Ст3",
+          "unit": "шт",
+          "categoryId": "c270000000000000000000c2",
+          "dims": {
+            "thickness": 3,
+            "width": 1250,
+            "length": 2500
+          },
+          "materialGrade": "Ст3",
+          "washed": null,
+          "assortment": null
+        }
+      }
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: начальный остаток6 в исходной единице без преобразования",
+      "data": {
+        "materialId": "c27000000000000000000001",
+        "qty": 6,
+        "expected": 0
+      }
+    },
+    {
+      "ok": false,
+      "name": "sheet-light-1024-edges: приёмка ограничена своим типом"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: приёмка сохраняет явный контекст зоны"
+    },
+    {
+      "ok": true,
+      "name": "sheet-light-1024-edges: нет универсального создания шт в приёмке"
+    }
+  ],
+  "screens": [
+    {
+      "kind": "pipe",
+      "theme": "light",
+      "width": 1440,
+      "readOnly": false,
+      "edge": false,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "6ae45d39d29aaee2976a2697",
+                "qty": 3,
+                "expected": 0
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "6ae45d39d29aaee2976a2697",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors"
+      ],
+      "items": 91,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae44619cdc3f92ad170d7a9",
+        "6ae4461bcdc3f92ad170d7b7",
+        "6ae44660cdc3f92ad170d9d1"
+      ],
+      "historyActive": 0,
+      "historyMax": 2
+    },
+    {
+      "kind": "pipe",
+      "theme": "dark",
+      "width": 1920,
+      "readOnly": false,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 91,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae44619cdc3f92ad170d7a9",
+        "6ae4461bcdc3f92ad170d7b7",
+        "6ae44660cdc3f92ad170d9d1"
+      ],
+      "historyActive": 0,
+      "historyMax": 2
+    },
+    {
+      "kind": "pipe",
+      "theme": "soft",
+      "width": 2560,
+      "readOnly": true,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 91,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae44619cdc3f92ad170d7a9",
+        "6ae4461bcdc3f92ad170d7b7",
+        "6ae44660cdc3f92ad170d9d1"
+      ],
+      "historyActive": 0,
+      "historyMax": 2
+    },
+    {
+      "kind": "pipe",
+      "theme": "light",
+      "width": 1024,
+      "readOnly": false,
+      "edge": true,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "pipe-6a",
+                "qty": 3,
+                "expected": 12
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Трубы",
+            "lines": [
+              {
+                "materialId": "pipe-6a",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors",
+        "/api/client-errors"
+      ],
+      "items": 8,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "pipe-6a",
+        "pipe-12",
+        "pipe-odd",
+        "pipe-zero",
+        "pipe-multiple",
+        "pipe-6a",
+        "pipe-pieces"
+      ],
+      "historyActive": 0,
+      "historyMax": 2,
+      "failedHistory": true
+    },
+    {
+      "kind": "sheet",
+      "theme": "light",
+      "width": 1440,
+      "readOnly": false,
+      "edge": false,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "6ae44678cdc3f92ad170db86",
+                "qty": 3,
+                "expected": 1
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "6ae44678cdc3f92ad170db86",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/items/6ae44678cdc3f92ad170db86",
+          "body": {
+            "notes": "C269 проверка примечания"
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors"
+      ],
+      "items": 46,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae44609cdc3f92ad170d735",
+        "6ae45d34d29aaee2976a266d"
+      ],
+      "historyActive": 0,
+      "historyMax": 1
+    },
+    {
+      "kind": "sheet",
+      "theme": "dark",
+      "width": 1920,
+      "readOnly": false,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 46,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae44609cdc3f92ad170d735",
+        "6ae45d34d29aaee2976a266d"
+      ],
+      "historyActive": 0,
+      "historyMax": 1
+    },
+    {
+      "kind": "sheet",
+      "theme": "soft",
+      "width": 2560,
+      "readOnly": true,
+      "edge": false,
+      "writes": [],
+      "blockedOtherWrites": [],
+      "items": 46,
+      "created": [],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "6ae44609cdc3f92ad170d735",
+        "6ae45d34d29aaee2976a266d"
+      ],
+      "historyActive": 0,
+      "historyMax": 1
+    },
+    {
+      "kind": "sheet",
+      "theme": "light",
+      "width": 1024,
+      "readOnly": false,
+      "edge": true,
+      "writes": [
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "sheet-3a",
+                "qty": 3,
+                "expected": 12
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "sheet-3a",
+                "qty": 7,
+                "expected": 3
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/items/sheet-3a",
+          "body": {
+            "notes": "C269 проверка примечания"
+          }
+        },
+        {
+          "path": "/stock/items",
+          "zoneId": "6ae722517cfafdae6c36721f",
+          "body": {
+            "name": "Листовой металл · 3 × 1250 × 2500 · Ст3",
+            "unit": "шт",
+            "categoryId": "c270000000000000000000c2",
+            "dims": {
+              "thickness": 3,
+              "width": 1250,
+              "length": 2500
+            },
+            "materialGrade": "Ст3",
+            "washed": null,
+            "assortment": null
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        },
+        {
+          "path": "/stock/batch",
+          "body": {
+            "type": "count",
+            "note": "Листовой материал",
+            "lines": [
+              {
+                "materialId": "c27000000000000000000001",
+                "qty": 6,
+                "expected": 0
+              }
+            ]
+          }
+        }
+      ],
+      "blockedOtherWrites": [
+        "/api/client-errors",
+        "/api/client-errors"
+      ],
+      "items": 8,
+      "created": [
+        {
+          "name": "Листовой металл · 3 × 1250 × 2500 · Ст3",
+          "unit": "шт",
+          "categoryId": "c270000000000000000000c2",
+          "dims": {
+            "thickness": 3,
+            "width": 1250,
+            "length": 2500
+          },
+          "materialGrade": "Ст3",
+          "washed": null,
+          "assortment": null,
+          "id": "c27000000000000000000001",
+          "materialId": "c27000000000000000000001",
+          "quantity": 0,
+          "reservedQty": 0,
+          "free": 0,
+          "metal": "sheet",
+          "countMode": "single",
+          "categoryName": "Листовой металл"
+        }
+      ],
+      "errorNext": false,
+      "createErrorNext": false,
+      "history": [
+        "sheet-3a",
+        "sheet-3a",
+        "sheet-unknown"
+      ],
+      "historyActive": 0,
+      "historyMax": 1,
+      "failedHistory": true
+    }
+  ],
+  "errors": [
+    "pipe-light-1440-native:locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-worker-entry]').getByRole('button', { name: 'Отмена', exact: true }) to be visible\u001b[22m\n",
+    "pipe-dark-1920-native:locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-worker-entry]').getByRole('button', { name: 'Отмена', exact: true }) to be visible\u001b[22m\n",
+    "pipe-light-1024-edges:locator.waitFor: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-worker-entry]').getByRole('button', { name: 'Отмена', exact: true }) to be visible\u001b[22m\n"
+  ],
+  "shots": [
+    "pipe-light-1440-native-grid.png",
+    "pipe-light-1440-native-expanded.png",
+    "pipe-light-1440-native-confirm.png",
+    "pipe-light-1440-native-saved.png",
+    "pipe-dark-1920-native-grid.png",
+    "pipe-dark-1920-native-expanded.png",
+    "pipe-soft-2560-readonly-grid.png",
+    "pipe-soft-2560-readonly-expanded.png",
+    "pipe-light-1024-edges-grid.png",
+    "pipe-light-1024-edges-expanded.png",
+    "pipe-light-1024-edges-confirm.png",
+    "pipe-light-1024-edges-saved.png",
+    "sheet-light-1440-native-grid.png",
+    "sheet-light-1440-native-expanded.png",
+    "sheet-light-1440-native-confirm.png",
+    "sheet-light-1440-native-saved.png",
+    "sheet-light-1440-native-receive.png",
+    "sheet-dark-1920-native-grid.png",
+    "sheet-dark-1920-native-expanded.png",
+    "sheet-dark-1920-native-receive.png",
+    "sheet-soft-2560-readonly-grid.png",
+    "sheet-soft-2560-readonly-expanded.png",
+    "sheet-light-1024-edges-grid.png",
+    "sheet-light-1024-edges-expanded.png",
+    "sheet-light-1024-edges-confirm.png",
+    "sheet-light-1024-edges-saved.png",
+    "sheet-light-1024-edges-create-confirm.png",
+    "sheet-light-1024-edges-created.png",
+    "sheet-light-1024-edges-receive.png"
+  ]
+}

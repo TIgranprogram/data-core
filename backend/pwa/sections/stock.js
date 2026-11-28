@@ -119,7 +119,7 @@ async function stockLanding() {
   const open = (p) => patch({ ...p, view: 'table', page: undefined });
   const all = kitButton({ label: 'Все позиции списком', onClick: () => open({ all: '1' }) });
   if (!summary.total) { const box = empty({ title: 'На складе пока нет позиций в наличии.' }); box.append(all); return box; }
-  const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // свой статичный SVG, данных пользователя нет
+  const art = (name) => { const el = h('span'); el.innerHTML = catArt(name); return el; }; // предметная иллюстрация из набора приложения
   const catTile = (c, zoneId) => card({ size: 'S', artCover: true, art: art(c.name), title: c.name, meta: nPos(c.total), low: c.low ? `к закупке ${c.low}` : undefined,
     ...typeExpand({ categoryId: c.id, categoryName: c.name, zoneId, onPick: (t) => { if (zoneId) setZone(zoneId); open({ categoryId: c.id, ft: t ? `type:${t}` : undefined }); } }) });
   const head = `Выберите ${zones.length > 1 ? 'склад' : 'категорию'} · всего ${nPos(summary.total)}`;

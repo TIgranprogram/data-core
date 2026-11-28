@@ -29,3 +29,5 @@
 
 - C242 P2: разрешение inlinecount только при countMode single — ackend/pwa/sections/stock-dimension-columns.js:9; pipe/sheet readonly — stock-worktable.js:34, wood — wood-grid.js:116; multiple/unknown не пишут общий остаток, notes отдельно на материале. Коммит: незакоммиченная дельта после36bdd4dc; карта обновлена.
 - C266: вложенный список (заявки, долги) в высоте окна — `backend/pwa/ui/panels.css:194` (шапка `--topbar-bg`, скролл `.table-wrap:268`); счётчик/hints/сброс — `backend/pwa/ui/kit/list.js:76,123,240`; продукция — `sections/products.js:65`; блоки заказов — `matching-queue.js:49`, `salesorders-unassigned.js:156`. Коммит: нет. Карта обновлена.
+
+- C280: видимый вторичный вход в «Заявках» — `backend/pwa/sections/requests.js:297`; каталог и корзина — `backend/pwa/sections/request-cart.js:55`, пагинация — `:77`, Excel — `:122`, запись и переход в «Заказать» — `:190`. Коммит: незакоммиченная дельта, фиксирует координатор. Карта обновлена.

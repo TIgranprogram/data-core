@@ -18,6 +18,7 @@ import { matchesAll, searchTokens } from '../../common/text/search-norm';
 import { weightGOf } from './weight';
 import { attentionRank, freeQty } from './stock-rank';
 import { hangingQtyByMaterial } from './stock-hanging';
+import { catalogPurchases } from './catalog-purchases';
 import { foldPurchases, type PurchaseSupplier, type ReceivedRow } from './purchase-history';
 
 /** Коллекции, от которых зависят строки «Остатков» (кэш С9): изменилась любая — расчёт заново. */
@@ -102,7 +103,9 @@ export class StockSearchService {
       this.photoMap(page.flatMap((r) => r.photoIds)),
       hangingQtyByMaterial(this.connection.db!, page.filter((r) => r.reservedQty > 0).map((r) => new Types.ObjectId(r.materialId))),
     ]);
-    const items = page.map(({ photoIds, offcuts, ...r }) => ({
+    // isProfile нужен только для отсева технических сортаментов в lookup и в ответ списка не попадает.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const items = page.map(({ photoIds, offcuts, isProfile: _isProfile, ...r }) => ({
       ...r,
       offcuts: offcuts.filter((o) => !(held || hideParts) || inScope(scope, o)).map(({ id, name, qty, length }) => ({ id, name, qty, length })),
       hangingQty: hang.get(r.materialId) ?? 0,
@@ -115,13 +118,17 @@ export class StockSearchService {
    * SK-8d: короткий список позиций для поиска из соседних разделов (заявка, состав изделия) — GET /stock/lookup.
    * Только поля для выбора, без фото, бронирований, заявок; строки — тот же кэш, что у полного списка без фильтров.
    */
-  async lookup(scope?: StockScope | null) {
+  async lookup(scope?: StockScope | null, catalog = false) {
     const key = JSON.stringify(EMPTY_LIST_KEY); // = ключ listItems({}) — общий кэш
     const make = () => this.itemRows({}, false, []);
     const { rows } = this.versions ? await this.versions.cached('stock.items', STOCK_COLLS, key, make) : await make();
-    const items = rows
+    const visible = rows
       .filter((r) => !scope || inScope(scope, r))
-      .map((r) => ({ id: r.id, materialId: r.materialId, name: r.name, article: r.article ?? null, unit: r.unit ?? null, categoryName: r.categoryName, quantity: r.quantity, free: r.free }))
+      .filter((r) => !catalog || r.metal !== 'pipe' || (!r.isProfile && !r.offcutOf));
+    const purchases = catalog ? await catalogPurchases(this.connection.db!, visible) : null;
+    const items = visible.map((r) => ({ id: r.id, materialId: r.materialId, name: r.name, article: r.article ?? null, unit: r.unit ?? null, categoryName: r.categoryName, quantity: r.quantity, free: r.free,
+        ...(catalog ? { reservedQty: r.reservedQty, ...(purchases?.get(r.materialId) ?? { openPurchases: [], lastPurchase: null }), typeName: r.typeName, assortment: r.assortment, materialGrade: r.materialGrade, dims: r.dims, metal: r.metal,
+          ...(r.metal === 'pipe' ? { washed: r.washed, standardRef: r.standardRef } : {}) } : {}) }))
       .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'ru'));
     return { items };
   }
@@ -185,6 +192,7 @@ export class StockSearchService {
       return {
         id: String(m._id), materialId: String(m._id), name: m.name, article: m.article, sku: m.sku, unit: m.unit,
         materialKind: m.materialKind ?? null, pdmCode: m.pdmCode ?? null, pdmAliases: m.pdmAliases ?? [], standardRef: m.standardRef ?? null,
+        isProfile: m.isProfile === true,
         // АР.1: артикул поставщика и внутренний код (СКЛ-… / sku) — раздельно; откуда взят артикул
         ...articleView(m as { article?: unknown; sku?: unknown; internalArticle?: unknown }), articleSource: (m as { articleSource?: string }).articleSource ?? null,
         categoryId: m.categoryId ? String(m.categoryId) : null, categoryName: m.categoryId ? catName.get(String(m.categoryId)) ?? null : null,

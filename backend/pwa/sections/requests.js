@@ -293,7 +293,9 @@ export const requests = {
     defaults: { status: 'requested' }, // таблица: вход сразу в «Заказать»; чип «Все» снимает
     createLabel: 'Заявка',
     // «+ Счёт» — внести уже оплаченный/полученный счёт с позициями одним окном (TASKS В.3)
-    // П2: в шапке одна главная «+ Заявка»; остальное — «Ещё ▾»
+    // П2: один главный вход «+ Заявка», каталог — вторичный способ создания.
+    headActions: () => ['admin', 'manager'].includes(session.role) || session.user?.isOwner === true
+      ? [button({ label: 'Из каталога', title: 'Собрать заявки в корзину', onClick: () => patch({ of: 'requestcart', new: '1', open: undefined }) })] : [],
     moreActions: () => [
       { label: 'Заявки из таблицы', title: 'Скопировать строки из Excel / корзины сайта — заявки на все позиции сразу', onSelect: () => patch({ of: 'pasteorder', new: '1', open: undefined }) },
       { label: 'Счёт без заявок', title: 'Счёт, которого не было в заявках: внести уже оплаченный или полученный счёт со всеми позициями', onSelect: () => patch({ of: 'invoice', new: '1', open: undefined }) }],

@@ -61,7 +61,7 @@ export class StockService {
 
   // --- чтение позиций
   listItems(q: Parameters<StockSearchService['listItems']>[0] = {}, scope?: StockScope | null) { return this.search.listItems(q, scope); }
-  lookup(scope: StockScope | null) { return this.search.lookup(scope); }
+  lookup(scope: StockScope | null, catalog = false) { return this.search.lookup(scope, catalog); }
   openRequests(mats: { _id: Types.ObjectId; name?: string }[]) { return this.search.openRequests(mats); }
   itemOrdered(materialId: string, canMoney: boolean, scope: StockScope | null) { return this.search.itemOrdered(materialId, canMoney, scope); }
   purchaseSuppliers(materialIds: Types.ObjectId[]) { return this.search.purchaseSuppliers(materialIds); }

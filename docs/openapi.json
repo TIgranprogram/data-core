@@ -3063,7 +3063,17 @@
     "/api/stock/lookup": {
       "get": {
         "operationId": "StockController_lookup",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "catalog",
+            "required": false,
+            "in": "query",
+            "description": "1 — добавить тип, сортамент, марку и размеры для витрины",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -23416,6 +23426,11 @@
           "supplierId": {
             "type": "string",
             "description": "Поставщик (organizations.id); пусто — из прошлых закупок"
+          },
+          "note": {
+            "type": "string",
+            "description": "Примечание к заявке",
+            "maxLength": 2000
           }
         }
       },

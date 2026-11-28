@@ -86,6 +86,7 @@ const LAZY = {
   offerpack: [() => import('./sections/offer-pack.js'), [['offerpack','offerPack']]],
   offerfunnel: [() => import('./sections/offers/funnel/index.js'), [['offerfunnel','offerFunnel']]],
   orderbulk: [() => import('./sections/order-bulk.js'), [['orderbulk','orderBulk']]],
+  requestcart: [() => import('./sections/request-cart.js'), [['requestcart','requestCart']]],
   techsheet: [() => import('./sections/tech-sheet.js'), [['techsheet','techSheet']]],
   stockissue: [() => import('./sections/stock-issue.js'), [['stockissue','stockIssue']]],
   passfunnel: [() => import('./sections/passports/funnel/index.js'), [['passfunnel','passFunnel']]],

@@ -9,7 +9,7 @@ import { busyBlock, button, card, failBlock, hint, landing, stack, tileGrid, typ
  * Типы читаются по действию (раскрыли категорию) из общего списка склада; нажатие на плитку → onPick(тип).
  */
 const nPos = (n) => `${n} ${plural(n, 'позиция', 'позиции', 'позиций')}`;
-const art = (t, cat) => { const el = h('span'); el.innerHTML = typeArt(t, cat); return el; }; // свой статичный SVG, данных пользователя нет
+const art = (t, cat) => { const el = h('span'); el.innerHTML = typeArt(t, cat); return el; }; // предметная иллюстрация из набора приложения
 
 /** typeTiles({ categoryId, categoryName, onPick(type) }) → { el, load } — el кладётся в тело раскрывающейся плитки, load() вызывают при раскрытии. */
 export function typeTiles({ categoryId, categoryName, zoneId, onPick }) {

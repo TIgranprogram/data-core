@@ -143,8 +143,8 @@ async function catLanding() {
   const go = (p) => patch({ ...p, view: 'table', page: undefined });
   const tile = (name, n, pick) => {
     const art = h('span');
-    art.innerHTML = catArt(name); // свой статичный SVG, данных пользователя нет
-    return card({ size: 'S', art, title: name, meta: nPos(n || 0), onClick: pick });
+    art.innerHTML = catArt(name); // предметная иллюстрация из набора приложения
+    return card({ size: 'S', artCover: true, art, title: name, meta: nPos(n || 0), onClick: pick });
   };
   const tops = catTops(c);
   if (!tops.length && !c.noCategory) { const box = empty({ title: 'Категорий пока нет — позиции покажутся списком.' }); box.append(button({ label: 'Показать таблицей', onClick: () => go({ all: '1' }) })); return box; }
