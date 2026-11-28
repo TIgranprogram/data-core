@@ -196,7 +196,7 @@ export class ProductPassportService {
     const rules = imageRules(doc as never, cat, { category: String(doc.passportCategory ?? ''), ...vopts });
     const requiredImages = rules.required.map((k) => (k === 'safety_zone' ? 'safety' : k));
     const productImageKinds = [...new Set(eff.filter((i) => !((doc.images as Doc[]) || []).includes(i as never)).map((i) => String(i.kind)))];
-    const choiceMissing = await this.choiceMissing(doc);
+    const choiceMissing = await this.choiceMissing(doc, vopts.install);
     const revisionList = await this.revisionList(doc);
     return { ...doc, ...presentPrint(doc), installationPlan: vopts.installationPlan, ...(revisionList.length ? { revisionList } : {}), productImageKinds, imageSlots: rules.slots, fromProduct, fromProductFields, productCategory, categoryDiffers: !!productCategory && !!doc.passportCategory && productCategory !== doc.passportCategory, images, effectiveImages, standardImages, requiredImages, missing: [...missingFieldsV2({ ...doc, images: [...eff, ...std] } as never, cat, vopts), ...choiceMissing.map((m) => m.label), ...jointsMissing(doc).map((m) => m.label)], ...(choiceMissing.length ? { missingChoices: choiceMissing } : {}), ...(standardWarningsList.length ? { standardWarnings: standardWarningsList } : {}), supplierOrg: supplierOrg ? { id: String(supplierOrg._id), name: supplierOrg.name, hasSeal: (supplierOrg.assets || []).some((a: Doc) => a.role === 'seal'), hasSignature: (supplierOrg.assets || []).some((a: Doc) => a.role === 'signature') } : null };
   }
@@ -1490,7 +1490,7 @@ export class ProductPassportService {
     const usedDefaults = applyCategoryDefaults(full, cat);
     const vopts = { installationPlan: installationProfile(inst.get(String(p.installationTypeId ?? ''))), variant: variantOf(body.variant), install: installKindOf(inst.get(String(p.installationTypeId ?? ''))) };
     const rules = imageRules(p as never, cat, { category: String(p.passportCategory ?? ''), ...vopts });
-    const choices = await this.choiceMissing({ passportCategory: p.passportCategory, textChoices: parseChoices(p.textChoices), textOverrides: p.textOverrides, manualText: p.manualText });
+    const choices = await this.choiceMissing({ ...p, textChoices: parseChoices(p.textChoices) }, vopts.install);
     const noHint = (m: { label: string; key: string; hint?: string }) => ({ ...m, hint: m.hint ?? missingHint(m.key, m.label) });
     const keep = (m: { key: string; label: string }) => !(template && (INSTANCE_FIELD_KEYS.includes(m.key) || m.label === 'Дата' || m.label === 'Фирма'));
     const blanks = blankItems(built?.text.missing ?? []);
@@ -1539,7 +1539,7 @@ export class ProductPassportService {
     const full = this.withSchemes(doc, inst);
     applyCategoryDefaults(full as Doc, cat); // C112 А1: умолчание типа паспорта — заполнено (копия, в паспорт не пишется)
     const ctx = { installationPlan: installationProfile(inst.get(String(doc.installationTypeId ?? ''))), category: String(doc.passportCategory ?? ''), variant: 'short' as const, install: installKindOf(inst.get(String(doc.installationTypeId ?? ''))) };
-    const missing = [...missingKeyed(full as never, cat, ctx), ...(await this.choiceMissing(doc, session)), ...jointsMissing(doc)];
+    const missing = [...missingKeyed(full as never, cat, ctx), ...(await this.choiceMissing(doc, ctx.install, session)), ...jointsMissing(doc)];
     const required = imageRules(full, cat, ctx).required;
     const broken = await unreadableRequiredImages(this.connection.db!, (full.images ?? []) as Array<{ kind?: unknown; photoId?: unknown }>, required, session);
     for (const kind of broken) {
@@ -1675,9 +1675,9 @@ export class ProductPassportService {
   techsheetAnalogs(productId: string) { return productTechAnalogs(this.connection.db!, productId); }
 
   /** Обязательные разделы воронки без выбора → [{ label, key: 'choice:<id раздела>' }]; текст, набранный вручную, раздел закрывает. */
-  private async choiceMissing(d: Doc, session?: ClientSession): Promise<Array<{ label: string; key: string }>> {
+  private async choiceMissing(d: Doc, installKind: ReturnType<typeof installKindOf>, session?: ClientSession): Promise<Array<{ label: string; key: string }>> {
     if (!d.passportCategory) return [];
-    return choiceMissingIn(forProduct(await this.forest(String(d.passportCategory), session), await this.productCtx(d.productId, undefined, false, session)), d);
+    return choiceMissingIn(forProduct(await this.forest(String(d.passportCategory), session), await this.productCtx(d.productId, undefined, false, session)), d, installKind);
   }
 
   /** Способы установки (справочник) по id — для стандартных схем узлов (Э9.5). */

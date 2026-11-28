@@ -9,6 +9,7 @@ import { isBriefPresentation, printPhraseRoots } from './passport-presentation';
 import { missingChoices, resolveChoices, type PhraseTreeNode } from '../../common/passport/phrase-tree';
 import { MODEL_FIELDS, SORT, escapeRe, readinessOf, type Doc } from './passport-consts';
 import { presentPrint } from './passport-print-file';
+import { installKindOf, type InstallKind } from './passport-variants';
 import { mergeProductImages, type ProductImageRow, type PassportImageLike } from './passport-product-images';
 
 /** Что спискам и подсказкам нужно от сервиса паспортов. */
@@ -24,11 +25,11 @@ export interface QueriesHost {
 }
 
 /** Обязательные разделы воронки без выбора (текст, набранный вручную, раздел закрывает) — одно правило для карточки и списка. */
-export function choiceMissingIn(forest: PhraseTreeNode[], d: Doc): Array<{ label: string; key: string }> {
+export function choiceMissingIn(forest: PhraseTreeNode[], d: Doc, installKind?: InstallKind): Array<{ label: string; key: string }> {
   const manual = (d.manualText as string[] | undefined) ?? [];
   // C060: раздел, убранный из паспорта изделия или набранный своим текстом, выбора не требует
   const own = (r: PhraseTreeNode) => { const o = overrideFor(d.textOverrides, r.id, r.section); return !!(o.off || o.text); };
-  return missingChoices(resolveChoices(printPhraseRoots(forest, isBriefPresentation(d)), d.textChoices as Record<string, string> | undefined), (r) => own(r) || (r.section === 'purpose' && manual.includes('purpose')) || (r.section === 'installation' && manual.includes('installationMethod')));
+  return missingChoices(resolveChoices(printPhraseRoots(forest, isBriefPresentation(d)), d.textChoices as Record<string, string> | undefined), (r) => own(r) || (r.section === 'purpose' && manual.includes('purpose')) || (r.section === 'installation' && (installKind === 'bolted' || manual.includes('installationMethod'))));
 }
 
 /** Список, фильтры, модели и готовые тексты паспортов (чтение); вызывается из ProductPassportService. */
@@ -55,7 +56,7 @@ export class PassportQueries {
       for (const c of new Set(rowsDocs.filter((x) => x.status === 'draft' && x.passportCategory).map((x) => String(x.passportCategory)))) forests.set(c, await this.h.forest(c));
       return rowsDocs.map((x) => {
         const forest = x.status === 'draft' && x.passportCategory ? forests.get(String(x.passportCategory)) : undefined;
-        const choices = forest ? choiceMissingIn(forest, x).map((m) => m.label) : [];
+        const choices = forest ? choiceMissingIn(forest, x, installKindOf(inst.get(String(x.installationTypeId ?? '')))).map((m) => m.label) : [];
         return { ...x, missing: [...missingFieldsV2(this.h.withSchemes(x, inst) as never, cats.get(String(x.passportCategory ?? ''))), ...choices] };
       });
     };

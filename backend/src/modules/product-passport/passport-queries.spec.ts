@@ -12,6 +12,7 @@ describe('choiceMissingIn', () => {
     expect(choiceMissingIn(forest, {}).map((m) => m.key)).toEqual([`choice:${root.id}`]);
     expect(choiceMissingIn(forest, { textChoices: { [root.id]: hex(2) } })).toEqual([]);
     expect(choiceMissingIn(forest, { manualText: ['installationMethod'] })).toEqual([]);
+    expect(choiceMissingIn(forest, { installationTypeId: 'current' }, 'bolted')).toEqual([]);
   });
 });
 
